@@ -1,8 +1,12 @@
 #pragma once
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <errno.h>
+
+
+bool debug;
 
 
 #define SEP_INFO(_x_ch) \
@@ -11,15 +15,11 @@
 #define LOG_INFO(_x_msg, ...) \
 	printf("-- INFO  -- " _x_msg "\n", ##__VA_ARGS__)
 
-#ifdef DEBUG
-#	define LOG_DEBUG(_x_msg, ...) \
-		printf("   DEBUG -- " _x_msg "\n", ##__VA_ARGS__)
-#	define SEP_DEBUG(_x_ch) \
-		SEP_INFO(_x_ch)
-#else
-#	define LOG_DEBUG(...)
-#	define SEP_DEBUG(_x_ch)
-#endif
+#define LOG_DEBUG(_x_msg, ...) \
+		if (debug) { printf("   DEBUG -- " _x_msg "\n", ##__VA_ARGS__); }
+
+#define SEP_DEBUG(_x_ch) \
+		if (debug) { SEP_INFO(_x_ch); }
 
 #define LOG_ERROR(_x_msg, ...) \
 	printf("** ERROR -- " _x_msg "\n", ##__VA_ARGS__)

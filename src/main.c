@@ -6,9 +6,9 @@
 #include <signal.h>
 #include <getopt.h>
 
+#include "tools.h"
 #include "device.h"
 #include "capture.h"
-#include "tools.h"
 
 
 static const char _short_opts[] = "hd:f:s:e:tb:q:";
@@ -26,6 +26,7 @@ static const struct option _long_opts[] = {
 	{"height",				required_argument,	NULL,	1001},
 	{"v4l2-timeout",		required_argument,	NULL,	1002},
 	{"v4l2-error-timeout",	required_argument,	NULL,	1003},
+	{"debug",				no_argument,		NULL,	5000},
 	{NULL, 0, NULL, 0},
 };
 
@@ -56,7 +57,7 @@ static void _parse_options(int argc, char *argv[], struct device *dev) {
 	int index;
 	int ch;
 
-	LOG_DEBUG("Parsing CLI options ...");
+	debug = false;
 	while ((ch = getopt_long(argc, argv, _short_opts, _long_opts, &index)) >= 0) {
 		switch (ch) {
 			case 0:		break;
@@ -75,6 +76,7 @@ static void _parse_options(int argc, char *argv[], struct device *dev) {
 			case 1001:	OPT_UNSIGNED(dev->height, "--height");
 			case 1002:	OPT_UNSIGNED(dev->timeout, "--timeout");
 			case 1003:	OPT_UNSIGNED(dev->error_timeout, "--error-timeout");
+			case 5000:	OPT_TRUE(debug);
 			case 'h':	_help(EXIT_SUCCESS); break;
 			default:	_help(EXIT_FAILURE); break;
 		}

@@ -9,8 +9,8 @@
 #include <sys/mman.h>
 #include <linux/videodev2.h>
 
-#include "device.h"
 #include "tools.h"
+#include "device.h"
 
 
 static const char DEFAULT_DEVICE[] = "/dev/video0";

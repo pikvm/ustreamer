@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -c -Wall -Wextra -DDEBUG
+CFLAGS = -c -Wall -Wextra
 LDFLAGS =
 SOURCES = $(shell ls src/*.c)
 OBJECTS = $(SOURCES:.c=.o)

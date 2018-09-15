@@ -3,8 +3,8 @@
 #include <sys/select.h>
 #include <linux/videodev2.h>
 
-#include "device.h"
 #include "tools.h"
+#include "device.h"
 
 
 static int _capture_init_loop(struct device *dev);
