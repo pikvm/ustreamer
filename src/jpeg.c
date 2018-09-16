@@ -73,7 +73,7 @@ int jpeg_compress_buffer(struct device_t *dev, int index) {
 	unsigned char *line_buffer;
 	int written = -1;
 
-	assert((line_buffer = calloc(dev->run->width * 3, sizeof(unsigned char))));
+	A_CALLOC(line_buffer, dev->run->width * 3, sizeof(unsigned char));
 
 	jpeg.err = jpeg_std_error(&jpeg_error);
 	jpeg_create_compress(&jpeg);

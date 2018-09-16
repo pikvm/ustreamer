@@ -36,7 +36,6 @@ static const struct option _long_opts[] = {
 	{NULL, 0, NULL, 0},
 };
 
-
 static void _help(int exit_code) {
 	printf("No manual yet\n");
 	exit(exit_code);
@@ -90,7 +89,6 @@ static void _parse_options(int argc, char *argv[], struct device_t *dev) {
 	}
 }
 
-
 struct threads_context {
 	struct device_t	*dev;
 	sig_atomic_t	*volatile global_stop;
@@ -139,8 +137,8 @@ int main(int argc, char *argv[]) {
 	device_init(&dev, &run);
 	_parse_options(argc, argv, &dev);
 
-	pthread_create(&capture_loop_tid, NULL, _capture_loop_thread, (void *)&ctx);
-	pthread_join(capture_loop_tid, NULL);
+	A_PTHREAD_CREATE(&capture_loop_tid, _capture_loop_thread, (void *)&ctx);
+	A_PTHREAD_JOIN(capture_loop_tid);
 
 	return 0;
 }

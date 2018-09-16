@@ -1,11 +1,13 @@
 #pragma once
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <math.h>
+#include <pthread.h>
 #include <time.h>
 #include <assert.h>
 #include <sys/ioctl.h>
@@ -46,7 +48,25 @@ bool debug;
 	printf("-- ERROR " INNER_LOG_PL " -- " _x_msg ": %s\n", INNER_LOG_PARAMS, ##__VA_ARGS__, _buf); }
 
 
-#define MEMSET_ZERO(_x_obj) memset(&(_x_obj), 0, sizeof(_x_obj))
+#define A_PTHREAD_CREATE(_tid, _func, _arg)	assert(!pthread_create(_tid, NULL, _func, _arg))
+#define A_PTHREAD_JOIN(_tid)				assert(!pthread_join(_tid, NULL))
+
+#define A_PTHREAD_M_INIT(_mutex)	assert(!pthread_mutex_init(_mutex, NULL))
+#define A_PTHREAD_M_DESTROY(_mutex)	assert(!pthread_mutex_destroy(_mutex))
+#define A_PTHREAD_M_LOCK(...)		assert(!pthread_mutex_lock(__VA_ARGS__))
+#define A_PTHREAD_M_UNLOCK(...)		assert(!pthread_mutex_unlock(__VA_ARGS__))
+
+#define A_PTHREAD_C_INIT(_cond)		assert(!pthread_cond_init(_cond, NULL))
+#define A_PTHREAD_C_DESTROY(_cond)	assert(!pthread_cond_destroy(_cond))
+#define A_PTHREAD_C_SIGNAL(...)		assert(!pthread_cond_signal(__VA_ARGS__))
+#define A_PTHREAD_C_WAIT_TRUE(_var, _cond, _mutex) \
+	{ while(!_var) assert(!pthread_cond_wait(_cond, _mutex)); }
+
+
+#define A_CALLOC(_dest, _nmemb, _size)	assert((_dest = calloc(_nmemb, _size)))
+#define A_MALLOC(_dest, _size)			assert((_dest = malloc(_size)));
+#define MEMSET_ZERO(_x_obj)				memset(&(_x_obj), 0, sizeof(_x_obj))
+
 
 #define INLINE inline __attribute__((always_inline))
 

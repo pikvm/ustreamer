@@ -5,7 +5,6 @@
 #include <strings.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <assert.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/param.h>
@@ -333,8 +332,7 @@ static int _device_open_mmap(struct device_t *dev) {
 
 	LOG_DEBUG("Allocating device buffers ...");
 
-	assert((dev->run->buffers = calloc(req.count, sizeof(*dev->run->buffers))));
-
+	A_CALLOC(dev->run->buffers, req.count, sizeof(*dev->run->buffers));
 	for (dev->run->n_buffers = 0; dev->run->n_buffers < req.count; ++dev->run->n_buffers) {
 		struct v4l2_buffer buf;
 
@@ -381,13 +379,13 @@ static int _device_open_queue_buffers(struct device_t *dev) {
 static void _device_open_alloc_picbufs(struct device_t *dev) {
 	LOG_DEBUG("Allocating picture buffers ...");
 
-	assert((dev->run->pictures = calloc(dev->run->n_buffers, sizeof(*dev->run->pictures))));
+	A_CALLOC(dev->run->pictures, dev->run->n_buffers, sizeof(*dev->run->pictures));
 
 	unsigned picture_size = dev->run->width * dev->run->height << 1;
 
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
 		LOG_DEBUG("Allocating picture buffer %d ...", index);
-		assert((dev->run->pictures[index] = malloc(picture_size)));
+		A_MALLOC(dev->run->pictures[index], picture_size);
 	}
 }
 
