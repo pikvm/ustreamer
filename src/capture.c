@@ -11,29 +11,31 @@
 #include "capture.h"
 
 
-static int _capture_init_loop(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop);
-static int _capture_init(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop);
-static void _capture_init_workers(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop);
-static void *_capture_worker_thread(void *index);
-static void _capture_destroy_workers(struct device *dev, struct workers_pool *pool);
-static int _capture_control(struct device *dev, const bool enable);
-static int _capture_grab_buffer(struct device *dev, struct v4l2_buffer *buf);
-static int _capture_release_buffer(struct device *dev, struct v4l2_buffer *buf);
-static int _capture_handle_event(struct device *dev);
+static int _capture_init_loop(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop);
+static int _capture_init(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop);
+static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop);
+static void *_capture_worker_thread(void *v_ctx_ptr);
+static void _capture_destroy_workers(struct device_t *dev, struct workers_pool_t *pool);
+static int _capture_control(struct device_t *dev, const bool enable);
+static int _capture_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_info);
+static int _capture_release_buffer(struct device_t *dev, struct v4l2_buffer *buf_info);
+static int _capture_handle_event(struct device_t *dev);
 
 
-void capture_loop(struct device *dev, sig_atomic_t *volatile stop) {
-	struct workers_pool pool;
+void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop) {
+	struct workers_pool_t pool;
+	volatile sig_atomic_t workers_stop;
 
 	MEMSET_ZERO(pool);
+	pool.workers_stop = (sig_atomic_t *volatile)&workers_stop;
 
 	LOG_INFO("Using V4L2 device: %s", dev->path);
 	LOG_INFO("Using JPEG quality: %d%%", dev->jpeg_quality);
 
-	while (_capture_init_loop(dev, &pool, stop) == 0) {
+	while (_capture_init_loop(dev, &pool, global_stop) == 0) {
 		int frames_count = 0;
 
-		while (!(*stop)) {
+		while (!*global_stop) {
 			SEP_DEBUG('-');
 
 			fd_set read_fds;
@@ -69,11 +71,17 @@ void capture_loop(struct device *dev, sig_atomic_t *volatile stop) {
 
 			} else {
 				if (FD_ISSET(dev->run->fd, &read_fds)) {
-					LOG_DEBUG("Frame ready ...");
+					LOG_DEBUG("Frame is ready, waiting for workers ...");
 
-					struct v4l2_buffer buf;
+					assert(pthread_mutex_lock(&pool.has_free_workers_mutex) == 0);
+					while (!pool.has_free_workers) {
+						assert(pthread_cond_wait(&pool.has_free_workers_cond, &pool.has_free_workers_mutex) == 0);
+					}
+					assert(pthread_mutex_unlock(&pool.has_free_workers_mutex) == 0);
 
-					if (_capture_grab_buffer(dev, &buf) < 0) {
+					struct v4l2_buffer buf_info;
+
+					if (_capture_grab_buffer(dev, &buf_info) < 0) {
 						break;
 					}
 
@@ -92,20 +100,25 @@ void capture_loop(struct device *dev, sig_atomic_t *volatile stop) {
 					// The good thing is such frames are quite small compared to the regular pictures.
 					// For example a VGA (640x480) webcam picture is normally >= 8kByte large,
 					// corrupted frames are smaller.
-					if (buf.bytesused < dev->min_frame_size) {
-						LOG_DEBUG("Dropping too small frame sized %d bytes, assuming it as broken", buf.bytesused);
+					if (buf_info.bytesused < dev->min_frame_size) {
+						LOG_DEBUG("Dropping too small frame sized %d bytes, assuming it as broken", buf_info.bytesused);
 						goto pass_frame;
 					}
 
-					LOG_DEBUG("Grabbed a new frame");
-					jpeg_compress_buffer(dev, buf.index);
-					//usleep(100000); // TODO: process dev->run->buffers[buf.index].start, buf.bytesused
+					LOG_DEBUG("Grabbed a new frame to buffer %d", buf_info.index);
+					pool.workers[buf_info.index].ctx.buf_info = buf_info;
+
+					assert(pthread_mutex_lock(&pool.workers[buf_info.index].has_job_mutex) == 0);
+					pool.workers[buf_info.index].has_job = true;
+					assert(pthread_mutex_unlock(&pool.workers[buf_info.index].has_job_mutex) == 0);
+					assert(pthread_cond_signal(&pool.workers[buf_info.index].has_job_cond) == 0);
 
 					pass_frame:
+					{} // FIXME: for future mjpg support
 
-					if (_capture_release_buffer(dev, &buf) < 0) {
+					/*if (_capture_release_buffer(dev, &buf_info) < 0) {
 						break;
-					}
+					}*/
 				}
 
 				if (FD_ISSET(dev->run->fd, &write_fds)) {
@@ -128,11 +141,12 @@ void capture_loop(struct device *dev, sig_atomic_t *volatile stop) {
 	device_close(dev);
 }
 
-static int _capture_init_loop(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop) {
+static int _capture_init_loop(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop) {
 	int retval = -1;
 
-	while (!(*stop)) {
-		if ((retval = _capture_init(dev, pool, stop)) < 0) {
+	LOG_DEBUG("%s: global_stop = %d", __FUNCTION__, *global_stop);
+	while (!*global_stop) {
+		if ((retval = _capture_init(dev, pool, global_stop)) < 0) {
 			LOG_INFO("Sleeping %d seconds before new capture init ...", dev->error_timeout);
 			sleep(dev->error_timeout);
 		} else {
@@ -142,7 +156,7 @@ static int _capture_init_loop(struct device *dev, struct workers_pool *pool, sig
 	return retval;
 }
 
-static int _capture_init(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop) {
+static int _capture_init(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop) {
 	SEP_INFO('=');
 
 	_capture_destroy_workers(dev, pool);
@@ -155,7 +169,7 @@ static int _capture_init(struct device *dev, struct workers_pool *pool, sig_atom
 	if (_capture_control(dev, true) < 0) {
 		goto error;
 	}
-	_capture_init_workers(dev, pool, stop);
+	_capture_init_workers(dev, pool, global_stop);
 
 	return 0;
 
@@ -164,62 +178,99 @@ static int _capture_init(struct device *dev, struct workers_pool *pool, sig_atom
 		return -1;
 }
 
-static void _capture_init_workers(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop) {
-	LOG_INFO("Spawning %d workers ...", dev->run->n_buffers);
+static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop) {
+	LOG_DEBUG("Spawning %d workers ...", dev->run->n_buffers);
 
+	*pool->workers_stop = false;
 	assert((pool->workers = calloc(dev->run->n_buffers, sizeof(*pool->workers))));
 
-	assert(!pthread_mutex_init(&pool->busy_mutex, NULL));
-	assert(!pthread_cond_init(&pool->busy_cond, NULL));
+	assert(pthread_mutex_init(&pool->has_free_workers_mutex, NULL) == 0);
+	assert(pthread_cond_init(&pool->has_free_workers_cond, NULL) == 0);
 
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
-		assert(!pthread_mutex_init(&pool->workers[index].busy_mutex, NULL));
-		assert(!pthread_cond_init(&pool->workers[index].busy_cond, NULL));
+		assert(pthread_mutex_init(&pool->workers[index].has_job_mutex, NULL) == 0);
+		assert(pthread_cond_init(&pool->workers[index].has_job_cond, NULL) == 0);
 
-		pool->workers[index].params.index = index;
-		pool->workers[index].params.pool = pool;
-		pool->workers[index].params.dev = dev;
-		pool->workers[index].params.stop = stop;
+		pool->workers[index].ctx.index = index;
+		pool->workers[index].ctx.dev = dev;
+		pool->workers[index].ctx.global_stop = global_stop;
+		pool->workers[index].ctx.workers_stop = pool->workers_stop;
 
-		assert(!pthread_create(
+		pool->workers[index].ctx.has_job_mutex = &pool->workers[index].has_job_mutex;
+		pool->workers[index].ctx.has_job = &pool->workers[index].has_job;
+		pool->workers[index].ctx.has_job_cond = &pool->workers[index].has_job_cond;
+
+		pool->workers[index].ctx.has_free_workers_mutex = &pool->has_free_workers_mutex;
+		pool->workers[index].ctx.has_free_workers = &pool->has_free_workers;
+		pool->workers[index].ctx.has_free_workers_cond = &pool->has_free_workers_cond;
+
+		assert(pthread_create(
 			&pool->workers[index].tid,
 			NULL,
 			_capture_worker_thread,
-			(void *)&pool->workers[index].params
-		));
+			(void *)&pool->workers[index].ctx
+		) == 0);
 	}
-
-	LOG_DEBUG("Spawned %d workers", dev->run->n_buffers);
 }
 
-static void *_capture_worker_thread(void *params_ptr) {
-	struct worker_params params = *(struct worker_params *)params_ptr;
+static void *_capture_worker_thread(void *v_ctx_ptr) {
+	struct worker_context_t *ctx = (struct worker_context_t *)v_ctx_ptr;
 
-	LOG_INFO("Hello! I am a worker #%d ^_^", params.index);
-	while (!*(params.stop));
-	LOG_INFO("Bye");
+	LOG_INFO("Hello! I am a worker #%d ^_^", ctx->index);
 
+	while (!*ctx->global_stop && !*ctx->workers_stop) {
+		assert(pthread_mutex_lock(ctx->has_free_workers_mutex) == 0);
+		*ctx->has_free_workers = true;
+		assert(pthread_mutex_unlock(ctx->has_free_workers_mutex) == 0);
+		assert(pthread_cond_signal(ctx->has_free_workers_cond) == 0);
+
+		LOG_INFO("Worker %d waiting for a new job ...", ctx->index);
+		assert(pthread_mutex_lock(ctx->has_job_mutex) == 0);
+		while (!(*ctx->has_job)) {
+			assert(pthread_cond_wait(ctx->has_job_cond, ctx->has_job_mutex) == 0);
+		}
+		assert(pthread_mutex_unlock(ctx->has_job_mutex) == 0);
+
+		if (!*ctx->workers_stop) {
+			LOG_INFO("Worker %d compressing JPEG ...", ctx->index);
+
+			int compressed = jpeg_compress_buffer(ctx->dev, ctx->index); // FIXME
+
+			LOG_INFO("Compressed JPEG size = %d bytes (worker %d)", compressed, ctx->index);
+
+			assert(_capture_release_buffer(ctx->dev, &ctx->buf_info) == 0); // FIXME
+			*ctx->has_job = false;
+		}
+	}
+
+	LOG_INFO("Bye-bye (worker %d)", ctx->index);
 	return NULL;
 }
 
-static void _capture_destroy_workers(struct device *dev, struct workers_pool *pool) {
-	LOG_DEBUG("Destroying JPEG workers ...");
+static void _capture_destroy_workers(struct device_t *dev, struct workers_pool_t *pool) {
+	LOG_INFO("Destroying workers ...");
 	if (pool->workers) {
+		*pool->workers_stop = true;
 		for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
-			assert(!pthread_join(pool->workers[index].tid, NULL));
-			assert(!pthread_cond_destroy(&pool->workers[index].busy_cond));
-			assert(!pthread_mutex_destroy(&pool->workers[index].busy_mutex));
+			assert(pthread_mutex_lock(&pool->workers[index].has_job_mutex) == 0);
+			pool->workers[index].has_job = true; // Final job: die
+			assert(pthread_mutex_unlock(&pool->workers[index].has_job_mutex) == 0);
+			assert(pthread_cond_signal(&pool->workers[index].has_job_cond) == 0);
+
+			assert(pthread_join(pool->workers[index].tid, NULL) == 0);
+			assert(pthread_mutex_destroy(&pool->workers[index].has_job_mutex) == 0);
+			assert(pthread_cond_destroy(&pool->workers[index].has_job_cond) == 0);
 		}
 
-		assert(!pthread_cond_destroy(&pool->busy_cond));
-		assert(!pthread_mutex_destroy(&pool->busy_mutex));
+		assert(pthread_cond_destroy(&pool->has_free_workers_cond) == 0);
+		assert(pthread_mutex_destroy(&pool->has_free_workers_mutex) == 0);
 
 		free(pool->workers);
 	}
 	pool->workers = NULL;
 }
 
-static int _capture_control(struct device *dev, const bool enable) {
+static int _capture_control(struct device_t *dev, const bool enable) {
 	if (enable != dev->run->capturing) {
 		enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
@@ -237,35 +288,35 @@ static int _capture_control(struct device *dev, const bool enable) {
     return 0;
 }
 
-static int _capture_grab_buffer(struct device *dev, struct v4l2_buffer *buf) {
-	memset(buf, 0, sizeof(struct v4l2_buffer));
-	buf->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	buf->memory = V4L2_MEMORY_MMAP;
+static int _capture_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_info) {
+	memset(buf_info, 0, sizeof(struct v4l2_buffer));
+	buf_info->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	buf_info->memory = V4L2_MEMORY_MMAP;
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_DQBUF) ...");
-	if (xioctl(dev->run->fd, VIDIOC_DQBUF, buf) < 0) {
+	if (xioctl(dev->run->fd, VIDIOC_DQBUF, buf_info) < 0) {
 		LOG_PERROR("Unable to dequeue buffer");
 		return -1;
 	}
 
-	LOG_DEBUG("Got a new frame in buffer index=%d; bytesused=%d", buf->index, buf->bytesused);
-	if (buf->index >= dev->run->n_buffers) {
-		LOG_ERROR("Got invalid buffer index=%d; nbuffers=%d", buf->index, dev->run->n_buffers);
+	LOG_DEBUG("Got a new frame in buffer index=%d; bytesused=%d", buf_info->index, buf_info->bytesused);
+	if (buf_info->index >= dev->run->n_buffers) {
+		LOG_ERROR("Got invalid buffer index=%d; nbuffers=%d", buf_info->index, dev->run->n_buffers);
 		return -1;
 	}
 	return 0;
 }
 
-static int _capture_release_buffer(struct device *dev, struct v4l2_buffer *buf) {
+static int _capture_release_buffer(struct device_t *dev, struct v4l2_buffer *buf_info) {
 	LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) ...");
-	if (xioctl(dev->run->fd, VIDIOC_QBUF, buf) < 0) {
+	if (xioctl(dev->run->fd, VIDIOC_QBUF, buf_info) < 0) {
 		LOG_PERROR("Unable to requeue buffer");
 		return -1;
 	}
 	return 0;
 }
 
-static int _capture_handle_event(struct device *dev) {
+static int _capture_handle_event(struct device_t *dev) {
 	struct v4l2_event event;
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_DQEVENT) ...");

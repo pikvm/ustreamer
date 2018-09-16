@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <sys/param.h>
 #include <linux/videodev2.h>
 
 #include "tools.h"
@@ -36,31 +37,31 @@ static const struct {
 };
 
 
-static int _device_open_check_cap(struct device *dev);
-static int _device_open_dv_timings(struct device *dev);
-static int _device_apply_dv_timings(struct device *dev);
-static int _device_open_format(struct device *dev);
-static void _device_open_alloc_picbufs(struct device *dev);
-static int _device_open_mmap(struct device *dev);
-static int _device_open_queue_buffers(struct device *dev);
+static int _device_open_check_cap(struct device_t *dev);
+static int _device_open_dv_timings(struct device_t *dev);
+static int _device_apply_dv_timings(struct device_t *dev);
+static int _device_open_format(struct device_t *dev);
+static void _device_open_alloc_picbufs(struct device_t *dev);
+static int _device_open_mmap(struct device_t *dev);
+static int _device_open_queue_buffers(struct device_t *dev);
 
 static const char *_format_to_string_auto(char *buf, const size_t length, const unsigned format);
 static const char *_format_to_string_null(const unsigned format);
 static const char *_standard_to_string(const v4l2_std_id standard);
 
 
-void device_init(struct device *dev, struct device_runtime *run) {
+void device_init(struct device_t *dev, struct device_runtime_t *run) {
 	LOG_DEBUG("Initializing a new device struct ...");
 
-	memset(dev, 0, sizeof(struct device));
-	memset(run, 0, sizeof(struct device_runtime));
+	memset(dev, 0, sizeof(struct device_t));
+	memset(run, 0, sizeof(struct device_runtime_t));
 
 	dev->path = (char *)DEFAULT_DEVICE;
 	dev->width = 640;
 	dev->height = 480;
 	dev->format = V4L2_PIX_FMT_YUYV;
 	dev->standard = V4L2_STD_UNKNOWN;
-	dev->n_buffers = 4;
+	dev->n_buffers = MAX(sysconf(_SC_NPROCESSORS_ONLN), 1);
 	dev->jpeg_quality = 80;
 	dev->timeout = 1;
 	dev->error_timeout = 1;
@@ -88,7 +89,7 @@ v4l2_std_id device_parse_standard(const char *const str) {
 	return STANDARD_UNKNOWN;
 }
 
-int device_open(struct device *dev) {
+int device_open(struct device_t *dev) {
 	if ((dev->run->fd = open(dev->path, O_RDWR|O_NONBLOCK)) < 0) {
 		LOG_PERROR("Can't open device");
 		goto error;
@@ -120,7 +121,7 @@ int device_open(struct device *dev) {
 		return -1;
 }
 
-void device_close(struct device *dev) {
+void device_close(struct device_t *dev) {
 	if (dev->run->pictures) {
 		LOG_DEBUG("Releasing picture buffers ...");
 		for (unsigned index = 0; index < dev->run->n_buffers && dev->run->pictures[index]; ++index) {
@@ -155,7 +156,7 @@ void device_close(struct device *dev) {
 	}
 }
 
-static int _device_open_check_cap(struct device *dev) {
+static int _device_open_check_cap(struct device_t *dev) {
 	struct v4l2_capability cap;
 
 	MEMSET_ZERO(cap);
@@ -188,7 +189,7 @@ static int _device_open_check_cap(struct device *dev) {
 	return 0;
 }
 
-static int _device_open_dv_timings(struct device *dev) {
+static int _device_open_dv_timings(struct device_t *dev) {
 	if (dev->dv_timings) {
 		LOG_DEBUG("Using DV-timings");
 
@@ -214,7 +215,7 @@ static int _device_open_dv_timings(struct device *dev) {
 	return 0;
 }
 
-static int _device_apply_dv_timings(struct device *dev) {
+static int _device_apply_dv_timings(struct device_t *dev) {
 	struct v4l2_dv_timings dv_timings;
 
 	MEMSET_ZERO(dv_timings);
@@ -250,7 +251,7 @@ static int _device_apply_dv_timings(struct device *dev) {
 	return 0;
 }
 
-static int _device_open_format(struct device *dev) {
+static int _device_open_format(struct device_t *dev) {
 	struct v4l2_format fmt;
 
 	MEMSET_ZERO(fmt);
@@ -309,7 +310,7 @@ static int _device_open_format(struct device *dev) {
 	return 0;
 }
 
-static int _device_open_mmap(struct device *dev) {
+static int _device_open_mmap(struct device_t *dev) {
 	struct v4l2_requestbuffers req;
 
 	MEMSET_ZERO(req);
@@ -359,7 +360,7 @@ static int _device_open_mmap(struct device *dev) {
 	return 0;
 }
 
-static int _device_open_queue_buffers(struct device *dev) {
+static int _device_open_queue_buffers(struct device_t *dev) {
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
 		struct v4l2_buffer buf;
 
@@ -377,7 +378,7 @@ static int _device_open_queue_buffers(struct device *dev) {
 	return 0;
 }
 
-static void _device_open_alloc_picbufs(struct device *dev) {
+static void _device_open_alloc_picbufs(struct device_t *dev) {
 	LOG_DEBUG("Allocating picture buffers ...");
 
 	assert((dev->run->pictures = calloc(dev->run->n_buffers, sizeof(*dev->run->pictures))));

@@ -1,6 +1,7 @@
+LIBS = -lm -ljpeg -pthread
 CC = gcc
-CFLAGS = -c -O3 -Wall -Wextra -pthread
-LDFLAGS = -ljpeg -pthread
+CFLAGS = -c -O3 -Wall -Wextra
+LDFLAGS =
 SOURCES = $(shell ls src/*.c)
 OBJECTS = $(SOURCES:.c=.o)
 PROG = ustreamer
@@ -10,11 +11,11 @@ all: $(SOURCES) $(PROG)
 
 
 $(PROG): $(OBJECTS)
-	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
+	$(CC) $(LIBS) $(LDFLAGS) $(OBJECTS) -o $@
 
 
 .c.o:
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(LIBS) $(CFLAGS) $< -o $@
 
 
 clean:
