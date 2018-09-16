@@ -21,6 +21,8 @@ struct device_runtime {
 	unsigned		format;
 	unsigned		n_buffers;
 	struct buffer	*buffers;
+	unsigned		picture_size;
+	unsigned char	**pictures;
 	bool			capturing;
 };
 

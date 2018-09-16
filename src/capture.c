@@ -5,6 +5,7 @@
 
 #include "tools.h"
 #include "device.h"
+#include "jpeg.h"
 
 
 static int _capture_init_loop(struct device *dev);
@@ -87,7 +88,8 @@ void capture_loop(struct device *dev) {
 					}
 
 					LOG_DEBUG("Grabbed a new frame");
-					usleep(100000); // TODO: process dev->run->buffers[buf.index].start, buf.bytesused
+					jpeg_compress_buffer(dev, buf.index);
+					//usleep(100000); // TODO: process dev->run->buffers[buf.index].start, buf.bytesused
 
 					pass_frame:
 

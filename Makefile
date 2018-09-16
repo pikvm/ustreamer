@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -c -Wall -Wextra
-LDFLAGS =
+LDFLAGS = -ljpeg
 SOURCES = $(shell ls src/*.c)
 OBJECTS = $(SOURCES:.c=.o)
 PROG = ustreamer
