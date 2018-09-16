@@ -100,10 +100,10 @@ static void *_capture_loop_thread(void *v_ctx_ptr) {
 	struct threads_context *ctx = (struct threads_context *)v_ctx_ptr;
 	sigset_t mask;
 
-	assert(sigemptyset(&mask) == 0);
-	assert(sigaddset(&mask, SIGINT) == 0);
-	assert(sigaddset(&mask, SIGTERM) == 0);
-	assert(pthread_sigmask(SIG_BLOCK, &mask, NULL) == 0);
+	assert(!sigemptyset(&mask));
+	assert(!sigaddset(&mask, SIGINT));
+	assert(!sigaddset(&mask, SIGTERM));
+	assert(!pthread_sigmask(SIG_BLOCK, &mask, NULL));
 
 	capture_loop(ctx->dev, (sig_atomic_t *volatile)ctx->global_stop);
 	return NULL;
@@ -125,16 +125,16 @@ int main(int argc, char *argv[]) {
 	struct sigaction sig_act;
 
 	MEMSET_ZERO(sig_act);
-	assert(sigemptyset(&sig_act.sa_mask) == 0);
+	assert(!sigemptyset(&sig_act.sa_mask));
 	sig_act.sa_handler = _interrupt_handler;
-	assert(sigaddset(&sig_act.sa_mask, SIGINT) == 0);
-	assert(sigaddset(&sig_act.sa_mask, SIGTERM) == 0);
+	assert(!sigaddset(&sig_act.sa_mask, SIGINT));
+	assert(!sigaddset(&sig_act.sa_mask, SIGTERM));
 
 	LOG_INFO("Installing SIGINT handler ...");
-	assert(sigaction(SIGINT, &sig_act, NULL) == 0);
+	assert(!sigaction(SIGINT, &sig_act, NULL));
 
 	LOG_INFO("Installing SIGTERM handler ...");
-	assert(sigaction(SIGTERM, &sig_act, NULL) == 0);
+	assert(!sigaction(SIGTERM, &sig_act, NULL));
 
 	device_init(&dev, &run);
 	_parse_options(argc, argv, &dev);
