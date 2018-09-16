@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <jpeglib.h>
 #include <linux/videodev2.h>
 
@@ -72,10 +73,7 @@ int jpeg_compress_buffer(struct device *dev, int index) {
 	unsigned char *line_buffer;
 	int written = -1;
 
-	if ((line_buffer = calloc(dev->run->width * 3, sizeof(unsigned char))) == NULL) {
-		LOG_PERROR("Can't allocate memory for JPEG scanline");
-		return written;
-	}
+	assert((line_buffer = calloc(dev->run->width * 3, sizeof(unsigned char))));
 
 	jpeg.err = jpeg_std_error(&jpeg_error);
 	jpeg_create_compress(&jpeg);
@@ -117,9 +115,9 @@ static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, 
 	struct mjpg_destination_mgr *dest;
 
 	if (jpeg->dest == NULL) {
-		jpeg->dest = (struct jpeg_destination_mgr *)(*jpeg->mem->alloc_small)(
+		assert((jpeg->dest = (struct jpeg_destination_mgr *)(*jpeg->mem->alloc_small)(
 			(j_common_ptr) jpeg, JPOOL_PERMANENT, sizeof(struct mjpg_destination_mgr)
-		);
+		)));
 	}
 
 	dest = (struct mjpg_destination_mgr *) jpeg->dest;
@@ -225,10 +223,10 @@ static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg,
 static void _jpeg_init_destination(j_compress_ptr jpeg) {
 	struct mjpg_destination_mgr *dest = (struct mjpg_destination_mgr *) jpeg->dest;
 
-	// Allocate the output buffer --- it will be released when done with image
-	dest->buffer = (JOCTET *)(*jpeg->mem->alloc_small)(
+	// Allocate the output buffer - it will be released when done with image
+	assert((dest->buffer = (JOCTET *)(*jpeg->mem->alloc_small)(
 		(j_common_ptr) jpeg, JPOOL_IMAGE, JPEG_OUTPUT_BUFFER_SIZE * sizeof(JOCTET)
-	);
+	)));
 
 	dest->mgr.next_output_byte = dest->buffer;
 	dest->mgr.free_in_buffer = JPEG_OUTPUT_BUFFER_SIZE;

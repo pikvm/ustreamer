@@ -1,3 +1,8 @@
+#include <assert.h>
+#ifdef NDEBUG
+#	error WTF dude? Asserts are good things!
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

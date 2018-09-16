@@ -5,6 +5,7 @@
 #include <strings.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <assert.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <linux/videodev2.h>
@@ -39,7 +40,7 @@ static int _device_open_check_cap(struct device *dev);
 static int _device_open_dv_timings(struct device *dev);
 static int _device_apply_dv_timings(struct device *dev);
 static int _device_open_format(struct device *dev);
-static int _device_open_alloc_picbufs(struct device *dev);
+static void _device_open_alloc_picbufs(struct device *dev);
 static int _device_open_mmap(struct device *dev);
 static int _device_open_queue_buffers(struct device *dev);
 
@@ -109,9 +110,7 @@ int device_open(struct device *dev) {
 	if (_device_open_queue_buffers(dev) < 0) {
 		goto error;
 	}
-	if (_device_open_alloc_picbufs(dev) < 0) {
-		goto error;
-	}
+	_device_open_alloc_picbufs(dev);
 
 	LOG_DEBUG("Device fd=%d initialized", dev->run->fd);
 	return 0;
@@ -333,11 +332,7 @@ static int _device_open_mmap(struct device *dev) {
 
 	LOG_DEBUG("Allocating device buffers ...");
 
-	dev->run->buffers = NULL;
-	if ((dev->run->buffers = calloc(req.count, sizeof(*dev->run->buffers))) == NULL) {
-		LOG_PERROR("Can't allocate device buffers pool");
-		return -1;
-	}
+	assert((dev->run->buffers = calloc(req.count, sizeof(*dev->run->buffers))));
 
 	for (dev->run->n_buffers = 0; dev->run->n_buffers < req.count; ++dev->run->n_buffers) {
 		struct v4l2_buffer buf;
@@ -382,25 +377,17 @@ static int _device_open_queue_buffers(struct device *dev) {
 	return 0;
 }
 
-static int _device_open_alloc_picbufs(struct device *dev) {
+static void _device_open_alloc_picbufs(struct device *dev) {
 	LOG_DEBUG("Allocating picture buffers ...");
 
-	dev->run->pictures = NULL;
-	if ((dev->run->pictures = calloc(dev->run->n_buffers, sizeof(*dev->run->pictures))) == NULL) {
-		LOG_PERROR("Can't allocate picture buffers pool");
-		return -1;
-	}
+	assert((dev->run->pictures = calloc(dev->run->n_buffers, sizeof(*dev->run->pictures))));
 
 	unsigned picture_size = dev->run->width * dev->run->height << 1;
 
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
 		LOG_DEBUG("Allocating picture buffer %d ...", index);
-		if ((dev->run->pictures[index] = malloc(picture_size)) == NULL) {
-			LOG_PERROR("Can't allocate picture buffer %d", index);
-			return -1;
-		}
+		assert((dev->run->pictures[index] = malloc(picture_size)));
 	}
-	return 0;
 }
 
 static const char *_format_to_string_auto(char *buf, const size_t length, const unsigned format) {

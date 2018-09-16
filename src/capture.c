@@ -13,7 +13,7 @@
 
 static int _capture_init_loop(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop);
 static int _capture_init(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop);
-static int _capture_init_workers(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop);
+static void _capture_init_workers(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop);
 static void *_capture_worker_thread(void *index);
 static void _capture_destroy_workers(struct device *dev, struct workers_pool *pool);
 static int _capture_control(struct device *dev, const bool enable);
@@ -155,9 +155,7 @@ static int _capture_init(struct device *dev, struct workers_pool *pool, sig_atom
 	if (_capture_control(dev, true) < 0) {
 		goto error;
 	}
-	if (_capture_init_workers(dev, pool, stop) < 0) {
-		goto error;
-	}
+	_capture_init_workers(dev, pool, stop);
 
 	return 0;
 
@@ -166,14 +164,10 @@ static int _capture_init(struct device *dev, struct workers_pool *pool, sig_atom
 		return -1;
 }
 
-static int _capture_init_workers(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop) {
+static void _capture_init_workers(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop) {
 	LOG_INFO("Spawning %d workers ...", dev->run->n_buffers);
 
-	pool->workers = NULL;
-	if ((pool->workers = calloc(dev->run->n_buffers, sizeof(*pool->workers))) == NULL) {
-		LOG_PERROR("Can't allocate workers pool");
-		return -1;
-	}
+	assert((pool->workers = calloc(dev->run->n_buffers, sizeof(*pool->workers))));
 
 	assert(!pthread_mutex_init(&pool->busy_mutex, NULL));
 	assert(!pthread_cond_init(&pool->busy_cond, NULL));
@@ -196,7 +190,6 @@ static int _capture_init_workers(struct device *dev, struct workers_pool *pool, 
 	}
 
 	LOG_DEBUG("Spawned %d workers", dev->run->n_buffers);
-	return 0;
 }
 
 static void *_capture_worker_thread(void *params_ptr) {
