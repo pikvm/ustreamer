@@ -112,13 +112,16 @@ void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop) {
 					A_PTHREAD_M_UNLOCK(&pool.workers[buf_info.index].has_job_mutex);
 					A_PTHREAD_C_SIGNAL(&pool.workers[buf_info.index].has_job_cond);
 
-					pass_frame:
-					{} // FIXME: for future mjpg support
+					goto next_handlers;
 
-					/*if (_capture_release_buffer(dev, &buf_info) < 0) {
+					pass_frame:
+
+					if (_capture_release_buffer(dev, &buf_info) < 0) {
 						break;
-					}*/
+					}
 				}
+
+				next_handlers:
 
 				if (FD_ISSET(dev->run->fd, &write_fds)) {
 					LOG_ERROR("Got unexpected writing event, seems device was disconnected");
