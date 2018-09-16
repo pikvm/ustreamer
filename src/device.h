@@ -5,8 +5,8 @@
 #include <linux/videodev2.h>
 
 
-#define FORMAT_UNKNOWN -1
-#define STANDARD_UNKNOWN V4L2_STD_UNKNOWN
+#define FORMAT_UNKNOWN		-1
+#define STANDARD_UNKNOWN	V4L2_STD_UNKNOWN
 
 
 struct buffer {
@@ -21,7 +21,6 @@ struct device_runtime {
 	unsigned		format;
 	unsigned		n_buffers;
 	struct buffer	*buffers;
-	unsigned		picture_size;
 	unsigned char	**pictures;
 	bool			capturing;
 };
@@ -41,11 +40,10 @@ struct device {
 	unsigned		error_timeout;
 
 	struct device_runtime	*run;
-	bool					*stop;
 };
 
 
-void device_init(struct device *dev, struct device_runtime *run, bool *const stop);
+void device_init(struct device *dev, struct device_runtime *run);
 
 int device_parse_format(const char *const str);
 v4l2_std_id device_parse_standard(const char *const str);

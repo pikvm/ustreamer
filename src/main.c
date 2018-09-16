@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
@@ -84,11 +83,11 @@ static void _parse_options(int argc, char *argv[], struct device *dev) {
 }
 
 
-static bool _global_stop = false;
+static volatile sig_atomic_t _global_stop = 0;
 
 static void _interrupt_handler(int signum) {
 	LOG_INFO("===== Stopping by %s =====", strsignal(signum));
-	_global_stop = true;
+	_global_stop = 1;
 }
 
 
@@ -96,7 +95,7 @@ int main(int argc, char *argv[]) {
 	struct device dev;
 	struct device_runtime run;
 
-	device_init(&dev, &run, &_global_stop);
+	device_init(&dev, &run);
 	_parse_options(argc, argv, &dev);
 
 	LOG_INFO("Installing SIGINT handler ...");
@@ -105,6 +104,6 @@ int main(int argc, char *argv[]) {
 	LOG_INFO("Installing SIGTERM handler ...");
 	signal(SIGTERM, _interrupt_handler);
 
-	capture_loop(&dev);
+	capture_loop(&dev, (sig_atomic_t *volatile)&_global_stop);
 	return 0;
 }

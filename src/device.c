@@ -48,7 +48,7 @@ static const char *_format_to_string_null(const unsigned format);
 static const char *_standard_to_string(const v4l2_std_id standard);
 
 
-void device_init(struct device *dev, struct device_runtime *run, bool *const stop) {
+void device_init(struct device *dev, struct device_runtime *run) {
 	LOG_DEBUG("Initializing a new device struct ...");
 
 	memset(dev, 0, sizeof(struct device));
@@ -66,7 +66,6 @@ void device_init(struct device *dev, struct device_runtime *run, bool *const sto
 
 	dev->run = run;
 	dev->run->fd = -1;
-	dev->stop = stop;
 	LOG_DEBUG("We have a clear device!");
 }
 
@@ -336,7 +335,7 @@ static int _device_open_mmap(struct device *dev) {
 
 	dev->run->buffers = NULL;
 	if ((dev->run->buffers = calloc(req.count, sizeof(*dev->run->buffers))) == NULL) {
-		LOG_PERROR("Can't allocate device buffers");
+		LOG_PERROR("Can't allocate device buffers pool");
 		return -1;
 	}
 
@@ -388,14 +387,15 @@ static int _device_open_alloc_picbufs(struct device *dev) {
 
 	dev->run->pictures = NULL;
 	if ((dev->run->pictures = calloc(dev->run->n_buffers, sizeof(*dev->run->pictures))) == NULL) {
-		LOG_PERROR("Can't allocate picture buffers");
+		LOG_PERROR("Can't allocate picture buffers pool");
 		return -1;
 	}
 
-	dev->run->picture_size = dev->run->width * dev->run->height << 1;
+	unsigned picture_size = dev->run->width * dev->run->height << 1;
+
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
 		LOG_DEBUG("Allocating picture buffer %d ...", index);
-		if ((dev->run->pictures[index] = malloc(dev->run->picture_size)) == NULL) {
+		if ((dev->run->pictures[index] = malloc(picture_size)) == NULL) {
 			LOG_PERROR("Can't allocate picture buffer %d", index);
 			return -1;
 		}

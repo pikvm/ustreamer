@@ -1,29 +1,39 @@
 #include <unistd.h>
 #include <errno.h>
+#include <pthread.h>
+#include <assert.h>
 #include <sys/select.h>
 #include <linux/videodev2.h>
 
 #include "tools.h"
 #include "device.h"
 #include "jpeg.h"
+#include "capture.h"
 
 
-static int _capture_init_loop(struct device *dev);
-static int _capture_init(struct device *dev);
+static int _capture_init_loop(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop);
+static int _capture_init(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop);
+static int _capture_init_workers(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop);
+static void *_capture_worker_thread(void *index);
+static void _capture_destroy_workers(struct device *dev, struct workers_pool *pool);
 static int _capture_control(struct device *dev, const bool enable);
 static int _capture_grab_buffer(struct device *dev, struct v4l2_buffer *buf);
 static int _capture_release_buffer(struct device *dev, struct v4l2_buffer *buf);
 static int _capture_handle_event(struct device *dev);
 
 
-void capture_loop(struct device *dev) {
+void capture_loop(struct device *dev, sig_atomic_t *volatile stop) {
+	struct workers_pool pool;
+
+	MEMSET_ZERO(pool);
+
 	LOG_INFO("Using V4L2 device: %s", dev->path);
 	LOG_INFO("Using JPEG quality: %d%%", dev->jpeg_quality);
 
-	while (_capture_init_loop(dev) == 0) {
+	while (_capture_init_loop(dev, &pool, stop) == 0) {
 		int frames_count = 0;
 
-		while (!(*dev->stop)) {
+		while (!(*stop)) {
 			SEP_DEBUG('-');
 
 			fd_set read_fds;
@@ -112,15 +122,17 @@ void capture_loop(struct device *dev) {
 			}
 		}
 	}
+
+	_capture_destroy_workers(dev, &pool);
 	_capture_control(dev, false);
 	device_close(dev);
 }
 
-static int _capture_init_loop(struct device *dev) {
+static int _capture_init_loop(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop) {
 	int retval = -1;
 
-	while (!(*dev->stop)) {
-		if ((retval = _capture_init(dev)) < 0) {
+	while (!(*stop)) {
+		if ((retval = _capture_init(dev, pool, stop)) < 0) {
 			LOG_INFO("Sleeping %d seconds before new capture init ...", dev->error_timeout);
 			sleep(dev->error_timeout);
 		} else {
@@ -130,9 +142,10 @@ static int _capture_init_loop(struct device *dev) {
 	return retval;
 }
 
-static int _capture_init(struct device *dev) {
+static int _capture_init(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop) {
 	SEP_INFO('=');
 
+	_capture_destroy_workers(dev, pool);
 	_capture_control(dev, false);
 	device_close(dev);
 
@@ -142,12 +155,75 @@ static int _capture_init(struct device *dev) {
 	if (_capture_control(dev, true) < 0) {
 		goto error;
 	}
+	if (_capture_init_workers(dev, pool, stop) < 0) {
+		goto error;
+	}
 
 	return 0;
 
 	error:
 		device_close(dev);
 		return -1;
+}
+
+static int _capture_init_workers(struct device *dev, struct workers_pool *pool, sig_atomic_t *volatile stop) {
+	LOG_INFO("Spawning %d workers ...", dev->run->n_buffers);
+
+	pool->workers = NULL;
+	if ((pool->workers = calloc(dev->run->n_buffers, sizeof(*pool->workers))) == NULL) {
+		LOG_PERROR("Can't allocate workers pool");
+		return -1;
+	}
+
+	assert(!pthread_mutex_init(&pool->busy_mutex, NULL));
+	assert(!pthread_cond_init(&pool->busy_cond, NULL));
+
+	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
+		assert(!pthread_mutex_init(&pool->workers[index].busy_mutex, NULL));
+		assert(!pthread_cond_init(&pool->workers[index].busy_cond, NULL));
+
+		pool->workers[index].params.index = index;
+		pool->workers[index].params.pool = pool;
+		pool->workers[index].params.dev = dev;
+		pool->workers[index].params.stop = stop;
+
+		assert(!pthread_create(
+			&pool->workers[index].tid,
+			NULL,
+			_capture_worker_thread,
+			(void *)&pool->workers[index].params
+		));
+	}
+
+	LOG_DEBUG("Spawned %d workers", dev->run->n_buffers);
+	return 0;
+}
+
+static void *_capture_worker_thread(void *params_ptr) {
+	struct worker_params params = *(struct worker_params *)params_ptr;
+
+	LOG_INFO("Hello! I am a worker #%d ^_^", params.index);
+	while (!*(params.stop));
+	LOG_INFO("Bye");
+
+	return NULL;
+}
+
+static void _capture_destroy_workers(struct device *dev, struct workers_pool *pool) {
+	LOG_DEBUG("Destroying JPEG workers ...");
+	if (pool->workers) {
+		for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
+			assert(!pthread_join(pool->workers[index].tid, NULL));
+			assert(!pthread_cond_destroy(&pool->workers[index].busy_cond));
+			assert(!pthread_mutex_destroy(&pool->workers[index].busy_mutex));
+		}
+
+		assert(!pthread_cond_destroy(&pool->busy_cond));
+		assert(!pthread_mutex_destroy(&pool->busy_mutex));
+
+		free(pool->workers);
+	}
+	pool->workers = NULL;
 }
 
 static int _capture_control(struct device *dev, const bool enable) {
