@@ -17,7 +17,7 @@
 #include "capture.h"
 
 
-static const char _short_opts[] = "hd:f:s:e:tb:n:q:";
+static const char _short_opts[] = "hd:f:s:e:tn:q:";
 static const struct option _long_opts[] = {
 	{"help",				no_argument,		NULL,	'h'},
 	{"device",				required_argument,	NULL,	'd'},
@@ -26,7 +26,7 @@ static const struct option _long_opts[] = {
 	{"every-frame",			required_argument,	NULL,	'e'},
 	{"min-frame-size",		required_argument,	NULL,	'z'},
 	{"dv-timings",			no_argument,		NULL,	't'},
-	{"buffers",				required_argument,	NULL,	'b'},
+	{"buffers",				required_argument,	NULL,	'n'},
 	{"jpeg-quality",		required_argument,	NULL,	'q'},
 	{"width",				required_argument,	NULL,	1000},
 	{"height",				required_argument,	NULL,	1001},
@@ -75,8 +75,7 @@ static void _parse_options(int argc, char *argv[], struct device_t *dev) {
 			case 'e':	OPT_UNSIGNED(dev->every_frame, "--every-frame", 0);
 			case 'z':	OPT_UNSIGNED(dev->min_frame_size, "--min-frame-size", 0);
 			case 't':	OPT_TRUE(dev->dv_timings);
-			case 'n':
-			case 'b':	OPT_UNSIGNED(dev->n_buffers, "--buffers", 1);
+			case 'n':	OPT_UNSIGNED(dev->n_buffers, "--buffers", 1);
 			case 'q':	OPT_UNSIGNED(dev->jpeg_quality, "--jpeg-quality", 1);
 			case 1000:	OPT_UNSIGNED(dev->width, "--width", 320);
 			case 1001:	OPT_UNSIGNED(dev->height, "--height", 180);
