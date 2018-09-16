@@ -53,14 +53,10 @@ bool debug;
 #define XIOCTL_RETRIES 4
 
 
-INLINE void now(struct timespec *spec) {
-	assert(!clock_gettime(CLOCK_REALTIME, spec));
-}
-
 INLINE void now_ms(time_t *sec, long *msec) {
 	struct timespec spec;
 
-	now(&spec);
+	assert(!clock_gettime(CLOCK_REALTIME, &spec));
 	*sec = spec.tv_sec;
 	*msec = round(spec.tv_nsec / 1.0e6);
 

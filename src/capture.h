@@ -16,6 +16,9 @@ struct worker_context_t {
 	sig_atomic_t		*volatile global_stop;
 	sig_atomic_t		*volatile workers_stop;
 
+	pthread_mutex_t		*last_comp_time_mutex;
+	long double			*last_comp_time;
+
 	pthread_mutex_t		*has_job_mutex;
 	bool				*has_job;
 	pthread_cond_t		*has_job_cond;
@@ -28,6 +31,9 @@ struct worker_context_t {
 struct worker_t {
 	struct worker_context_t	ctx;
 	pthread_t				tid;
+
+	pthread_mutex_t			last_comp_time_mutex;
+	long double				last_comp_time;
 
 	pthread_mutex_t			has_job_mutex;
 	bool					has_job;

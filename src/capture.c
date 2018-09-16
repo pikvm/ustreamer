@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <pthread.h>
+#include <time.h>
 #include <assert.h>
 #include <sys/select.h>
 #include <linux/videodev2.h>
@@ -196,6 +197,9 @@ static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *p
 		pool->workers[index].ctx.global_stop = global_stop;
 		pool->workers[index].ctx.workers_stop = pool->workers_stop;
 
+		pool->workers[index].ctx.last_comp_time_mutex = &pool->workers[index].last_comp_time_mutex;
+		pool->workers[index].ctx.last_comp_time = &pool->workers[index].last_comp_time;
+
 		pool->workers[index].ctx.has_job_mutex = &pool->workers[index].has_job_mutex;
 		pool->workers[index].ctx.has_job = &pool->workers[index].has_job;
 		pool->workers[index].ctx.has_job_cond = &pool->workers[index].has_job_cond;
@@ -224,7 +228,7 @@ static void *_capture_worker_thread(void *v_ctx_ptr) {
 		assert(pthread_mutex_unlock(ctx->has_free_workers_mutex) == 0);
 		assert(pthread_cond_signal(ctx->has_free_workers_cond) == 0);
 
-		LOG_INFO("Worker %d waiting for a new job ...", ctx->index);
+		LOG_DEBUG("Worker %d waiting for a new job ...", ctx->index);
 		assert(pthread_mutex_lock(ctx->has_job_mutex) == 0);
 		while (!(*ctx->has_job)) {
 			assert(pthread_cond_wait(ctx->has_job_cond, ctx->has_job_mutex) == 0);
@@ -232,14 +236,34 @@ static void *_capture_worker_thread(void *v_ctx_ptr) {
 		assert(pthread_mutex_unlock(ctx->has_job_mutex) == 0);
 
 		if (!*ctx->workers_stop) {
-			LOG_INFO("Worker %d compressing JPEG ...", ctx->index);
+			int compressed;
+			time_t start_sec;
+			time_t stop_sec;
+			long start_msec;
+			long stop_msec;
+			long double last_comp_time;
 
-			int compressed = jpeg_compress_buffer(ctx->dev, ctx->index); // FIXME
+			now_ms(&start_sec, &start_msec);
 
-			LOG_INFO("Compressed JPEG size = %d bytes (worker %d)", compressed, ctx->index);
+			LOG_DEBUG("Worker %d compressing JPEG ...", ctx->index);
+
+			compressed = jpeg_compress_buffer(ctx->dev, ctx->index); // FIXME
 
 			assert(_capture_release_buffer(ctx->dev, &ctx->buf_info) == 0); // FIXME
 			*ctx->has_job = false;
+
+			now_ms(&stop_sec, &stop_msec);
+			if (start_sec <= stop_sec) {
+				last_comp_time = (stop_sec - start_sec) + ((long double)(stop_msec - start_msec)) / 1000;
+			} else {
+				last_comp_time = 0;
+			}
+
+			assert(pthread_mutex_lock(ctx->last_comp_time_mutex) == 0);
+			*ctx->last_comp_time = last_comp_time;
+			assert(pthread_mutex_unlock(ctx->last_comp_time_mutex) == 0);
+
+			LOG_INFO("Compressed JPEG size=%d; time=%LG (worker %d)", compressed, last_comp_time, ctx->index);
 		}
 	}
 
