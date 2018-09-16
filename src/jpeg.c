@@ -97,10 +97,7 @@ int jpeg_compress_buffer(struct device_t *dev, int index) {
 		case V4L2_PIX_FMT_YUYV: WRITE_SCANLINES(_jpeg_write_scanlines_yuyv); break;
 		case V4L2_PIX_FMT_UYVY: WRITE_SCANLINES(_jpeg_write_scanlines_uyvy); break;
 		case V4L2_PIX_FMT_RGB565: WRITE_SCANLINES(_jpeg_write_scanlines_rgb565); break;
-		default:
-			LOG_ERROR("Unsupported input format for JPEG compressor");
-			written = -1;
-			break;
+		default: assert(0 && "Unsupported input format for JPEG compressor");
 	}
 
 	// TODO: process jpeg errors:
