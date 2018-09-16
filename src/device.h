@@ -9,20 +9,25 @@
 #define STANDARD_UNKNOWN	V4L2_STD_UNKNOWN
 
 
-struct buffer_t {
+struct hw_buffer_t {
 	void	*start;
 	size_t	length;
 };
 
+struct picture_t {
+	unsigned char	*data;
+	unsigned long	size;
+};
+
 struct device_runtime_t {
-	int				fd;
-	unsigned		width;
-	unsigned		height;
-	unsigned		format;
-	unsigned		n_buffers;
-	struct buffer_t	*buffers;
-	unsigned char	**pictures;
-	bool			capturing;
+	int					fd;
+	unsigned			width;
+	unsigned			height;
+	unsigned			format;
+	unsigned			n_buffers;
+	struct hw_buffer_t	*hw_buffers;
+	struct picture_t	*pictures;
+	bool				capturing;
 };
 
 struct device_t {

@@ -5,4 +5,4 @@
 #include "device.h"
 
 
-int jpeg_compress_buffer(struct device_t *dev, int index);
+unsigned long jpeg_compress_buffer(struct device_t *dev, int index);

@@ -44,7 +44,7 @@ static void _device_open_alloc_picbufs(struct device_t *dev);
 static int _device_open_mmap(struct device_t *dev);
 static int _device_open_queue_buffers(struct device_t *dev);
 
-static const char *_format_to_string_auto(char *buf, const size_t length, const unsigned format);
+static const char *_format_to_string_auto(char *buf, const size_t size, const unsigned format);
 static const char *_format_to_string_null(const unsigned format);
 static const char *_standard_to_string(const v4l2_std_id standard);
 
@@ -123,25 +123,25 @@ int device_open(struct device_t *dev) {
 void device_close(struct device_t *dev) {
 	if (dev->run->pictures) {
 		LOG_DEBUG("Releasing picture buffers ...");
-		for (unsigned index = 0; index < dev->run->n_buffers && dev->run->pictures[index]; ++index) {
-			free(dev->run->pictures[index]);
+		for (unsigned index = 0; index < dev->run->n_buffers && dev->run->pictures[index].data; ++index) {
+			free(dev->run->pictures[index].data);
 		}
 		free(dev->run->pictures);
 		dev->run->pictures = NULL;
 	}
 
-	if (dev->run->buffers) {
-		LOG_DEBUG("Unmapping device buffers ...");
+	if (dev->run->hw_buffers) {
+		LOG_DEBUG("Unmapping HW buffers ...");
 		for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
-			if (dev->run->buffers[index].start != MAP_FAILED) {
-				if (munmap(dev->run->buffers[index].start, dev->run->buffers[index].length) < 0) {
+			if (dev->run->hw_buffers[index].start != MAP_FAILED) {
+				if (munmap(dev->run->hw_buffers[index].start, dev->run->hw_buffers[index].length) < 0) {
 					LOG_PERROR("Can't unmap device buffer %d", index);
 				}
 			}
 		}
 		dev->run->n_buffers = 0;
-		free(dev->run->buffers);
-		dev->run->buffers = NULL;
+		free(dev->run->hw_buffers);
+		dev->run->hw_buffers = NULL;
 	}
 
 	if (dev->run->fd >= 0) {
@@ -327,30 +327,30 @@ static int _device_open_mmap(struct device_t *dev) {
 		LOG_ERROR("Insufficient buffer memory: %d", req.count);
 		return -1;
 	} else {
-		LOG_INFO("Requested %d device buffers, got %d", dev->n_buffers, req.count);
+		LOG_INFO("Requested %d HW buffers, got %d", dev->n_buffers, req.count);
 	}
 
-	LOG_DEBUG("Allocating device buffers ...");
+	LOG_DEBUG("Allocating HW buffers ...");
 
-	A_CALLOC(dev->run->buffers, req.count, sizeof(*dev->run->buffers));
+	A_CALLOC(dev->run->hw_buffers, req.count, sizeof(*dev->run->hw_buffers));
 	for (dev->run->n_buffers = 0; dev->run->n_buffers < req.count; ++dev->run->n_buffers) {
-		struct v4l2_buffer buf;
+		struct v4l2_buffer buf_info;
 
-		MEMSET_ZERO(buf);
-		buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-		buf.memory = V4L2_MEMORY_MMAP;
-		buf.index = dev->run->n_buffers;
+		MEMSET_ZERO(buf_info);
+		buf_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		buf_info.memory = V4L2_MEMORY_MMAP;
+		buf_info.index = dev->run->n_buffers;
 
 		LOG_DEBUG("Calling ioctl(VIDIOC_QUERYBUF) for device buffer %d ...", dev->run->n_buffers);
-		if (xioctl(dev->run->fd, VIDIOC_QUERYBUF, &buf) < 0) {
+		if (xioctl(dev->run->fd, VIDIOC_QUERYBUF, &buf_info) < 0) {
 			LOG_PERROR("Can't VIDIOC_QUERYBUF");
 			return -1;
 		}
 
 		LOG_DEBUG("Mapping device buffer %d ...", dev->run->n_buffers);
-		dev->run->buffers[dev->run->n_buffers].length = buf.length;
-		dev->run->buffers[dev->run->n_buffers].start = mmap(NULL, buf.length, PROT_READ|PROT_WRITE, MAP_SHARED, dev->run->fd, buf.m.offset);
-		if (dev->run->buffers[dev->run->n_buffers].start == MAP_FAILED) {
+		dev->run->hw_buffers[dev->run->n_buffers].length = buf_info.length;
+		dev->run->hw_buffers[dev->run->n_buffers].start = mmap(NULL, buf_info.length, PROT_READ|PROT_WRITE, MAP_SHARED, dev->run->fd, buf_info.m.offset);
+		if (dev->run->hw_buffers[dev->run->n_buffers].start == MAP_FAILED) {
 			LOG_PERROR("Can't map device buffer %d", dev->run->n_buffers);
 			return -1;
 		}
@@ -360,15 +360,15 @@ static int _device_open_mmap(struct device_t *dev) {
 
 static int _device_open_queue_buffers(struct device_t *dev) {
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
-		struct v4l2_buffer buf;
+		struct v4l2_buffer buf_info;
 
-		MEMSET_ZERO(buf);
-		buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-		buf.memory = V4L2_MEMORY_MMAP;
-		buf.index = index;
+		MEMSET_ZERO(buf_info);
+		buf_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		buf_info.memory = V4L2_MEMORY_MMAP;
+		buf_info.index = index;
 
 		LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) for buffer %d ...", index);
-		if (xioctl(dev->run->fd, VIDIOC_QBUF, &buf) < 0) {
+		if (xioctl(dev->run->fd, VIDIOC_QBUF, &buf_info) < 0) {
 			LOG_PERROR("Can't VIDIOC_QBUF");
 			return -1;
 		}
@@ -377,34 +377,30 @@ static int _device_open_queue_buffers(struct device_t *dev) {
 }
 
 static void _device_open_alloc_picbufs(struct device_t *dev) {
+	unsigned max_picture_size = dev->run->width * dev->run->height << 1;
+
 	LOG_DEBUG("Allocating picture buffers ...");
-
 	A_CALLOC(dev->run->pictures, dev->run->n_buffers, sizeof(*dev->run->pictures));
-
-	unsigned picture_size = dev->run->width * dev->run->height << 1;
 
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
 		LOG_DEBUG("Allocating picture buffer %d ...", index);
-		A_MALLOC(dev->run->pictures[index], picture_size);
+		A_MALLOC(dev->run->pictures[index].data, max_picture_size);
 	}
 }
 
-static const char *_format_to_string_auto(char *buf, const size_t length, const unsigned format) {
-	if (length < 8) {
-		buf[0] = '\0';
+static const char *_format_to_string_auto(char *buf, const size_t size, const unsigned format) {
+	assert(size >= 8);
+	buf[0] = format & 0x7f;
+	buf[1] = (format >> 8) & 0x7f;
+	buf[2] = (format >> 16) & 0x7f;
+	buf[3] = (format >> 24) & 0x7f;
+	if (format & (1 << 31)) {
+		buf[4] = '-';
+		buf[5] = 'B';
+		buf[6] = 'E';
+		buf[7] = '\0';
 	} else {
-		buf[0] = format & 0x7f;
-		buf[1] = (format >> 8) & 0x7f;
-		buf[2] = (format >> 16) & 0x7f;
-		buf[3] = (format >> 24) & 0x7f;
-		if (format & (1 << 31)) {
-			buf[4] = '-';
-			buf[5] = 'B';
-			buf[6] = 'E';
-			buf[7] = '\0';
-		} else {
-			buf[4] = '\0';
-		}
+		buf[4] = '\0';
 	}
 	return buf;
 }

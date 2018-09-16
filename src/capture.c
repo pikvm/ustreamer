@@ -230,7 +230,7 @@ static void *_capture_worker_thread(void *v_ctx_ptr) {
 		A_PTHREAD_M_UNLOCK(ctx->has_job_mutex);
 
 		if (!*ctx->workers_stop) {
-			int compressed;
+			unsigned long compressed;
 			time_t start_sec;
 			time_t stop_sec;
 			long start_msec;
@@ -241,7 +241,7 @@ static void *_capture_worker_thread(void *v_ctx_ptr) {
 
 			LOG_DEBUG("Worker %d compressing JPEG ...", ctx->index);
 
-			compressed = jpeg_compress_buffer(ctx->dev, ctx->index); // FIXME
+			compressed = jpeg_compress_buffer(ctx->dev, ctx->index);
 
 			assert(!_capture_release_buffer(ctx->dev, &ctx->buf_info)); // FIXME
 			*ctx->has_job = false;
@@ -257,7 +257,7 @@ static void *_capture_worker_thread(void *v_ctx_ptr) {
 			*ctx->last_comp_time = last_comp_time;
 			A_PTHREAD_M_UNLOCK(ctx->last_comp_time_mutex);
 
-			LOG_INFO("Compressed JPEG size=%d; time=%LG (worker %d)", compressed, last_comp_time, ctx->index);
+			LOG_INFO("Compressed JPEG size=%ld; time=%LG (worker %d)", compressed, last_comp_time, ctx->index);
 		}
 	}
 

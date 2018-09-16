@@ -42,11 +42,11 @@ struct mjpg_destination_mgr {
 	struct			jpeg_destination_mgr mgr; // Default manager
 	JOCTET			*buffer; // Start of buffer
 	unsigned char	*outbuffer_cursor;
-	int				*written;
+	unsigned long	*written;
 };
 
 
-static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, int *written);
+static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, unsigned long *written);
 
 static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg,
     unsigned char *line_buffer, const unsigned char *data,
@@ -65,20 +65,20 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
 static void _jpeg_term_destination(j_compress_ptr jpeg);
 
 
-int jpeg_compress_buffer(struct device_t *dev, int index) {
+unsigned long jpeg_compress_buffer(struct device_t *dev, int index) {
 	// This function based on compress_image_to_jpeg() from mjpg-streamer
 
 	struct jpeg_compress_struct jpeg;
 	struct jpeg_error_mgr jpeg_error;
 	unsigned char *line_buffer;
-	int written = -1;
 
 	A_CALLOC(line_buffer, dev->run->width * 3, sizeof(unsigned char));
 
 	jpeg.err = jpeg_std_error(&jpeg_error);
 	jpeg_create_compress(&jpeg);
 
-	_jpeg_set_dest_picture(&jpeg, dev->run->pictures[index], &written);
+	dev->run->pictures[index].size = 0;
+	_jpeg_set_dest_picture(&jpeg, dev->run->pictures[index].data, &dev->run->pictures[index].size);
 
 	jpeg.image_width = dev->run->width;
 	jpeg.image_height = dev->run->height;
@@ -91,7 +91,7 @@ int jpeg_compress_buffer(struct device_t *dev, int index) {
 	jpeg_start_compress(&jpeg, TRUE);
 
 #	define WRITE_SCANLINES(_func) \
-		_func(&jpeg, line_buffer, dev->run->buffers[index].start, dev->run->width, dev->run->height)
+		_func(&jpeg, line_buffer, dev->run->hw_buffers[index].start, dev->run->width, dev->run->height)
 
 	switch (dev->run->format) {
 		case V4L2_PIX_FMT_YUYV: WRITE_SCANLINES(_jpeg_write_scanlines_yuyv); break;
@@ -105,10 +105,11 @@ int jpeg_compress_buffer(struct device_t *dev, int index) {
 	jpeg_finish_compress(&jpeg);
 	jpeg_destroy_compress(&jpeg);
 	free(line_buffer);
-	return written;
+	assert(dev->run->pictures[index].size > 0);
+	return dev->run->pictures[index].size;
 }
 
-static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, int *written) {
+static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, unsigned long *written) {
 	struct mjpg_destination_mgr *dest;
 
 	if (jpeg->dest == NULL) {
