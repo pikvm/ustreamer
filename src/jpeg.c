@@ -92,13 +92,13 @@ unsigned long jpeg_compress_buffer(struct device_t *dev, int index) {
 
 #	define WRITE_SCANLINES(_func) \
 		_func(&jpeg, line_buffer, dev->run->hw_buffers[index].start, dev->run->width, dev->run->height)
-
 	switch (dev->run->format) {
 		case V4L2_PIX_FMT_YUYV: WRITE_SCANLINES(_jpeg_write_scanlines_yuyv); break;
 		case V4L2_PIX_FMT_UYVY: WRITE_SCANLINES(_jpeg_write_scanlines_uyvy); break;
 		case V4L2_PIX_FMT_RGB565: WRITE_SCANLINES(_jpeg_write_scanlines_rgb565); break;
 		default: assert(0 && "Unsupported input format for JPEG compressor");
 	}
+#	undef WRITE_SCANLINES
 
 	// TODO: process jpeg errors:
 	// https://stackoverflow.com/questions/19857766/error-handling-in-libjpeg
