@@ -72,6 +72,8 @@ unsigned log_level;
 
 
 #define INLINE inline __attribute__((always_inline))
+#define UNUSED __attribute__((unused))
+
 
 #define XIOCTL_RETRIES 4
 

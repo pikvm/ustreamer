@@ -13,8 +13,8 @@ struct worker_context_t {
 	int					index;
 	struct device_t		*dev;
 	struct v4l2_buffer	buf_info;
-	sig_atomic_t		*volatile global_stop;
-	sig_atomic_t		*volatile workers_stop;
+	sig_atomic_t		*volatile dev_stop;
+	bool				*workers_stop;
 
 	pthread_mutex_t		*last_comp_time_mutex;
 	long double			*last_comp_time;
@@ -44,7 +44,7 @@ struct worker_t {
 
 struct workers_pool_t {
 	struct worker_t	*workers;
-	sig_atomic_t	*volatile workers_stop;
+	bool			*workers_stop;
 
 	pthread_mutex_t	has_free_workers_mutex;
 	bool			has_free_workers;
@@ -63,4 +63,5 @@ struct captured_picture_t {
 struct captured_picture_t *captured_picture_init();
 void captured_picture_destroy(struct captured_picture_t *captured);
 
-void capture_loop(struct device_t *dev, struct captured_picture_t *captured, sig_atomic_t *volatile global_stop);
+void capture_loop(struct device_t *dev, struct captured_picture_t *capture);
+void capture_loop_break(struct device_t *dev);

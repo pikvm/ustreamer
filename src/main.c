@@ -103,13 +103,13 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct h
 	return 0;
 }
 
-struct thread_context {
+struct main_context_t {
 	struct device_t				*dev;
 	struct captured_picture_t	*captured;
 	struct http_server_t		*server;
 };
 
-static volatile sig_atomic_t _global_stop = 0;
+static struct main_context_t *_ctx;
 
 static void _block_thread_signals() {
 	sigset_t mask;
@@ -119,23 +119,22 @@ static void _block_thread_signals() {
 	assert(!pthread_sigmask(SIG_BLOCK, &mask, NULL));
 }
 
-static void *_capture_loop_thread(void *v_ctx) {
-	struct thread_context *ctx = (struct thread_context *)v_ctx;
+static void *_capture_loop_thread(UNUSED void *_) {
 	_block_thread_signals();
-	capture_loop(ctx->dev, ctx->captured, (sig_atomic_t *volatile)&_global_stop);
+	capture_loop(_ctx->dev, _ctx->captured);
 	return NULL;
 }
 
-static void *_server_loop_thread(void *v_ctx) {
-	struct thread_context *ctx = (struct thread_context *)v_ctx;
+static void *_server_loop_thread(UNUSED void *_) {
 	_block_thread_signals();
-	http_server_loop(ctx->server, ctx->captured, (sig_atomic_t *volatile)&_global_stop);
+	http_server_loop(_ctx->server, _ctx->captured);
 	return NULL;
 }
 
 static void _signal_handler(int signum) {
 	LOG_INFO("===== Stopping by %s =====", strsignal(signum));
-	_global_stop = 1;
+	capture_loop_break(_ctx->dev);
+	http_server_loop_break(_ctx->server);
 }
 
 static void _install_signal_handlers() {
@@ -168,14 +167,15 @@ int main(int argc, char *argv[]) {
 
 		pthread_t capture_loop_tid;
 		pthread_t server_loop_tid;
-		struct thread_context ctx;
+		struct main_context_t ctx;
 
 		ctx.dev = dev;
 		ctx.captured = captured;
 		ctx.server = server;
+		_ctx = &ctx;
 
-		A_PTHREAD_CREATE(&capture_loop_tid, _capture_loop_thread, (void *)&ctx);
-		A_PTHREAD_CREATE(&server_loop_tid, _server_loop_thread, (void *)&ctx);
+		A_PTHREAD_CREATE(&capture_loop_tid, _capture_loop_thread, NULL);
+		A_PTHREAD_CREATE(&server_loop_tid, _server_loop_thread, NULL);
 		A_PTHREAD_JOIN(capture_loop_tid);
 		A_PTHREAD_JOIN(server_loop_tid);
 	}

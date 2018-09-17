@@ -21,9 +21,9 @@
 
 
 static long double _capture_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool);
-static int _capture_init_loop(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop);
-static int _capture_init(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop);
-static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop);
+static int _capture_init_loop(struct device_t *dev, struct workers_pool_t *pool);
+static int _capture_init(struct device_t *dev, struct workers_pool_t *pool);
+static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *pool);
 static void *_capture_worker_thread(void *v_ctx);
 static void _capture_destroy_workers(struct device_t *dev, struct workers_pool_t *pool);
 static int _capture_control(struct device_t *dev, const bool enable);
@@ -68,17 +68,17 @@ static void _capture_dump(struct captured_picture_t *captured) {
 }
 #endif
 
-void capture_loop(struct device_t *dev, struct captured_picture_t *captured, sig_atomic_t *volatile global_stop) {
+void capture_loop(struct device_t *dev, struct captured_picture_t *captured) {
 	struct workers_pool_t pool;
-	volatile sig_atomic_t workers_stop;
+	bool workers_stop;
 
 	MEMSET_ZERO(pool);
-	pool.workers_stop = (sig_atomic_t *volatile)&workers_stop;
+	pool.workers_stop = &workers_stop;
 
 	LOG_INFO("Using V4L2 device: %s", dev->path);
 	LOG_INFO("Using JPEG quality: %d%%", dev->jpeg_quality);
 
-	while (_capture_init_loop(dev, &pool, global_stop) == 0) {
+	while (_capture_init_loop(dev, &pool) == 0) {
 		struct worker_t *last_worker = NULL;
 		unsigned frames_count = 0;
 		long double grab_after = 0;
@@ -92,7 +92,7 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured, sig
 		captured->width = dev->run->width;
 		captured->height = dev->run->height;
 
-		while (!*global_stop) {
+		while (!dev->stop) {
 			SEP_DEBUG('-');
 
 			LOG_DEBUG("Waiting for workers ...");
@@ -118,7 +118,7 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured, sig
 #	endif
 			}
 
-			if (*global_stop) {
+			if (dev->stop) {
 				break;
 			}
 
@@ -250,6 +250,10 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured, sig
 	device_close(dev);
 }
 
+void capture_loop_break(struct device_t *dev) {
+	dev->stop = 1;
+}
+
 static long double _capture_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool) {
 	long double delay = 0;
 
@@ -264,12 +268,12 @@ static long double _capture_get_fluency_delay(struct device_t *dev, struct worke
 	return delay / dev->run->n_buffers / dev->run->n_buffers;
 }
 
-static int _capture_init_loop(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop) {
+static int _capture_init_loop(struct device_t *dev, struct workers_pool_t *pool) {
 	int retval = -1;
 
-	LOG_DEBUG("%s: global_stop = %d", __FUNCTION__, *global_stop);
-	while (!*global_stop) {
-		if ((retval = _capture_init(dev, pool, global_stop)) < 0) {
+	LOG_DEBUG("%s: *dev->stop = %d", __FUNCTION__, dev->stop);
+	while (!dev->stop) {
+		if ((retval = _capture_init(dev, pool)) < 0) {
 			LOG_INFO("Sleeping %d seconds before new capture init ...", dev->error_timeout);
 			sleep(dev->error_timeout);
 		} else {
@@ -279,7 +283,7 @@ static int _capture_init_loop(struct device_t *dev, struct workers_pool_t *pool,
 	return retval;
 }
 
-static int _capture_init(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop) {
+static int _capture_init(struct device_t *dev, struct workers_pool_t *pool) {
 	SEP_INFO('=');
 
 	_capture_destroy_workers(dev, pool);
@@ -292,7 +296,7 @@ static int _capture_init(struct device_t *dev, struct workers_pool_t *pool, sig_
 	if (_capture_control(dev, true) < 0) {
 		goto error;
 	}
-	_capture_init_workers(dev, pool, global_stop);
+	_capture_init_workers(dev, pool);
 
 	return 0;
 
@@ -301,7 +305,7 @@ static int _capture_init(struct device_t *dev, struct workers_pool_t *pool, sig_
 		return -1;
 }
 
-static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop) {
+static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *pool) {
 	LOG_DEBUG("Spawning %d workers ...", dev->run->n_buffers);
 
 	*pool->workers_stop = false;
@@ -316,7 +320,7 @@ static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *p
 
 		pool->workers[index].ctx.index = index;
 		pool->workers[index].ctx.dev = dev;
-		pool->workers[index].ctx.global_stop = global_stop;
+		pool->workers[index].ctx.dev_stop = (sig_atomic_t *volatile)&dev->stop;
 		pool->workers[index].ctx.workers_stop = pool->workers_stop;
 
 		pool->workers[index].ctx.last_comp_time_mutex = &pool->workers[index].last_comp_time_mutex;
@@ -339,7 +343,7 @@ static void *_capture_worker_thread(void *v_ctx) {
 
 	LOG_DEBUG("Hello! I am a worker #%d ^_^", ctx->index);
 
-	while (!*ctx->global_stop && !*ctx->workers_stop) {
+	while (!*ctx->dev_stop && !*ctx->workers_stop) {
 		A_PTHREAD_M_LOCK(ctx->has_free_workers_mutex);
 		*ctx->has_free_workers = true;
 		A_PTHREAD_M_UNLOCK(ctx->has_free_workers_mutex);

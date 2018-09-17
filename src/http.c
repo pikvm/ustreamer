@@ -1,5 +1,3 @@
-#include <signal.h>
-
 #include "capture.h"
 #include "tools.h"
 #include "http.h"
@@ -23,6 +21,11 @@ void http_server_destroy(struct http_server_t *server) {
 	free(server);
 }
 
-void http_server_loop(struct http_server_t *server, struct captured_picture_t *captured, sig_atomic_t *volatile global_stop) {
+void http_server_loop(struct http_server_t *server, struct captured_picture_t *captured) {
 	// TODO: implement server here
 }
+
+void http_server_loop_break(struct http_server_t *server) {
+	// TODO: implement stop here
+}
+
