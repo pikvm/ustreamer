@@ -121,6 +121,9 @@ int main(int argc, char *argv[]) {
 	struct threads_context ctx = {&dev,	(sig_atomic_t *volatile)&_global_stop};
 	struct sigaction sig_act;
 
+	device_init(&dev, &run);
+	_parse_options(argc, argv, &dev);
+
 	MEMSET_ZERO(sig_act);
 	assert(!sigemptyset(&sig_act.sa_mask));
 	sig_act.sa_handler = _interrupt_handler;
@@ -132,9 +135,6 @@ int main(int argc, char *argv[]) {
 
 	LOG_INFO("Installing SIGTERM handler ...");
 	assert(!sigaction(SIGTERM, &sig_act, NULL));
-
-	device_init(&dev, &run);
-	_parse_options(argc, argv, &dev);
 
 	A_PTHREAD_CREATE(&capture_loop_tid, _capture_loop_thread, (void *)&ctx);
 	A_PTHREAD_JOIN(capture_loop_tid);

@@ -216,7 +216,7 @@ static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *p
 static void *_capture_worker_thread(void *v_ctx_ptr) {
 	struct worker_context_t *ctx = (struct worker_context_t *)v_ctx_ptr;
 
-	LOG_INFO("Hello! I am a worker #%d ^_^", ctx->index);
+	LOG_DEBUG("Hello! I am a worker #%d ^_^", ctx->index);
 
 	while (!*ctx->global_stop && !*ctx->workers_stop) {
 		A_PTHREAD_M_LOCK(ctx->has_free_workers_mutex);
@@ -257,11 +257,11 @@ static void *_capture_worker_thread(void *v_ctx_ptr) {
 			*ctx->last_comp_time = last_comp_time;
 			A_PTHREAD_M_UNLOCK(ctx->last_comp_time_mutex);
 
-			LOG_INFO("Compressed JPEG size=%ld; time=%LG (worker %d)", compressed, last_comp_time, ctx->index);
+			LOG_INFO("Compressed JPEG size=%ld; time=%LG (worker %d)", compressed, last_comp_time, ctx->index); // FIXME
 		}
 	}
 
-	LOG_INFO("Bye-bye (worker %d)", ctx->index);
+	LOG_DEBUG("Bye-bye (worker %d)", ctx->index);
 	return NULL;
 }
 
