@@ -60,7 +60,7 @@ void device_init(struct device_t *dev, struct device_runtime_t *run) {
 	dev->height = 480;
 	dev->format = V4L2_PIX_FMT_YUYV;
 	dev->standard = V4L2_STD_UNKNOWN;
-	dev->n_buffers = MAX(sysconf(_SC_NPROCESSORS_ONLN), 1);
+	dev->n_buffers = MAX(sysconf(_SC_NPROCESSORS_ONLN), 1) + 1;
 	dev->jpeg_quality = 80;
 	dev->timeout = 1;
 	dev->error_timeout = 1;
