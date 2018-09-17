@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
@@ -15,42 +14,41 @@
 #include <sys/syscall.h>
 
 
-bool log_debug;
-bool log_perf;
+unsigned log_level;
 
+
+#define LOG_LEVEL_INFO		0
+#define LOG_LEVEL_VERBOSE	1
+#define LOG_LEVEL_PERF		2
+#define LOG_LEVEL_DEBUG		3
 
 #define SEP_INFO(_x_ch) \
 	{ for (int _i = 0; _i < 80; ++_i) putchar(_x_ch); putchar('\n'); }
 
-#define INNER_LOG_MK_PARAMS \
-	time_t _sec; long _msec; now_ms(&_sec, &_msec); pid_t _tid = syscall(SYS_gettid);
-
-#define INNER_LOG_PARAMS _sec, _msec, _tid
-
-#define INNER_LOG_PL "[%ld.%03ld tid=%d]"
-
-#define LOG_INFO(_x_msg, ...) \
-	{ INNER_LOG_MK_PARAMS; \
-	printf("-- INFO  " INNER_LOG_PL " -- " _x_msg "\n", INNER_LOG_PARAMS, ##__VA_ARGS__); }
-
-#define LOG_DEBUG(_x_msg, ...) \
-	{ if (log_debug) { INNER_LOG_MK_PARAMS; \
-	printf("-- DEBUG " INNER_LOG_PL " -- " _x_msg "\n", INNER_LOG_PARAMS, ##__VA_ARGS__); } }
-
-#define LOG_PERF(_x_msg, ...) \
-	{ if (log_debug || log_perf) { INNER_LOG_MK_PARAMS; \
-	printf("-- PERF  " INNER_LOG_PL " -- " _x_msg "\n", INNER_LOG_PARAMS, ##__VA_ARGS__); } }
-
 #define SEP_DEBUG(_x_ch) \
-	{ if (log_debug) { SEP_INFO(_x_ch); } }
+	{ if (log_level >= LOG_LEVEL_DEBUG) { SEP_INFO(_x_ch); } }
 
 #define LOG_ERROR(_x_msg, ...) \
-	{ INNER_LOG_MK_PARAMS; \
-	printf("-- ERROR " INNER_LOG_PL " -- " _x_msg "\n", INNER_LOG_PARAMS, ##__VA_ARGS__); }
+	printf("-- ERROR [%.03Lf tid=%ld] -- " _x_msg "\n", now_ms_ld(), syscall(SYS_gettid), ##__VA_ARGS__)
 
 #define LOG_PERROR(_x_msg, ...) \
-	{ INNER_LOG_MK_PARAMS; char _buf[1024]; strerror_r(errno, _buf, 1024); \
-	printf("-- ERROR " INNER_LOG_PL " -- " _x_msg ": %s\n", INNER_LOG_PARAMS, ##__VA_ARGS__, _buf); }
+	{ char _buf[1024]; strerror_r(errno, _buf, 1024); \
+	printf("-- ERROR [%.03Lf tid=%ld] -- " _x_msg ": %s\n", now_ms_ld(), syscall(SYS_gettid), ##__VA_ARGS__, _buf); }
+
+#define LOG_INFO(_x_msg, ...) \
+	printf("-- INFO  [%.03Lf tid=%ld] -- " _x_msg "\n", now_ms_ld(), syscall(SYS_gettid), ##__VA_ARGS__)
+
+#define LOG_VERBOSE(_x_msg, ...) \
+	{ if (log_level >= LOG_LEVEL_VERBOSE) \
+	printf("-- VERB  [%.03Lf tid=%ld] -- " _x_msg "\n", now_ms_ld(), syscall(SYS_gettid), ##__VA_ARGS__); }
+
+#define LOG_PERF(_x_msg, ...) \
+	{ if (log_level >= LOG_LEVEL_PERF) \
+	printf("-- PERF  [%.03Lf tid=%ld] -- " _x_msg "\n", now_ms_ld(), syscall(SYS_gettid), ##__VA_ARGS__); }
+
+#define LOG_DEBUG(_x_msg, ...) \
+	{ if (log_level >= LOG_LEVEL_DEBUG) \
+	printf("-- DEBUG [%.03Lf tid=%ld] -- " _x_msg "\n", now_ms_ld(), syscall(SYS_gettid), ##__VA_ARGS__); }
 
 
 #define A_PTHREAD_CREATE(_tid, _func, _arg)	assert(!pthread_create(_tid, NULL, _func, _arg))
@@ -81,7 +79,7 @@ bool log_perf;
 INLINE void now_ms(time_t *sec, long *msec) {
 	struct timespec spec;
 
-	assert(!clock_gettime(CLOCK_REALTIME, &spec));
+	assert(!clock_gettime(CLOCK_MONOTONIC_RAW, &spec));
 	*sec = spec.tv_sec;
 	*msec = round(spec.tv_nsec / 1.0e6);
 
@@ -89,6 +87,14 @@ INLINE void now_ms(time_t *sec, long *msec) {
 		*sec += 1;
 		*msec = 0;
 	}
+}
+
+INLINE long double now_ms_ld(void) {
+	time_t sec;
+	long msec;
+
+	now_ms(&sec, &msec);
+	return (long double)sec + ((long double)msec) / 1000;
 }
 
 INLINE int xioctl(const int fd, const int request, void *arg) {

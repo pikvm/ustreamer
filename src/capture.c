@@ -34,23 +34,30 @@ void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop) {
 	LOG_INFO("Using JPEG quality: %d%%", dev->jpeg_quality);
 
 	while (_capture_init_loop(dev, &pool, global_stop) == 0) {
-		int frames_count = 0;
+		unsigned frames_count = 0;
+		long double grab_after = 0;
+		unsigned fluency_passed = 0;
+		unsigned fps = 0;
+		long long fps_second = 0;
 
 		while (!*global_stop) {
 			SEP_DEBUG('-');
 
-			fd_set read_fds;
-			fd_set write_fds;
-			fd_set error_fds;
+			LOG_DEBUG("Waiting for workers ...");
+			A_PTHREAD_M_LOCK(&pool.has_free_workers_mutex);
+			A_PTHREAD_C_WAIT_TRUE(pool.has_free_workers, &pool.has_free_workers_cond, &pool.has_free_workers_mutex);
+			A_PTHREAD_M_UNLOCK(&pool.has_free_workers_mutex);
 
-			FD_ZERO(&read_fds);
-			FD_SET(dev->run->fd, &read_fds);
+			if (*global_stop) {
+				break;
+			}
 
-			FD_ZERO(&write_fds);
-			FD_SET(dev->run->fd, &write_fds);
-
-			FD_ZERO(&error_fds);
-			FD_SET(dev->run->fd, &error_fds);
+#	define INIT_FD_SET(_set) \
+		fd_set _set; FD_ZERO(&_set); FD_SET(dev->run->fd, &_set);
+			INIT_FD_SET(read_fds);
+			INIT_FD_SET(write_fds);
+			INIT_FD_SET(error_fds);
+#	undef INIT_FD_SET
 
 			struct timeval timeout;
 			timeout.tv_sec = dev->timeout;
@@ -72,11 +79,7 @@ void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop) {
 
 			} else {
 				if (FD_ISSET(dev->run->fd, &read_fds)) {
-					LOG_DEBUG("Frame is ready, waiting for workers ...");
-
-					A_PTHREAD_M_LOCK(&pool.has_free_workers_mutex);
-					A_PTHREAD_C_WAIT_TRUE(pool.has_free_workers, &pool.has_free_workers_cond, &pool.has_free_workers_mutex);
-					A_PTHREAD_M_UNLOCK(&pool.has_free_workers_mutex);
+					LOG_DEBUG("Frame is ready");
 
 					struct v4l2_buffer buf_info;
 
@@ -85,13 +88,12 @@ void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop) {
 					}
 
 					if (dev->every_frame) {
-						if (frames_count < (int)dev->every_frame - 1) {
+						if (frames_count < dev->every_frame - 1) {
 							LOG_DEBUG("Dropping frame %d for option --every-frame=%d", frames_count + 1, dev->every_frame);
 							++frames_count;
 							goto pass_frame;
-						} else {
-							frames_count = 0;
 						}
+						frames_count = 0;
 					}
 
 					// Workaround for broken, corrupted frames:
@@ -102,6 +104,38 @@ void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop) {
 					if (buf_info.bytesused < dev->min_frame_size) {
 						LOG_DEBUG("Dropping too small frame sized %d bytes, assuming it as broken", buf_info.bytesused);
 						goto pass_frame;
+					}
+
+					{
+						long double now = now_ms_ld();
+
+						if (now < grab_after) {
+							fluency_passed += 1;
+							LOG_PERF("Passed %u frames for fluency: now=%.03Lf; grab_after=%.03Lf", fluency_passed, now, grab_after);
+							goto pass_frame;
+						}
+
+						fluency_passed = 0;
+						if (log_level >= LOG_LEVEL_VERBOSE) {
+							if ((long long)now != fps_second) {
+								LOG_VERBOSE("Current FPS = %u", fps);
+								fps = 0;
+								fps_second = (long long)now;
+							}
+							++fps;
+						}
+
+						long double delay = 0;
+						for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
+							A_PTHREAD_M_LOCK(&pool.workers[index].last_comp_time_mutex);
+							if (pool.workers[index].last_comp_time > 0) {
+								delay += pool.workers[index].last_comp_time;
+							}
+							A_PTHREAD_M_UNLOCK(&pool.workers[index].last_comp_time_mutex);
+						}
+						delay = delay / dev->run->n_buffers / dev->run->n_buffers;
+						grab_after = now + delay;
+						LOG_PERF("Fluency delay=%.03Lf; grab_after=%.03Lf", delay, grab_after);
 					}
 
 					LOG_DEBUG("Grabbed a new frame to buffer %d", buf_info.index);
@@ -257,7 +291,7 @@ static void *_capture_worker_thread(void *v_ctx_ptr) {
 			*ctx->last_comp_time = last_comp_time;
 			A_PTHREAD_M_UNLOCK(ctx->last_comp_time_mutex);
 
-			LOG_PERF("Compressed JPEG size=%ld; time=%LG (worker %d)", compressed, last_comp_time, ctx->index); // FIXME
+			LOG_PERF("Compressed JPEG size=%ld; time=%0.3Lf (worker %d)", compressed, last_comp_time, ctx->index); // FIXME
 		}
 	}
 
