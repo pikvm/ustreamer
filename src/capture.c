@@ -12,6 +12,7 @@
 #include "capture.h"
 
 
+static long double _capture_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool);
 static int _capture_init_loop(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop);
 static int _capture_init(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop);
 static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop);
@@ -125,15 +126,7 @@ void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop) {
 							++fps;
 						}
 
-						long double delay = 0;
-						for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
-							A_PTHREAD_M_LOCK(&pool.workers[index].last_comp_time_mutex);
-							if (pool.workers[index].last_comp_time > 0) {
-								delay += pool.workers[index].last_comp_time;
-							}
-							A_PTHREAD_M_UNLOCK(&pool.workers[index].last_comp_time_mutex);
-						}
-						delay = delay / dev->run->n_buffers / dev->run->n_buffers;
+						long double delay = _capture_get_fluency_delay(dev, &pool);
 						grab_after = now + delay;
 						LOG_PERF("Fluency delay=%.03Lf; grab_after=%.03Lf", delay, grab_after);
 					}
@@ -146,7 +139,7 @@ void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop) {
 					A_PTHREAD_M_UNLOCK(&pool.workers[buf_info.index].has_job_mutex);
 					A_PTHREAD_C_SIGNAL(&pool.workers[buf_info.index].has_job_cond);
 
-					goto next_handlers;
+					goto next_handlers; // Поток сам освободит буфер
 
 					pass_frame:
 
@@ -175,6 +168,20 @@ void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop) {
 	_capture_destroy_workers(dev, &pool);
 	_capture_control(dev, false);
 	device_close(dev);
+}
+
+static long double _capture_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool) {
+	long double delay = 0;
+
+	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
+		A_PTHREAD_M_LOCK(&pool->workers[index].last_comp_time_mutex);
+		if (pool->workers[index].last_comp_time > 0) {
+			delay += pool->workers[index].last_comp_time;
+		}
+		A_PTHREAD_M_UNLOCK(&pool->workers[index].last_comp_time_mutex);
+	}
+	// Среднее арифметическое деленное на количество воркеров
+	return delay / dev->run->n_buffers / dev->run->n_buffers;
 }
 
 static int _capture_init_loop(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop) {
