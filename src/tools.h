@@ -75,6 +75,10 @@ unsigned log_level;
 #define XIOCTL_RETRIES 4
 
 
+INLINE unsigned max_u(unsigned a, unsigned b) {
+	return (a > b ? a : b);
+}
+
 INLINE void now_ms(time_t *sec, long *msec) {
 	struct timespec spec;
 

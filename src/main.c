@@ -10,7 +10,6 @@
 #include <signal.h>
 #include <pthread.h>
 #include <getopt.h>
-#include <sys/param.h>
 
 #include "tools.h"
 #include "device.h"
