@@ -389,7 +389,7 @@ static int _capture_handle_event(struct device_t *dev) {
 				return 0;
 		}
 	} else {
-		LOG_ERROR("Got some V4L2 device event, but where is it? ");
+		LOG_PERROR("Got some V4L2 device event, but where is it? ");
 	}
 	return 0;
 }
