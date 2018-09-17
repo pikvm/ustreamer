@@ -55,10 +55,12 @@ struct captured_picture_t {
 	struct picture_t	picture;
 	unsigned			width;
 	unsigned			height;
+	bool				updated;
 	pthread_mutex_t		mutex;
 };
 
 
-void captured_picture_init(struct captured_picture_t *captured);
+struct captured_picture_t *captured_picture_init();
 void captured_picture_destroy(struct captured_picture_t *captured);
+
 void capture_loop(struct device_t *dev, struct captured_picture_t *captured, sig_atomic_t *volatile global_stop);

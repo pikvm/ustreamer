@@ -49,7 +49,8 @@ struct device_t {
 };
 
 
-void device_init(struct device_t *dev, struct device_runtime_t *run);
+struct device_t *device_init();
+void device_destroy(struct device_t *dev);
 
 int device_parse_format(const char *const str);
 v4l2_std_id device_parse_standard(const char *const str);

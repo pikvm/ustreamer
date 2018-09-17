@@ -32,13 +32,19 @@ static int _capture_release_buffer(struct device_t *dev, struct v4l2_buffer *buf
 static int _capture_handle_event(struct device_t *dev);
 
 
-void captured_picture_init(struct captured_picture_t *captured) {
-	memset(captured, 0, sizeof(struct captured_picture_t));
+struct captured_picture_t *captured_picture_init() {
+	struct captured_picture_t *captured;
+
+	A_CALLOC(captured, 1, sizeof(*captured));
+	MEMSET_ZERO_PTR(captured);
+
 	A_PTHREAD_M_INIT(&captured->mutex);
+	return captured;
 }
 
 void captured_picture_destroy(struct captured_picture_t *captured) {
 	A_PTHREAD_M_DESTROY(&captured->mutex);
+	free(captured);
 }
 
 #ifdef DUMP_CAPTURED_JPEGS
@@ -83,6 +89,9 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured, sig
 		LOG_DEBUG("Allocation memory for captured (result) picture ...");
 		A_CALLOC(captured->picture.data, dev->run->max_picture_size, sizeof(*captured->picture.data));
 
+		captured->width = dev->run->width;
+		captured->height = dev->run->height;
+
 		while (!*global_stop) {
 			SEP_DEBUG('-');
 
@@ -99,6 +108,7 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured, sig
 					dev->run->pictures[last_worker->ctx.index].data,
 					captured->picture.size * sizeof(*captured->picture.data)
 				);
+				captured->updated = true;
 				A_PTHREAD_M_UNLOCK(&captured->mutex);
 
 				last_worker = last_worker->order_next;
@@ -418,7 +428,7 @@ static int _capture_control(struct device_t *dev, const bool enable) {
 }
 
 static int _capture_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_info) {
-	memset(buf_info, 0, sizeof(struct v4l2_buffer));
+	MEMSET_ZERO_PTR(buf_info);
 	buf_info->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	buf_info->memory = V4L2_MEMORY_MMAP;
 

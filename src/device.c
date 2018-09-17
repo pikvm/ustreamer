@@ -48,9 +48,17 @@ static const char *_format_to_string_null(const unsigned format);
 static const char *_standard_to_string(const v4l2_std_id standard);
 
 
-void device_init(struct device_t *dev, struct device_runtime_t *run) {
-	memset(dev, 0, sizeof(struct device_t));
-	memset(run, 0, sizeof(struct device_runtime_t));
+struct device_t *device_init() {
+	struct device_t *dev;
+	struct device_runtime_t *run;
+
+	A_CALLOC(dev, 1, sizeof(*dev));
+	MEMSET_ZERO_PTR(dev);
+
+	A_CALLOC(run, 1, sizeof(*run));
+	MEMSET_ZERO_PTR(run);
+	dev->run = run;
+	dev->run->fd = -1;
 
 	dev->path = (char *)DEFAULT_DEVICE;
 	dev->width = 640;
@@ -61,9 +69,12 @@ void device_init(struct device_t *dev, struct device_runtime_t *run) {
 	dev->jpeg_quality = 80;
 	dev->timeout = 1;
 	dev->error_timeout = 1;
+	return dev;
+}
 
-	dev->run = run;
-	dev->run->fd = -1;
+void device_destroy(struct device_t *dev) {
+	free(dev->run);
+	free(dev);
 }
 
 int device_parse_format(const char *const str) {

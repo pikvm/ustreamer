@@ -1,4 +1,4 @@
-LIBS = -lm -ljpeg -pthread
+LIBS = -lm -ljpeg -pthread -levent
 CC = gcc
 CFLAGS = -c -O3 -Wall -Wextra
 LDFLAGS =
