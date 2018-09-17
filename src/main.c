@@ -96,12 +96,13 @@ static void _parse_options(int argc, char *argv[], struct device_t *dev) {
 }
 
 struct threads_context {
-	struct device_t	*dev;
-	sig_atomic_t	*volatile global_stop;
+	struct device_t				*dev;
+	struct captured_picture_t	*captured;
+	sig_atomic_t				*volatile global_stop;
 };
 
-static void *_capture_loop_thread(void *v_ctx_ptr) {
-	struct threads_context *ctx = (struct threads_context *)v_ctx_ptr;
+static void *_capture_loop_thread(void *v_ctx) {
+	struct threads_context *ctx = (struct threads_context *)v_ctx;
 	sigset_t mask;
 
 	assert(!sigemptyset(&mask));
@@ -109,31 +110,23 @@ static void *_capture_loop_thread(void *v_ctx_ptr) {
 	assert(!sigaddset(&mask, SIGTERM));
 	assert(!pthread_sigmask(SIG_BLOCK, &mask, NULL));
 
-	capture_loop(ctx->dev, (sig_atomic_t *volatile)ctx->global_stop);
+	capture_loop(ctx->dev, ctx->captured, (sig_atomic_t *volatile)ctx->global_stop);
 	return NULL;
 }
 
 static volatile sig_atomic_t _global_stop = 0;
 
-static void _interrupt_handler(int signum) {
+static void _signal_handler(int signum) {
 	LOG_INFO("===== Stopping by %s =====", strsignal(signum));
 	_global_stop = 1;
 }
 
-int main(int argc, char *argv[]) {
-	struct device_t dev;
-	struct device_runtime_t run;
-
-	pthread_t capture_loop_tid;
-	struct threads_context ctx = {&dev,	(sig_atomic_t *volatile)&_global_stop};
+static void _init_signal_handlers() {
 	struct sigaction sig_act;
-
-	device_init(&dev, &run);
-	_parse_options(argc, argv, &dev);
 
 	MEMSET_ZERO(sig_act);
 	assert(!sigemptyset(&sig_act.sa_mask));
-	sig_act.sa_handler = _interrupt_handler;
+	sig_act.sa_handler = _signal_handler;
 	assert(!sigaddset(&sig_act.sa_mask, SIGINT));
 	assert(!sigaddset(&sig_act.sa_mask, SIGTERM));
 
@@ -142,9 +135,22 @@ int main(int argc, char *argv[]) {
 
 	LOG_INFO("Installing SIGTERM handler ...");
 	assert(!sigaction(SIGTERM, &sig_act, NULL));
+}
 
+int main(int argc, char *argv[]) {
+	struct device_t dev;
+	struct device_runtime_t run;
+	struct captured_picture_t captured;
+	struct threads_context ctx = {&dev,	&captured, (sig_atomic_t *volatile)&_global_stop};
+	pthread_t capture_loop_tid;
+
+	device_init(&dev, &run);
+	_parse_options(argc, argv, &dev);
+	_init_signal_handlers();
+
+	captured_picture_init(&captured);
 	A_PTHREAD_CREATE(&capture_loop_tid, _capture_loop_thread, (void *)&ctx);
 	A_PTHREAD_JOIN(capture_loop_tid);
-
+	captured_picture_destroy(&captured);
 	return 0;
 }

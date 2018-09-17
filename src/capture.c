@@ -6,6 +6,14 @@
 #include <sys/select.h>
 #include <linux/videodev2.h>
 
+#ifdef DUMP_CAPTURED_JPEGS
+#	warning Enabled DUMP_CAPTURED_JPEGS
+#	include <stdio.h>
+#	include <fcntl.h>
+#	include <sys/stat.h>
+#	include <sys/types.h>
+#endif
+
 #include "tools.h"
 #include "device.h"
 #include "jpeg.h"
@@ -16,7 +24,7 @@ static long double _capture_get_fluency_delay(struct device_t *dev, struct worke
 static int _capture_init_loop(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop);
 static int _capture_init(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop);
 static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *pool, sig_atomic_t *volatile global_stop);
-static void *_capture_worker_thread(void *v_ctx_ptr);
+static void *_capture_worker_thread(void *v_ctx);
 static void _capture_destroy_workers(struct device_t *dev, struct workers_pool_t *pool);
 static int _capture_control(struct device_t *dev, const bool enable);
 static int _capture_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_info);
@@ -24,7 +32,37 @@ static int _capture_release_buffer(struct device_t *dev, struct v4l2_buffer *buf
 static int _capture_handle_event(struct device_t *dev);
 
 
-void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop) {
+void captured_picture_init(struct captured_picture_t *captured) {
+	memset(captured, 0, sizeof(struct captured_picture_t));
+	A_PTHREAD_M_INIT(&captured->mutex);
+}
+
+void captured_picture_destroy(struct captured_picture_t *captured) {
+	A_PTHREAD_M_DESTROY(&captured->mutex);
+}
+
+#ifdef DUMP_CAPTURED_JPEGS
+static void _capture_dump(struct captured_picture_t *captured) {
+	static unsigned count = 0;
+	char path[1024];
+
+	errno = 0;
+	mkdir("captured", 0777);
+	assert(errno == 0 || errno == EEXIST);
+
+	sprintf(path, "captured/img_%06u.jpg", count);
+	int fd = open(path, O_CREAT|O_TRUNC|O_WRONLY, 0644);
+	assert(fd);
+	assert(write(fd, captured->picture.data, captured->picture.size) == (ssize_t)captured->picture.size);
+	assert(!close(fd));
+
+	LOG_INFO("-DDUMP_CAPTURED_JPEGS dumped %s", path);
+
+	++count;
+}
+#endif
+
+void capture_loop(struct device_t *dev, struct captured_picture_t *captured, sig_atomic_t *volatile global_stop) {
 	struct workers_pool_t pool;
 	volatile sig_atomic_t workers_stop;
 
@@ -35,11 +73,15 @@ void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop) {
 	LOG_INFO("Using JPEG quality: %d%%", dev->jpeg_quality);
 
 	while (_capture_init_loop(dev, &pool, global_stop) == 0) {
+		struct worker_t *last_worker = NULL;
 		unsigned frames_count = 0;
 		long double grab_after = 0;
 		unsigned fluency_passed = 0;
 		unsigned fps = 0;
 		long long fps_second = 0;
+
+		LOG_DEBUG("Allocation memory for captured (result) picture ...");
+		A_CALLOC(captured->picture.data, dev->run->max_picture_size, sizeof(*captured->picture.data));
 
 		while (!*global_stop) {
 			SEP_DEBUG('-');
@@ -48,6 +90,23 @@ void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop) {
 			A_PTHREAD_M_LOCK(&pool.has_free_workers_mutex);
 			A_PTHREAD_C_WAIT_TRUE(pool.has_free_workers, &pool.has_free_workers_cond, &pool.has_free_workers_mutex);
 			A_PTHREAD_M_UNLOCK(&pool.has_free_workers_mutex);
+
+			if (last_worker && !last_worker->has_job && dev->run->pictures[last_worker->ctx.index].data) {
+				A_PTHREAD_M_LOCK(&captured->mutex);
+				captured->picture.size = dev->run->pictures[last_worker->ctx.index].size;
+				memcpy(
+					captured->picture.data,
+					dev->run->pictures[last_worker->ctx.index].data,
+					captured->picture.size * sizeof(*captured->picture.data)
+				);
+				A_PTHREAD_M_UNLOCK(&captured->mutex);
+
+				last_worker = last_worker->order_next;
+
+#	ifdef DUMP_CAPTURED_JPEGS
+				_capture_dump(captured);
+#	endif
+			}
 
 			if (*global_stop) {
 				break;
@@ -134,6 +193,12 @@ void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop) {
 					LOG_DEBUG("Grabbed a new frame to buffer %d", buf_info.index);
 					pool.workers[buf_info.index].ctx.buf_info = buf_info;
 
+					if (!last_worker) {
+						last_worker = &pool.workers[buf_info.index];
+					} else {
+						last_worker->order_next = &pool.workers[buf_info.index];
+					}
+
 					A_PTHREAD_M_LOCK(&pool.workers[buf_info.index].has_job_mutex);
 					pool.workers[buf_info.index].has_job = true;
 					A_PTHREAD_M_UNLOCK(&pool.workers[buf_info.index].has_job_mutex);
@@ -163,6 +228,11 @@ void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop) {
 				}
 			}
 		}
+
+		A_PTHREAD_M_LOCK(&captured->mutex);
+		captured->picture.size = 0;
+		free(captured->picture.data);
+		A_PTHREAD_M_UNLOCK(&captured->mutex);
 	}
 
 	_capture_destroy_workers(dev, &pool);
@@ -254,8 +324,8 @@ static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *p
 	}
 }
 
-static void *_capture_worker_thread(void *v_ctx_ptr) {
-	struct worker_context_t *ctx = (struct worker_context_t *)v_ctx_ptr;
+static void *_capture_worker_thread(void *v_ctx) {
+	struct worker_context_t *ctx = (struct worker_context_t *)v_ctx;
 
 	LOG_DEBUG("Hello! I am a worker #%d ^_^", ctx->index);
 

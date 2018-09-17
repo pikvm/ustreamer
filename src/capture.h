@@ -38,6 +38,8 @@ struct worker_t {
 	pthread_mutex_t			has_job_mutex;
 	bool					has_job;
 	pthread_cond_t			has_job_cond;
+
+	struct worker_t			*order_next;
 };
 
 struct workers_pool_t {
@@ -49,5 +51,14 @@ struct workers_pool_t {
 	pthread_cond_t	has_free_workers_cond;
 };
 
+struct captured_picture_t {
+	struct picture_t	picture;
+	unsigned			width;
+	unsigned			height;
+	pthread_mutex_t		mutex;
+};
 
-void capture_loop(struct device_t *dev, sig_atomic_t *volatile global_stop);
+
+void captured_picture_init(struct captured_picture_t *captured);
+void captured_picture_destroy(struct captured_picture_t *captured);
+void capture_loop(struct device_t *dev, struct captured_picture_t *captured, sig_atomic_t *volatile global_stop);

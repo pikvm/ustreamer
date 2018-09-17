@@ -50,8 +50,6 @@ static const char *_standard_to_string(const v4l2_std_id standard);
 
 
 void device_init(struct device_t *dev, struct device_runtime_t *run) {
-	LOG_DEBUG("Initializing a new device struct ...");
-
 	memset(dev, 0, sizeof(struct device_t));
 	memset(run, 0, sizeof(struct device_runtime_t));
 
@@ -67,7 +65,6 @@ void device_init(struct device_t *dev, struct device_runtime_t *run) {
 
 	dev->run = run;
 	dev->run->fd = -1;
-	LOG_DEBUG("We have a clear device!");
 }
 
 int device_parse_format(const char *const str) {
@@ -125,6 +122,7 @@ void device_close(struct device_t *dev) {
 		LOG_DEBUG("Releasing picture buffers ...");
 		for (unsigned index = 0; index < dev->run->n_buffers && dev->run->pictures[index].data; ++index) {
 			free(dev->run->pictures[index].data);
+			dev->run->pictures[index].data = NULL;
 		}
 		free(dev->run->pictures);
 		dev->run->pictures = NULL;
@@ -377,14 +375,13 @@ static int _device_open_queue_buffers(struct device_t *dev) {
 }
 
 static void _device_open_alloc_picbufs(struct device_t *dev) {
-	unsigned max_picture_size = dev->run->width * dev->run->height << 1;
-
 	LOG_DEBUG("Allocating picture buffers ...");
 	A_CALLOC(dev->run->pictures, dev->run->n_buffers, sizeof(*dev->run->pictures));
 
+	dev->run->max_picture_size = (dev->run->width * dev->run->height) << 1;
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
 		LOG_DEBUG("Allocating picture buffer %d ...", index);
-		A_MALLOC(dev->run->pictures[index].data, max_picture_size);
+		A_CALLOC(dev->run->pictures[index].data, dev->run->max_picture_size, sizeof(*dev->run->pictures[index].data));
 	}
 }
 

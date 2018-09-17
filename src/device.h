@@ -27,6 +27,7 @@ struct device_runtime_t {
 	unsigned			n_buffers;
 	struct hw_buffer_t	*hw_buffers;
 	struct picture_t	*pictures;
+	unsigned			max_picture_size;
 	bool				capturing;
 };
 
