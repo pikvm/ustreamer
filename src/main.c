@@ -33,6 +33,7 @@ static const struct option _long_opts[] = {
 	{"v4l2-timeout",		required_argument,	NULL,	1002},
 	{"v4l2-error-timeout",	required_argument,	NULL,	1003},
 	{"debug",				no_argument,		NULL,	5000},
+	{"perf",				no_argument,		NULL,	5001},
 	{NULL, 0, NULL, 0},
 };
 
@@ -62,7 +63,8 @@ static void _parse_options(int argc, char *argv[], struct device_t *dev) {
 	int index;
 	int ch;
 
-	debug = false;
+	log_debug = false;
+	log_perf = false;
 	while ((ch = getopt_long(argc, argv, _short_opts, _long_opts, &index)) >= 0) {
 		switch (ch) {
 			case 0:		break;
@@ -81,7 +83,8 @@ static void _parse_options(int argc, char *argv[], struct device_t *dev) {
 			case 1001:	OPT_UNSIGNED(dev->height, "--height", 180);
 			case 1002:	OPT_UNSIGNED(dev->timeout, "--timeout", 1);
 			case 1003:	OPT_UNSIGNED(dev->error_timeout, "--error-timeout", 1);
-			case 5000:	OPT_TRUE(debug);
+			case 5000:	OPT_TRUE(log_debug);
+			case 5001:	OPT_TRUE(log_perf);
 			case 'h':	_help(EXIT_SUCCESS); break;
 			default:	_help(EXIT_FAILURE); break;
 		}

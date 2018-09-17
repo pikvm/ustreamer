@@ -15,7 +15,8 @@
 #include <sys/syscall.h>
 
 
-bool debug;
+bool log_debug;
+bool log_perf;
 
 
 #define SEP_INFO(_x_ch) \
@@ -33,11 +34,15 @@ bool debug;
 	printf("-- INFO  " INNER_LOG_PL " -- " _x_msg "\n", INNER_LOG_PARAMS, ##__VA_ARGS__); }
 
 #define LOG_DEBUG(_x_msg, ...) \
-	{ if (debug) { INNER_LOG_MK_PARAMS; \
+	{ if (log_debug) { INNER_LOG_MK_PARAMS; \
 	printf("-- DEBUG " INNER_LOG_PL " -- " _x_msg "\n", INNER_LOG_PARAMS, ##__VA_ARGS__); } }
 
+#define LOG_PERF(_x_msg, ...) \
+	{ if (log_debug || log_perf) { INNER_LOG_MK_PARAMS; \
+	printf("-- PERF  " INNER_LOG_PL " -- " _x_msg "\n", INNER_LOG_PARAMS, ##__VA_ARGS__); } }
+
 #define SEP_DEBUG(_x_ch) \
-	{ if (debug) { SEP_INFO(_x_ch); } }
+	{ if (log_debug) { SEP_INFO(_x_ch); } }
 
 #define LOG_ERROR(_x_msg, ...) \
 	{ INNER_LOG_MK_PARAMS; \

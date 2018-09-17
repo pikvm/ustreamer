@@ -257,7 +257,7 @@ static void *_capture_worker_thread(void *v_ctx_ptr) {
 			*ctx->last_comp_time = last_comp_time;
 			A_PTHREAD_M_UNLOCK(ctx->last_comp_time_mutex);
 
-			LOG_INFO("Compressed JPEG size=%ld; time=%LG (worker %d)", compressed, last_comp_time, ctx->index); // FIXME
+			LOG_PERF("Compressed JPEG size=%ld; time=%LG (worker %d)", compressed, last_comp_time, ctx->index); // FIXME
 		}
 	}
 
