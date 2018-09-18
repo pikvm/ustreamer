@@ -14,6 +14,7 @@
 #endif
 
 #include "tools.h"
+#include "logging.h"
 #include "stream.h"
 #include "http.h"
 
@@ -82,7 +83,6 @@ void http_server_loop(struct http_server_t *server) {
 }
 
 void http_server_loop_break(struct http_server_t *server) {
-	LOG_INFO("Stopping HTTP eventloop ...");
 	event_base_loopbreak(server->run->base);
 }
 

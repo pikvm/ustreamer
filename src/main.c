@@ -5,13 +5,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <signal.h>
 #include <pthread.h>
 #include <getopt.h>
 
 #include "tools.h"
+#include "logging.h"
 #include "device.h"
 #include "stream.h"
 #include "http.h"
@@ -131,7 +131,7 @@ static void *_server_loop_thread(UNUSED void *_) {
 }
 
 static void _signal_handler(int signum) {
-	LOG_INFO("===== Stopping by %s =====", strsignal(signum));
+	LOG_INFO_NOLOCK("===== Stopping by %s =====", (signum == SIGTERM ? "SIGTERM" : "SIGINT"));
 	stream_loop_break(_ctx->stream);
 	http_server_loop_break(_ctx->server);
 }
@@ -161,6 +161,8 @@ int main(int argc, char *argv[]) {
 	struct http_server_t *server;
 	int exit_code = 0;
 
+	LOGGING_INIT;
+
 	dev = device_init();
 	stream = stream_init(dev);
 	server = http_server_init(stream);
@@ -187,5 +189,7 @@ int main(int argc, char *argv[]) {
 	http_server_destroy(server);
 	stream_destroy(stream);
 	device_destroy(dev);
+
+	LOGGING_DESTROY;
 	return abs(exit_code);
 }

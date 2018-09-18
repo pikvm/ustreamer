@@ -10,6 +10,7 @@
 #include <linux/videodev2.h>
 
 #include "tools.h"
+#include "logging.h"
 #include "device.h"
 
 

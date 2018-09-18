@@ -15,6 +15,7 @@
 #endif
 
 #include "tools.h"
+#include "logging.h"
 #include "device.h"
 #include "jpeg.h"
 #include "stream.h"
