@@ -32,12 +32,11 @@ static int _stream_release_buffer(struct device_t *dev, struct v4l2_buffer *buf_
 static int _stream_handle_event(struct device_t *dev);
 
 
-struct stream_t *stream_init() {
+struct stream_t *stream_init(struct device_t *dev) {
 	struct stream_t *stream;
 
 	A_CALLOC(stream, 1, sizeof(*stream));
-	MEMSET_ZERO_PTR(stream);
-
+	stream->dev = dev;
 	A_PTHREAD_M_INIT(&stream->mutex);
 	return stream;
 }
@@ -68,17 +67,17 @@ static void _stream_dump(struct stream_t *stream) {
 }
 #endif
 
-void stream_loop(struct device_t *dev, struct stream_t *stream) {
+void stream_loop(struct stream_t *stream) {
 	struct workers_pool_t pool;
 	bool workers_stop;
 
 	MEMSET_ZERO(pool);
 	pool.workers_stop = &workers_stop;
 
-	LOG_INFO("Using V4L2 device: %s", dev->path);
-	LOG_INFO("Using JPEG quality: %d%%", dev->jpeg_quality);
+	LOG_INFO("Using V4L2 device: %s", stream->dev->path);
+	LOG_INFO("Using JPEG quality: %d%%", stream->dev->jpeg_quality);
 
-	while (_stream_init_loop(dev, &pool) == 0) {
+	while (_stream_init_loop(stream->dev, &pool) == 0) {
 		struct worker_t *last_worker = NULL;
 		unsigned frames_count = 0;
 		long double grab_after = 0;
@@ -87,15 +86,15 @@ void stream_loop(struct device_t *dev, struct stream_t *stream) {
 		long long fps_second = 0;
 
 		LOG_DEBUG("Allocation memory for stream picture ...");
-		A_CALLOC(stream->picture.data, dev->run->max_picture_size, sizeof(*stream->picture.data));
+		A_CALLOC(stream->picture.data, stream->dev->run->max_picture_size, sizeof(*stream->picture.data));
 
 		A_PTHREAD_M_LOCK(&stream->mutex);
-		stream->width = dev->run->width;
-		stream->height = dev->run->height;
+		stream->width = stream->dev->run->width;
+		stream->height = stream->dev->run->height;
 		stream->online = true;
 		A_PTHREAD_M_UNLOCK(&stream->mutex);
 
-		while (!dev->stop) {
+		while (!stream->dev->stop) {
 			SEP_DEBUG('-');
 
 			LOG_DEBUG("Waiting for workers ...");
@@ -103,13 +102,13 @@ void stream_loop(struct device_t *dev, struct stream_t *stream) {
 			A_PTHREAD_C_WAIT_TRUE(pool.has_free_workers, &pool.has_free_workers_cond, &pool.has_free_workers_mutex);
 			A_PTHREAD_M_UNLOCK(&pool.has_free_workers_mutex);
 
-			if (last_worker && !last_worker->has_job && dev->run->pictures[last_worker->ctx.index].data) {
+			if (last_worker && !last_worker->has_job && stream->dev->run->pictures[last_worker->ctx.index].data) {
 				A_PTHREAD_M_LOCK(&stream->mutex);
-				stream->picture.size = dev->run->pictures[last_worker->ctx.index].size;
-				stream->picture.allocated = dev->run->pictures[last_worker->ctx.index].allocated;
+				stream->picture.size = stream->dev->run->pictures[last_worker->ctx.index].size;
+				stream->picture.allocated = stream->dev->run->pictures[last_worker->ctx.index].allocated;
 				memcpy(
 					stream->picture.data,
-					dev->run->pictures[last_worker->ctx.index].data,
+					stream->dev->run->pictures[last_worker->ctx.index].data,
 					stream->picture.size * sizeof(*stream->picture.data)
 				);
 				stream->updated = true;
@@ -122,23 +121,23 @@ void stream_loop(struct device_t *dev, struct stream_t *stream) {
 #	endif
 			}
 
-			if (dev->stop) {
+			if (stream->dev->stop) {
 				break;
 			}
 
 #	define INIT_FD_SET(_set) \
-		fd_set _set; FD_ZERO(&_set); FD_SET(dev->run->fd, &_set);
+		fd_set _set; FD_ZERO(&_set); FD_SET(stream->dev->run->fd, &_set);
 			INIT_FD_SET(read_fds);
 			INIT_FD_SET(write_fds);
 			INIT_FD_SET(error_fds);
 #	undef INIT_FD_SET
 
 			struct timeval timeout;
-			timeout.tv_sec = dev->timeout;
+			timeout.tv_sec = stream->dev->timeout;
 			timeout.tv_usec = 0;
 
 			LOG_DEBUG("Calling select() on video device ...");
-			int retval = select(dev->run->fd + 1, &read_fds, &write_fds, &error_fds, &timeout);
+			int retval = select(stream->dev->run->fd + 1, &read_fds, &write_fds, &error_fds, &timeout);
 			LOG_DEBUG("Device select() --> %d", retval);
 
 			if (retval < 0) {
@@ -152,18 +151,18 @@ void stream_loop(struct device_t *dev, struct stream_t *stream) {
 				break;
 
 			} else {
-				if (FD_ISSET(dev->run->fd, &read_fds)) {
+				if (FD_ISSET(stream->dev->run->fd, &read_fds)) {
 					LOG_DEBUG("Frame is ready");
 
 					struct v4l2_buffer buf_info;
 
-					if (_stream_grab_buffer(dev, &buf_info) < 0) {
+					if (_stream_grab_buffer(stream->dev, &buf_info) < 0) {
 						break;
 					}
 
-					if (dev->every_frame) {
-						if (frames_count < dev->every_frame - 1) {
-							LOG_DEBUG("Dropping frame %d for option --every-frame=%d", frames_count + 1, dev->every_frame);
+					if (stream->dev->every_frame) {
+						if (frames_count < stream->dev->every_frame - 1) {
+							LOG_DEBUG("Dropping frame %d for option --every-frame=%d", frames_count + 1, stream->dev->every_frame);
 							++frames_count;
 							goto pass_frame;
 						}
@@ -175,7 +174,7 @@ void stream_loop(struct device_t *dev, struct stream_t *stream) {
 					// The good thing is such frames are quite small compared to the regular pictures.
 					// For example a VGA (640x480) webcam picture is normally >= 8kByte large,
 					// corrupted frames are smaller.
-					if (buf_info.bytesused < dev->min_frame_size) {
+					if (buf_info.bytesused < stream->dev->min_frame_size) {
 						LOG_DEBUG("Dropping too small frame sized %d bytes, assuming it as broken", buf_info.bytesused);
 						goto pass_frame;
 					}
@@ -199,7 +198,7 @@ void stream_loop(struct device_t *dev, struct stream_t *stream) {
 							++fps;
 						}
 
-						long double delay = _stream_get_fluency_delay(dev, &pool);
+						long double delay = _stream_get_fluency_delay(stream->dev, &pool);
 						grab_after = now + delay;
 						LOG_PERF("Fluency delay=%.03Lf; grab_after=%.03Lf", delay, grab_after);
 					}
@@ -222,21 +221,21 @@ void stream_loop(struct device_t *dev, struct stream_t *stream) {
 
 					pass_frame:
 
-					if (_stream_release_buffer(dev, &buf_info) < 0) {
+					if (_stream_release_buffer(stream->dev, &buf_info) < 0) {
 						break;
 					}
 				}
 
 				next_handlers:
 
-				if (FD_ISSET(dev->run->fd, &write_fds)) {
+				if (FD_ISSET(stream->dev->run->fd, &write_fds)) {
 					LOG_ERROR("Got unexpected writing event, seems device was disconnected");
 					break;
 				}
 
-				if (FD_ISSET(dev->run->fd, &error_fds)) {
+				if (FD_ISSET(stream->dev->run->fd, &error_fds)) {
 					LOG_INFO("Got V4L2 event");
-					if (_stream_handle_event(dev) < 0) {
+					if (_stream_handle_event(stream->dev) < 0) {
 						break;
 					}
 				}
@@ -250,13 +249,13 @@ void stream_loop(struct device_t *dev, struct stream_t *stream) {
 		A_PTHREAD_M_UNLOCK(&stream->mutex);
 	}
 
-	_stream_destroy_workers(dev, &pool);
-	_stream_control(dev, false);
-	device_close(dev);
+	_stream_destroy_workers(stream->dev, &pool);
+	_stream_control(stream->dev, false);
+	device_close(stream->dev);
 }
 
-void stream_loop_break(struct device_t *dev) {
-	dev->stop = 1;
+void stream_loop_break(struct stream_t *stream) {
+	stream->dev->stop = 1;
 }
 
 static long double _stream_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool) {

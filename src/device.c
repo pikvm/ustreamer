@@ -53,12 +53,9 @@ struct device_t *device_init() {
 	struct device_t *dev;
 
 	A_CALLOC(run, 1, sizeof(*run));
-	MEMSET_ZERO_PTR(run);
 	run->fd = -1;
 
 	A_CALLOC(dev, 1, sizeof(*dev));
-	MEMSET_ZERO_PTR(dev);
-
 	dev->path = (char *)DEFAULT_DEVICE;
 	dev->width = 640;
 	dev->height = 480;

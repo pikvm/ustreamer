@@ -1,10 +1,8 @@
 #pragma once
 
-#include <signal.h>
 #include <stdbool.h>
 #include <signal.h>
 #include <pthread.h>
-#include <linux/videodev2.h>
 
 #include "device.h"
 
@@ -58,11 +56,12 @@ struct stream_t {
 	bool				online;
 	bool				updated;
 	pthread_mutex_t		mutex;
+	struct device_t		*dev;
 };
 
 
-struct stream_t *stream_init();
+struct stream_t *stream_init(struct device_t *dev);
 void stream_destroy(struct stream_t *stream);
 
-void stream_loop(struct device_t *dev, struct stream_t *stream);
-void stream_loop_break(struct device_t *dev);
+void stream_loop(struct stream_t *stream);
+void stream_loop_break(struct stream_t *stream);

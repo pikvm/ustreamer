@@ -6,11 +6,18 @@
 #include "stream.h"
 
 
+struct exposed_t {
+	struct picture_t	picture;
+	unsigned			width;
+	unsigned			height;
+	bool				online;
+};
+
 struct http_server_runtime_t {
 	struct event_base	*base;
 	struct evhttp		*http;
 	struct stream_t		*stream;
-	struct stream_t		*exposed; // updated and mutex are not used
+	struct exposed_t	*exposed;
 };
 
 struct http_server_t {

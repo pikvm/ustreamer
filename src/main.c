@@ -104,7 +104,6 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct h
 }
 
 struct main_context_t {
-	struct device_t			*dev;
 	struct stream_t			*stream;
 	struct http_server_t	*server;
 };
@@ -121,7 +120,7 @@ static void _block_thread_signals() {
 
 static void *_stream_loop_thread(UNUSED void *_) {
 	_block_thread_signals();
-	stream_loop(_ctx->dev, _ctx->stream);
+	stream_loop(_ctx->stream);
 	return NULL;
 }
 
@@ -133,7 +132,7 @@ static void *_server_loop_thread(UNUSED void *_) {
 
 static void _signal_handler(int signum) {
 	LOG_INFO("===== Stopping by %s =====", strsignal(signum));
-	stream_loop_break(_ctx->dev);
+	stream_loop_break(_ctx->stream);
 	http_server_loop_break(_ctx->server);
 }
 
@@ -163,7 +162,7 @@ int main(int argc, char *argv[]) {
 	int exit_code = 0;
 
 	dev = device_init();
-	stream = stream_init();
+	stream = stream_init(dev);
 	server = http_server_init(stream);
 
 	if ((exit_code = _parse_options(argc, argv, dev, server)) == 0) {
@@ -173,7 +172,6 @@ int main(int argc, char *argv[]) {
 		pthread_t server_loop_tid;
 		struct main_context_t ctx;
 
-		ctx.dev = dev;
 		ctx.stream = stream;
 		ctx.server = server;
 		_ctx = &ctx;

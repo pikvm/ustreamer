@@ -29,19 +29,17 @@ static void _http_add_header(struct evhttp_request *request, const char *key, co
 
 
 struct http_server_t *http_server_init(struct stream_t *stream) {
-	struct stream_t *exposed;
 	struct http_server_runtime_t *run;
 	struct http_server_t *server;
+	struct exposed_t *exposed;
 
-	exposed = stream_init();
+	A_CALLOC(exposed, 1, sizeof(*exposed));
 
 	A_CALLOC(run, 1, sizeof(*run));
-	MEMSET_ZERO_PTR(run);
 	run->stream = stream;
 	run->exposed = exposed;
 
 	A_CALLOC(server, 1, sizeof(*server));
-	MEMSET_ZERO_PTR(server);
 	server->host = (char *)DEFAULT_HOST;
 	server->port = 8080;
 	server->run = run;
@@ -61,7 +59,7 @@ void http_server_destroy(struct http_server_t *server) {
 	evhttp_free(server->run->http);
 	event_base_free(server->run->base);
 	free(server->run->exposed->picture.data);
-	stream_destroy(server->run->exposed);
+	free(server->run->exposed);
 	free(server->run);
 	free(server);
 	libevent_global_shutdown();
