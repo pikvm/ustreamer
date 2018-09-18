@@ -72,7 +72,7 @@ unsigned long jpeg_compress_buffer(struct device_t *dev, int index) {
 	struct jpeg_error_mgr jpeg_error;
 	unsigned char *line_buffer;
 
-	A_CALLOC(line_buffer, dev->run->width * 3, sizeof(unsigned char));
+	A_CALLOC(line_buffer, dev->run->width * 3);
 
 	jpeg.err = jpeg_std_error(&jpeg_error);
 	jpeg_create_compress(&jpeg);

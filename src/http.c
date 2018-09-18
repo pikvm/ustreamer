@@ -33,13 +33,13 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	struct http_server_t *server;
 	struct exposed_t *exposed;
 
-	A_CALLOC(exposed, 1, sizeof(*exposed));
+	A_CALLOC(exposed, 1);
 
-	A_CALLOC(run, 1, sizeof(*run));
+	A_CALLOC(run, 1);
 	run->stream = stream;
 	run->exposed = exposed;
 
-	A_CALLOC(server, 1, sizeof(*server));
+	A_CALLOC(server, 1);
 	server->host = (char *)DEFAULT_HOST;
 	server->port = 8080;
 	server->run = run;
@@ -152,10 +152,7 @@ static void _http_update_exposed(struct http_server_t *server) {
 	if (server->run->stream->updated) {
 		A_PTHREAD_M_LOCK(&server->run->stream->mutex);
 		if (server->run->stream->picture.allocated > server->run->exposed->picture.allocated) {
-			A_REALLOC(
-				server->run->exposed->picture.data,
-				server->run->stream->picture.allocated * sizeof(*server->run->exposed->picture.data)
-			);
+			A_REALLOC(server->run->exposed->picture.data, server->run->stream->picture.allocated);
 			server->run->exposed->picture.allocated = server->run->stream->picture.allocated;
 		}
 		memcpy(

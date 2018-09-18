@@ -35,7 +35,7 @@ static int _stream_handle_event(struct device_t *dev);
 struct stream_t *stream_init(struct device_t *dev) {
 	struct stream_t *stream;
 
-	A_CALLOC(stream, 1, sizeof(*stream));
+	A_CALLOC(stream, 1);
 	stream->dev = dev;
 	A_PTHREAD_M_INIT(&stream->mutex);
 	return stream;
@@ -86,7 +86,7 @@ void stream_loop(struct stream_t *stream) {
 		long long fps_second = 0;
 
 		LOG_DEBUG("Allocation memory for stream picture ...");
-		A_CALLOC(stream->picture.data, stream->dev->run->max_picture_size, sizeof(*stream->picture.data));
+		A_CALLOC(stream->picture.data, stream->dev->run->max_picture_size);
 
 		A_PTHREAD_M_LOCK(&stream->mutex);
 		stream->width = stream->dev->run->width;
@@ -313,7 +313,7 @@ static void _stream_init_workers(struct device_t *dev, struct workers_pool_t *po
 	LOG_DEBUG("Spawning %d workers ...", dev->run->n_buffers);
 
 	*pool->workers_stop = false;
-	A_CALLOC(pool->workers, dev->run->n_buffers, sizeof(*pool->workers));
+	A_CALLOC(pool->workers, dev->run->n_buffers);
 
 	A_PTHREAD_M_INIT(&pool->has_free_workers_mutex);
 	A_PTHREAD_C_INIT(&pool->has_free_workers_cond);

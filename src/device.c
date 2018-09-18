@@ -52,10 +52,10 @@ struct device_t *device_init() {
 	struct device_runtime_t *run;
 	struct device_t *dev;
 
-	A_CALLOC(run, 1, sizeof(*run));
+	A_CALLOC(run, 1);
 	run->fd = -1;
 
-	A_CALLOC(dev, 1, sizeof(*dev));
+	A_CALLOC(dev, 1);
 	dev->path = (char *)DEFAULT_DEVICE;
 	dev->width = 640;
 	dev->height = 480;
@@ -337,7 +337,7 @@ static int _device_open_mmap(struct device_t *dev) {
 
 	LOG_DEBUG("Allocating HW buffers ...");
 
-	A_CALLOC(dev->run->hw_buffers, req.count, sizeof(*dev->run->hw_buffers));
+	A_CALLOC(dev->run->hw_buffers, req.count);
 	for (dev->run->n_buffers = 0; dev->run->n_buffers < req.count; ++dev->run->n_buffers) {
 		struct v4l2_buffer buf_info;
 
@@ -383,12 +383,12 @@ static int _device_open_queue_buffers(struct device_t *dev) {
 
 static void _device_open_alloc_picbufs(struct device_t *dev) {
 	LOG_DEBUG("Allocating picture buffers ...");
-	A_CALLOC(dev->run->pictures, dev->run->n_buffers, sizeof(*dev->run->pictures));
+	A_CALLOC(dev->run->pictures, dev->run->n_buffers);
 
 	dev->run->max_picture_size = (dev->run->width * dev->run->height) << 1;
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
 		LOG_DEBUG("Allocating picture buffer %d ...", index);
-		A_CALLOC(dev->run->pictures[index].data, dev->run->max_picture_size, sizeof(*dev->run->pictures[index].data));
+		A_CALLOC(dev->run->pictures[index].data, dev->run->max_picture_size);
 		dev->run->pictures[index].allocated = dev->run->max_picture_size;
 	}
 }

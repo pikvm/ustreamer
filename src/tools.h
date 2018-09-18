@@ -66,10 +66,10 @@ unsigned log_level;
 	{ while(!_var) assert(!pthread_cond_wait(_cond, _mutex)); }
 
 
-#define A_CALLOC(_dest, _nmemb, _size)	assert((_dest = calloc(_nmemb, _size)))
-#define A_REALLOC(_dest, _size)			assert((_dest = realloc(_dest, _size)))
-#define MEMSET_ZERO(_x_obj)				memset(&(_x_obj), 0, sizeof(_x_obj))
-#define MEMSET_ZERO_PTR(_x_ptr)			memset(_x_ptr, 0, sizeof(*(_x_ptr)))
+#define A_CALLOC(_dest, _nmemb)		assert((_dest = calloc(_nmemb, sizeof(*(_dest)))))
+#define A_REALLOC(_dest, _nmemb)	assert((_dest = realloc(_dest, _nmemb * sizeof(*(_dest)))))
+#define MEMSET_ZERO(_x_obj)			memset(&(_x_obj), 0, sizeof(_x_obj))
+#define MEMSET_ZERO_PTR(_x_ptr)		memset(_x_ptr, 0, sizeof(*(_x_ptr)))
 
 
 #define INLINE inline __attribute__((always_inline))
