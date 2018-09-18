@@ -14,7 +14,7 @@
 #endif
 
 #include "tools.h"
-#include "capture.h"
+#include "stream.h"
 #include "http.h"
 
 
@@ -28,16 +28,16 @@ static void _http_update_exposed(struct http_server_t *server);
 static void _http_add_header(struct evhttp_request *request, const char *key, const char *value);
 
 
-struct http_server_t *http_server_init(struct captured_picture_t *captured) {
-	struct captured_picture_t *exposed;
+struct http_server_t *http_server_init(struct stream_t *stream) {
+	struct stream_t *exposed;
 	struct http_server_runtime_t *run;
 	struct http_server_t *server;
 
-	exposed = captured_picture_init();
+	exposed = stream_init();
 
 	A_CALLOC(run, 1, sizeof(*run));
 	MEMSET_ZERO_PTR(run);
-	run->captured = captured;
+	run->stream = stream;
 	run->exposed = exposed;
 
 	A_CALLOC(server, 1, sizeof(*server));
@@ -61,7 +61,7 @@ void http_server_destroy(struct http_server_t *server) {
 	evhttp_free(server->run->http);
 	event_base_free(server->run->base);
 	free(server->run->exposed->picture.data);
-	captured_picture_destroy(server->run->exposed);
+	stream_destroy(server->run->exposed);
 	free(server->run);
 	free(server);
 	libevent_global_shutdown();
@@ -151,26 +151,26 @@ static void _http_callback_stream_snapshot(struct evhttp_request *request, void 
 }
 
 static void _http_update_exposed(struct http_server_t *server) {
-	if (server->run->captured->updated) {
-		A_PTHREAD_M_LOCK(&server->run->captured->mutex);
-		if (server->run->captured->picture.allocated > server->run->exposed->picture.allocated) {
+	if (server->run->stream->updated) {
+		A_PTHREAD_M_LOCK(&server->run->stream->mutex);
+		if (server->run->stream->picture.allocated > server->run->exposed->picture.allocated) {
 			A_REALLOC(
 				server->run->exposed->picture.data,
-				server->run->captured->picture.allocated * sizeof(*server->run->exposed->picture.data)
+				server->run->stream->picture.allocated * sizeof(*server->run->exposed->picture.data)
 			);
-			server->run->exposed->picture.allocated = server->run->captured->picture.allocated;
+			server->run->exposed->picture.allocated = server->run->stream->picture.allocated;
 		}
 		memcpy(
 			server->run->exposed->picture.data,
-			server->run->captured->picture.data,
-			server->run->captured->picture.size * sizeof(*server->run->exposed->picture.data)
+			server->run->stream->picture.data,
+			server->run->stream->picture.size * sizeof(*server->run->exposed->picture.data)
 		);
-		server->run->exposed->picture.size = server->run->captured->picture.size;
-		server->run->exposed->width = server->run->captured->width;
-		server->run->exposed->height = server->run->captured->height;
-		server->run->exposed->online = server->run->captured->online;
-		server->run->captured->updated = false;
-		A_PTHREAD_M_UNLOCK(&server->run->captured->mutex);
+		server->run->exposed->picture.size = server->run->stream->picture.size;
+		server->run->exposed->width = server->run->stream->width;
+		server->run->exposed->height = server->run->stream->height;
+		server->run->exposed->online = server->run->stream->online;
+		server->run->stream->updated = false;
+		A_PTHREAD_M_UNLOCK(&server->run->stream->mutex);
 	}
 }
 

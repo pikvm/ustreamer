@@ -51,7 +51,7 @@ struct workers_pool_t {
 	pthread_cond_t	has_free_workers_cond;
 };
 
-struct captured_picture_t {
+struct stream_t {
 	struct picture_t	picture;
 	unsigned			width;
 	unsigned			height;
@@ -61,8 +61,8 @@ struct captured_picture_t {
 };
 
 
-struct captured_picture_t *captured_picture_init();
-void captured_picture_destroy(struct captured_picture_t *captured);
+struct stream_t *stream_init();
+void stream_destroy(struct stream_t *stream);
 
-void capture_loop(struct device_t *dev, struct captured_picture_t *capture);
-void capture_loop_break(struct device_t *dev);
+void stream_loop(struct device_t *dev, struct stream_t *stream);
+void stream_loop_break(struct device_t *dev);

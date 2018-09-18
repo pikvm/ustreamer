@@ -13,7 +13,7 @@
 
 #include "tools.h"
 #include "device.h"
-#include "capture.h"
+#include "stream.h"
 #include "http.h"
 
 
@@ -104,9 +104,9 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct h
 }
 
 struct main_context_t {
-	struct device_t				*dev;
-	struct captured_picture_t	*captured;
-	struct http_server_t		*server;
+	struct device_t			*dev;
+	struct stream_t			*stream;
+	struct http_server_t	*server;
 };
 
 static struct main_context_t *_ctx;
@@ -119,9 +119,9 @@ static void _block_thread_signals() {
 	assert(!pthread_sigmask(SIG_BLOCK, &mask, NULL));
 }
 
-static void *_capture_loop_thread(UNUSED void *_) {
+static void *_stream_loop_thread(UNUSED void *_) {
 	_block_thread_signals();
-	capture_loop(_ctx->dev, _ctx->captured);
+	stream_loop(_ctx->dev, _ctx->stream);
 	return NULL;
 }
 
@@ -133,7 +133,7 @@ static void *_server_loop_thread(UNUSED void *_) {
 
 static void _signal_handler(int signum) {
 	LOG_INFO("===== Stopping by %s =====", strsignal(signum));
-	capture_loop_break(_ctx->dev);
+	stream_loop_break(_ctx->dev);
 	http_server_loop_break(_ctx->server);
 }
 
@@ -158,36 +158,36 @@ static void _install_signal_handlers() {
 
 int main(int argc, char *argv[]) {
 	struct device_t *dev;
-	struct captured_picture_t *captured;
+	struct stream_t *stream;
 	struct http_server_t *server;
 	int exit_code = 0;
 
 	dev = device_init();
-	captured = captured_picture_init();
-	server = http_server_init(captured);
+	stream = stream_init();
+	server = http_server_init(stream);
 
 	if ((exit_code = _parse_options(argc, argv, dev, server)) == 0) {
 		_install_signal_handlers();
 
-		pthread_t capture_loop_tid;
+		pthread_t stream_loop_tid;
 		pthread_t server_loop_tid;
 		struct main_context_t ctx;
 
 		ctx.dev = dev;
-		ctx.captured = captured;
+		ctx.stream = stream;
 		ctx.server = server;
 		_ctx = &ctx;
 
 		if ((exit_code = http_server_listen(server)) == 0) {
-			A_PTHREAD_CREATE(&capture_loop_tid, _capture_loop_thread, NULL);
+			A_PTHREAD_CREATE(&stream_loop_tid, _stream_loop_thread, NULL);
 			A_PTHREAD_CREATE(&server_loop_tid, _server_loop_thread, NULL);
-			A_PTHREAD_JOIN(capture_loop_tid);
+			A_PTHREAD_JOIN(stream_loop_tid);
 			A_PTHREAD_JOIN(server_loop_tid);
 		}
 	}
 
 	http_server_destroy(server);
-	captured_picture_destroy(captured);
+	stream_destroy(stream);
 	device_destroy(dev);
 	return abs(exit_code);
 }

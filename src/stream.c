@@ -6,8 +6,8 @@
 #include <sys/select.h>
 #include <linux/videodev2.h>
 
-#ifdef DUMP_CAPTURED_JPEGS
-#	warning Enabled DUMP_CAPTURED_JPEGS
+#ifdef DUMP_STREAM_JPEGS
+#	warning Enabled DUMP_STREAM_JPEGS
 #	include <stdio.h>
 #	include <fcntl.h>
 #	include <sys/stat.h>
@@ -17,58 +17,58 @@
 #include "tools.h"
 #include "device.h"
 #include "jpeg.h"
-#include "capture.h"
+#include "stream.h"
 
 
-static long double _capture_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool);
-static int _capture_init_loop(struct device_t *dev, struct workers_pool_t *pool);
-static int _capture_init(struct device_t *dev, struct workers_pool_t *pool);
-static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *pool);
-static void *_capture_worker_thread(void *v_ctx);
-static void _capture_destroy_workers(struct device_t *dev, struct workers_pool_t *pool);
-static int _capture_control(struct device_t *dev, const bool enable);
-static int _capture_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_info);
-static int _capture_release_buffer(struct device_t *dev, struct v4l2_buffer *buf_info);
-static int _capture_handle_event(struct device_t *dev);
+static long double _stream_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool);
+static int _stream_init_loop(struct device_t *dev, struct workers_pool_t *pool);
+static int _stream_init(struct device_t *dev, struct workers_pool_t *pool);
+static void _stream_init_workers(struct device_t *dev, struct workers_pool_t *pool);
+static void *_stream_worker_thread(void *v_ctx);
+static void _stream_destroy_workers(struct device_t *dev, struct workers_pool_t *pool);
+static int _stream_control(struct device_t *dev, const bool enable);
+static int _stream_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_info);
+static int _stream_release_buffer(struct device_t *dev, struct v4l2_buffer *buf_info);
+static int _stream_handle_event(struct device_t *dev);
 
 
-struct captured_picture_t *captured_picture_init() {
-	struct captured_picture_t *captured;
+struct stream_t *stream_init() {
+	struct stream_t *stream;
 
-	A_CALLOC(captured, 1, sizeof(*captured));
-	MEMSET_ZERO_PTR(captured);
+	A_CALLOC(stream, 1, sizeof(*stream));
+	MEMSET_ZERO_PTR(stream);
 
-	A_PTHREAD_M_INIT(&captured->mutex);
-	return captured;
+	A_PTHREAD_M_INIT(&stream->mutex);
+	return stream;
 }
 
-void captured_picture_destroy(struct captured_picture_t *captured) {
-	A_PTHREAD_M_DESTROY(&captured->mutex);
-	free(captured);
+void stream_destroy(struct stream_t *stream) {
+	A_PTHREAD_M_DESTROY(&stream->mutex);
+	free(stream);
 }
 
-#ifdef DUMP_CAPTURED_JPEGS
-static void _capture_dump(struct captured_picture_t *captured) {
+#ifdef DUMP_STREAM_JPEGS
+static void _stream_dump(struct stream_t *stream) {
 	static unsigned count = 0;
 	char path[1024];
 
 	errno = 0;
-	mkdir("captured", 0777);
+	mkdir("stream", 0777);
 	assert(errno == 0 || errno == EEXIST);
 
-	sprintf(path, "captured/img_%06u.jpg", count);
+	sprintf(path, "stream/img_%06u.jpg", count);
 	int fd = open(path, O_CREAT|O_TRUNC|O_WRONLY, 0644);
 	assert(fd);
-	assert(write(fd, captured->picture.data, captured->picture.size) == (ssize_t)captured->picture.size);
+	assert(write(fd, stream->picture.data, stream->picture.size) == (ssize_t)stream->picture.size);
 	assert(!close(fd));
 
-	LOG_INFO("-DDUMP_CAPTURED_JPEGS dumped %s", path);
+	LOG_INFO("-DDUMP_STREAM_JPEGS dumped %s", path);
 
 	++count;
 }
 #endif
 
-void capture_loop(struct device_t *dev, struct captured_picture_t *captured) {
+void stream_loop(struct device_t *dev, struct stream_t *stream) {
 	struct workers_pool_t pool;
 	bool workers_stop;
 
@@ -78,7 +78,7 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured) {
 	LOG_INFO("Using V4L2 device: %s", dev->path);
 	LOG_INFO("Using JPEG quality: %d%%", dev->jpeg_quality);
 
-	while (_capture_init_loop(dev, &pool) == 0) {
+	while (_stream_init_loop(dev, &pool) == 0) {
 		struct worker_t *last_worker = NULL;
 		unsigned frames_count = 0;
 		long double grab_after = 0;
@@ -86,14 +86,14 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured) {
 		unsigned fps = 0;
 		long long fps_second = 0;
 
-		LOG_DEBUG("Allocation memory for captured (result) picture ...");
-		A_CALLOC(captured->picture.data, dev->run->max_picture_size, sizeof(*captured->picture.data));
+		LOG_DEBUG("Allocation memory for stream picture ...");
+		A_CALLOC(stream->picture.data, dev->run->max_picture_size, sizeof(*stream->picture.data));
 
-		A_PTHREAD_M_LOCK(&captured->mutex);
-		captured->width = dev->run->width;
-		captured->height = dev->run->height;
-		captured->online = true;
-		A_PTHREAD_M_UNLOCK(&captured->mutex);
+		A_PTHREAD_M_LOCK(&stream->mutex);
+		stream->width = dev->run->width;
+		stream->height = dev->run->height;
+		stream->online = true;
+		A_PTHREAD_M_UNLOCK(&stream->mutex);
 
 		while (!dev->stop) {
 			SEP_DEBUG('-');
@@ -104,21 +104,21 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured) {
 			A_PTHREAD_M_UNLOCK(&pool.has_free_workers_mutex);
 
 			if (last_worker && !last_worker->has_job && dev->run->pictures[last_worker->ctx.index].data) {
-				A_PTHREAD_M_LOCK(&captured->mutex);
-				captured->picture.size = dev->run->pictures[last_worker->ctx.index].size;
-				captured->picture.allocated = dev->run->pictures[last_worker->ctx.index].allocated;
+				A_PTHREAD_M_LOCK(&stream->mutex);
+				stream->picture.size = dev->run->pictures[last_worker->ctx.index].size;
+				stream->picture.allocated = dev->run->pictures[last_worker->ctx.index].allocated;
 				memcpy(
-					captured->picture.data,
+					stream->picture.data,
 					dev->run->pictures[last_worker->ctx.index].data,
-					captured->picture.size * sizeof(*captured->picture.data)
+					stream->picture.size * sizeof(*stream->picture.data)
 				);
-				captured->updated = true;
-				A_PTHREAD_M_UNLOCK(&captured->mutex);
+				stream->updated = true;
+				A_PTHREAD_M_UNLOCK(&stream->mutex);
 
 				last_worker = last_worker->order_next;
 
-#	ifdef DUMP_CAPTURED_JPEGS
-				_capture_dump(captured);
+#	ifdef DUMP_STREAM_JPEGS
+				_stream_dump(stream);
 #	endif
 			}
 
@@ -157,7 +157,7 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured) {
 
 					struct v4l2_buffer buf_info;
 
-					if (_capture_grab_buffer(dev, &buf_info) < 0) {
+					if (_stream_grab_buffer(dev, &buf_info) < 0) {
 						break;
 					}
 
@@ -199,7 +199,7 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured) {
 							++fps;
 						}
 
-						long double delay = _capture_get_fluency_delay(dev, &pool);
+						long double delay = _stream_get_fluency_delay(dev, &pool);
 						grab_after = now + delay;
 						LOG_PERF("Fluency delay=%.03Lf; grab_after=%.03Lf", delay, grab_after);
 					}
@@ -222,7 +222,7 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured) {
 
 					pass_frame:
 
-					if (_capture_release_buffer(dev, &buf_info) < 0) {
+					if (_stream_release_buffer(dev, &buf_info) < 0) {
 						break;
 					}
 				}
@@ -236,30 +236,30 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured) {
 
 				if (FD_ISSET(dev->run->fd, &error_fds)) {
 					LOG_INFO("Got V4L2 event");
-					if (_capture_handle_event(dev) < 0) {
+					if (_stream_handle_event(dev) < 0) {
 						break;
 					}
 				}
 			}
 		}
 
-		A_PTHREAD_M_LOCK(&captured->mutex);
-		captured->picture.size = 0;
-		free(captured->picture.data);
-		captured->online = false;
-		A_PTHREAD_M_UNLOCK(&captured->mutex);
+		A_PTHREAD_M_LOCK(&stream->mutex);
+		stream->picture.size = 0;
+		free(stream->picture.data);
+		stream->online = false;
+		A_PTHREAD_M_UNLOCK(&stream->mutex);
 	}
 
-	_capture_destroy_workers(dev, &pool);
-	_capture_control(dev, false);
+	_stream_destroy_workers(dev, &pool);
+	_stream_control(dev, false);
 	device_close(dev);
 }
 
-void capture_loop_break(struct device_t *dev) {
+void stream_loop_break(struct device_t *dev) {
 	dev->stop = 1;
 }
 
-static long double _capture_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool) {
+static long double _stream_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool) {
 	long double delay = 0;
 
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
@@ -273,13 +273,13 @@ static long double _capture_get_fluency_delay(struct device_t *dev, struct worke
 	return delay / dev->run->n_buffers / dev->run->n_buffers;
 }
 
-static int _capture_init_loop(struct device_t *dev, struct workers_pool_t *pool) {
+static int _stream_init_loop(struct device_t *dev, struct workers_pool_t *pool) {
 	int retval = -1;
 
 	LOG_DEBUG("%s: *dev->stop = %d", __FUNCTION__, dev->stop);
 	while (!dev->stop) {
-		if ((retval = _capture_init(dev, pool)) < 0) {
-			LOG_INFO("Sleeping %d seconds before new capture init ...", dev->error_timeout);
+		if ((retval = _stream_init(dev, pool)) < 0) {
+			LOG_INFO("Sleeping %d seconds before new stream init ...", dev->error_timeout);
 			sleep(dev->error_timeout);
 		} else {
 			break;
@@ -288,20 +288,20 @@ static int _capture_init_loop(struct device_t *dev, struct workers_pool_t *pool)
 	return retval;
 }
 
-static int _capture_init(struct device_t *dev, struct workers_pool_t *pool) {
+static int _stream_init(struct device_t *dev, struct workers_pool_t *pool) {
 	SEP_INFO('=');
 
-	_capture_destroy_workers(dev, pool);
-	_capture_control(dev, false);
+	_stream_destroy_workers(dev, pool);
+	_stream_control(dev, false);
 	device_close(dev);
 
 	if (device_open(dev) < 0) {
 		goto error;
 	}
-	if (_capture_control(dev, true) < 0) {
+	if (_stream_control(dev, true) < 0) {
 		goto error;
 	}
-	_capture_init_workers(dev, pool);
+	_stream_init_workers(dev, pool);
 
 	return 0;
 
@@ -310,7 +310,7 @@ static int _capture_init(struct device_t *dev, struct workers_pool_t *pool) {
 		return -1;
 }
 
-static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *pool) {
+static void _stream_init_workers(struct device_t *dev, struct workers_pool_t *pool) {
 	LOG_DEBUG("Spawning %d workers ...", dev->run->n_buffers);
 
 	*pool->workers_stop = false;
@@ -339,11 +339,11 @@ static void _capture_init_workers(struct device_t *dev, struct workers_pool_t *p
 		pool->workers[index].ctx.has_free_workers = &pool->has_free_workers;
 		pool->workers[index].ctx.has_free_workers_cond = &pool->has_free_workers_cond;
 
-		A_PTHREAD_CREATE(&pool->workers[index].tid,	_capture_worker_thread,	(void *)&pool->workers[index].ctx);
+		A_PTHREAD_CREATE(&pool->workers[index].tid,	_stream_worker_thread, (void *)&pool->workers[index].ctx);
 	}
 }
 
-static void *_capture_worker_thread(void *v_ctx) {
+static void *_stream_worker_thread(void *v_ctx) {
 	struct worker_context_t *ctx = (struct worker_context_t *)v_ctx;
 
 	LOG_DEBUG("Hello! I am a worker #%d ^_^", ctx->index);
@@ -373,7 +373,7 @@ static void *_capture_worker_thread(void *v_ctx) {
 
 			compressed = jpeg_compress_buffer(ctx->dev, ctx->index);
 
-			assert(!_capture_release_buffer(ctx->dev, &ctx->buf_info)); // FIXME
+			assert(!_stream_release_buffer(ctx->dev, &ctx->buf_info)); // FIXME
 			*ctx->has_job = false;
 
 			now_ms(&stop_sec, &stop_msec);
@@ -395,7 +395,7 @@ static void *_capture_worker_thread(void *v_ctx) {
 	return NULL;
 }
 
-static void _capture_destroy_workers(struct device_t *dev, struct workers_pool_t *pool) {
+static void _stream_destroy_workers(struct device_t *dev, struct workers_pool_t *pool) {
 	if (pool->workers) {
 		LOG_INFO("Destroying workers ...");
 
@@ -419,7 +419,7 @@ static void _capture_destroy_workers(struct device_t *dev, struct workers_pool_t
 	pool->workers = NULL;
 }
 
-static int _capture_control(struct device_t *dev, const bool enable) {
+static int _stream_control(struct device_t *dev, const bool enable) {
 	if (enable != dev->run->capturing) {
 		enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
@@ -437,7 +437,7 @@ static int _capture_control(struct device_t *dev, const bool enable) {
     return 0;
 }
 
-static int _capture_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_info) {
+static int _stream_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_info) {
 	MEMSET_ZERO_PTR(buf_info);
 	buf_info->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	buf_info->memory = V4L2_MEMORY_MMAP;
@@ -456,7 +456,7 @@ static int _capture_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_in
 	return 0;
 }
 
-static int _capture_release_buffer(struct device_t *dev, struct v4l2_buffer *buf_info) {
+static int _stream_release_buffer(struct device_t *dev, struct v4l2_buffer *buf_info) {
 	LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) ...");
 	if (xioctl(dev->run->fd, VIDIOC_QBUF, buf_info) < 0) {
 		LOG_PERROR("Unable to requeue buffer");
@@ -465,7 +465,7 @@ static int _capture_release_buffer(struct device_t *dev, struct v4l2_buffer *buf
 	return 0;
 }
 
-static int _capture_handle_event(struct device_t *dev) {
+static int _stream_handle_event(struct device_t *dev) {
 	struct v4l2_event event;
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_DQEVENT) ...");

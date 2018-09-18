@@ -3,14 +3,14 @@
 #include <event2/http.h>
 
 #include "tools.h"
-#include "capture.h"
+#include "stream.h"
 
 
 struct http_server_runtime_t {
-	struct event_base			*base;
-	struct evhttp				*http;
-	struct captured_picture_t	*captured;
-	struct captured_picture_t	*exposed; // updated and mutex are not used
+	struct event_base	*base;
+	struct evhttp		*http;
+	struct stream_t		*stream;
+	struct stream_t		*exposed; // updated and mutex are not used
 };
 
 struct http_server_t {
@@ -21,7 +21,7 @@ struct http_server_t {
 };
 
 
-struct http_server_t *http_server_init(struct captured_picture_t *captured);
+struct http_server_t *http_server_init(struct stream_t *stream);
 void http_server_destroy(struct http_server_t *server);
 
 int http_server_listen(struct http_server_t *server);
