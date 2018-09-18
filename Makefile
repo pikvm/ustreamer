@@ -1,4 +1,4 @@
-LIBS = -lm -ljpeg -pthread -levent
+LIBS = -lm -ljpeg -pthread -levent -levent_pthreads
 CC = gcc
 CFLAGS = -c -O3 -Wall -Wextra
 LDFLAGS =
@@ -19,4 +19,4 @@ $(PROG): $(OBJECTS)
 
 
 clean:
-	rm -f src/*.o $(PROG)
+	rm -f src/*.o vgcore.* $(PROG)

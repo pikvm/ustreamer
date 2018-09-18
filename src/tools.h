@@ -67,6 +67,7 @@ unsigned log_level;
 
 
 #define A_CALLOC(_dest, _nmemb, _size)	assert((_dest = calloc(_nmemb, _size)))
+#define A_REALLOC(_dest, _size)			assert((_dest = realloc(_dest, _size)))
 #define MEMSET_ZERO(_x_obj)				memset(&(_x_obj), 0, sizeof(_x_obj))
 #define MEMSET_ZERO_PTR(_x_ptr)			memset(_x_ptr, 0, sizeof(*(_x_ptr)))
 

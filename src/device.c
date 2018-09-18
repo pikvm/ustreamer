@@ -49,16 +49,15 @@ static const char *_standard_to_string(const v4l2_std_id standard);
 
 
 struct device_t *device_init() {
-	struct device_t *dev;
 	struct device_runtime_t *run;
-
-	A_CALLOC(dev, 1, sizeof(*dev));
-	MEMSET_ZERO_PTR(dev);
+	struct device_t *dev;
 
 	A_CALLOC(run, 1, sizeof(*run));
 	MEMSET_ZERO_PTR(run);
-	dev->run = run;
-	dev->run->fd = -1;
+	run->fd = -1;
+
+	A_CALLOC(dev, 1, sizeof(*dev));
+	MEMSET_ZERO_PTR(dev);
 
 	dev->path = (char *)DEFAULT_DEVICE;
 	dev->width = 640;
@@ -69,6 +68,7 @@ struct device_t *device_init() {
 	dev->jpeg_quality = 80;
 	dev->timeout = 1;
 	dev->error_timeout = 1;
+	dev->run = run;
 	return dev;
 }
 
@@ -392,6 +392,7 @@ static void _device_open_alloc_picbufs(struct device_t *dev) {
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
 		LOG_DEBUG("Allocating picture buffer %d ...", index);
 		A_CALLOC(dev->run->pictures[index].data, dev->run->max_picture_size, sizeof(*dev->run->pictures[index].data));
+		dev->run->pictures[index].allocated = dev->run->max_picture_size;
 	}
 }
 

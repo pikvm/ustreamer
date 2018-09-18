@@ -127,7 +127,7 @@ static void *_capture_loop_thread(UNUSED void *_) {
 
 static void *_server_loop_thread(UNUSED void *_) {
 	_block_thread_signals();
-	http_server_loop(_ctx->server, _ctx->captured);
+	http_server_loop(_ctx->server);
 	return NULL;
 }
 
@@ -151,18 +151,22 @@ static void _install_signal_handlers() {
 
 	LOG_INFO("Installing SIGTERM handler ...");
 	assert(!sigaction(SIGTERM, &sig_act, NULL));
+
+	LOG_INFO("Ignoring SIGPIPE ...");
+	assert(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
 }
 
 int main(int argc, char *argv[]) {
 	struct device_t *dev;
 	struct captured_picture_t *captured;
 	struct http_server_t *server;
+	int exit_code = 0;
 
 	dev = device_init();
 	captured = captured_picture_init();
-	server = http_server_init();
+	server = http_server_init(captured);
 
-	if (_parse_options(argc, argv, dev, server) == 0) {
+	if ((exit_code = _parse_options(argc, argv, dev, server)) == 0) {
 		_install_signal_handlers();
 
 		pthread_t capture_loop_tid;
@@ -174,14 +178,16 @@ int main(int argc, char *argv[]) {
 		ctx.server = server;
 		_ctx = &ctx;
 
-		A_PTHREAD_CREATE(&capture_loop_tid, _capture_loop_thread, NULL);
-		A_PTHREAD_CREATE(&server_loop_tid, _server_loop_thread, NULL);
-		A_PTHREAD_JOIN(capture_loop_tid);
-		A_PTHREAD_JOIN(server_loop_tid);
+		if ((exit_code = http_server_listen(server)) == 0) {
+			A_PTHREAD_CREATE(&capture_loop_tid, _capture_loop_thread, NULL);
+			A_PTHREAD_CREATE(&server_loop_tid, _server_loop_thread, NULL);
+			A_PTHREAD_JOIN(capture_loop_tid);
+			A_PTHREAD_JOIN(server_loop_tid);
+		}
 	}
 
 	http_server_destroy(server);
 	captured_picture_destroy(captured);
 	device_destroy(dev);
-	return 0;
+	return abs(exit_code);
 }

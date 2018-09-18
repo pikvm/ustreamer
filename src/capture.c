@@ -89,8 +89,11 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured) {
 		LOG_DEBUG("Allocation memory for captured (result) picture ...");
 		A_CALLOC(captured->picture.data, dev->run->max_picture_size, sizeof(*captured->picture.data));
 
+		A_PTHREAD_M_LOCK(&captured->mutex);
 		captured->width = dev->run->width;
 		captured->height = dev->run->height;
+		captured->online = true;
+		A_PTHREAD_M_UNLOCK(&captured->mutex);
 
 		while (!dev->stop) {
 			SEP_DEBUG('-');
@@ -103,6 +106,7 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured) {
 			if (last_worker && !last_worker->has_job && dev->run->pictures[last_worker->ctx.index].data) {
 				A_PTHREAD_M_LOCK(&captured->mutex);
 				captured->picture.size = dev->run->pictures[last_worker->ctx.index].size;
+				captured->picture.allocated = dev->run->pictures[last_worker->ctx.index].allocated;
 				memcpy(
 					captured->picture.data,
 					dev->run->pictures[last_worker->ctx.index].data,
@@ -242,6 +246,7 @@ void capture_loop(struct device_t *dev, struct captured_picture_t *captured) {
 		A_PTHREAD_M_LOCK(&captured->mutex);
 		captured->picture.size = 0;
 		free(captured->picture.data);
+		captured->online = false;
 		A_PTHREAD_M_UNLOCK(&captured->mutex);
 	}
 
@@ -391,8 +396,9 @@ static void *_capture_worker_thread(void *v_ctx) {
 }
 
 static void _capture_destroy_workers(struct device_t *dev, struct workers_pool_t *pool) {
-	LOG_INFO("Destroying workers ...");
 	if (pool->workers) {
+		LOG_INFO("Destroying workers ...");
+
 		*pool->workers_stop = true;
 		for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
 			A_PTHREAD_M_LOCK(&pool->workers[index].has_job_mutex);
