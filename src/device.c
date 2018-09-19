@@ -14,8 +14,6 @@
 #include "device.h"
 
 
-static const char DEFAULT_DEVICE[] = "/dev/video0";
-
 static const struct {
 	const char *name;
 	const v4l2_std_id standard;
@@ -57,7 +55,7 @@ struct device_t *device_init() {
 	run->fd = -1;
 
 	A_CALLOC(dev, 1);
-	dev->path = (char *)DEFAULT_DEVICE;
+	dev->path = "/dev/video0";
 	dev->width = 640;
 	dev->height = 480;
 	dev->format = V4L2_PIX_FMT_YUYV;

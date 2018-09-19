@@ -34,6 +34,7 @@ static const struct option _long_opts[] = {
 
 	{"host",					required_argument,	NULL,	's'},
 	{"port",					required_argument,	NULL,	'p'},
+	{"server-timeout",			required_argument,	NULL,	2000},
 
 	{"debug",					no_argument,		NULL,	5000},
 	{"log-level",				required_argument,	NULL,	5001},
@@ -87,6 +88,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct h
 
 			case 's':	server->host = optarg; break;
 			case 'p':	OPT_UNSIGNED(server->port, "--port", 1);
+			case 2000:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1);
 
 			case 5000:	log_level = LOG_LEVEL_DEBUG; break;
 			case 5001:	OPT_UNSIGNED(log_level, "--log-level", 0);
@@ -118,13 +120,13 @@ static void _block_thread_signals() {
 	assert(!pthread_sigmask(SIG_BLOCK, &mask, NULL));
 }
 
-static void *_stream_loop_thread(UNUSED void *_) {
+static void *_stream_loop_thread(UNUSED void *arg) {
 	_block_thread_signals();
 	stream_loop(_ctx->stream);
 	return NULL;
 }
 
-static void *_server_loop_thread(UNUSED void *_) {
+static void *_server_loop_thread(UNUSED void *arg) {
 	_block_thread_signals();
 	http_server_loop(_ctx->server);
 	return NULL;
