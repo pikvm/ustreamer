@@ -99,6 +99,10 @@ void stream_loop(struct stream_t *stream) {
 			A_PTHREAD_M_UNLOCK(&pool.has_free_workers_mutex);
 
 			if (oldest_worker && !oldest_worker->has_job && stream->dev->run->pictures[oldest_worker->ctx.index].data) {
+				if (oldest_worker->job_failed) {
+					break;
+				}
+
 				A_PTHREAD_M_LOCK(&stream->mutex);
 
 				stream->picture.size = stream->dev->run->pictures[oldest_worker->ctx.index].size;
@@ -338,6 +342,7 @@ static void _stream_init_workers(struct device_t *dev, struct workers_pool_t *po
 
 		pool->workers[index].ctx.has_job_mutex = &pool->workers[index].has_job_mutex;
 		pool->workers[index].ctx.has_job = &pool->workers[index].has_job;
+		pool->workers[index].ctx.job_failed = &pool->workers[index].job_failed;
 		pool->workers[index].ctx.has_job_cond = &pool->workers[index].has_job_cond;
 
 		pool->workers[index].ctx.has_free_workers_mutex = &pool->has_free_workers_mutex;
@@ -378,21 +383,25 @@ static void *_stream_worker_thread(void *v_ctx) {
 
 			compressed = jpeg_compress_buffer(ctx->dev, ctx->index);
 
-			assert(!_stream_release_buffer(ctx->dev, &ctx->buf_info)); // FIXME
-			*ctx->has_job = false;
+			if (_stream_release_buffer(ctx->dev, &ctx->buf_info) == 0) {
+				*ctx->has_job = false;
 
-			now_ms(&stop_sec, &stop_msec);
-			if (start_sec <= stop_sec) {
-				last_comp_time = (stop_sec - start_sec) + ((long double)(stop_msec - start_msec)) / 1000;
+				now_ms(&stop_sec, &stop_msec);
+				if (start_sec <= stop_sec) {
+					last_comp_time = (stop_sec - start_sec) + ((long double)(stop_msec - start_msec)) / 1000;
+				} else {
+					last_comp_time = 0;
+				}
+
+				A_PTHREAD_M_LOCK(ctx->last_comp_time_mutex);
+				*ctx->last_comp_time = last_comp_time;
+				A_PTHREAD_M_UNLOCK(ctx->last_comp_time_mutex);
+
+				LOG_PERF("Compressed JPEG size=%ld; time=%0.3Lf (worker %d)", compressed, last_comp_time, ctx->index);
 			} else {
-				last_comp_time = 0;
+				*ctx->job_failed = true;
+				*ctx->has_job = false;
 			}
-
-			A_PTHREAD_M_LOCK(ctx->last_comp_time_mutex);
-			*ctx->last_comp_time = last_comp_time;
-			A_PTHREAD_M_UNLOCK(ctx->last_comp_time_mutex);
-
-			LOG_PERF("Compressed JPEG size=%ld; time=%0.3Lf (worker %d)", compressed, last_comp_time, ctx->index); // FIXME
 		}
 	}
 

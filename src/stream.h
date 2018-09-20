@@ -19,6 +19,7 @@ struct worker_context_t {
 
 	pthread_mutex_t		*has_job_mutex;
 	bool				*has_job;
+	bool				*job_failed;
 	pthread_cond_t		*has_job_cond;
 
 	pthread_mutex_t		*has_free_workers_mutex;
@@ -35,6 +36,7 @@ struct worker_t {
 
 	pthread_mutex_t			has_job_mutex;
 	bool					has_job;
+	bool					job_failed;
 	pthread_cond_t			has_job_cond;
 
 	struct worker_t			*order_next;
