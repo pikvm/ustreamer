@@ -1,3 +1,6 @@
+DESTDIR ?=
+PREFIX ?= /usr/local
+
 LIBS = -lm -ljpeg -pthread -levent -levent_pthreads
 CC = gcc
 CFLAGS = -c -O3 -Wall -Wextra
@@ -8,6 +11,10 @@ PROG = ustreamer
 
 
 all: $(SOURCES) $(PROG)
+
+
+install: $(PROG)
+	install -Dm755 ustreamer $(DESTDIR)$(PREFIX)/bin/ustreamer
 
 
 regen:
