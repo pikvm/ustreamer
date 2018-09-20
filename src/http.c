@@ -18,6 +18,8 @@
 #include "stream.h"
 #include "http.h"
 
+#include "blank.h"
+
 
 #define BOUNDARY "boundarydonotcross"
 #define RN "\r\n"
@@ -31,8 +33,9 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_ctx);
 static void _http_callback_stream_error(struct bufferevent *buf_event, short what, void *v_ctx);
 
-static void _http_send_stream(struct http_server_t *server);
 static void _http_exposed_refresh(int fd, short event, void *v_server);
+static void _http_queue_send_stream(struct http_server_t *server);
+static void _expose_blank_picture(struct http_server_t *server);
 
 
 struct http_server_t *http_server_init(struct stream_t *stream) {
@@ -53,6 +56,8 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	server->port = 8080;
 	server->timeout = 10;
 	server->run = run;
+
+	_expose_blank_picture(server);
 
 	assert(!evthread_use_pthreads());
 	assert((run->base = event_base_new()));
@@ -271,7 +276,7 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	free(client);
 }
 
-static void _http_send_stream(struct http_server_t *server) {
+static void _http_queue_send_stream(struct http_server_t *server) {
 	struct stream_client_t *client;
 	struct evhttp_connection *conn;
 	struct bufferevent *buf_event;
@@ -294,8 +299,8 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 
 		A_PTHREAD_M_LOCK(&server->run->stream->mutex);
 
-		if (server->run->stream->picture.size > 0) {
-			if (server->run->stream->picture.allocated > server->run->exposed->picture.allocated) {
+		if (server->run->stream->picture.size > 0) { // If online
+			if (server->run->exposed->picture.allocated < server->run->stream->picture.allocated) {
 				A_REALLOC(server->run->exposed->picture.data, server->run->stream->picture.allocated);
 				server->run->exposed->picture.allocated = server->run->stream->picture.allocated;
 			}
@@ -304,16 +309,42 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 				server->run->stream->picture.data,
 				server->run->stream->picture.size * sizeof(*server->run->exposed->picture.data)
 			);
+			server->run->exposed->picture.size = server->run->stream->picture.size;
+			server->run->exposed->width = server->run->stream->width;
+			server->run->exposed->height = server->run->stream->height;
+			server->run->exposed->online = true;
+
+			server->run->stream->updated = false;
+			A_PTHREAD_M_UNLOCK(&server->run->stream->mutex);
+
+		} else {
+			server->run->stream->updated = false;
+			A_PTHREAD_M_UNLOCK(&server->run->stream->mutex);
+
+			_expose_blank_picture(server);
 		}
 
-		server->run->exposed->picture.size = server->run->stream->picture.size;
-		server->run->exposed->width = server->run->stream->width;
-		server->run->exposed->height = server->run->stream->height;
-		server->run->exposed->online = server->run->stream->online;
-		server->run->stream->updated = false;
+		_http_queue_send_stream(server);
 
-		A_PTHREAD_M_UNLOCK(&server->run->stream->mutex);
+	} else if (!server->run->exposed->online) {
+		_http_queue_send_stream(server);
+	}
+}
 
-		_http_send_stream(server);
+void _expose_blank_picture(struct http_server_t *server) {
+	if (server->run->exposed->online || server->run->exposed->picture.size == 0) {
+		if (server->run->exposed->picture.allocated < BLANK_JPG_SIZE) {
+			A_REALLOC(server->run->exposed->picture.data, BLANK_JPG_SIZE);
+			server->run->exposed->picture.allocated = BLANK_JPG_SIZE;
+		}
+		memcpy(
+			server->run->exposed->picture.data,
+			BLANK_JPG_DATA,
+			BLANK_JPG_SIZE * sizeof(*server->run->exposed->picture.data)
+		);
+		server->run->exposed->picture.size = BLANK_JPG_SIZE;
+		server->run->exposed->width = BLANK_JPG_WIDTH;
+		server->run->exposed->height = BLANK_JPG_HEIGHT;
+		server->run->exposed->online = false;
 	}
 }

@@ -90,12 +90,6 @@ void stream_loop(struct stream_t *stream) {
 		LOG_DEBUG("Allocation memory for stream picture ...");
 		A_CALLOC(stream->picture.data, stream->dev->run->max_picture_size);
 
-		A_PTHREAD_M_LOCK(&stream->mutex);
-		stream->width = stream->dev->run->width;
-		stream->height = stream->dev->run->height;
-		stream->online = true;
-		A_PTHREAD_M_UNLOCK(&stream->mutex);
-
 		while (!stream->dev->stop) {
 			SEP_DEBUG('-');
 
@@ -106,6 +100,7 @@ void stream_loop(struct stream_t *stream) {
 
 			if (oldest_worker && !oldest_worker->has_job && stream->dev->run->pictures[oldest_worker->ctx.index].data) {
 				A_PTHREAD_M_LOCK(&stream->mutex);
+
 				stream->picture.size = stream->dev->run->pictures[oldest_worker->ctx.index].size;
 				stream->picture.allocated = stream->dev->run->pictures[oldest_worker->ctx.index].allocated;
 				memcpy(
@@ -113,7 +108,11 @@ void stream_loop(struct stream_t *stream) {
 					stream->dev->run->pictures[oldest_worker->ctx.index].data,
 					stream->picture.size * sizeof(*stream->picture.data)
 				);
+
+				stream->width = stream->dev->run->width;
+				stream->height = stream->dev->run->height;
 				stream->updated = true;
+
 				A_PTHREAD_M_UNLOCK(&stream->mutex);
 
 				oldest_worker = oldest_worker->order_next;
@@ -248,11 +247,10 @@ void stream_loop(struct stream_t *stream) {
 		}
 
 		A_PTHREAD_M_LOCK(&stream->mutex);
-		stream->picture.size = 0;
+		stream->picture.size = 0; // On stream offline
 		free(stream->picture.data);
 		stream->width = 0;
 		stream->height = 0;
-		stream->online = false;
 		stream->updated = true;
 		A_PTHREAD_M_UNLOCK(&stream->mutex);
 	}
