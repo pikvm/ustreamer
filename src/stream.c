@@ -79,6 +79,7 @@ void stream_loop(struct stream_t *stream) {
 	LOG_INFO("Using JPEG quality: %d%%", stream->dev->jpeg_quality);
 
 	while (_stream_init_loop(stream->dev, &pool) == 0) {
+		struct worker_t *oldest_worker = NULL;
 		struct worker_t *last_worker = NULL;
 		unsigned frames_count = 0;
 		long double grab_after = 0;
@@ -103,19 +104,19 @@ void stream_loop(struct stream_t *stream) {
 			A_PTHREAD_C_WAIT_TRUE(pool.has_free_workers, &pool.has_free_workers_cond, &pool.has_free_workers_mutex);
 			A_PTHREAD_M_UNLOCK(&pool.has_free_workers_mutex);
 
-			if (last_worker && !last_worker->has_job && stream->dev->run->pictures[last_worker->ctx.index].data) {
+			if (oldest_worker && !oldest_worker->has_job && stream->dev->run->pictures[oldest_worker->ctx.index].data) {
 				A_PTHREAD_M_LOCK(&stream->mutex);
-				stream->picture.size = stream->dev->run->pictures[last_worker->ctx.index].size;
-				stream->picture.allocated = stream->dev->run->pictures[last_worker->ctx.index].allocated;
+				stream->picture.size = stream->dev->run->pictures[oldest_worker->ctx.index].size;
+				stream->picture.allocated = stream->dev->run->pictures[oldest_worker->ctx.index].allocated;
 				memcpy(
 					stream->picture.data,
-					stream->dev->run->pictures[last_worker->ctx.index].data,
+					stream->dev->run->pictures[oldest_worker->ctx.index].data,
 					stream->picture.size * sizeof(*stream->picture.data)
 				);
 				stream->updated = true;
 				A_PTHREAD_M_UNLOCK(&stream->mutex);
 
-				last_worker = last_worker->order_next;
+				oldest_worker = oldest_worker->order_next;
 
 #	ifdef DUMP_STREAM_JPEGS
 				_stream_dump(stream);
@@ -188,29 +189,32 @@ void stream_loop(struct stream_t *stream) {
 							LOG_PERF("Passed %u frames for fluency: now=%.03Lf; grab_after=%.03Lf", fluency_passed, now, grab_after);
 							goto pass_frame;
 						}
-
 						fluency_passed = 0;
+
 						if (log_level >= LOG_LEVEL_VERBOSE) {
 							if ((long long)now != fps_second) {
-								LOG_VERBOSE("Current FPS = %u", fps);
+								LOG_VERBOSE("Oldest worker complete, encoding FPS = %u", fps);
 								fps = 0;
 								fps_second = (long long)now;
 							}
 							++fps;
 						}
 
-						long double delay = _stream_get_fluency_delay(stream->dev, &pool);
-						grab_after = now + delay;
-						LOG_PERF("Fluency delay=%.03Lf; grab_after=%.03Lf", delay, grab_after);
+						long double fluency_delay = _stream_get_fluency_delay(stream->dev, &pool);
+
+						grab_after = now + fluency_delay;
+						LOG_PERF("Fluency: delay=%.03Lf; grab_after=%.03Lf", fluency_delay, grab_after);
 					}
 
 					LOG_DEBUG("Grabbed a new frame to buffer %d", buf_info.index);
 					pool.workers[buf_info.index].ctx.buf_info = buf_info;
 
-					if (!last_worker) {
-						last_worker = &pool.workers[buf_info.index];
+					if (!oldest_worker) {
+						oldest_worker = &pool.workers[buf_info.index];
+						last_worker = oldest_worker;
 					} else {
 						last_worker->order_next = &pool.workers[buf_info.index];
+						last_worker = last_worker->order_next;
 					}
 
 					A_PTHREAD_M_LOCK(&pool.workers[buf_info.index].has_job_mutex);
