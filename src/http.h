@@ -11,6 +11,7 @@ struct stream_client_t {
 	struct http_server_t	*server;
 	struct evhttp_request	*request;
 	bool					need_initial;
+	unsigned long			offset;
 
 	struct stream_client_t	*prev;
 	struct stream_client_t	*next;
