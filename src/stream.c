@@ -250,7 +250,10 @@ void stream_loop(struct stream_t *stream) {
 		A_PTHREAD_M_LOCK(&stream->mutex);
 		stream->picture.size = 0;
 		free(stream->picture.data);
+		stream->width = 0;
+		stream->height = 0;
 		stream->online = false;
+		stream->updated = true;
 		A_PTHREAD_M_UNLOCK(&stream->mutex);
 	}
 

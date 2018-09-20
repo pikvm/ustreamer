@@ -293,6 +293,7 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 		LOG_DEBUG("Refreshing HTTP exposed ...");
 
 		A_PTHREAD_M_LOCK(&server->run->stream->mutex);
+
 		if (server->run->stream->picture.size > 0) {
 			if (server->run->stream->picture.allocated > server->run->exposed->picture.allocated) {
 				A_REALLOC(server->run->exposed->picture.data, server->run->stream->picture.allocated);
@@ -303,12 +304,14 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 				server->run->stream->picture.data,
 				server->run->stream->picture.size * sizeof(*server->run->exposed->picture.data)
 			);
-			server->run->exposed->picture.size = server->run->stream->picture.size;
-			server->run->exposed->width = server->run->stream->width;
-			server->run->exposed->height = server->run->stream->height;
-			server->run->exposed->online = server->run->stream->online;
-			server->run->stream->updated = false;
 		}
+
+		server->run->exposed->picture.size = server->run->stream->picture.size;
+		server->run->exposed->width = server->run->stream->width;
+		server->run->exposed->height = server->run->stream->height;
+		server->run->exposed->online = server->run->stream->online;
+		server->run->stream->updated = false;
+
 		A_PTHREAD_M_UNLOCK(&server->run->stream->mutex);
 
 		_http_send_stream(server);
