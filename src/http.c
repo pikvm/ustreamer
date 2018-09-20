@@ -84,7 +84,7 @@ void http_server_destroy(struct http_server_t *server) {
 
 int http_server_listen(struct http_server_t *server) {
 	LOG_DEBUG("Binding HTTP to [%s]:%d ...", server->host, server->port);
-	//evhttp_set_timeout(server->run->http, server->timeout); // FIXME
+	evhttp_set_timeout(server->run->http, server->timeout);
 	if (evhttp_bind_socket(server->run->http, server->host, server->port) != 0) {
 		LOG_PERROR("Can't listen HTTP on [%s]:%d", server->host, server->port)
 		return -1;
