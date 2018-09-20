@@ -32,7 +32,6 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 static void _http_callback_stream_error(struct bufferevent *buf_event, short what, void *v_ctx);
 
 static void _http_send_stream(struct http_server_t *server);
-static bool _http_check_clients_done(struct http_server_t *server);
 static void _http_exposed_refresh(int fd, short event, void *v_server);
 
 
@@ -215,58 +214,41 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	assert((buf = evbuffer_new()));
 	assert(!clock_gettime(CLOCK_REALTIME, &x_timestamp_spec));
 
-	if (client->offset == 0) {
-		if (client->need_initial) {
-			assert(evbuffer_add_printf(buf,
-				"HTTP/1.0 200 OK" RN
-				"Access-Control-Allow-Origin: *" RN
-				"Cache-Control: no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0" RN
-				"Pragma: no-cache" RN
-				"Expires: Mon, 3 Jan 2000 12:34:56 GMT" RN
-				"Content-Type: multipart/x-mixed-replace;boundary=" BOUNDARY RN
-				RN
-				"--" BOUNDARY RN
-			));
-			assert(!bufferevent_write_buffer(buf_event, buf)); // FIXME
-			client->need_initial = false;
-		}
-
+	if (client->need_initial) {
 		assert(evbuffer_add_printf(buf,
-			"Content-Type: image/jpeg" RN
-			"Content-Length: %lu" RN
-			"X-Timestamp: %u.%06u" RN
-			RN,
-			client->server->run->exposed->picture.size * sizeof(*client->server->run->exposed->picture.data),
-			(unsigned)x_timestamp_spec.tv_sec,
-			(unsigned)(x_timestamp_spec.tv_nsec / 1000) // TODO: round?
+			"HTTP/1.0 200 OK" RN
+			"Access-Control-Allow-Origin: *" RN
+			"Cache-Control: no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0" RN
+			"Pragma: no-cache" RN
+			"Expires: Mon, 3 Jan 2000 12:34:56 GMT" RN
+			"Content-Type: multipart/x-mixed-replace;boundary=" BOUNDARY RN
+			RN
+			"--" BOUNDARY RN
 		));
+		assert(!bufferevent_write_buffer(buf_event, buf)); // FIXME
+		client->need_initial = false;
 	}
 
-	unsigned long chunk = (client->server->run->exposed->picture.size - client->offset < 4096 ? client->server->run->exposed->picture.size - client->offset : 4096);
-	assert(!evbuffer_add(buf,
-		(void *)(client->server->run->exposed->picture.data + client->offset),
-		chunk * sizeof(*client->server->run->exposed->picture.data)
+	assert(evbuffer_add_printf(buf,
+		"Content-Type: image/jpeg" RN
+		"Content-Length: %lu" RN
+		"X-Timestamp: %u.%06u" RN
+		RN,
+		client->server->run->exposed->picture.size * sizeof(*client->server->run->exposed->picture.data),
+		(unsigned)x_timestamp_spec.tv_sec,
+		(unsigned)(x_timestamp_spec.tv_nsec / 1000) // TODO: round?
 	));
-	client->offset += chunk;
-	LOG_INFO("%lu", client->offset);
-
-/*	assert(!evbuffer_add(buf,
+	assert(!evbuffer_add(buf,
 		(void *)client->server->run->exposed->picture.data,
 		client->server->run->exposed->picture.size * sizeof(*client->server->run->exposed->picture.data)
-	));*/
-
-	if (client->offset >= client->server->run->exposed->picture.size) {
-		assert(evbuffer_add_printf(buf, RN "--" BOUNDARY RN));
-	}
+	));
+	assert(evbuffer_add_printf(buf, RN "--" BOUNDARY RN));
 
 	assert(!bufferevent_write_buffer(buf_event, buf)); // FIXME
 	evbuffer_free(buf);
 
-	if (client->offset >= client->server->run->exposed->picture.size) {
-		bufferevent_setcb(buf_event, NULL, NULL, _http_callback_stream_error, (void *)client);
-		bufferevent_enable(buf_event, EV_READ);
-		client->offset = 0;
-	}
+	bufferevent_setcb(buf_event, NULL, NULL, _http_callback_stream_error, (void *)client);
+	bufferevent_enable(buf_event, EV_READ);
 }
 
 static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UNUSED short what, void *v_client) {
@@ -304,21 +286,10 @@ static void _http_send_stream(struct http_server_t *server) {
 	}
 }
 
-static bool _http_check_clients_done(struct http_server_t *server) {
-	struct stream_client_t *client;
-
-	for (client = server->run->stream_clients; client != NULL; client = client->next) {
-		if (client->offset != 0) {
-			return false;
-		}
-	}
-	return true;
-}
-
 static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_server) {
 	struct http_server_t *server = (struct http_server_t *)v_server;
 
-	if (server->run->stream->updated && _http_check_clients_done(server)) {
+	if (server->run->stream->updated) {
 		LOG_DEBUG("Refreshing HTTP exposed ...");
 
 		A_PTHREAD_M_LOCK(&server->run->stream->mutex);
