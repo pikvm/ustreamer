@@ -18,7 +18,7 @@
 #include "stream.h"
 #include "http.h"
 
-#include "blank.h"
+#include "data/blank.h"
 
 
 #define BOUNDARY "boundarydonotcross"

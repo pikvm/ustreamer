@@ -10,6 +10,10 @@ PROG = ustreamer
 all: $(SOURCES) $(PROG)
 
 
+regen:
+	tools/make-jpg-h.py src/data/blank.jpg src/data/blank.h BLANK 640 480
+
+
 $(PROG): $(OBJECTS)
 	$(CC) $(LIBS) $(LDFLAGS) $(OBJECTS) -o $@
 
