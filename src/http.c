@@ -42,10 +42,6 @@
 #include "data/blank.h"
 
 
-#define BOUNDARY "boundarydonotcross"
-#define RN "\r\n"
-
-
 static void _http_callback_root(struct evhttp_request *request, void *arg);
 static void _http_callback_ping(struct evhttp_request *request, void *v_server);
 static void _http_callback_snapshot(struct evhttp_request *request, void *v_server);
@@ -85,7 +81,7 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	assert(!evthread_use_pthreads());
 	assert((run->base = event_base_new()));
 	assert((run->http = evhttp_new(run->base)));
-	evhttp_set_allowed_methods(run->http, EVHTTP_REQ_GET); // TODO: HEAD
+	evhttp_set_allowed_methods(run->http, EVHTTP_REQ_GET|EVHTTP_REQ_HEAD);
 
 	assert(!evhttp_set_cb(run->http, "/", _http_callback_root, NULL));
 	assert(!evhttp_set_cb(run->http, "/ping", _http_callback_ping, (void *)exposed));
@@ -132,12 +128,20 @@ void http_server_loop_break(struct http_server_t *server) {
 }
 
 
-INLINE static void _http_add_header(struct evhttp_request *request, const char *key, const char *value) {
-	assert(!evhttp_add_header(evhttp_request_get_output_headers(request), key, value));
-}
+#define ADD_HEADER(_key, _value) \
+	assert(!evhttp_add_header(evhttp_request_get_output_headers(request), _key, _value))
+
+#define PROCESS_HEAD_REQUEST { \
+		if (evhttp_request_get_command(request) == EVHTTP_REQ_HEAD) { \
+			evhttp_send_reply(request, HTTP_OK, "OK", NULL); \
+			return; \
+		} \
+	}
 
 static void _http_callback_root(struct evhttp_request *request, UNUSED void *arg) {
 	struct evbuffer *buf;
+
+	PROCESS_HEAD_REQUEST;
 
 	assert((buf = evbuffer_new()));
 	assert(evbuffer_add_printf(buf,
@@ -148,7 +152,7 @@ static void _http_callback_root(struct evhttp_request *request, UNUSED void *arg
 		"<li><a href=\"/stream\">/stream</a></li>"
 		"</body></html>"
 	));
-	_http_add_header(request, "Content-Type", "text/html");
+	ADD_HEADER("Content-Type", "text/html");
 	evhttp_send_reply(request, HTTP_OK, "OK", buf);
 	evbuffer_free(buf);
 }
@@ -156,6 +160,8 @@ static void _http_callback_root(struct evhttp_request *request, UNUSED void *arg
 static void _http_callback_ping(struct evhttp_request *request, void *v_exposed) {
 	struct exposed_t *exposed = (struct exposed_t *)v_exposed;
 	struct evbuffer *buf;
+
+	PROCESS_HEAD_REQUEST;
 
 	assert((buf = evbuffer_new()));
 	assert(evbuffer_add_printf(buf,
@@ -165,7 +171,7 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_exposed)
 		exposed->width, exposed->height,
 		(exposed->online ? "true" : "false")
 	));
-	_http_add_header(request, "Content-Type", "application/json");
+	ADD_HEADER("Content-Type", "application/json");
 	evhttp_send_reply(request, HTTP_OK, "OK", buf);
 	evbuffer_free(buf);
 }
@@ -175,6 +181,8 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_expo
 	struct evbuffer *buf;
 	struct timespec x_timestamp_spec;
 	char x_timestamp_buf[64];
+
+	PROCESS_HEAD_REQUEST;
 
 	assert((buf = evbuffer_new()));
 	assert(!evbuffer_add(buf, (const void *)exposed->picture.data, exposed->picture.size));
@@ -186,16 +194,18 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_expo
 		(unsigned)(x_timestamp_spec.tv_nsec / 1000) // TODO: round?
 	);
 
-	_http_add_header(request, "Access-Control-Allow-Origin:", "*");
-	_http_add_header(request, "Cache-Control", "no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0");
-	_http_add_header(request, "Pragma", "no-cache");
-	_http_add_header(request, "Expires", "Mon, 3 Jan 2000 12:34:56 GMT");
-	_http_add_header(request, "X-Timestamp", x_timestamp_buf);
-	_http_add_header(request, "Content-Type", "image/jpeg");
+	ADD_HEADER("Access-Control-Allow-Origin:", "*");
+	ADD_HEADER("Cache-Control", "no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0");
+	ADD_HEADER("Pragma", "no-cache");
+	ADD_HEADER("Expires", "Mon, 3 Jan 2000 12:34:56 GMT");
+	ADD_HEADER("X-Timestamp", x_timestamp_buf);
+	ADD_HEADER("Content-Type", "image/jpeg");
 
 	evhttp_send_reply(request, HTTP_OK, "OK", buf);
 	evbuffer_free(buf);
 }
+
+#undef ADD_HEADER
 
 static void _http_callback_stream(struct evhttp_request *request, void *v_server) {
 	// https://github.com/libevent/libevent/blob/29cc8386a2f7911eaa9336692a2c5544d8b4734f/http.c#L2814
@@ -208,6 +218,8 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 	struct evhttp_connection *conn;
 	struct bufferevent *buf_event;
 	struct stream_client_t *client;
+
+	PROCESS_HEAD_REQUEST;
 
 	conn = evhttp_request_get_connection(request);
 	if (conn != NULL) {
@@ -233,6 +245,11 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		evhttp_request_free(request);
 	}
 }
+
+#undef PROCESS_HEAD_REQUEST
+
+#define BOUNDARY "boundarydonotcross"
+#define RN "\r\n"
 
 static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_client) {
 	struct stream_client_t *client = (struct stream_client_t *)v_client;
@@ -279,6 +296,9 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	bufferevent_enable(buf_event, EV_READ);
 }
 
+#undef BOUNDARY
+#undef RN
+
 static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UNUSED short what, void *v_client) {
 	struct stream_client_t *client = (struct stream_client_t *)v_client;
 	struct evhttp_connection *conn;
@@ -319,6 +339,7 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 
 #define LOCK_STREAM \
 	A_PTHREAD_M_LOCK(&server->run->stream->mutex);
+
 #define UNLOCK_STREAM \
 	{ server->run->stream->updated = false; A_PTHREAD_M_UNLOCK(&server->run->stream->mutex); }
 
