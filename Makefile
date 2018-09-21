@@ -14,7 +14,7 @@ all: $(SOURCES) $(PROG)
 
 
 install: $(PROG)
-	install -Dm755 ustreamer $(DESTDIR)$(PREFIX)/bin/ustreamer
+	install -Dm755 $(PROG) $(DESTDIR)$(PREFIX)/bin/$(PROG)
 
 
 regen:

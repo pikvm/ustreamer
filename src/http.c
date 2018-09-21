@@ -56,6 +56,8 @@ static void _http_callback_stream_error(struct bufferevent *buf_event, short wha
 
 static void _http_exposed_refresh(int fd, short event, void *v_server);
 static void _http_queue_send_stream(struct http_server_t *server);
+
+static void _expose_new_picture(struct http_server_t *server);
 static void _expose_blank_picture(struct http_server_t *server);
 
 
@@ -315,41 +317,47 @@ static void _http_queue_send_stream(struct http_server_t *server) {
 static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_server) {
 	struct http_server_t *server = (struct http_server_t *)v_server;
 
+#define LOCK_STREAM \
+	A_PTHREAD_M_LOCK(&server->run->stream->mutex);
+#define UNLOCK_STREAM \
+	{ server->run->stream->updated = false; A_PTHREAD_M_UNLOCK(&server->run->stream->mutex); }
+
 	if (server->run->stream->updated) {
 		LOG_DEBUG("Refreshing HTTP exposed ...");
-
-		A_PTHREAD_M_LOCK(&server->run->stream->mutex);
-
+		LOCK_STREAM;
 		if (server->run->stream->picture.size > 0) { // If online
-			if (server->run->exposed->picture.allocated < server->run->stream->picture.allocated) {
-				A_REALLOC(server->run->exposed->picture.data, server->run->stream->picture.allocated);
-				server->run->exposed->picture.allocated = server->run->stream->picture.allocated;
-			}
-			memcpy(
-				server->run->exposed->picture.data,
-				server->run->stream->picture.data,
-				server->run->stream->picture.size * sizeof(*server->run->exposed->picture.data)
-			);
-			server->run->exposed->picture.size = server->run->stream->picture.size;
-			server->run->exposed->width = server->run->stream->width;
-			server->run->exposed->height = server->run->stream->height;
-			server->run->exposed->online = true;
-
-			server->run->stream->updated = false;
-			A_PTHREAD_M_UNLOCK(&server->run->stream->mutex);
-
+			_expose_new_picture(server);
+			UNLOCK_STREAM;
 		} else {
-			server->run->stream->updated = false;
-			A_PTHREAD_M_UNLOCK(&server->run->stream->mutex);
-
+			UNLOCK_STREAM;
 			_expose_blank_picture(server);
 		}
-
 		_http_queue_send_stream(server);
-
 	} else if (!server->run->exposed->online) {
+		LOG_DEBUG("Refreshing HTTP exposed (BLANK) ...");
 		_http_queue_send_stream(server);
 	}
+
+#	undef LOCK_STREAM
+#	undef UNLOCK_STREAM
+}
+
+void _expose_new_picture(struct http_server_t *server) {
+	if (server->run->exposed->picture.allocated < server->run->stream->picture.allocated) {
+		A_REALLOC(server->run->exposed->picture.data, server->run->stream->picture.allocated);
+		server->run->exposed->picture.allocated = server->run->stream->picture.allocated;
+	}
+
+	memcpy(
+		server->run->exposed->picture.data,
+		server->run->stream->picture.data,
+		server->run->stream->picture.size * sizeof(*server->run->exposed->picture.data)
+	);
+
+	server->run->exposed->picture.size = server->run->stream->picture.size;
+	server->run->exposed->width = server->run->stream->width;
+	server->run->exposed->height = server->run->stream->height;
+	server->run->exposed->online = true;
 }
 
 void _expose_blank_picture(struct http_server_t *server) {
@@ -358,11 +366,13 @@ void _expose_blank_picture(struct http_server_t *server) {
 			A_REALLOC(server->run->exposed->picture.data, BLANK_JPG_SIZE);
 			server->run->exposed->picture.allocated = BLANK_JPG_SIZE;
 		}
+
 		memcpy(
 			server->run->exposed->picture.data,
 			BLANK_JPG_DATA,
 			BLANK_JPG_SIZE * sizeof(*server->run->exposed->picture.data)
 		);
+
 		server->run->exposed->picture.size = BLANK_JPG_SIZE;
 		server->run->exposed->width = BLANK_JPG_WIDTH;
 		server->run->exposed->height = BLANK_JPG_HEIGHT;
