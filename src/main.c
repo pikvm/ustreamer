@@ -42,8 +42,41 @@ static const struct option _long_opts[] = {
 	{NULL, 0, NULL, 0}
 };
 
-static void _help() {
-	printf("No manual yet\n");
+static void _help(struct device_t *dev, struct http_server_t *server) {
+	printf("\nuStreamer - Lightweight and fast MJPG-HTTP streamer\n");
+	printf("===================================================\n\n");
+	printf("Capturing options:\n");
+	printf("------------------\n");
+	printf("    -d|--device </dev/path>           -- Path to V4L2 device. Default: %s\n\n", dev->path);
+	printf("    --width <N>                       -- Initial image width. Default: %d\n\n", dev->width);
+	printf("    --height <N>                      -- Initial image height. Default: %d\n\n", dev->height);
+	printf("    -f|--format <YUYV|UYVY|RGB565>    -- Image format. Default: YUYV.\n\n");
+	printf("    -a|--tv-standard <PAL|NTSC|SECAM> -- Force TV standard. Default: disabled.\n\n");
+	printf("    -e|--every-frame <N>              -- Drop all input frames except specified. Default: disabled.\n\n");
+	printf("    -z|--min-frame-size <N>           -- Drop frames smaller then this limit.\n");
+	printf("                                         Useful if the device produces small-sized garbage frames.\n\n");
+	printf("    -t|--dv-timings                   -- Enable DV timings queriyng and events processing.\n");
+	printf("                                         Supports automatic resolution changing. Default: disabled.\n\n");
+	printf("    -n|--buffers <N>                  -- The number of buffers to receive data from the device.\n");
+	printf("                                         Each buffer is processed using an intermediate thread.\n");
+	printf("                                         Default: %d (number of CPU cores + 1)\n\n", dev->n_buffers);
+	printf("    -q|--jpeg-quality <N>             -- Set quality of JPEG encoding from 1 to 100 (best). Default: %d\n\n", dev->jpeg_quality);
+	printf("    --device-timeout <seconds>        -- Timeout for device querying. Default: %d\n\n", dev->timeout);
+	printf("    --device-error-timeout <seconds>  -- Delay before trying to connect to the device again\n");
+	printf("                                         after a timeout. Default: %d\n\n", dev->error_timeout);
+	printf("HTTP server options:\n");
+	printf("--------------------\n");
+	printf("    --host <address>           -- Listen on Hostname or IP. Default: %s\n\n", server->host);
+	printf("    --port <N>                 -- Bind to this TCP port. Default: %d\n\n", server->port);
+	printf("    --server-timeout <seconds> -- Timeout for client connections. Default: %d\n\n", server->timeout);
+	printf("Misc options:\n");
+	printf("-------------\n");
+	printf("    --debug         -- Enabled debug messages (same as --log-level=3). Default: disabled.\n\n");
+	printf("    --log-level <N> -- Verbosity level of messages from 0 (info) to 3 (debug).\n");
+	printf("                       Enabling debugging messages can slow down the program.\n");
+	printf("                       Available levels: 0=info, 1=verbose, 2=performace, 3=debug.\n");
+	printf("                       Default: %d\n\n", log_level);
+	printf("    -h|--help       -- Print this messages and exit\n\n");
 }
 
 static int _parse_options(int argc, char *argv[], struct device_t *dev, struct http_server_t *server) {
@@ -93,7 +126,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct h
 			case 5000:	log_level = LOG_LEVEL_DEBUG; break;
 			case 5001:	OPT_UNSIGNED(log_level, "--log-level", 0);
 			case 0:		break;
-			case 'h':	default: _help(); return -1;
+			case 'h':	default: _help(dev, server); return -1;
 		}
 	}
 
