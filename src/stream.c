@@ -390,7 +390,6 @@ static void *_stream_worker_thread(void *v_ctx) {
 		A_PTHREAD_M_UNLOCK(ctx->has_job_mutex);
 
 		if (!*ctx->workers_stop) {
-			unsigned long compressed;
 			time_t start_sec;
 			time_t stop_sec;
 			long start_msec;
@@ -401,7 +400,7 @@ static void *_stream_worker_thread(void *v_ctx) {
 
 			LOG_DEBUG("Worker %d compressing JPEG ...", ctx->index);
 
-			compressed = jpeg_compress_buffer(ctx->dev, ctx->index);
+			jpeg_compress_buffer(ctx->dev, ctx->index);
 
 			if (_stream_release_buffer(ctx->dev, &ctx->buf_info) == 0) {
 				*ctx->has_job = false;
@@ -417,7 +416,10 @@ static void *_stream_worker_thread(void *v_ctx) {
 				*ctx->last_comp_time = last_comp_time;
 				A_PTHREAD_M_UNLOCK(ctx->last_comp_time_mutex);
 
-				LOG_PERF("Compressed JPEG size=%ld; time=%0.3Lf (worker %d)", compressed, last_comp_time, ctx->index);
+				LOG_PERF(
+					"Compressed JPEG size=%ld; time=%0.3Lf (worker %d)",
+					ctx->dev->run->pictures[ctx->index].size, last_comp_time, ctx->index
+				);
 			} else {
 				*ctx->job_failed = true;
 				*ctx->has_job = false;
