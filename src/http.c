@@ -270,7 +270,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			RN
 			"--" BOUNDARY RN
 		));
-		assert(!bufferevent_write_buffer(buf_event, buf)); // FIXME
+		assert(!bufferevent_write_buffer(buf_event, buf));
 		client->need_initial = false;
 	}
 
@@ -289,7 +289,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	));
 	assert(evbuffer_add_printf(buf, RN "--" BOUNDARY RN));
 
-	assert(!bufferevent_write_buffer(buf_event, buf)); // FIXME
+	assert(!bufferevent_write_buffer(buf_event, buf));
 	evbuffer_free(buf);
 
 	bufferevent_setcb(buf_event, NULL, NULL, _http_callback_stream_error, (void *)client);
@@ -370,8 +370,7 @@ void _expose_new_picture(struct http_server_t *server) {
 	}
 
 	memcpy(
-		server->run->exposed->picture.data,
-		server->run->stream->picture.data,
+		server->run->exposed->picture.data, server->run->stream->picture.data,
 		server->run->stream->picture.size * sizeof(*server->run->exposed->picture.data)
 	);
 
@@ -389,8 +388,7 @@ void _expose_blank_picture(struct http_server_t *server) {
 		}
 
 		memcpy(
-			server->run->exposed->picture.data,
-			BLANK_JPG_DATA,
+			server->run->exposed->picture.data, BLANK_JPG_DATA,
 			BLANK_JPG_SIZE * sizeof(*server->run->exposed->picture.data)
 		);
 

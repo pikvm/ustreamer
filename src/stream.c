@@ -129,8 +129,7 @@ void stream_loop(struct stream_t *stream) {
 				stream->picture.size = stream->dev->run->pictures[oldest_worker->ctx.index].size;
 				stream->picture.allocated = stream->dev->run->pictures[oldest_worker->ctx.index].allocated;
 				memcpy(
-					stream->picture.data,
-					stream->dev->run->pictures[oldest_worker->ctx.index].data,
+					stream->picture.data, stream->dev->run->pictures[oldest_worker->ctx.index].data,
 					stream->picture.size * sizeof(*stream->picture.data)
 				);
 
