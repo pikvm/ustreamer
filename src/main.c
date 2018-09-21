@@ -109,10 +109,10 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct h
 #	define OPT_TRUE(_dest) \
 		{ _dest = true; break; }
 
-#	define OPT_UNSIGNED(_dest, _name, _min) \
+#	define OPT_UNSIGNED(_dest, _name, _min, _max) \
 		{ int _tmp = strtol(optarg, NULL, 0); \
-		if (errno || _tmp < _min) \
-		{ printf("Invalid value for '%s=%u'; minimal=%u\n", _name, _tmp, _min); return -1; } \
+		if (errno || _tmp < _min || _tmp > _max) \
+		{ printf("Invalid value for '%s=%u'; minimal=%u; maximum=%u\n", _name, _tmp, _min, _max); return -1; } \
 		_dest = _tmp; break; }
 
 #	define OPT_PARSE(_dest, _func, _invalid, _name) \
@@ -127,27 +127,27 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct h
 	while ((ch = getopt_long(argc, argv, _short_opts, _long_opts, &index)) >= 0) {
 		switch (ch) {
 			case 'd':	OPT_ARG(dev->path);
-			case 'x':	OPT_UNSIGNED(dev->width, "--width", 320);
-			case 'y':	OPT_UNSIGNED(dev->height, "--height", 180);
+			case 'x':	OPT_UNSIGNED(dev->width, "--width", 320, 1920);
+			case 'y':	OPT_UNSIGNED(dev->height, "--height", 180, 1200);
 #			pragma GCC diagnostic ignored "-Wsign-compare"
 #			pragma GCC diagnostic push
 			case 'f':	OPT_PARSE(dev->format, device_parse_format, FORMAT_UNKNOWN, "pixel format");
 #			pragma GCC diagnostic pop
 			case 'a':	OPT_PARSE(dev->standard, device_parse_standard, STANDARD_UNKNOWN, "TV standard");
-			case 'e':	OPT_UNSIGNED(dev->every_frame, "--every-frame", 1);
-			case 'z':	OPT_UNSIGNED(dev->min_frame_size, "--min-frame-size", 0);
+			case 'e':	OPT_UNSIGNED(dev->every_frame, "--every-frame", 1, 30);
+			case 'z':	OPT_UNSIGNED(dev->min_frame_size, "--min-frame-size", 0, 8192);
 			case 't':	OPT_TRUE(dev->dv_timings);
-			case 'n':	OPT_UNSIGNED(dev->n_buffers, "--buffers", 1);
-			case 'q':	OPT_UNSIGNED(dev->jpeg_quality, "--jpeg-quality", 1);
-			case 1000:	OPT_UNSIGNED(dev->timeout, "--timeout", 1);
-			case 1001:	OPT_UNSIGNED(dev->error_timeout, "--error-timeout", 1);
+			case 'n':	OPT_UNSIGNED(dev->n_buffers, "--buffers", 1, 32);
+			case 'q':	OPT_UNSIGNED(dev->jpeg_quality, "--jpeg-quality", 1, 100);
+			case 1000:	OPT_UNSIGNED(dev->timeout, "--timeout", 1, 60);
+			case 1001:	OPT_UNSIGNED(dev->error_timeout, "--error-timeout", 1, 60);
 
 			case 's':	server->host = optarg; break;
-			case 'p':	OPT_UNSIGNED(server->port, "--port", 1);
-			case 2000:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1);
+			case 'p':	OPT_UNSIGNED(server->port, "--port", 1, 65535);
+			case 2000:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
 
 			case 5000:	log_level = LOG_LEVEL_DEBUG; break;
-			case 5001:	OPT_UNSIGNED(log_level, "--log-level", 0);
+			case 5001:	OPT_UNSIGNED(log_level, "--log-level", 0, 3);
 			case 0:		break;
 			case 'h':	default: _help(dev, server); return -1;
 		}
