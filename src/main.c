@@ -1,3 +1,24 @@
+/*****************************************************************************
+#    uStreamer - Lightweight and fast MJPG-HTTP streamer.                    #
+#                                                                            #
+#    Copyright (C) 2018  Maxim Devaev <mdevaev@gmail.com>                    #
+#                                                                            #
+#    This program is free software: you can redistribute it and/or modify    #
+#    it under the terms of the GNU General Public License as published by    #
+#    the Free Software Foundation, either version 3 of the License, or       #
+#    (at your option) any later version.                                     #
+#                                                                            #
+#    This program is distributed in the hope that it will be useful,         #
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of          #
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           #
+#    GNU General Public License for more details.                            #
+#                                                                            #
+#    You should have received a copy of the GNU General Public License       #
+#    along with this program.  If not, see <https://www.gnu.org/licenses/>.  #
+#                                                                            #
+*****************************************************************************/
+
+
 #include <assert.h>
 #ifdef NDEBUG
 #	error WTF dude? Asserts are good things!
@@ -17,9 +38,11 @@
 #include "http.h"
 
 
-static const char _short_opts[] = "d:f:a:e:tn:q:s:p:h";
+static const char _short_opts[] = "d:x:y:f:a:e:z:tn:q:s:p:h";
 static const struct option _long_opts[] = {
 	{"device",					required_argument,	NULL,	'd'},
+	{"width",					required_argument,	NULL,	'x'},
+	{"height",					required_argument,	NULL,	'y'},
 	{"format",					required_argument,	NULL,	'f'},
 	{"tv-standard",				required_argument,	NULL,	'a'},
 	{"every-frame",				required_argument,	NULL,	'e'},
@@ -27,10 +50,8 @@ static const struct option _long_opts[] = {
 	{"dv-timings",				no_argument,		NULL,	't'},
 	{"buffers",					required_argument,	NULL,	'n'},
 	{"jpeg-quality",			required_argument,	NULL,	'q'},
-	{"width",					required_argument,	NULL,	1000},
-	{"height",					required_argument,	NULL,	1001},
-	{"device-timeout",			required_argument,	NULL,	1002},
-	{"device-error-timeout",	required_argument,	NULL,	1003},
+	{"device-timeout",			required_argument,	NULL,	1000},
+	{"device-error-timeout",	required_argument,	NULL,	1001},
 
 	{"host",					required_argument,	NULL,	's'},
 	{"port",					required_argument,	NULL,	'p'},
@@ -45,11 +66,13 @@ static const struct option _long_opts[] = {
 static void _help(struct device_t *dev, struct http_server_t *server) {
 	printf("\nuStreamer - Lightweight and fast MJPG-HTTP streamer\n");
 	printf("===================================================\n\n");
+	printf("License: GPLv3\n");
+	printf("Copyright (C) 2018 Maxim Devaev <mdevaev@gmail.com>\n\n");
 	printf("Capturing options:\n");
 	printf("------------------\n");
 	printf("    -d|--device </dev/path>           -- Path to V4L2 device. Default: %s\n\n", dev->path);
-	printf("    --width <N>                       -- Initial image width. Default: %d\n\n", dev->width);
-	printf("    --height <N>                      -- Initial image height. Default: %d\n\n", dev->height);
+	printf("    -x|--width <N>                    -- Initial image width. Default: %d\n\n", dev->width);
+	printf("    -y|--height <N>                   -- Initial image height. Default: %d\n\n", dev->height);
 	printf("    -f|--format <YUYV|UYVY|RGB565>    -- Image format. Default: YUYV.\n\n");
 	printf("    -a|--tv-standard <PAL|NTSC|SECAM> -- Force TV standard. Default: disabled.\n\n");
 	printf("    -e|--every-frame <N>              -- Drop all input frames except specified. Default: disabled.\n\n");
@@ -104,6 +127,8 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct h
 	while ((ch = getopt_long(argc, argv, _short_opts, _long_opts, &index)) >= 0) {
 		switch (ch) {
 			case 'd':	OPT_ARG(dev->path);
+			case 'x':	OPT_UNSIGNED(dev->width, "--width", 320);
+			case 'y':	OPT_UNSIGNED(dev->height, "--height", 180);
 #			pragma GCC diagnostic ignored "-Wsign-compare"
 #			pragma GCC diagnostic push
 			case 'f':	OPT_PARSE(dev->format, device_parse_format, FORMAT_UNKNOWN, "pixel format");
@@ -114,10 +139,8 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct h
 			case 't':	OPT_TRUE(dev->dv_timings);
 			case 'n':	OPT_UNSIGNED(dev->n_buffers, "--buffers", 1);
 			case 'q':	OPT_UNSIGNED(dev->jpeg_quality, "--jpeg-quality", 1);
-			case 1000:	OPT_UNSIGNED(dev->width, "--width", 320);
-			case 1001:	OPT_UNSIGNED(dev->height, "--height", 180);
-			case 1002:	OPT_UNSIGNED(dev->timeout, "--timeout", 1);
-			case 1003:	OPT_UNSIGNED(dev->error_timeout, "--error-timeout", 1);
+			case 1000:	OPT_UNSIGNED(dev->timeout, "--timeout", 1);
+			case 1001:	OPT_UNSIGNED(dev->error_timeout, "--error-timeout", 1);
 
 			case 's':	server->host = optarg; break;
 			case 'p':	OPT_UNSIGNED(server->port, "--port", 1);
@@ -134,7 +157,6 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct h
 #	undef OPT_UNSIGNED
 #	undef OPT_TRUE
 #	undef OPT_ARG
-
 	return 0;
 }
 
