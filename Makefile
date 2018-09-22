@@ -3,7 +3,7 @@ PREFIX ?= /usr/local
 
 LIBS = -lm -ljpeg -pthread -levent -levent_pthreads
 CC = gcc
-CFLAGS = -c -O3 -Wall -Wextra
+CFLAGS = -c -std=c99 -O3 -Wall -Wextra -D_GNU_SOURCE
 LDFLAGS =
 SOURCES = $(shell ls src/*.c)
 OBJECTS = $(SOURCES:.c=.o)
