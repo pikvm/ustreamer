@@ -28,8 +28,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
-#include <pthread.h>
 #include <getopt.h>
+
+#include <pthread.h>
 
 #include "tools.h"
 #include "logging.h"
@@ -61,7 +62,7 @@ static const struct option _long_opts[] = {
 	{"debug",					no_argument,		NULL,	5000},
 	{"log-level",				required_argument,	NULL,	5001},
 	{"help",					no_argument,		NULL,	'h'},
-	{NULL, 0, NULL, 0}
+	{NULL, 0, NULL, 0},
 };
 
 static void _help(struct device_t *dev, struct http_server_t *server) {

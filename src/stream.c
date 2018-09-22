@@ -21,9 +21,11 @@
 
 #include <unistd.h>
 #include <errno.h>
-#include <pthread.h>
 #include <time.h>
 #include <assert.h>
+
+#include <pthread.h>
+
 #include <sys/select.h>
 #include <linux/videodev2.h>
 

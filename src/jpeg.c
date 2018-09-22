@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+
 #include <jpeglib.h>
 #include <linux/videodev2.h>
 
@@ -94,6 +95,7 @@ void jpeg_compress_buffer(struct device_t *dev, int index) {
 #	define WRITE_SCANLINES(_func) \
 		_func(&jpeg, line_buffer, dev->run->hw_buffers[index].start, dev->run->width, dev->run->height)
 	switch (dev->run->format) {
+		// https://www.fourcc.org/yuv.php
 		case V4L2_PIX_FMT_YUYV: WRITE_SCANLINES(_jpeg_write_scanlines_yuyv); break;
 		case V4L2_PIX_FMT_UYVY: WRITE_SCANLINES(_jpeg_write_scanlines_uyvy); break;
 		case V4L2_PIX_FMT_RGB565: WRITE_SCANLINES(_jpeg_write_scanlines_rgb565); break;

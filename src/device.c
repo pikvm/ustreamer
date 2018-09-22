@@ -26,6 +26,7 @@
 #include <strings.h>
 #include <unistd.h>
 #include <fcntl.h>
+
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <linux/videodev2.h>
@@ -42,7 +43,7 @@ static const struct {
 	{"UNKNOWN",	V4L2_STD_UNKNOWN},
 	{"PAL",		V4L2_STD_PAL},
 	{"NTSC",	V4L2_STD_NTSC},
-	{"SECAM",	V4L2_STD_SECAM}
+	{"SECAM",	V4L2_STD_SECAM},
 };
 
 static const struct {
@@ -51,7 +52,7 @@ static const struct {
 } FORMATS[] = {
 	{"YUYV",	V4L2_PIX_FMT_YUYV},
 	{"UYVY",	V4L2_PIX_FMT_UYVY},
-	{"RGB565",	V4L2_PIX_FMT_RGB565}
+	{"RGB565",	V4L2_PIX_FMT_RGB565},
 };
 
 
