@@ -37,8 +37,8 @@ pthread_mutex_t log_mutex;
 
 
 #define LOG_LEVEL_INFO		0
-#define LOG_LEVEL_VERBOSE	1
-#define LOG_LEVEL_PERF		2
+#define LOG_LEVEL_PERF		1
+#define LOG_LEVEL_VERBOSE	2
 #define LOG_LEVEL_DEBUG		3
 
 
@@ -88,18 +88,18 @@ pthread_mutex_t log_mutex;
 		printf("-- INFO  [%.03Lf tid=%ld] -- " _x_msg "\n", now_ms_ld(), syscall(SYS_gettid), ##__VA_ARGS__); \
 	}
 
-#define LOG_VERBOSE(_x_msg, ...) { \
-		if (log_level >= LOG_LEVEL_VERBOSE) { \
-			LOGGING_LOCK; \
-			printf("-- VERB  [%.03Lf tid=%ld] -- " _x_msg "\n", now_ms_ld(), syscall(SYS_gettid), ##__VA_ARGS__); \
-			LOGGING_UNLOCK; \
-		} \
-	}
-
 #define LOG_PERF(_x_msg, ...) { \
 		if (log_level >= LOG_LEVEL_PERF) { \
 			LOGGING_LOCK; \
 			printf("-- PERF  [%.03Lf tid=%ld] -- " _x_msg "\n", now_ms_ld(), syscall(SYS_gettid), ##__VA_ARGS__); \
+			LOGGING_UNLOCK; \
+		} \
+	}
+
+#define LOG_VERBOSE(_x_msg, ...) { \
+		if (log_level >= LOG_LEVEL_VERBOSE) { \
+			LOGGING_LOCK; \
+			printf("-- VERB  [%.03Lf tid=%ld] -- " _x_msg "\n", now_ms_ld(), syscall(SYS_gettid), ##__VA_ARGS__); \
 			LOGGING_UNLOCK; \
 		} \
 	}

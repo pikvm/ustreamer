@@ -38,7 +38,7 @@
 #include "http.h"
 
 
-static const char _short_opts[] = "d:x:y:f:a:e:z:tn:q:s:p:h";
+static const char _short_opts[] = "d:x:y:f:a:e:z:tn:w:q:s:p:h";
 static const struct option _long_opts[] = {
 	{"device",					required_argument,	NULL,	'd'},
 	{"width",					required_argument,	NULL,	'x'},
@@ -49,6 +49,7 @@ static const struct option _long_opts[] = {
 	{"min-frame-size",			required_argument,	NULL,	'z'},
 	{"dv-timings",				no_argument,		NULL,	't'},
 	{"buffers",					required_argument,	NULL,	'n'},
+	{"workers",					required_argument,	NULL,	'w'},
 	{"jpeg-quality",			required_argument,	NULL,	'q'},
 	{"device-timeout",			required_argument,	NULL,	1000},
 	{"device-error-timeout",	required_argument,	NULL,	1001},
@@ -81,8 +82,9 @@ static void _help(struct device_t *dev, struct http_server_t *server) {
 	printf("    -t|--dv-timings                   -- Enable DV timings queriyng and events processing.\n");
 	printf("                                         Supports automatic resolution changing. Default: disabled.\n\n");
 	printf("    -n|--buffers <N>                  -- The number of buffers to receive data from the device.\n");
-	printf("                                         Each buffer is processed using an intermediate thread.\n");
+	printf("                                         Each buffer may processed using an intermediate thread.\n");
 	printf("                                         Default: %d (number of CPU cores + 1)\n\n", dev->n_buffers);
+	printf("    -w|--workers <N>                  -- The number of compressing threads. Default: %d (== --buffers).\n\n", dev->n_workers);
 	printf("    -q|--jpeg-quality <N>             -- Set quality of JPEG encoding from 1 to 100 (best). Default: %d\n\n", dev->jpeg_quality);
 	printf("    --device-timeout <seconds>        -- Timeout for device querying. Default: %d\n\n", dev->timeout);
 	printf("    --device-error-timeout <seconds>  -- Delay before trying to connect to the device again\n");
@@ -97,7 +99,7 @@ static void _help(struct device_t *dev, struct http_server_t *server) {
 	printf("    --debug         -- Enabled debug messages (same as --log-level=3). Default: disabled.\n\n");
 	printf("    --log-level <N> -- Verbosity level of messages from 0 (info) to 3 (debug).\n");
 	printf("                       Enabling debugging messages can slow down the program.\n");
-	printf("                       Available levels: 0=info, 1=verbose, 2=performace, 3=debug.\n");
+	printf("                       Available levels: 0=info, 1=performance, 2=verbose, 3=debug.\n");
 	printf("                       Default: %d\n\n", log_level);
 	printf("    -h|--help       -- Print this messages and exit\n\n");
 }
@@ -138,6 +140,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct h
 			case 'z':	OPT_UNSIGNED(dev->min_frame_size, "--min-frame-size", 0, 8192);
 			case 't':	OPT_TRUE(dev->dv_timings);
 			case 'n':	OPT_UNSIGNED(dev->n_buffers, "--buffers", 1, 32);
+			case 'w':	OPT_UNSIGNED(dev->n_workers, "--workers", 1, 32);
 			case 'q':	OPT_UNSIGNED(dev->jpeg_quality, "--jpeg-quality", 1, 100);
 			case 1000:	OPT_UNSIGNED(dev->timeout, "--timeout", 1, 60);
 			case 1001:	OPT_UNSIGNED(dev->error_timeout, "--error-timeout", 1, 60);

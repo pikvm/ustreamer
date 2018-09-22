@@ -82,6 +82,7 @@ struct device_t *device_init() {
 	dev->format = V4L2_PIX_FMT_YUYV;
 	dev->standard = V4L2_STD_UNKNOWN;
 	dev->n_buffers = max_u(sysconf(_SC_NPROCESSORS_ONLN), 1) + 1;
+	dev->n_workers = dev->n_buffers;
 	dev->jpeg_quality = 80;
 	dev->timeout = 1;
 	dev->error_timeout = 1;

@@ -62,6 +62,7 @@ struct device_t {
 	v4l2_std_id		standard;
 	bool			dv_timings;
 	unsigned		n_buffers;
+	unsigned		n_workers;
 	unsigned		every_frame;
 	unsigned		min_frame_size;
 	unsigned		jpeg_quality;

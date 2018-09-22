@@ -29,8 +29,9 @@
 
 
 struct worker_context_t {
-	int					index;
+	unsigned			number;
 	struct device_t		*dev;
+	int					buf_index;
 	struct v4l2_buffer	buf_info;
 	sig_atomic_t		*volatile dev_stop;
 	bool				*workers_stop;
@@ -41,11 +42,12 @@ struct worker_context_t {
 	pthread_mutex_t		*has_job_mutex;
 	bool				*has_job;
 	bool				*job_failed;
+	long double			*job_start_time;
 	pthread_cond_t		*has_job_cond;
 
-	pthread_mutex_t		*has_free_workers_mutex;
-	bool				*has_free_workers;
-	pthread_cond_t		*has_free_workers_cond;
+	pthread_mutex_t		*free_workers_mutex;
+	unsigned			*free_workers;
+	pthread_cond_t		*free_workers_cond;
 };
 
 struct worker_t {
@@ -58,8 +60,10 @@ struct worker_t {
 	pthread_mutex_t			has_job_mutex;
 	bool					has_job;
 	bool					job_failed;
+	long double				job_start_time;
 	pthread_cond_t			has_job_cond;
 
+	struct worker_t			*order_prev;
 	struct worker_t			*order_next;
 };
 
@@ -67,9 +71,9 @@ struct workers_pool_t {
 	struct worker_t	*workers;
 	bool			*workers_stop;
 
-	pthread_mutex_t	has_free_workers_mutex;
-	bool			has_free_workers;
-	pthread_cond_t	has_free_workers_cond;
+	pthread_mutex_t	free_workers_mutex;
+	unsigned		free_workers;
+	pthread_cond_t	free_workers_cond;
 };
 
 struct stream_t {
