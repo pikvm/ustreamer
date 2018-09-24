@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 
-#include "device.h"
+#include "../device.h"
 
 
-void jpeg_compress_buffer(struct device_t *dev, int index);
+int jpeg_compress_buffer(struct device_t *dev, int index);

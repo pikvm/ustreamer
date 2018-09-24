@@ -32,8 +32,9 @@
 #include "tools.h"
 #include "logging.h"
 #include "device.h"
-#include "jpeg.h"
 #include "stream.h"
+
+#include "jpeg/encoder.h"
 
 
 static long double _stream_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool);
