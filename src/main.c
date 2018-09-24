@@ -35,6 +35,7 @@
 #include "tools.h"
 #include "logging.h"
 #include "device.h"
+#include "encoder.h"
 #include "stream.h"
 #include "http.h"
 
@@ -218,6 +219,7 @@ static void _install_signal_handlers() {
 
 int main(int argc, char *argv[]) {
 	struct device_t *dev;
+	struct encoder_t *encoder;
 	struct stream_t *stream;
 	struct http_server_t *server;
 	int exit_code = 0;
@@ -225,7 +227,8 @@ int main(int argc, char *argv[]) {
 	LOGGING_INIT;
 
 	dev = device_init();
-	stream = stream_init(dev);
+	encoder = encoder_init(ENCODER_TYPE_CPU);
+	stream = stream_init(dev, encoder);
 	server = http_server_init(stream);
 
 	if ((exit_code = _parse_options(argc, argv, dev, server)) == 0) {
@@ -249,6 +252,7 @@ int main(int argc, char *argv[]) {
 
 	http_server_destroy(server);
 	stream_destroy(stream);
+	encoder_destroy(encoder);
 	device_destroy(dev);
 
 	LOGGING_DESTROY;

@@ -27,6 +27,7 @@
 #include <pthread.h>
 
 #include "device.h"
+#include "encoder.h"
 
 
 struct worker_context_t {
@@ -36,6 +37,8 @@ struct worker_context_t {
 	struct v4l2_buffer	buf_info;
 	sig_atomic_t		*volatile dev_stop;
 	bool				*workers_stop;
+
+	struct encoder_t	*encoder;
 
 	pthread_mutex_t		*last_comp_time_mutex;
 	long double			*last_comp_time;
@@ -69,12 +72,14 @@ struct worker_t {
 };
 
 struct workers_pool_t {
-	struct worker_t	*workers;
-	bool			*workers_stop;
+	struct worker_t*workers;
+	bool				*workers_stop;
 
-	pthread_mutex_t	free_workers_mutex;
-	unsigned		free_workers;
-	pthread_cond_t	free_workers_cond;
+	pthread_mutex_t		free_workers_mutex;
+	unsigned			free_workers;
+	pthread_cond_t		free_workers_cond;
+
+	struct encoder_t	*encoder;
 };
 
 struct stream_t {
@@ -84,10 +89,11 @@ struct stream_t {
 	bool				updated;
 	pthread_mutex_t		mutex;
 	struct device_t		*dev;
+	struct encoder_t	*encoder;
 };
 
 
-struct stream_t *stream_init(struct device_t *dev);
+struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder);
 void stream_destroy(struct stream_t *stream);
 
 void stream_loop(struct stream_t *stream);

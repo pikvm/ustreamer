@@ -13,6 +13,13 @@ PROG = ustreamer
 all: $(SOURCES) $(PROG)
 
 
+rpi:
+	make all \
+		SOURCES="$(SOURCES) $(shell ls src/omx/*.c)" \
+		LIBS="$(LIBS) -lbcm_host -lvcos -lopenmaxil -L/opt/vc/lib" \
+		CFLAGS="$(CFLAGS) -DOMX_ENCODER -DOMX_SKIP64BIT -I/opt/vc/include"
+
+
 install: $(PROG)
 	install -Dm755 $(PROG) $(DESTDIR)$(PREFIX)/bin/$(PROG)
 
@@ -30,4 +37,4 @@ $(PROG): $(OBJECTS)
 
 
 clean:
-	rm -f src/*.o vgcore.* $(PROG)
+	rm -f src/*.o src/{jpeg,omx}/*.o vgcore.* $(PROG)

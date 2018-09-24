@@ -138,6 +138,8 @@ int device_open(struct device_t *dev) {
 	}
 	_device_open_alloc_picbufs(dev);
 
+	dev->run->n_workers = dev->n_workers;
+
 	LOG_DEBUG("Device fd=%d initialized", dev->run->fd);
 	return 0;
 

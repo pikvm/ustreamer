@@ -113,7 +113,7 @@ void omx_encoder_destroy(struct omx_encoder_t *omx) {
 	free(omx);
 }
 
-int omx_encoder_set_device(struct omx_encoder_t *omx, struct device_t *dev) {
+int omx_encoder_prepare(struct omx_encoder_t *omx, struct device_t *dev) {
 	if (component_set_state(&omx->encoder, OMX_StateIdle) < 0) {
 		return -1;
 	}
@@ -132,13 +132,13 @@ int omx_encoder_set_device(struct omx_encoder_t *omx, struct device_t *dev) {
 	return 0;
 }
 
-void omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, int index) {
+int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, int index) {
 	OMX_ERRORTYPE error;
 	bool loaded = false;
 
 	if ((error = OMX_FillThisBuffer(omx->encoder, omx->output_buffer)) != OMX_ErrorNone) {
 		LOG_OMX_ERROR(error, "Failed to request filling of the output buffer on encoder");
-		assert(0); // TODO
+		return -1;
 	}
 
 	dev->run->pictures[index].size = 0;
@@ -146,7 +146,9 @@ void omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev
 	omx->input_required = true;
 
 	while (true) {
-		assert(!omx->failed); // FIXME
+		if (omx->failed) {
+			return -1;
+		}
 
 		if (omx->output_available) {
 			omx->output_available = false;
@@ -165,7 +167,7 @@ void omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev
 
 			if ((error = OMX_FillThisBuffer(omx->encoder, omx->output_buffer)) != OMX_ErrorNone) {
 				LOG_OMX_ERROR(error, "Failed to request filling of the output buffer on encoder");
-				assert(0); // TODO
+				return -1;
 			}
 		}
 
@@ -182,12 +184,13 @@ void omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev
 
 			if ((error = OMX_EmptyThisBuffer(omx->encoder, omx->input_buffer)) != OMX_ErrorNone) {
 				LOG_OMX_ERROR(error, "Failed to request emptying of the input buffer on encoder");
-				assert(0); // TODO
+				return -1;
 			}
 		}
 
 		vcos_semaphore_wait(&omx->handler_lock);
 	}
+	return 0;
 }
 
 static int _omx_init_component(struct omx_encoder_t *omx) {

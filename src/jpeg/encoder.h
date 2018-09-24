@@ -27,4 +27,4 @@
 #include "../device.h"
 
 
-int jpeg_compress_buffer(struct device_t *dev, int index);
+void jpeg_encoder_compress_buffer(struct device_t *dev, int index);

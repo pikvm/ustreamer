@@ -21,66 +21,33 @@
 
 #pragma once
 
-#include <stddef.h>
-#include <stdbool.h>
-#include <signal.h>
+#include "tools.h"
+#include "device.h"
 
-#include <linux/videodev2.h>
-
-
-#define FORMAT_UNKNOWN		-1
-#define STANDARD_UNKNOWN	V4L2_STD_UNKNOWN
+#ifdef OMX_ENCODER
+#	include "omx/encoder.h"
+#endif
 
 
-struct hw_buffer_t {
-	void	*start;
-	size_t	length;
+enum encoder_type_t {
+	ENCODER_TYPE_CPU,
+
+#ifdef OMX_ENCODER
+	ENCODER_TYPE_OMX,
+#endif
 };
 
-struct picture_t {
-	unsigned char	*data;
-	unsigned long	size;
-	unsigned long	allocated;
-};
+struct encoder_t {
+	enum encoder_type_t type;
 
-struct device_runtime_t {
-	int					fd;
-	unsigned			width;
-	unsigned			height;
-	unsigned			format;
-	unsigned			n_buffers;
-	unsigned			n_workers;
-	struct hw_buffer_t	*hw_buffers;
-	struct picture_t	*pictures;
-	unsigned long		max_picture_size;
-	bool				capturing;
-};
-
-struct device_t {
-	char			*path;
-	unsigned		width;
-	unsigned		height;
-	unsigned		format;
-	v4l2_std_id		standard;
-	bool			dv_timings;
-	unsigned		n_buffers;
-	unsigned		n_workers;
-	unsigned		every_frame;
-	unsigned		min_frame_size;
-	unsigned		jpeg_quality;
-	unsigned		timeout;
-	unsigned		error_timeout;
-
-	struct device_runtime_t *run;
-	sig_atomic_t volatile stop;
+#ifdef OMX_ENCODER
+	struct omx_encoder_t *omx;
+#endif
 };
 
 
-struct device_t *device_init();
-void device_destroy(struct device_t *dev);
+struct encoder_t *encoder_init(enum encoder_type_t type);
+void encoder_destroy(struct encoder_t *encoder);
 
-int device_parse_format(const char *const str);
-v4l2_std_id device_parse_standard(const char *const str);
-
-int device_open(struct device_t *dev);
-void device_close(struct device_t *dev);
+void encoder_prepare(struct encoder_t *encoder, struct device_t *dev);
+void encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, int index);

@@ -32,6 +32,7 @@
 #include "tools.h"
 #include "logging.h"
 #include "device.h"
+#include "encoder.h"
 #include "stream.h"
 
 #include "jpeg/encoder.h"
@@ -53,11 +54,12 @@ static int _stream_release_buffer(struct device_t *dev, struct v4l2_buffer *buf_
 static int _stream_handle_event(struct device_t *dev);
 
 
-struct stream_t *stream_init(struct device_t *dev) {
+struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
 	struct stream_t *stream;
 
 	A_CALLOC(stream, 1);
 	stream->dev = dev;
+	stream->encoder = encoder;
 	A_PTHREAD_M_INIT(&stream->mutex);
 	return stream;
 }
@@ -72,6 +74,7 @@ void stream_loop(struct stream_t *stream) {
 	bool workers_stop;
 
 	MEMSET_ZERO(pool);
+	pool.encoder = stream->encoder;
 	pool.workers_stop = &workers_stop;
 
 	LOG_INFO("Using V4L2 device: %s", stream->dev->path);
@@ -111,7 +114,7 @@ void stream_loop(struct stream_t *stream) {
 
 				LOG_PERF("##### ACCEPT : %u", free_worker_number);
 			} else {
-				for (unsigned number = 0; number < stream->dev->n_workers; ++number) {
+				for (unsigned number = 0; number < stream->dev->run->n_workers; ++number) {
 					if (!pool.workers[number].has_job && (free_worker_number == -1
 						|| pool.workers[free_worker_number].job_start_time < pool.workers[number].job_start_time
 					)) {
@@ -301,7 +304,7 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) 
 static long double _stream_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool) {
 	long double delay = 0;
 
-	for (unsigned number = 0; number < dev->n_workers; ++number) {
+	for (unsigned number = 0; number < dev->run->n_workers; ++number) {
 		A_PTHREAD_M_LOCK(&pool->workers[number].last_comp_time_mutex);
 		if (pool->workers[number].last_comp_time > 0) {
 			delay += pool->workers[number].last_comp_time;
@@ -309,7 +312,7 @@ static long double _stream_get_fluency_delay(struct device_t *dev, struct worker
 		A_PTHREAD_M_UNLOCK(&pool->workers[number].last_comp_time_mutex);
 	}
 	// Среднее арифметическое деленное на количество воркеров
-	return delay / dev->n_workers / dev->n_workers;
+	return delay / dev->run->n_workers / dev->run->n_workers;
 }
 
 static int _stream_init_loop(struct device_t *dev, struct workers_pool_t *pool) {
@@ -340,6 +343,9 @@ static int _stream_init(struct device_t *dev, struct workers_pool_t *pool) {
 	if (_stream_control(dev, true) < 0) {
 		goto error;
 	}
+
+	encoder_prepare(pool->encoder, dev);
+
 	_stream_init_workers(dev, pool);
 
 	return 0;
@@ -350,15 +356,15 @@ static int _stream_init(struct device_t *dev, struct workers_pool_t *pool) {
 }
 
 static void _stream_init_workers(struct device_t *dev, struct workers_pool_t *pool) {
-	LOG_INFO("Spawning %d workers ...", dev->n_workers);
+	LOG_INFO("Spawning %d workers ...", dev->run->n_workers);
 
 	*pool->workers_stop = false;
-	A_CALLOC(pool->workers, dev->n_workers);
+	A_CALLOC(pool->workers, dev->run->n_workers);
 
 	A_PTHREAD_M_INIT(&pool->free_workers_mutex);
 	A_PTHREAD_C_INIT(&pool->free_workers_cond);
 
-	for (unsigned number = 0; number < dev->n_workers; ++number) {
+	for (unsigned number = 0; number < dev->run->n_workers; ++number) {
 		pool->free_workers += 1;
 
 		A_PTHREAD_M_INIT(&pool->workers[number].has_job_mutex);
@@ -368,6 +374,8 @@ static void _stream_init_workers(struct device_t *dev, struct workers_pool_t *po
 		pool->workers[number].ctx.dev = dev;
 		pool->workers[number].ctx.dev_stop = (sig_atomic_t *volatile)&dev->stop;
 		pool->workers[number].ctx.workers_stop = pool->workers_stop;
+
+		pool->workers[number].ctx.encoder = pool->encoder;
 
 		pool->workers[number].ctx.last_comp_time_mutex = &pool->workers[number].last_comp_time_mutex;
 		pool->workers[number].ctx.last_comp_time = &pool->workers[number].last_comp_time;
@@ -405,7 +413,7 @@ static void *_stream_worker_thread(void *v_ctx) {
 
 			LOG_DEBUG("Worker %u compressing JPEG from buffer %d ...", ctx->number, ctx->buf_index);
 
-			jpeg_compress_buffer(ctx->dev, ctx->buf_index);
+			encoder_compress_buffer(ctx->encoder, ctx->dev, ctx->buf_index);
 
 			if (_stream_release_buffer(ctx->dev, &ctx->buf_info) == 0) {
 				*ctx->job_start_time = start_time;
@@ -442,7 +450,7 @@ static void _stream_destroy_workers(struct device_t *dev, struct workers_pool_t 
 		LOG_INFO("Destroying workers ...");
 
 		*pool->workers_stop = true;
-		for (unsigned number = 0; number < dev->n_workers; ++number) {
+		for (unsigned number = 0; number < dev->run->n_workers; ++number) {
 			A_PTHREAD_M_LOCK(&pool->workers[number].has_job_mutex);
 			pool->workers[number].has_job = true; // Final job: die
 			A_PTHREAD_M_UNLOCK(&pool->workers[number].has_job_mutex);

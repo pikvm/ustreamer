@@ -52,7 +52,7 @@ int component_get_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYP
 int component_set_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYPE *portdef) {
 	OMX_ERRORTYPE error;
 
-	LOG_DEBUG("Writing OMX port %u definition ...", port);
+	LOG_DEBUG("Writing OMX port %u definition ...", portdef->nPortIndex);
 	if ((error = OMX_SetParameter(*component, OMX_IndexParamPortDefinition, portdef)) != OMX_ErrorNone) {
 		LOG_OMX_ERROR(error, "Can't set OMX port %u definition", portdef->nPortIndex);
 		return -1;

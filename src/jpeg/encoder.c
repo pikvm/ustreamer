@@ -68,7 +68,7 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
 static void _jpeg_term_destination(j_compress_ptr jpeg);
 
 
-int jpeg_compress_buffer(struct device_t *dev, int index) {
+void jpeg_encoder_compress_buffer(struct device_t *dev, int index) {
 	// This function based on compress_image_to_jpeg() from mjpg-streamer
 
 	struct jpeg_compress_struct jpeg;
@@ -110,7 +110,6 @@ int jpeg_compress_buffer(struct device_t *dev, int index) {
 	jpeg_destroy_compress(&jpeg);
 	free(line_buffer);
 	assert(dev->run->pictures[index].size > 0);
-	return 0;
 }
 
 static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, unsigned long *written) {
