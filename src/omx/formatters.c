@@ -38,7 +38,6 @@
 		assert(0 && _buf); \
 	}
 
-
 const char *omx_error_to_string(const OMX_ERRORTYPE error) {
 	switch (error) {
 		CASE_TO_STRING(OMX_ErrorNone);
@@ -79,5 +78,5 @@ const char *omx_state_to_string(const OMX_STATETYPE state) {
 	}
 }
 
-#undef CASE_ASSERT
 #undef CASE_TO_STRING
+#undef CASE_ASSERT

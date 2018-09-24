@@ -19,6 +19,9 @@
 *****************************************************************************/
 
 
+#include <strings.h>
+#include <assert.h>
+
 #include "tools.h"
 #include "device.h"
 #include "encoder.h"
@@ -29,11 +32,28 @@
 #	include "omx/encoder.h"
 #endif
 
+
+static const struct {
+	const char *name;
+	const enum encoder_type_t type;
+} ENCODER_TYPES[] = {
+	{"CPU",	ENCODER_TYPE_CPU},
+#	ifdef OMX_ENCODER
+	{"OMX",	ENCODER_TYPE_OMX},
+#	endif
+};
+
+
 struct encoder_t *encoder_init(enum encoder_type_t type) {
 	struct encoder_t *encoder;
 
+	assert(type != ENCODER_TYPE_UNKNOWN);
 	A_CALLOC(encoder, 1);
 	encoder->type = type;
+
+	if (encoder->type != ENCODER_TYPE_CPU) {
+		LOG_DEBUG("Initializing encoder ...");
+	}
 
 #	ifdef OMX_ENCODER
 	if (type == ENCODER_TYPE_OMX) {
@@ -63,6 +83,15 @@ void encoder_destroy(struct encoder_t *encoder) {
 	free(encoder);
 }
 
+enum encoder_type_t encoder_parse_type(const char *const str) {
+	for (unsigned index = 0; index < sizeof(ENCODER_TYPES) / sizeof(ENCODER_TYPES[0]); ++index) {
+		if (!strcasecmp(str, ENCODER_TYPES[index].name)) {
+			return ENCODER_TYPES[index].type;
+		}
+	}
+	return ENCODER_TYPE_UNKNOWN;
+}
+
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic push
 void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
@@ -72,10 +101,10 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 		if (omx_encoder_prepare(encoder->omx, dev) < 0) {
 			goto use_fallback;
 		}
-	}
-	if (dev->run->n_workers > 1) {
-		LOG_INFO("OMX encoder can only work with one worker thread; forcing n_workers to 1");
-		dev->run->n_workers = 1;
+		if (dev->run->n_workers > 1) {
+			LOG_INFO("OMX encoder can only work with one worker thread; forcing n_workers to 1");
+			dev->run->n_workers = 1;
+		}
 	}
 #	endif
 
@@ -86,20 +115,29 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 	use_fallback:
 		LOG_ERROR("Can't prepare selected encoder, falling back to CPU");
 		encoder->type = ENCODER_TYPE_CPU;
+		dev->run->n_workers = dev->n_workers;
 #	pragma GCC diagnostic pop
 }
 
-void encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, int index)  {
-#	ifdef OMX_ENCODER
-	if (encoder->type == ENCODER_TYPE_OMX) {
-		if (omx_encoder_compress_buffer(encoder->omx, dev, index) < 0) {
-			LOG_INFO("OMX compressor error, falling back to CPU method");
-			encoder->type = ENCODER_TYPE_CPU;
-		}
-	}
-#	endif
-
+int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, int index) {
 	if (encoder->type == ENCODER_TYPE_CPU) {
 		jpeg_encoder_compress_buffer(dev, index);
 	}
+#	ifdef OMX_ENCODER
+	else if (encoder->type == ENCODER_TYPE_OMX) {
+		if (omx_encoder_compress_buffer(encoder->omx, dev, index) < 0) {
+			goto error;
+		}
+	}
+#	endif
+	return 0;
+
+#	pragma GCC diagnostic ignored "-Wunused-label"
+#	pragma GCC diagnostic push
+	error:
+		LOG_INFO("HW compressing error, falling back to CPU");
+		encoder->type = ENCODER_TYPE_CPU;
+		dev->run->n_workers = dev->n_workers;
+		return -1;
+#	pragma GCC diagnostic pop
 }

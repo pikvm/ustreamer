@@ -28,8 +28,11 @@
 #include <linux/videodev2.h>
 
 
-#define FORMAT_UNKNOWN		-1
 #define STANDARD_UNKNOWN	V4L2_STD_UNKNOWN
+#define STANDARDS_STR		"UNKNOWN, PAL, NTSC, SECAM"
+
+#define FORMAT_UNKNOWN	-1
+#define FORMATS_STR		"YUYV, UYVY, RGB565"
 
 
 struct hw_buffer_t {

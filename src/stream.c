@@ -413,7 +413,9 @@ static void *_stream_worker_thread(void *v_ctx) {
 
 			LOG_DEBUG("Worker %u compressing JPEG from buffer %d ...", ctx->number, ctx->buf_index);
 
-			encoder_compress_buffer(ctx->encoder, ctx->dev, ctx->buf_index);
+			if (encoder_compress_buffer(ctx->encoder, ctx->dev, ctx->buf_index) < 0) {
+				*ctx->job_failed = true;
+			}
 
 			if (_stream_release_buffer(ctx->dev, &ctx->buf_info) == 0) {
 				*ctx->job_start_time = start_time;

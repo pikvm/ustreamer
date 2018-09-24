@@ -29,7 +29,20 @@
 #endif
 
 
+#define ENCODER_TYPES_STR "CPU"
+#define PUSH	_Pragma("push_macro(\"ENCODER_TYPES_STR\")")
+#define POP		_Pragma("pop_macro(\"ENCODER_TYPES_STR\")")
+#ifdef OMX_ENCODER
+	PUSH
+#	undef ENCODER_TYPES_STR
+#	define ENCODER_TYPES_STR POP ENCODER_TYPES_STR ", OMX"
+#endif
+#undef PUSH
+#undef POP
+
+
 enum encoder_type_t {
+	ENCODER_TYPE_UNKNOWN, // Only for encoder_parse_type() and main()
 	ENCODER_TYPE_CPU,
 
 #ifdef OMX_ENCODER
@@ -49,5 +62,7 @@ struct encoder_t {
 struct encoder_t *encoder_init(enum encoder_type_t type);
 void encoder_destroy(struct encoder_t *encoder);
 
+enum encoder_type_t encoder_parse_type(const char *const str);
+
 void encoder_prepare(struct encoder_t *encoder, struct device_t *dev);
-void encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, int index);
+int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, int index);
