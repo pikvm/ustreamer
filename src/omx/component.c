@@ -19,6 +19,8 @@
 *****************************************************************************/
 
 
+#include <unistd.h>
+
 #include <IL/OMX_Core.h>
 #include <IL/OMX_Component.h>
 
@@ -80,17 +82,28 @@ int component_set_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYP
 }
 
 int component_set_state(OMX_HANDLETYPE *component, const OMX_STATETYPE state) {
+	const char *const state_str = omx_state_to_string(state);
 	OMX_ERRORTYPE error;
+	int retries = 50;
 
-	LOG_DEBUG("Switching component state to %s ...", omx_state_to_string(state));
-	if ((error = OMX_SendCommand(*component, OMX_CommandStateSet, state, NULL)) != OMX_ErrorNone) {
-		//if (error == OMX_ErrorSameState) {
-		//	return 0;
-		//}
-		LOG_OMX_ERROR(error, "Can't switch OMX component state to %s", omx_state_to_string(state));
-		return -1;
-	}
-	return _component_wait_state_changed(component, state);
+	LOG_DEBUG("Switching component state to %s ...", state_str);
+
+	do {
+		error = OMX_SendCommand(*component, OMX_CommandStateSet, state, NULL);
+		if (error == OMX_ErrorNone) {
+			return _component_wait_state_changed(component, state);
+		} else if (error == OMX_ErrorInsufficientResources && retries) {
+			// Иногда железо не инициализируется, хз почему, просто ретраим, со второй попытки сработает
+			LOG_OMX_ERROR(error, "Can't switch OMX component state to %s, need to retry", state_str);
+			retries -= 1;
+			usleep(8000);
+		} else {
+			break;
+		}
+	} while (retries);
+
+	LOG_OMX_ERROR(error, "Can't switch OMX component state to %s", state_str);
+	return -1;
 }
 
 
