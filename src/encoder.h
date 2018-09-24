@@ -26,20 +26,15 @@
 
 #ifdef OMX_ENCODER
 #	include "omx/encoder.h"
+#	define ENCODER_TYPES_OMX_HINT ", OMX"
+#else
+#	define ENCODER_TYPES_OMX_HINT ""
 #endif
 
 
-#define ENCODER_TYPES_STR "CPU"
-#define PUSH	_Pragma("push_macro(\"ENCODER_TYPES_STR\")")
-#define POP		_Pragma("pop_macro(\"ENCODER_TYPES_STR\")")
-#ifdef OMX_ENCODER
-	PUSH
-#	undef ENCODER_TYPES_STR
-#	define ENCODER_TYPES_STR POP ENCODER_TYPES_STR ", OMX"
-#endif
-#undef PUSH
-#undef POP
-
+#define ENCODER_TYPES_STR \
+	"CPU" \
+	ENCODER_TYPES_OMX_HINT
 
 enum encoder_type_t {
 	ENCODER_TYPE_UNKNOWN, // Only for encoder_parse_type() and main()

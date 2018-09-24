@@ -10,14 +10,14 @@ OBJECTS = $(SOURCES:.c=.o)
 PROG = ustreamer
 
 
+ifeq ($(shell ls -d /opt/vc/include 2>/dev/null), /opt/vc/include)
+SOURCES += $(shell ls src/omx/*.c)
+LIBS += -lbcm_host -lvcos -lopenmaxil -L/opt/vc/lib
+CFLAGS += -DOMX_ENCODER -DOMX_SKIP64BIT -I/opt/vc/include
+endif
+
+
 all: $(SOURCES) $(PROG)
-
-
-rpi:
-	make all \
-		SOURCES="$(SOURCES) $(shell ls src/omx/*.c)" \
-		LIBS="$(LIBS) -lbcm_host -lvcos -lopenmaxil -L/opt/vc/lib" \
-		CFLAGS="$(CFLAGS) -DOMX_ENCODER -DOMX_SKIP64BIT -I/opt/vc/include"
 
 
 install: $(PROG)
