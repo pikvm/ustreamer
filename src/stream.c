@@ -458,6 +458,7 @@ static void _stream_destroy_workers(struct device_t *dev, struct workers_pool_t 
 
 		free(pool->workers);
 	}
+	pool->free_workers = 0;
 	pool->workers = NULL;
 }
 
