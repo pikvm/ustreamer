@@ -134,7 +134,7 @@ void omx_encoder_destroy(struct omx_encoder_t *omx) {
 	free(omx);
 }
 
-int omx_encoder_prepare(struct omx_encoder_t *omx, struct device_t *dev) {
+int omx_encoder_prepare_for_device(struct omx_encoder_t *omx, struct device_t *dev) {
 	if (component_set_state(&omx->encoder, OMX_StateIdle) < 0) {
 		return -1;
 	}

@@ -54,10 +54,11 @@ struct encoder_t {
 };
 
 
-struct encoder_t *encoder_init(enum encoder_type_t type);
+struct encoder_t *encoder_init();
 void encoder_destroy(struct encoder_t *encoder);
 
 enum encoder_type_t encoder_parse_type(const char *const str);
 
-void encoder_prepare(struct encoder_t *encoder, struct device_t *dev);
+void encoder_prepare(struct encoder_t *encoder);
+void encoder_prepare_for_device(struct encoder_t *encoder, struct device_t *dev);
 int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, int index);

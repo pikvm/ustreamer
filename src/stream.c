@@ -344,7 +344,7 @@ static int _stream_init(struct device_t *dev, struct workers_pool_t *pool) {
 		goto error;
 	}
 
-	encoder_prepare(pool->encoder, dev);
+	encoder_prepare_for_device(pool->encoder, dev);
 
 	_stream_init_workers(dev, pool);
 

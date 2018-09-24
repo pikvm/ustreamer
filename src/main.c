@@ -238,6 +238,7 @@ int main(int argc, char *argv[]) {
 
 	if ((exit_code = _parse_options(argc, argv, dev, encoder, server)) == 0) {
 		_install_signal_handlers();
+		encoder_prepare(encoder);
 
 		pthread_t stream_loop_tid;
 		pthread_t server_loop_tid;

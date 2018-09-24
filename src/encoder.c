@@ -45,33 +45,36 @@ static const struct {
 };
 
 
-struct encoder_t *encoder_init(enum encoder_type_t type) {
+struct encoder_t *encoder_init() {
 	struct encoder_t *encoder;
 
-	assert(type != ENCODER_TYPE_UNKNOWN);
 	A_CALLOC(encoder, 1);
-	encoder->type = type;
+	encoder->type = ENCODER_TYPE_CPU;
+	return encoder;
+}
+
+void encoder_prepare(struct encoder_t *encoder) {
+	assert(encoder->type != ENCODER_TYPE_UNKNOWN);
 
 	if (encoder->type != ENCODER_TYPE_CPU) {
 		LOG_DEBUG("Initializing encoder ...");
 	}
 
 #	ifdef OMX_ENCODER
-	if (type == ENCODER_TYPE_OMX) {
+	if (encoder->type == ENCODER_TYPE_OMX) {
 		if ((encoder->omx = omx_encoder_init()) == NULL) {
 			goto use_fallback;
 		}
 	}
 #	endif
 
-	return encoder;
+	return;
 
 #	pragma GCC diagnostic ignored "-Wunused-label"
 #	pragma GCC diagnostic push
 	use_fallback:
 		LOG_ERROR("Can't initialize selected encoder, using CPU instead it");
 		encoder->type = ENCODER_TYPE_CPU;
-		return encoder;
 #	pragma GCC diagnostic pop
 }
 
@@ -95,11 +98,13 @@ enum encoder_type_t encoder_parse_type(const char *const str) {
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic push
-void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
+void encoder_prepare_for_device(struct encoder_t *encoder, struct device_t *dev) {
+	assert(encoder->type != ENCODER_TYPE_UNKNOWN);
+
 #pragma GCC diagnostic pop
 #	ifdef OMX_ENCODER
 	if (encoder->type == ENCODER_TYPE_OMX) {
-		if (omx_encoder_prepare(encoder->omx, dev) < 0) {
+		if (omx_encoder_prepare_for_device(encoder->omx, dev) < 0) {
 			goto use_fallback;
 		}
 		if (dev->run->n_workers > 1) {
@@ -121,6 +126,8 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 }
 
 int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, int index) {
+	assert(encoder->type != ENCODER_TYPE_UNKNOWN);
+
 	if (encoder->type == ENCODER_TYPE_CPU) {
 		jpeg_encoder_compress_buffer(dev, index);
 	}
@@ -131,6 +138,7 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, int
 		}
 	}
 #	endif
+
 	return 0;
 
 #	pragma GCC diagnostic ignored "-Wunused-label"
