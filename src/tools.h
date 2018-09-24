@@ -23,7 +23,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <errno.h>
 #include <math.h>
 #include <pthread.h>
@@ -31,10 +30,7 @@
 #include <assert.h>
 
 #include <sys/ioctl.h>
-#include <sys/types.h>
 #include <sys/syscall.h>
-
-#include "logging.h"
 
 
 #define A_PTHREAD_CREATE(_tid, _func, _arg)	assert(!pthread_create(_tid, NULL, _func, _arg))
@@ -61,9 +57,6 @@
 #define UNUSED __attribute__((unused))
 
 
-#define XIOCTL_RETRIES 4
-
-
 INLINE unsigned max_u(unsigned a, unsigned b) {
 	return (a > b ? a : b);
 }
@@ -87,26 +80,4 @@ INLINE long double now_ms_ld(void) {
 
 	now_ms(&sec, &msec);
 	return (long double)sec + ((long double)msec) / 1000;
-}
-
-INLINE int xioctl(const int fd, const int request, void *arg) {
-	int retries = XIOCTL_RETRIES;
-	int retval = -1;
-
-	do {
-		retval = ioctl(fd, request, arg);
-	} while (
-		retval
-		&& retries--
-		&& (
-			errno == EINTR
-			|| errno == EAGAIN
-			|| errno == ETIMEDOUT
-		)
-	);
-
-	if (retval && retries <= 0) {
-		LOG_PERROR("ioctl(%d) retried %d times; giving up", request, XIOCTL_RETRIES);
-	}
-	return retval;
 }

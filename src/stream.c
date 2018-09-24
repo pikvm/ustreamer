@@ -19,7 +19,6 @@
 *****************************************************************************/
 
 
-#include <unistd.h>
 #include <errno.h>
 #include <time.h>
 #include <assert.h>
@@ -31,6 +30,7 @@
 
 #include "tools.h"
 #include "logging.h"
+#include "xioctl.h"
 #include "device.h"
 #include "encoder.h"
 #include "stream.h"

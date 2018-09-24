@@ -21,25 +21,35 @@
 
 #pragma once
 
-#include <stdio.h>
+#include <errno.h>
 
-#include <sys/syscall.h>
+#include <sys/ioctl.h>
 
-#include <IL/OMX_IVCommon.h>
-#include <IL/OMX_Core.h>
-#include <IL/OMX_Image.h>
-
-#include "../logging.h"
-#include "../tools.h"
+#include "tools.h"
+#include "logging.h"
 
 
-#define LOG_OMX_ERROR(_error, _msg, ...) { \
-		LOGGING_LOCK; \
-		printf("-- ERROR [%.03Lf tid=%ld] -- " _msg ": %s\n", now_ms_ld(), \
-			syscall(SYS_gettid), ##__VA_ARGS__, omx_error_to_string(_error)); \
-		LOGGING_UNLOCK; \
+#define XIOCTL_RETRIES 4
+
+
+INLINE int xioctl(const int fd, const int request, void *arg) {
+	int retries = XIOCTL_RETRIES;
+	int retval = -1;
+
+	do {
+		retval = ioctl(fd, request, arg);
+	} while (
+		retval
+		&& retries--
+		&& (
+			errno == EINTR
+			|| errno == EAGAIN
+			|| errno == ETIMEDOUT
+		)
+	);
+
+	if (retval && retries <= 0) {
+		LOG_PERROR("ioctl(%d) retried %d times; giving up", request, XIOCTL_RETRIES);
 	}
-
-
-const char *omx_error_to_string(const OMX_ERRORTYPE error);
-const char *omx_state_to_string(const OMX_STATETYPE state);
+	return retval;
+}

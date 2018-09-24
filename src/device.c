@@ -27,12 +27,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include <sys/types.h>
 #include <sys/mman.h>
 #include <linux/videodev2.h>
 
 #include "tools.h"
 #include "logging.h"
+#include "xioctl.h"
 #include "device.h"
 
 

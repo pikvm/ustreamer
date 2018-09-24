@@ -23,6 +23,7 @@
 #include <assert.h>
 
 #include "tools.h"
+#include "logging.h"
 #include "device.h"
 #include "encoder.h"
 

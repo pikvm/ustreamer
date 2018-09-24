@@ -19,8 +19,6 @@
 *****************************************************************************/
 
 
-#include <unistd.h>
-
 #include <IL/OMX_Core.h>
 #include <IL/OMX_Component.h>
 
