@@ -5,7 +5,7 @@ LDFLAGS ?=
 
 CC = gcc
 LIBS = -lm -ljpeg -pthread -levent -levent_pthreads
-CFLAGS += -c -std=c99 -Wall -Wextra -D_GNU_SOURCE
+override CFLAGS += -c -std=c99 -Wall -Wextra -D_GNU_SOURCE
 SOURCES = $(shell ls src/*.c src/jpeg/*.c)
 OBJECTS = $(SOURCES:.c=.o)
 PROG = ustreamer
@@ -14,7 +14,7 @@ PROG = ustreamer
 ifeq ($(shell ls -d /opt/vc/include 2>/dev/null), /opt/vc/include)
 SOURCES += $(shell ls src/omx/*.c)
 LIBS += -lbcm_host -lvcos -lopenmaxil -L/opt/vc/lib
-CFLAGS += -DOMX_ENCODER -DOMX_SKIP64BIT -I/opt/vc/include
+override CFLAGS += -DOMX_ENCODER -DOMX_SKIP64BIT -I/opt/vc/include
 endif
 
 
@@ -56,3 +56,4 @@ push:
 
 clean:
 	rm -f src/*.o src/{jpeg,omx}/*.o vgcore.* $(PROG)
+	rm -rf src/ustreamer-* src/v*.tar.gz v*.tar.gz
