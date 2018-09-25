@@ -56,4 +56,4 @@ push:
 
 clean:
 	rm -f src/*.o src/{jpeg,omx}/*.o vgcore.* $(PROG)
-	rm -rf pkg src/ustreamer-* src/v*.tar.gz v*.tar.gz
+	rm -rf pkg src/$(PROG)-* src/v*.tar.gz v*.tar.gz $(PROG)-*.pkg.tar.xz

@@ -1,3 +1,8 @@
+/pkg/
+/src/ustreamer-*/
+/src/v*.tar.gz
+/v*.tar.gz
+/ustreamer-*.pkg.tar.xz
 /vgcore.*
 /ustreamer
 *.o
