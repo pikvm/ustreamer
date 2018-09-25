@@ -283,9 +283,11 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 
 	switch (dev->run->format) {
 		// https://www.fourcc.org/yuv.php
-		//case V4L2_PIX_FMT_YUYV: ??? // FIXME
+		// Also see comments inside OMX_IVCommon.h
+		case V4L2_PIX_FMT_YUYV: portdef.format.image.eColorFormat = OMX_COLOR_FormatYCbYCr; break;
 		case V4L2_PIX_FMT_UYVY: portdef.format.image.eColorFormat = OMX_COLOR_FormatCbYCrY; break;
-		//case V4L2_PIX_FMT_RGB565: format = OMX_COLOR_Format16bitRGB565; break; // FIXME
+		case V4L2_PIX_FMT_RGB565: portdef.format.image.eColorFormat = OMX_COLOR_Format16bitRGB565; break;
+		// TODO: Check RGB565 + OMX. I don't have any USB devices which supports it.
 		default: assert(0 && "Unsupported input format for OMX JPEG compressor");
 	}
 
