@@ -59,6 +59,8 @@ struct http_server_runtime_t {
 struct http_server_t {
 	char		*host;
 	unsigned	port;
+	unsigned	fake_width;
+	unsigned	fake_height;
 	unsigned	timeout;
 
 	struct http_server_runtime_t *run;

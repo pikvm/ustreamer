@@ -59,7 +59,9 @@ static const struct option _long_opts[] = {
 
 	{"host",					required_argument,	NULL,	's'},
 	{"port",					required_argument,	NULL,	'p'},
-	{"server-timeout",			required_argument,	NULL,	2000},
+	{"fake-width",				required_argument,	NULL,	2000},
+	{"fake-height",				required_argument,	NULL,	2001},
+	{"server-timeout",			required_argument,	NULL,	2002},
 
 	{"debug",					no_argument,		NULL,	5000},
 	{"log-level",				required_argument,	NULL,	5001},
@@ -90,7 +92,7 @@ static void _help(struct device_t *dev, struct http_server_t *server) {
 	printf("                                        Each buffer may processed using an intermediate thread.\n");
 	printf("                                        Default: %d (number of CPU cores + 1)\n\n", dev->n_buffers);
 	printf("    -w|--workers <N>                 -- The number of compressing threads. Default: %d (== --buffers).\n\n", dev->n_workers);
-	printf("    -q|--jpeg-quality <N>            -- Set quality of JPEG encoding from 1 to 100 (best). Default: %d\n\n", dev->jpeg_quality);
+	printf("    -q|--jpeg-quality <N>            -- Set quality of JPEG encoding from 1 to 100 (best). Default: %d.\n\n", dev->jpeg_quality);
 	printf("    --encoder <type>                 -- Use specified encoder. It may affects to workers number.\n");
 	printf("                                     -- Available: %s; default: CPU.\n\n", ENCODER_TYPES_STR);
 	printf("    --device-timeout <seconds>       -- Timeout for device querying. Default: %d\n\n", dev->timeout);
@@ -100,6 +102,8 @@ static void _help(struct device_t *dev, struct http_server_t *server) {
 	printf("--------------------\n");
 	printf("    --host <address>           -- Listen on Hostname or IP. Default: %s\n\n", server->host);
 	printf("    --port <N>                 -- Bind to this TCP port. Default: %d\n\n", server->port);
+	printf("    --fake-width <N>           -- Override image width for /ping. Default: disabled\n\n");
+	printf("    --fake-height <N>          -- Override image height for /ping. Default: disabled.\n\n");
 	printf("    --server-timeout <seconds> -- Timeout for client connections. Default: %d\n\n", server->timeout);
 	printf("Misc options:\n");
 	printf("-------------\n");
@@ -107,8 +111,8 @@ static void _help(struct device_t *dev, struct http_server_t *server) {
 	printf("    --log-level <N> -- Verbosity level of messages from 0 (info) to 3 (debug).\n");
 	printf("                       Enabling debugging messages can slow down the program.\n");
 	printf("                       Available levels: 0=info, 1=performance, 2=verbose, 3=debug.\n");
-	printf("                       Default: %d\n\n", log_level);
-	printf("    -h|--help       -- Print this messages and exit\n\n");
+	printf("                       Default: %d.\n\n", log_level);
+	printf("    -h|--help       -- Print this messages and exit.\n\n");
 }
 
 static int _parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server) {
@@ -155,7 +159,9 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 
 			case 's':	server->host = optarg; break;
 			case 'p':	OPT_UNSIGNED(server->port, "--port", 1, 65535);
-			case 2000:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
+			case 2000:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
+			case 2001:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
+			case 2002:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
 
 			case 5000:	log_level = LOG_LEVEL_DEBUG; break;
 			case 5001:	OPT_UNSIGNED(log_level, "--log-level", 0, 3);

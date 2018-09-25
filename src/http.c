@@ -85,7 +85,7 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	evhttp_set_allowed_methods(run->http, EVHTTP_REQ_GET|EVHTTP_REQ_HEAD);
 
 	assert(!evhttp_set_cb(run->http, "/", _http_callback_root, NULL));
-	assert(!evhttp_set_cb(run->http, "/ping", _http_callback_ping, (void *)exposed));
+	assert(!evhttp_set_cb(run->http, "/ping", _http_callback_ping, (void *)server));
 	assert(!evhttp_set_cb(run->http, "/snapshot", _http_callback_snapshot, (void *)exposed));
 	assert(!evhttp_set_cb(run->http, "/stream", _http_callback_stream, (void *)server));
 
@@ -158,8 +158,8 @@ static void _http_callback_root(struct evhttp_request *request, UNUSED void *arg
 	evbuffer_free(buf);
 }
 
-static void _http_callback_ping(struct evhttp_request *request, void *v_exposed) {
-	struct exposed_t *exposed = (struct exposed_t *)v_exposed;
+static void _http_callback_ping(struct evhttp_request *request, void *v_server) {
+	struct http_server_t *server = (struct http_server_t *)v_server;
 	struct evbuffer *buf;
 
 	PROCESS_HEAD_REQUEST;
@@ -169,8 +169,9 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_exposed)
 		"{\"stream\": {\"resolution\":"
 		" {\"width\": %u, \"height\": %u},"
 		" \"online\": %s}}",
-		exposed->width, exposed->height,
-		(exposed->online ? "true" : "false")
+		(server->fake_width ? server->fake_width : server->run->exposed->width),
+		(server->fake_height ? server->fake_height : server->run->exposed->height),
+		(server->run->exposed->online ? "true" : "false")
 	));
 	ADD_HEADER("Content-Type", "application/json");
 	evhttp_send_reply(request, HTTP_OK, "OK", buf);
