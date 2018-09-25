@@ -1,10 +1,11 @@
 DESTDIR ?=
 PREFIX ?= /usr/local
+CFLAGS ?= -O3
+LDFLAGS ?=
 
-LIBS = -lm -ljpeg -pthread -levent -levent_pthreads
 CC = gcc
-CFLAGS = -c -std=c99 -O3 -Wall -Wextra -D_GNU_SOURCE
-LDFLAGS =
+LIBS = -lm -ljpeg -pthread -levent -levent_pthreads
+CFLAGS += -c -std=c99 -Wall -Wextra -D_GNU_SOURCE
 SOURCES = $(shell ls src/*.c src/jpeg/*.c)
 OBJECTS = $(SOURCES:.c=.o)
 PROG = ustreamer
@@ -34,6 +35,23 @@ $(PROG): $(OBJECTS)
 
 .c.o:
 	$(CC) $(LIBS) $(CFLAGS) $< -o $@
+
+
+release:
+	make clean
+	make push
+	make bump
+	make push
+	make clean
+
+
+bump:
+	bumpversion minor
+
+
+push:
+	git push
+	git push --tags
 
 
 clean:

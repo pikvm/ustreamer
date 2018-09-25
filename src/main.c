@@ -31,6 +31,7 @@
 
 #include <pthread.h>
 
+#include "config.h"
 #include "tools.h"
 #include "logging.h"
 #include "device.h"
@@ -69,7 +70,7 @@ static const struct option _long_opts[] = {
 static void _help(struct device_t *dev, struct http_server_t *server) {
 	printf("\nuStreamer - Lightweight and fast MJPG-HTTP streamer\n");
 	printf("===================================================\n\n");
-	printf("License: GPLv3\n");
+	printf("Version: %s; license: GPLv3\n", VERSION);
 	printf("Copyright (C) 2018 Maxim Devaev <mdevaev@gmail.com>\n\n");
 	printf("Capturing options:\n");
 	printf("------------------\n");
