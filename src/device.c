@@ -409,9 +409,9 @@ static void _device_open_alloc_picbufs(struct device_t *dev) {
 	LOG_DEBUG("Allocating picture buffers ...");
 	A_CALLOC(dev->run->pictures, dev->run->n_buffers);
 
-	dev->run->max_picture_size = (dev->run->width * dev->run->height) << 1;
+	dev->run->max_picture_size = ((dev->run->width * dev->run->height) << 1) * 2;
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
-		LOG_DEBUG("Allocating picture buffer %d ...", index);
+		LOG_DEBUG("Allocating picture buffer %d sized %lu bytes... ", index, dev->run->max_picture_size);
 		A_CALLOC(dev->run->pictures[index].data, dev->run->max_picture_size);
 		dev->run->pictures[index].allocated = dev->run->max_picture_size;
 	}
