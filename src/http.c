@@ -168,10 +168,10 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 	assert(evbuffer_add_printf(buf,
 		"{\"stream\": {\"resolution\":"
 		" {\"width\": %u, \"height\": %u},"
-		" \"online\": %s}}",
+		" \"fps\": %u, \"online\": %s}}",
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
 		(server->fake_height ? server->fake_height : server->run->exposed->height),
-		(server->run->exposed->online ? "true" : "false")
+		server->run->exposed->fps, (server->run->exposed->online ? "true" : "false")
 	));
 	ADD_HEADER("Content-Type", "application/json");
 	evhttp_send_reply(request, HTTP_OK, "OK", buf);
@@ -379,6 +379,7 @@ void _expose_new_picture(struct http_server_t *server) {
 	server->run->exposed->picture.size = server->run->stream->picture.size;
 	server->run->exposed->width = server->run->stream->width;
 	server->run->exposed->height = server->run->stream->height;
+	server->run->exposed->fps = server->run->stream->fps;
 	server->run->exposed->online = true;
 }
 
@@ -397,6 +398,7 @@ void _expose_blank_picture(struct http_server_t *server) {
 		server->run->exposed->picture.size = BLANK_JPG_SIZE;
 		server->run->exposed->width = BLANK_JPG_WIDTH;
 		server->run->exposed->height = BLANK_JPG_HEIGHT;
+		server->run->exposed->fps = 0;
 		server->run->exposed->online = false;
 	}
 }

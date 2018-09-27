@@ -42,6 +42,7 @@ struct exposed_t {
 	struct picture_t	picture;
 	unsigned			width;
 	unsigned			height;
+	unsigned			fps;
 	bool				online;
 };
 

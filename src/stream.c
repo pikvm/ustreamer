@@ -197,14 +197,13 @@ void stream_loop(struct stream_t *stream) {
 						}
 						fluency_passed = 0;
 
-						if (log_level >= LOG_LEVEL_PERF) {
-							if ((long long)now != fps_second) {
-								LOG_PERF("Oldest worker complete, encoding FPS = %u", fps);
-								fps = 0;
-								fps_second = (long long)now;
-							}
-							++fps;
+						if ((long long)now != fps_second) {
+							LOG_PERF("Oldest worker complete, encoding FPS = %u", fps);
+							stream->fps = fps;
+							fps = 0;
+							fps_second = (long long)now;
 						}
+						++fps;
 
 						long double fluency_delay = _stream_get_fluency_delay(stream->dev, &pool);
 
