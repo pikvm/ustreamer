@@ -110,6 +110,7 @@ void jpeg_encoder_compress_buffer(struct device_t *dev, int index) {
 	jpeg_destroy_compress(&jpeg);
 	free(line_buffer);
 	assert(dev->run->pictures[index].size > 0);
+	assert(dev->run->pictures[index].size <= dev->run->max_picture_size);
 }
 
 static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, unsigned long *written) {

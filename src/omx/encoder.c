@@ -179,6 +179,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 				omx->output_buffer->pBuffer,
 				omx->output_buffer->nFilledLen
 			);
+			assert(dev->run->pictures[index].size + omx->output_buffer->nFilledLen <= dev->run->max_picture_size);
 			dev->run->pictures[index].size += omx->output_buffer->nFilledLen;
 
 			if (omx->output_buffer->nFlags & OMX_BUFFERFLAG_ENDOFFRAME) {
