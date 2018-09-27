@@ -63,8 +63,10 @@ static const struct option _long_opts[] = {
 	{"fake-height",				required_argument,	NULL,	2001},
 	{"server-timeout",			required_argument,	NULL,	2002},
 
-	{"debug",					no_argument,		NULL,	5000},
-	{"log-level",				required_argument,	NULL,	5001},
+	{"perf",					no_argument,		NULL,	5000},
+	{"verbose",					no_argument,		NULL,	5001},
+	{"debug",					no_argument,		NULL,	5002},
+	{"log-level",				required_argument,	NULL,	5010},
 	{"help",					no_argument,		NULL,	'h'},
 	{NULL, 0, NULL, 0},
 };
@@ -107,11 +109,13 @@ static void _help(struct device_t *dev, struct http_server_t *server) {
 	printf("    --server-timeout <seconds> -- Timeout for client connections. Default: %d\n\n", server->timeout);
 	printf("Misc options:\n");
 	printf("-------------\n");
-	printf("    --debug         -- Enabled debug messages (same as --log-level=3). Default: disabled.\n\n");
 	printf("    --log-level <N> -- Verbosity level of messages from 0 (info) to 3 (debug).\n");
 	printf("                       Enabling debugging messages can slow down the program.\n");
 	printf("                       Available levels: 0=info, 1=performance, 2=verbose, 3=debug.\n");
 	printf("                       Default: %d.\n\n", log_level);
+	printf("    --perf          -- Enable performance messages (same as log-level=1). Default: disabled.\n\n");
+	printf("    --verbose       -- Enable verbose messages and lower (same as log-level=2). Default: disabled.\n\n");
+	printf("    --debug         -- Enable debug messages and lower (same as --log-level=3). Default: disabled.\n\n");
 	printf("    -h|--help       -- Print this messages and exit.\n\n");
 }
 
@@ -163,8 +167,10 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 2001:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
 			case 2002:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
 
-			case 5000:	log_level = LOG_LEVEL_DEBUG; break;
-			case 5001:	OPT_UNSIGNED(log_level, "--log-level", 0, 3);
+			case 5000:	log_level = LOG_LEVEL_PERF; break;
+			case 5001:	log_level = LOG_LEVEL_VERBOSE; break;
+			case 5002:	log_level = LOG_LEVEL_DEBUG; break;
+			case 5010:	OPT_UNSIGNED(log_level, "--log-level", 0, 3);
 			case 0:		break;
 			case 'h':	default: _help(dev, server); return -1;
 		}
