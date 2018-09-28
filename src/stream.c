@@ -78,7 +78,6 @@ void stream_loop(struct stream_t *stream) {
 	pool.workers_stop = &workers_stop;
 
 	LOG_INFO("Using V4L2 device: %s", stream->dev->path);
-	LOG_INFO("Using JPEG quality: %d%%", stream->dev->jpeg_quality);
 
 	while (_stream_init_loop(stream->dev, &pool) == 0) {
 		struct worker_t *oldest_worker = NULL;

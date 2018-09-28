@@ -39,17 +39,17 @@
 enum encoder_type_t {
 	ENCODER_TYPE_UNKNOWN, // Only for encoder_parse_type() and main()
 	ENCODER_TYPE_CPU,
-
 #ifdef OMX_ENCODER
 	ENCODER_TYPE_OMX,
 #endif
 };
 
 struct encoder_t {
-	enum encoder_type_t type;
-
+	enum encoder_type_t		type;
+	unsigned				quality;
 #ifdef OMX_ENCODER
-	struct omx_encoder_t *omx;
+	bool					omx_use_ijg;
+	struct omx_encoder_t	*omx;
 #endif
 };
 
@@ -61,4 +61,4 @@ enum encoder_type_t encoder_parse_type(const char *const str);
 
 void encoder_prepare(struct encoder_t *encoder);
 void encoder_prepare_for_device(struct encoder_t *encoder, struct device_t *dev);
-int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, int index);
+int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, const unsigned index);

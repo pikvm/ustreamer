@@ -3,6 +3,8 @@ PREFIX ?= /usr/local
 CFLAGS ?= -O3
 LDFLAGS ?=
 
+
+# =====
 CC = gcc
 LIBS = -lm -ljpeg -pthread -levent -levent_pthreads
 override CFLAGS += -c -std=c99 -Wall -Wextra -D_GNU_SOURCE
@@ -18,6 +20,7 @@ override CFLAGS += -DOMX_ENCODER -DOMX_SKIP64BIT -I/opt/vc/include
 endif
 
 
+# =====
 all: $(SOURCES) $(PROG)
 
 

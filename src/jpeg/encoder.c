@@ -68,7 +68,7 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
 static void _jpeg_term_destination(j_compress_ptr jpeg);
 
 
-void jpeg_encoder_compress_buffer(struct device_t *dev, int index) {
+void jpeg_encoder_compress_buffer(struct device_t *dev, const unsigned index, const unsigned quality) {
 	// This function based on compress_image_to_jpeg() from mjpg-streamer
 
 	struct jpeg_compress_struct jpeg;
@@ -89,7 +89,7 @@ void jpeg_encoder_compress_buffer(struct device_t *dev, int index) {
 	jpeg.in_color_space = JCS_RGB;
 
 	jpeg_set_defaults(&jpeg);
-	jpeg_set_quality(&jpeg, dev->jpeg_quality, TRUE);
+	jpeg_set_quality(&jpeg, quality, TRUE);
 
 	jpeg_start_compress(&jpeg, TRUE);
 

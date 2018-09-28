@@ -50,6 +50,7 @@ struct encoder_t *encoder_init() {
 
 	A_CALLOC(encoder, 1);
 	encoder->type = ENCODER_TYPE_CPU;
+	encoder->quality = 80;
 	return encoder;
 }
 
@@ -59,6 +60,8 @@ void encoder_prepare(struct encoder_t *encoder) {
 	if (encoder->type != ENCODER_TYPE_CPU) {
 		LOG_DEBUG("Initializing encoder ...");
 	}
+
+	LOG_INFO("Using JPEG quality: %d%%", encoder->quality);
 
 #	ifdef OMX_ENCODER
 	if (encoder->type == ENCODER_TYPE_OMX) {
@@ -104,7 +107,7 @@ void encoder_prepare_for_device(struct encoder_t *encoder, struct device_t *dev)
 #pragma GCC diagnostic pop
 #	ifdef OMX_ENCODER
 	if (encoder->type == ENCODER_TYPE_OMX) {
-		if (omx_encoder_prepare_for_device(encoder->omx, dev) < 0) {
+		if (omx_encoder_prepare_for_device(encoder->omx, dev, encoder->quality, encoder->omx_use_ijg) < 0) {
 			goto use_fallback;
 		}
 		if (dev->run->n_workers > 1) {
@@ -125,11 +128,11 @@ void encoder_prepare_for_device(struct encoder_t *encoder, struct device_t *dev)
 #	pragma GCC diagnostic pop
 }
 
-int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, int index) {
+int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, const unsigned index) {
 	assert(encoder->type != ENCODER_TYPE_UNKNOWN);
 
 	if (encoder->type == ENCODER_TYPE_CPU) {
-		jpeg_encoder_compress_buffer(dev, index);
+		jpeg_encoder_compress_buffer(dev, index, encoder->quality);
 	}
 #	ifdef OMX_ENCODER
 	else if (encoder->type == ENCODER_TYPE_OMX) {

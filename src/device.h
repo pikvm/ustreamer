@@ -70,7 +70,6 @@ struct device_t {
 	unsigned		n_workers;
 	unsigned		every_frame;
 	unsigned		min_frame_size;
-	unsigned		jpeg_quality;
 	unsigned		timeout;
 	unsigned		error_timeout;
 

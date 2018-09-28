@@ -19,6 +19,7 @@
 *****************************************************************************/
 
 
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
@@ -28,6 +29,7 @@
 #include <bcm_host.h>
 #include <IL/OMX_Core.h>
 #include <IL/OMX_Component.h>
+#include <IL/OMX_Broadcom.h>
 #include <interface/vcos/vcos_semaphore.h>
 
 #include "../logging.h"
@@ -46,7 +48,7 @@
 static int _omx_init_component(struct omx_encoder_t *omx);
 static int _omx_init_disable_ports(struct omx_encoder_t *omx);
 static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev);
-static int _omx_setup_output(struct omx_encoder_t *omx, struct device_t *dev);
+static int _omx_setup_output(struct omx_encoder_t *omx, const unsigned quality, const bool use_ijg);
 static int _omx_encoder_clear_ports(struct omx_encoder_t *omx);
 
 static OMX_ERRORTYPE _omx_event_handler(UNUSED OMX_HANDLETYPE encoder,
@@ -134,7 +136,7 @@ void omx_encoder_destroy(struct omx_encoder_t *omx) {
 	free(omx);
 }
 
-int omx_encoder_prepare_for_device(struct omx_encoder_t *omx, struct device_t *dev) {
+int omx_encoder_prepare_for_device(struct omx_encoder_t *omx, struct device_t *dev, const unsigned quality, const bool use_ijg) {
 	if (component_set_state(&omx->encoder, OMX_StateIdle) < 0) {
 		return -1;
 	}
@@ -144,7 +146,7 @@ int omx_encoder_prepare_for_device(struct omx_encoder_t *omx, struct device_t *d
 	if (_omx_setup_input(omx, dev) < 0) {
 		return -1;
 	}
-	if (_omx_setup_output(omx, dev) < 0) {
+	if (_omx_setup_output(omx, quality, use_ijg) < 0) {
 		return -1;
 	}
 	if (component_set_state(&omx->encoder, OMX_StateExecuting) < 0) {
@@ -153,7 +155,7 @@ int omx_encoder_prepare_for_device(struct omx_encoder_t *omx, struct device_t *d
 	return 0;
 }
 
-int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, int index) {
+int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, const unsigned index) {
 	OMX_ERRORTYPE error;
 	bool loaded = false;
 
@@ -216,6 +218,8 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 }
 
 static int _omx_init_component(struct omx_encoder_t *omx) {
+	// http://home.nouwen.name/RaspberryPi/documentation/ilcomponents/image_encode.html
+
 	OMX_ERRORTYPE error;
 
 	OMX_CALLBACKTYPE callbacks;
@@ -313,10 +317,9 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 	return 0;
 }
 
-static int _omx_setup_output(struct omx_encoder_t *omx, struct device_t *dev) {
+static int _omx_setup_output(struct omx_encoder_t *omx, const unsigned quality, const bool use_ijg) {
 	OMX_ERRORTYPE error;
 	OMX_PARAM_PORTDEFINITIONTYPE portdef;
-	OMX_IMAGE_PARAM_QFACTORTYPE quality_factor;
 
 	LOG_DEBUG("Setting up OMX JPEG output port ...");
 
@@ -338,13 +341,42 @@ static int _omx_setup_output(struct omx_encoder_t *omx, struct device_t *dev) {
 		return -1;
 	}
 
-	OMX_INIT_STRUCTURE(quality_factor);
-	quality_factor.nPortIndex = OUTPUT_PORT;
-	quality_factor.nQFactor = dev->jpeg_quality;
+	{
+		OMX_CONFIG_BOOLEANTYPE exif;
 
-	if ((error = OMX_SetParameter(omx->encoder, OMX_IndexParamQFactor, &quality_factor)) != OMX_ErrorNone) {
-		LOG_OMX_ERROR(error, "Can't set OMX JPEG quality");
-		return -1;
+		OMX_INIT_STRUCTURE(exif);
+		exif.bEnabled = OMX_FALSE;
+
+		if ((error = OMX_SetParameter(omx->encoder, OMX_IndexParamBrcmDisableEXIF, &exif)) != OMX_ErrorNone) {
+			LOG_OMX_ERROR(error, "Can't disable EXIF on OMX JPEG");
+			return -1;
+		}
+	}
+
+	if (use_ijg) {
+		OMX_PARAM_IJGSCALINGTYPE ijg;
+
+		OMX_INIT_STRUCTURE(ijg);
+		ijg.nPortIndex = OUTPUT_PORT;
+		ijg.bEnabled = OMX_TRUE;
+
+		if ((error = OMX_SetParameter(omx->encoder, OMX_IndexParamBrcmEnableIJGTableScaling, &ijg)) != OMX_ErrorNone) {
+			LOG_OMX_ERROR(error, "Can't set OMX JPEG IJG settings");
+			return -1;
+		}
+	}
+
+	{
+		OMX_IMAGE_PARAM_QFACTORTYPE qfactor;
+
+		OMX_INIT_STRUCTURE(qfactor);
+		qfactor.nPortIndex = OUTPUT_PORT;
+		qfactor.nQFactor = quality;
+
+		if ((error = OMX_SetParameter(omx->encoder, OMX_IndexParamQFactor, &qfactor)) != OMX_ErrorNone) {
+			LOG_OMX_ERROR(error, "Can't set OMX JPEG quality");
+			return -1;
+		}
 	}
 
 	if (component_enable_port(&omx->encoder, OUTPUT_PORT) < 0) {

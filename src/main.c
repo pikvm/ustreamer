@@ -52,8 +52,11 @@ static const struct option _long_opts[] = {
 	{"dv-timings",				no_argument,		NULL,	't'},
 	{"buffers",					required_argument,	NULL,	'b'},
 	{"workers",					required_argument,	NULL,	'w'},
-	{"jpeg-quality",			required_argument,	NULL,	'q'},
+	{"quality",					required_argument,	NULL,	'q'},
 	{"encoder",					required_argument,	NULL,	'c'},
+#	ifdef OMX_ENCODER
+	{"encoder-omx-use-ijg",		required_argument,	NULL,	500},
+#	endif
 	{"device-timeout",			required_argument,	NULL,	1000},
 	{"device-error-timeout",	required_argument,	NULL,	1001},
 
@@ -71,7 +74,7 @@ static const struct option _long_opts[] = {
 	{NULL, 0, NULL, 0},
 };
 
-static void _help(struct device_t *dev, struct http_server_t *server) {
+static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server) {
 	printf("\nuStreamer - Lightweight and fast MJPG-HTTP streamer\n");
 	printf("===================================================\n\n");
 	printf("Version: %s; license: GPLv3\n", VERSION);
@@ -94,9 +97,13 @@ static void _help(struct device_t *dev, struct http_server_t *server) {
 	printf("                                        Each buffer may processed using an intermediate thread.\n");
 	printf("                                        Default: %d (number of CPU cores + 1)\n\n", dev->n_buffers);
 	printf("    -w|--workers <N>                 -- The number of compressing threads. Default: %d (== --buffers).\n\n", dev->n_workers);
-	printf("    -q|--jpeg-quality <N>            -- Set quality of JPEG encoding from 1 to 100 (best). Default: %d.\n\n", dev->jpeg_quality);
+	printf("    -q|--quality <N>                 -- Set quality of JPEG encoding from 1 to 100 (best). Default: %d.\n\n", encoder->quality);
 	printf("    --encoder <type>                 -- Use specified encoder. It may affects to workers number.\n");
 	printf("                                     -- Available: %s; default: CPU.\n\n", ENCODER_TYPES_STR);
+#	ifdef OMX_ENCODER
+	printf("    --encoder-omx-use-ijg            -- Use the standard IJG quality tables when encoding images using OMX.\n");
+	printf("                                        Default: disabled.\n\n");
+#	endif
 	printf("    --device-timeout <seconds>       -- Timeout for device querying. Default: %d\n\n", dev->timeout);
 	printf("    --device-error-timeout <seconds> -- Delay before trying to connect to the device again\n");
 	printf("                                        after a timeout. Default: %d\n\n", dev->error_timeout);
@@ -156,8 +163,11 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 't':	OPT_TRUE(dev->dv_timings);
 			case 'b':	OPT_UNSIGNED(dev->n_buffers, "--buffers", 1, 32);
 			case 'w':	OPT_UNSIGNED(dev->n_workers, "--workers", 1, 32);
-			case 'q':	OPT_UNSIGNED(dev->jpeg_quality, "--jpeg-quality", 1, 100);
-			case 'c':	OPT_PARSE(encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, "encoder type")
+			case 'q':	OPT_UNSIGNED(encoder->quality, "--quality", 1, 100);
+			case 'c':	OPT_PARSE(encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, "encoder type");
+#			ifdef OMX_ENCODER
+			case 500:	encoder->omx_use_ijg = true; break;
+#			endif
 			case 1000:	OPT_UNSIGNED(dev->timeout, "--timeout", 1, 60);
 			case 1001:	OPT_UNSIGNED(dev->error_timeout, "--error-timeout", 1, 60);
 
@@ -172,7 +182,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 5002:	log_level = LOG_LEVEL_DEBUG; break;
 			case 5010:	OPT_UNSIGNED(log_level, "--log-level", 0, 3);
 			case 0:		break;
-			case 'h':	default: _help(dev, server); return -1;
+			case 'h':	default: _help(dev, encoder, server); return -1;
 		}
 	}
 
@@ -245,7 +255,7 @@ int main(int argc, char *argv[]) {
 	LOGGING_INIT;
 
 	dev = device_init();
-	encoder = encoder_init(ENCODER_TYPE_CPU);
+	encoder = encoder_init();
 	stream = stream_init(dev, encoder);
 	server = http_server_init(stream);
 
