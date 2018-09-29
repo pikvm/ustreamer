@@ -40,6 +40,8 @@
 
 int component_enable_port(OMX_HANDLETYPE *component, const OMX_U32 port);
 int component_disable_port(OMX_HANDLETYPE *component, const OMX_U32 port);
+
 int component_get_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYPE *portdef, const OMX_U32 port);
 int component_set_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYPE *portdef);
+
 int component_set_state(OMX_HANDLETYPE *component, const OMX_STATETYPE state);

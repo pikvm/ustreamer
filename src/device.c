@@ -39,7 +39,7 @@
 static const struct {
 	const char *name;
 	const v4l2_std_id standard;
-} STANDARDS[] = {
+} _STANDARDS[] = {
 	{"UNKNOWN",	V4L2_STD_UNKNOWN},
 	{"PAL",		V4L2_STD_PAL},
 	{"NTSC",	V4L2_STD_NTSC},
@@ -49,7 +49,7 @@ static const struct {
 static const struct {
 	const char *name;
 	const unsigned format;
-} FORMATS[] = {
+} _FORMATS[] = {
 	{"YUYV",	V4L2_PIX_FMT_YUYV},
 	{"UYVY",	V4L2_PIX_FMT_UYVY},
 	{"RGB565",	V4L2_PIX_FMT_RGB565},
@@ -96,18 +96,18 @@ void device_destroy(struct device_t *dev) {
 }
 
 int device_parse_format(const char *const str) {
-	for (unsigned index = 0; index < sizeof(FORMATS) / sizeof(FORMATS[0]); ++index) {
-		if (!strcasecmp(str, FORMATS[index].name)) {
-			return FORMATS[index].format;
+	for (unsigned index = 0; index < sizeof(_FORMATS) / sizeof(_FORMATS[0]); ++index) {
+		if (!strcasecmp(str, _FORMATS[index].name)) {
+			return _FORMATS[index].format;
 		}
 	}
 	return FORMAT_UNKNOWN;
 }
 
 v4l2_std_id device_parse_standard(const char *const str) {
-	for (unsigned index = 1; index < sizeof(STANDARDS) / sizeof(STANDARDS[0]); ++index) {
-		if (!strcasecmp(str, STANDARDS[index].name)) {
-			return STANDARDS[index].standard;
+	for (unsigned index = 1; index < sizeof(_STANDARDS) / sizeof(_STANDARDS[0]); ++index) {
+		if (!strcasecmp(str, _STANDARDS[index].name)) {
+			return _STANDARDS[index].standard;
 		}
 	}
 	return STANDARD_UNKNOWN;
@@ -434,19 +434,19 @@ static const char *_format_to_string_auto(char *buf, const size_t size, const un
 }
 
 static const char *_format_to_string_null(const unsigned format) {
-    for (unsigned index = 0; index < sizeof(FORMATS) / sizeof(FORMATS[0]); ++index) {
-		if (format == FORMATS[index].format) {
-			return FORMATS[index].name;
+    for (unsigned index = 0; index < sizeof(_FORMATS) / sizeof(_FORMATS[0]); ++index) {
+		if (format == _FORMATS[index].format) {
+			return _FORMATS[index].name;
 		}
     }
     return NULL;
 }
 
 static const char *_standard_to_string(v4l2_std_id standard) {
-	for (unsigned index = 0; index < sizeof(STANDARDS) / sizeof(STANDARDS[0]); ++index) {
-		if (standard == STANDARDS[index].standard) {
-			return STANDARDS[index].name;
+	for (unsigned index = 0; index < sizeof(_STANDARDS) / sizeof(_STANDARDS[0]); ++index) {
+		if (standard == _STANDARDS[index].standard) {
+			return _STANDARDS[index].name;
 		}
 	}
-	return STANDARDS[0].name;
+	return _STANDARDS[0].name;
 }

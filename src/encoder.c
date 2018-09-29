@@ -37,7 +37,7 @@
 static const struct {
 	const char *name;
 	const enum encoder_type_t type;
-} ENCODER_TYPES[] = {
+} _ENCODER_TYPES[] = {
 	{"CPU",	ENCODER_TYPE_CPU},
 #	ifdef OMX_ENCODER
 	{"OMX",	ENCODER_TYPE_OMX},
@@ -91,9 +91,9 @@ void encoder_destroy(struct encoder_t *encoder) {
 }
 
 enum encoder_type_t encoder_parse_type(const char *const str) {
-	for (unsigned index = 0; index < sizeof(ENCODER_TYPES) / sizeof(ENCODER_TYPES[0]); ++index) {
-		if (!strcasecmp(str, ENCODER_TYPES[index].name)) {
-			return ENCODER_TYPES[index].type;
+	for (unsigned index = 0; index < sizeof(_ENCODER_TYPES) / sizeof(_ENCODER_TYPES[0]); ++index) {
+		if (!strcasecmp(str, _ENCODER_TYPES[index].name)) {
+			return _ENCODER_TYPES[index].type;
 		}
 	}
 	return ENCODER_TYPE_UNKNOWN;
