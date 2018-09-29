@@ -52,10 +52,10 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 static void _http_callback_stream_error(struct bufferevent *buf_event, short what, void *v_ctx);
 
 static void _http_exposed_refresh(int fd, short event, void *v_server);
-static void _http_queue_send_stream(struct http_server_t *server);
+static void _http_queue_send_stream(struct http_server_t *server, const bool updated);
 
-static void _expose_new_picture(struct http_server_t *server);
-static void _expose_blank_picture(struct http_server_t *server);
+static bool _expose_new_picture(struct http_server_t *server);
+static bool _expose_blank_picture(struct http_server_t *server);
 
 
 struct http_server_t *http_server_init(struct stream_t *stream) {
@@ -70,6 +70,7 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	run->exposed = exposed;
 	run->refresh_interval.tv_sec = 0;
 	run->refresh_interval.tv_usec = 30000; // ~30 refreshes per second
+	run->drop_same_frames_blank = 10;
 
 	A_CALLOC(server, 1);
 	server->host = "localhost";
@@ -108,12 +109,16 @@ void http_server_destroy(struct http_server_t *server) {
 }
 
 int http_server_listen(struct http_server_t *server) {
+	server->run->drop_same_frames_blank = max_u(server->drop_same_frames, server->run->drop_same_frames_blank);
+
 	LOG_DEBUG("Binding HTTP to [%s]:%d ...", server->host, server->port);
 	evhttp_set_timeout(server->run->http, server->timeout);
+
 	if (evhttp_bind_socket(server->run->http, server->host, server->port) != 0) {
 		LOG_PERROR("Can't listen HTTP on [%s]:%d", server->host, server->port)
 		return -1;
 	}
+
 	LOG_INFO("Listening HTTP on [%s]:%d", server->host, server->port);
 	return 0;
 }
@@ -229,6 +234,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		client->server = server;
 		client->request = request;
 		client->need_initial = true;
+		client->need_first_frame = true;
 
 		if (server->run->stream_clients == NULL) {
 			server->run->stream_clients = client;
@@ -321,23 +327,26 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	free(client);
 }
 
-static void _http_queue_send_stream(struct http_server_t *server) {
+static void _http_queue_send_stream(struct http_server_t *server, const bool updated) {
 	struct stream_client_t *client;
 	struct evhttp_connection *conn;
 	struct bufferevent *buf_event;
 
 	for (client = server->run->stream_clients; client != NULL; client = client->next) {
 		conn = evhttp_request_get_connection(client->request);
-		if (conn != NULL) {
+		if (conn != NULL && (updated || client->need_first_frame)) {
 			buf_event = evhttp_connection_get_bufferevent(conn);
 			bufferevent_setcb(buf_event, NULL, _http_callback_stream_write, _http_callback_stream_error, (void *)client);
 			bufferevent_enable(buf_event, EV_READ|EV_WRITE);
+			client->need_first_frame = false;
 		}
 	}
 }
 
 static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_server) {
 	struct http_server_t *server = (struct http_server_t *)v_server;
+	bool updated = false;
+	bool queue_send = false;
 
 #define LOCK_STREAM \
 	A_PTHREAD_M_LOCK(&server->run->stream->mutex);
@@ -349,41 +358,66 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 		LOG_DEBUG("Refreshing HTTP exposed ...");
 		LOCK_STREAM;
 		if (server->run->stream->picture.size > 0) { // If online
-			_expose_new_picture(server);
+			updated = _expose_new_picture(server);
 			UNLOCK_STREAM;
 		} else {
 			UNLOCK_STREAM;
-			_expose_blank_picture(server);
+			updated = _expose_blank_picture(server);
 		}
-		_http_queue_send_stream(server);
+		queue_send = true;
 	} else if (!server->run->exposed->online) {
 		LOG_DEBUG("Refreshing HTTP exposed (BLANK) ...");
-		_http_queue_send_stream(server);
+		updated = _expose_blank_picture(server);
+		queue_send = true;
+	}
+
+	if (queue_send) {
+		_http_queue_send_stream(server, updated);
 	}
 
 #	undef LOCK_STREAM
 #	undef UNLOCK_STREAM
 }
 
-void _expose_new_picture(struct http_server_t *server) {
+static bool _expose_new_picture(struct http_server_t *server) {
+	assert(server->run->stream->picture.size > 0);
+	server->run->exposed->fps = server->run->stream->fps;
+
+#	define MEM_STREAM_TO_EXPOSED \
+		server->run->exposed->picture.data, server->run->stream->picture.data, \
+		server->run->stream->picture.size * sizeof(*server->run->exposed->picture.data)
+
+	if (server->drop_same_frames) {
+		if (
+			server->run->exposed->online
+			&& server->run->exposed->dropped < server->drop_same_frames
+			&& server->run->exposed->picture.size == server->run->stream->picture.size
+			&& !memcmp(MEM_STREAM_TO_EXPOSED)
+		) {
+			LOG_PERF("HTTP: dropped same frame number %u", server->run->exposed->dropped);
+			++server->run->exposed->dropped;
+			return false; // Not updated
+		}
+	}
+
 	if (server->run->exposed->picture.allocated < server->run->stream->picture.allocated) {
 		A_REALLOC(server->run->exposed->picture.data, server->run->stream->picture.allocated);
 		server->run->exposed->picture.allocated = server->run->stream->picture.allocated;
 	}
 
-	memcpy(
-		server->run->exposed->picture.data, server->run->stream->picture.data,
-		server->run->stream->picture.size * sizeof(*server->run->exposed->picture.data)
-	);
+	memcpy(MEM_STREAM_TO_EXPOSED);
+
+#	undef MEM_STREAM_TO_EXPOSED
 
 	server->run->exposed->picture.size = server->run->stream->picture.size;
 	server->run->exposed->width = server->run->stream->width;
 	server->run->exposed->height = server->run->stream->height;
-	server->run->exposed->fps = server->run->stream->fps;
 	server->run->exposed->online = true;
+	server->run->exposed->dropped = 0;
+	return true; // Updated
 }
 
-void _expose_blank_picture(struct http_server_t *server) {
+static bool _expose_blank_picture(struct http_server_t *server) {
 	if (server->run->exposed->online || server->run->exposed->picture.size == 0) {
 		if (server->run->exposed->picture.allocated < BLANK_JPG_SIZE) {
 			A_REALLOC(server->run->exposed->picture.data, BLANK_JPG_SIZE);
@@ -400,5 +434,16 @@ void _expose_blank_picture(struct http_server_t *server) {
 		server->run->exposed->height = BLANK_JPG_HEIGHT;
 		server->run->exposed->fps = 0;
 		server->run->exposed->online = false;
+		goto updated;
 	}
+
+	if (server->run->exposed->dropped < server->run->drop_same_frames_blank) {
+		LOG_PERF("HTTP: dropped same frame (BLANK) number %u", server->run->exposed->dropped);
+		++server->run->exposed->dropped;
+		return false; // Not updated
+	}
+
+	updated:
+		server->run->exposed->dropped = 0;
+		return true; // Updated
 }

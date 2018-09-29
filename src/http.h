@@ -33,6 +33,7 @@ struct stream_client_t {
 	struct http_server_t	*server;
 	struct evhttp_request	*request;
 	bool					need_initial;
+	bool					need_first_frame;
 
 	struct stream_client_t	*prev;
 	struct stream_client_t	*next;
@@ -44,6 +45,7 @@ struct exposed_t {
 	unsigned			height;
 	unsigned			fps;
 	bool				online;
+	unsigned			dropped;
 };
 
 struct http_server_runtime_t {
@@ -55,11 +57,13 @@ struct http_server_runtime_t {
 	struct timeval			refresh_interval;
 
 	struct stream_client_t	*stream_clients;
+	unsigned				drop_same_frames_blank;
 };
 
 struct http_server_t {
 	char		*host;
 	unsigned	port;
+	unsigned	drop_same_frames;
 	unsigned	fake_width;
 	unsigned	fake_height;
 	unsigned	timeout;
