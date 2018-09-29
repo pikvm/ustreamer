@@ -45,7 +45,7 @@ $ ./ustreamer --help
 # Использование
 Будучи запущенным без аргументов, ```ustremaer``` попробует открыть устройство ```/dev/video0``` с разрешением 640x480 и начать трансляцию на ```http://localhost:8080```. Это поведение может быть изменено с помощью опций ```--device```, ```--host``` и ```--port```. Пример вещания на всю сеть по 80 порту:
 ```
-# ./ustreamer --device /dev/video1 --host 0.0.0.0 --port 80
+# ./ustreamer --device=/dev/video1 --host=0.0.0.0 --port=80
 ```
 
 Рекомендуемый способ запуска µStreamer для работы с [Auvidea B101](https://www.raspberrypi.org/forums/viewtopic.php?f=38&t=120702&start=400#p1339178) на Raspberry Pi:
