@@ -48,12 +48,15 @@ $ ./ustreamer --help
 # ./ustreamer --device /dev/video1 --host 0.0.0.0 --port 80
 ```
 
-Рекомендованный способ запуска µStreamer для работы с [Auvidea B101](https://www.raspberrypi.org/forums/viewtopic.php?f=38&t=120702&start=400#p1339178) на Raspberry Pi:
-```
-# ./ustreamer --format=uyvy --encoder=omx --dv-timings
+Рекомендуемый способ запуска µStreamer для работы с [Auvidea B101](https://www.raspberrypi.org/forums/viewtopic.php?f=38&t=120702&start=400#p1339178) на Raspberry Pi:
+```bash
+$ ./ustreamer \
+    --format=uyvy \ # Настройка входного формата устройства
+    --encoder=omx \ # Использование аппаратного кодирования с помощью OpenMAX
+    --dv-timings # Включение DV-таймингов
 ```
 
-За полным списком опций обращайтесь к встроенной справке: ```ustreamer --help```.
+За полным списком опций обращайтесь ко встроенной справке: ```ustreamer --help```.
 
 -----
 # Лицензия
