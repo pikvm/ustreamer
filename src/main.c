@@ -141,7 +141,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 #	define OPT_UNSIGNED(_dest, _name, _min, _max) \
 		{ errno = 0; int _tmp = strtol(optarg, NULL, 0); \
 		if (errno || _tmp < _min || _tmp > _max) \
-		{ printf("Invalid value for '%s=%u'; minimal=%u; maximum=%u\n", _name, _tmp, _min, _max); return -1; } \
+		{ printf("Invalid value for '%s=%u'; min=%u; max=%u\n", _name, _tmp, _min, _max); return -1; } \
 		_dest = _tmp; break; }
 
 #	define OPT_PARSE(_dest, _func, _invalid, _name) \

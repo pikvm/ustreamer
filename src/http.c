@@ -62,14 +62,13 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	struct http_server_runtime_t *run;
 	struct http_server_t *server;
 	struct exposed_t *exposed;
+	struct timeval refresh_interval;
 
 	A_CALLOC(exposed, 1);
 
 	A_CALLOC(run, 1);
 	run->stream = stream;
 	run->exposed = exposed;
-	run->refresh_interval.tv_sec = 0;
-	run->refresh_interval.tv_usec = 30000; // ~30 refreshes per second
 	run->drop_same_frames_blank = 10;
 
 	A_CALLOC(server, 1);
@@ -90,8 +89,11 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	assert(!evhttp_set_cb(run->http, "/snapshot", _http_callback_snapshot, (void *)exposed));
 	assert(!evhttp_set_cb(run->http, "/stream", _http_callback_stream, (void *)server));
 
+	refresh_interval.tv_sec = 0;
+	refresh_interval.tv_usec = 30000; // ~30 refreshes per second
 	assert((run->refresh = event_new(run->base, -1, EV_PERSIST, _http_exposed_refresh, server)));
-	assert(!event_add(run->refresh, &run->refresh_interval));
+	assert(!event_add(run->refresh, &refresh_interval));
+
 	return server;
 }
 

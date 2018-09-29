@@ -20,7 +20,6 @@
 
 
 #include <stdbool.h>
-#include <time.h>
 
 #include <event2/event.h>
 #include <event2/http.h>
@@ -54,8 +53,6 @@ struct http_server_runtime_t {
 	struct event			*refresh;
 	struct stream_t			*stream;
 	struct exposed_t		*exposed;
-	struct timeval			refresh_interval;
-
 	struct stream_client_t	*stream_clients;
 	unsigned				drop_same_frames_blank;
 };
