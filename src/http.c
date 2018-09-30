@@ -241,7 +241,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 			client->prev = last;
 			last->next = client;
 		}
-		++server->run->stream_clients_count;
+		server->run->stream_clients_count += 1;
 
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
 		LOG_INFO(
@@ -313,7 +313,7 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	char *client_addr = "???";
 	unsigned short client_port = 0;
 
-	--client->server->run->stream_clients_count;
+	client->server->run->stream_clients_count -= 1;
 
 	conn = evhttp_request_get_connection(client->request);
 	if (conn != NULL) {
@@ -406,7 +406,7 @@ static bool _expose_new_picture(struct http_server_t *server) {
 			&& !memcmp(MEM_STREAM_TO_EXPOSED)
 		) {
 			LOG_PERF("HTTP: dropped same frame number %u", server->run->exposed->dropped);
-			++server->run->exposed->dropped;
+			server->run->exposed->dropped += 1;
 			return false; // Not updated
 		}
 	}
@@ -450,7 +450,7 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 
 	if (server->run->exposed->dropped < server->run->drop_same_frames_blank) {
 		LOG_PERF("HTTP: dropped same frame (BLANK) number %u", server->run->exposed->dropped);
-		++server->run->exposed->dropped;
+		server->run->exposed->dropped += 1;
 		return false; // Not updated
 	}
 

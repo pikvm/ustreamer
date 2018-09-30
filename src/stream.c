@@ -169,8 +169,8 @@ void stream_loop(struct stream_t *stream) {
 
 					if (stream->dev->every_frame) {
 						if (frames_count < stream->dev->every_frame - 1) {
-							LOG_DEBUG("Dropping frame %d for option --every-frame=%d", frames_count + 1, stream->dev->every_frame);
-							++frames_count;
+							frames_count += 1;
+							LOG_DEBUG("Dropping frame %d for option --every-frame=%d", frames_count, stream->dev->every_frame);
 							goto pass_frame;
 						}
 						frames_count = 0;
@@ -202,7 +202,7 @@ void stream_loop(struct stream_t *stream) {
 							fps = 0;
 							fps_second = (long long)now;
 						}
-						++fps;
+						fps += 1;
 
 						long double fluency_delay = _stream_get_fluency_delay(stream->dev, &pool);
 

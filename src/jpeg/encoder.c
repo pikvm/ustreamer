@@ -137,7 +137,7 @@ static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg,
 	while (jpeg->next_scanline < height) {
 		unsigned char *ptr = line_buffer;
 
-		for (unsigned x = 0; x < width; x++) {
+		for (unsigned x = 0; x < width; ++x) {
 			int y = (!z ? data[0] << 8 : data[2] << 8);
 			int u = data[1] - 128;
 			int v = data[3] - 128;
@@ -171,7 +171,7 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg,
 	while(jpeg->next_scanline < height) {
 		unsigned char *ptr = line_buffer;
 
-		for(unsigned x = 0; x < width; x++) {
+		for(unsigned x = 0; x < width; ++x) {
 			int y = (!z ? data[1] << 8 : data[3] << 8);
 			int u = data[0] - 128;
 			int v = data[2] - 128;
@@ -204,7 +204,7 @@ static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg,
 	while(jpeg->next_scanline < height) {
 		unsigned char *ptr = line_buffer;
 
-		for(unsigned x = 0; x < width; x++) {
+		for(unsigned x = 0; x < width; ++x) {
 			unsigned int two_byte = (data[1] << 8) + data[0];
 
 			*(ptr++) = data[1] & 248;
