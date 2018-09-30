@@ -250,7 +250,7 @@ static int _device_apply_dv_timings(struct device_t *dev) {
 	LOG_DEBUG("Calling ioctl(VIDIOC_QUERY_DV_TIMINGS) ...");
 	if (xioctl(dev->run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv_timings) == 0) {
 		LOG_INFO(
-			"Got new DV timings: resolution=%dx%d; pixclk=%llu\n",
+			"Got new DV timings: resolution=%dx%d; pixclk=%llu",
 			dv_timings.bt.width,
 			dv_timings.bt.height,
 			dv_timings.bt.pixelclock
