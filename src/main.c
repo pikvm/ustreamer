@@ -135,11 +135,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 }
 
 static int _parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server) {
-#	define OPT_ARG(_dest) \
-		{ _dest = optarg; break; }
-
-#	define OPT_TRUE(_dest) \
-		{ _dest = true; break; }
+#	define OPT_SET(_dest, _value) \
+		{ _dest = _value; break; }
 
 #	define OPT_UNSIGNED(_dest, _name, _min, _max) \
 		{ errno = 0; int _tmp = strtol(optarg, NULL, 0); \
@@ -158,7 +155,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 	log_level = LOG_LEVEL_INFO;
 	while ((ch = getopt_long(argc, argv, _short_opts, _long_opts, &index)) >= 0) {
 		switch (ch) {
-			case 'd':	OPT_ARG(dev->path);
+			case 'd':	OPT_SET(dev->path, optarg);
 			case 'x':	OPT_UNSIGNED(dev->width, "--width", 320, 1920);
 			case 'y':	OPT_UNSIGNED(dev->height, "--height", 180, 1200);
 #			pragma GCC diagnostic ignored "-Wsign-compare"
@@ -168,38 +165,37 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 'a':	OPT_PARSE(dev->standard, device_parse_standard, STANDARD_UNKNOWN, "TV standard");
 			case 'e':	OPT_UNSIGNED(dev->every_frame, "--every-frame", 1, 30);
 			case 'z':	OPT_UNSIGNED(dev->min_frame_size, "--min-frame-size", 0, 8192);
-			case 't':	OPT_TRUE(dev->dv_timings);
+			case 't':	OPT_SET(dev->dv_timings, true);
 			case 'b':	OPT_UNSIGNED(dev->n_buffers, "--buffers", 1, 32);
 			case 'w':	OPT_UNSIGNED(dev->n_workers, "--workers", 1, 32);
 			case 'q':	OPT_UNSIGNED(encoder->quality, "--quality", 1, 100);
 			case 'c':	OPT_PARSE(encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, "encoder type");
 #			ifdef OMX_ENCODER
-			case 500:	encoder->omx_use_ijg = true; break;
+			case 500:	OPT_SET(encoder->omx_use_ijg, true);
 #			endif
 			case 1000:	OPT_UNSIGNED(dev->timeout, "--timeout", 1, 60);
 			case 1001:	OPT_UNSIGNED(dev->error_timeout, "--error-timeout", 1, 60);
 
-			case 's':	server->host = optarg; break;
+			case 's':	OPT_SET(server->host, optarg);
 			case 'p':	OPT_UNSIGNED(server->port, "--port", 1, 65535);
 			case 'r':	OPT_UNSIGNED(server->drop_same_frames, "--drop-same-frames", 0, 30);
-			case 2000:	server->add_x_timings = true; break;
+			case 2000:	OPT_SET(server->add_x_timings, true);
 			case 2001:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
 			case 2002:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
 			case 2003:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
 
-			case 5000:	log_level = LOG_LEVEL_PERF; break;
-			case 5001:	log_level = LOG_LEVEL_VERBOSE; break;
-			case 5002:	log_level = LOG_LEVEL_DEBUG; break;
+			case 5000:	OPT_SET(log_level, LOG_LEVEL_PERF);
+			case 5001:	OPT_SET(log_level, LOG_LEVEL_VERBOSE);
+			case 5002:	OPT_SET(log_level, LOG_LEVEL_DEBUG);
 			case 5010:	OPT_UNSIGNED(log_level, "--log-level", 0, 3);
 			case 0:		break;
 			case 'h':	default: _help(dev, encoder, server); return -1;
 		}
 	}
 
-#	undef OPT_PARSE
+#	undef OPT_SET
 #	undef OPT_UNSIGNED
-#	undef OPT_TRUE
-#	undef OPT_ARG
+#	undef OPT_PARSE
 	return 0;
 }
 

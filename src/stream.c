@@ -283,23 +283,27 @@ void stream_loop_break(struct stream_t *stream) {
 }
 
 static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) {
+#	define PICTURE(_next) stream->dev->run->pictures[buf_index]._next
+
 	A_PTHREAD_M_LOCK(&stream->mutex);
 
-	stream->picture.size = stream->dev->run->pictures[buf_index].size;
-	stream->picture.allocated = stream->dev->run->pictures[buf_index].allocated;
+	stream->picture.size = PICTURE(size);
+	stream->picture.allocated = PICTURE(allocated);
 	memcpy(
-		stream->picture.data, stream->dev->run->pictures[buf_index].data,
+		stream->picture.data, PICTURE(data),
 		stream->picture.size * sizeof(*stream->picture.data)
 	);
-	stream->picture.grab_time = stream->dev->run->pictures[buf_index].grab_time;
-	stream->picture.encode_begin_time = stream->dev->run->pictures[buf_index].encode_begin_time;
-	stream->picture.encode_end_time = stream->dev->run->pictures[buf_index].encode_end_time;
+	stream->picture.grab_time = PICTURE(grab_time);
+	stream->picture.encode_begin_time = PICTURE(encode_begin_time);
+	stream->picture.encode_end_time = PICTURE(encode_end_time);
 
 	stream->width = stream->dev->run->width;
 	stream->height = stream->dev->run->height;
 	stream->updated = true;
 
 	A_PTHREAD_M_UNLOCK(&stream->mutex);
+
+#	undef PICTURE
 }
 
 static long double _stream_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool) {
@@ -371,25 +375,29 @@ static void _stream_init_workers(struct device_t *dev, struct workers_pool_t *po
 		A_PTHREAD_M_INIT(&pool->workers[number].has_job_mutex);
 		A_PTHREAD_C_INIT(&pool->workers[number].has_job_cond);
 
-		pool->workers[number].ctx.number = number;
-		pool->workers[number].ctx.dev = dev;
-		pool->workers[number].ctx.dev_stop = (sig_atomic_t *volatile)&dev->stop;
-		pool->workers[number].ctx.workers_stop = pool->workers_stop;
+#	define CTX(_next) pool->workers[number].ctx._next
 
-		pool->workers[number].ctx.encoder = pool->encoder;
+		CTX(number)			= number;
+		CTX(dev)			= dev;
+		CTX(dev_stop)		= (sig_atomic_t *volatile)&dev->stop;
+		CTX(workers_stop)	= pool->workers_stop;
 
-		pool->workers[number].ctx.last_comp_time_mutex = &pool->workers[number].last_comp_time_mutex;
-		pool->workers[number].ctx.last_comp_time = &pool->workers[number].last_comp_time;
+		CTX(encoder) = pool->encoder;
 
-		pool->workers[number].ctx.has_job_mutex = &pool->workers[number].has_job_mutex;
-		pool->workers[number].ctx.has_job = &pool->workers[number].has_job;
-		pool->workers[number].ctx.job_failed = &pool->workers[number].job_failed;
-		pool->workers[number].ctx.job_start_time = &pool->workers[number].job_start_time;
-		pool->workers[number].ctx.has_job_cond = &pool->workers[number].has_job_cond;
+		CTX(last_comp_time_mutex)	= &pool->workers[number].last_comp_time_mutex;
+		CTX(last_comp_time)			= &pool->workers[number].last_comp_time;
 
-		pool->workers[number].ctx.free_workers_mutex = &pool->free_workers_mutex;
-		pool->workers[number].ctx.free_workers = &pool->free_workers;
-		pool->workers[number].ctx.free_workers_cond = &pool->free_workers_cond;
+		CTX(has_job_mutex)	= &pool->workers[number].has_job_mutex;
+		CTX(has_job)		= &pool->workers[number].has_job;
+		CTX(job_failed)		= &pool->workers[number].job_failed;
+		CTX(job_start_time)	= &pool->workers[number].job_start_time;
+		CTX(has_job_cond)	= &pool->workers[number].has_job_cond;
+
+		CTX(free_workers_mutex)	= &pool->free_workers_mutex;
+		CTX(free_workers)		= &pool->free_workers;
+		CTX(free_workers_cond)	= &pool->free_workers_cond;
+
+#	undef CTX
 
 		A_PTHREAD_CREATE(&pool->workers[number].tid, _stream_worker_thread, (void *)&pool->workers[number].ctx);
 	}
