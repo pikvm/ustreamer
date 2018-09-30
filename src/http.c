@@ -219,6 +219,8 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 	struct evhttp_connection *conn;
 	struct bufferevent *buf_event;
 	struct stream_client_t *client;
+	char *client_addr;
+	unsigned short client_port;
 
 	PROCESS_HEAD_REQUEST;
 
@@ -239,6 +241,13 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 			client->prev = last;
 			last->next = client;
 		}
+		++server->run->stream_clients_count;
+
+		evhttp_connection_get_peer(conn, &client_addr, &client_port);
+		LOG_INFO(
+			"HTTP: Registered the new stream client: [%s]:%u; clients now: %u",
+			client_addr, client_port, server->run->stream_clients_count
+		);
 
 		buf_event = evhttp_connection_get_bufferevent(conn);
 		bufferevent_setcb(buf_event, NULL, NULL, _http_callback_stream_error, (void *)client);
@@ -301,8 +310,19 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UNUSED short what, void *v_client) {
 	struct stream_client_t *client = (struct stream_client_t *)v_client;
 	struct evhttp_connection *conn;
+	char *client_addr = "???";
+	unsigned short client_port = 0;
+
+	--client->server->run->stream_clients_count;
 
 	conn = evhttp_request_get_connection(client->request);
+	if (conn != NULL) {
+		evhttp_connection_get_peer(conn, &client_addr, &client_port);
+	}
+	LOG_INFO(
+		"HTTP: Disconnected the stream client: [%s]:%u; clients now: %u",
+		client_addr, client_port, client->server->run->stream_clients_count
+	);
 	if (conn != NULL) {
 		evhttp_connection_free(conn);
 	}

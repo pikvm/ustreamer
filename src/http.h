@@ -54,6 +54,7 @@ struct http_server_runtime_t {
 	struct stream_t			*stream;
 	struct exposed_t		*exposed;
 	struct stream_client_t	*stream_clients;
+	unsigned				stream_clients_count;
 	unsigned				drop_same_frames_blank;
 };
 
