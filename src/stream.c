@@ -187,7 +187,7 @@ void stream_loop(struct stream_t *stream) {
 					}
 
 					{
-						long double now = now_ms_ld();
+						long double now = now_monotonic_ms();
 
 						if (now < grab_after) {
 							fluency_passed += 1;
@@ -407,7 +407,7 @@ static void *_stream_worker_thread(void *v_ctx) {
 			long double start_time;
 			long double last_comp_time;
 
-			start_time = now_ms_ld();
+			start_time = now_monotonic_ms();
 
 			LOG_DEBUG("Worker %u compressing JPEG from buffer %d ...", ctx->number, ctx->buf_index);
 
@@ -419,7 +419,7 @@ static void *_stream_worker_thread(void *v_ctx) {
 				*ctx->job_start_time = start_time;
 				*ctx->has_job = false;
 
-				last_comp_time = now_ms_ld() - start_time;
+				last_comp_time = now_monotonic_ms() - start_time;
 
 				A_PTHREAD_M_LOCK(ctx->last_comp_time_mutex);
 				*ctx->last_comp_time = last_comp_time;

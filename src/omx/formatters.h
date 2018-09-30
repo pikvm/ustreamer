@@ -35,7 +35,7 @@
 
 #define LOG_OMX_ERROR(_error, _msg, ...) { \
 		LOGGING_LOCK; \
-		printf("-- ERROR [%.03Lf tid=%ld] -- " _msg ": %s\n", now_ms_ld(), \
+		printf("-- ERROR [%.03Lf tid=%ld] -- " _msg ": %s\n", now_monotonic_ms(), \
 			syscall(SYS_gettid), ##__VA_ARGS__, omx_error_to_string(_error)); \
 		LOGGING_UNLOCK; \
 	}

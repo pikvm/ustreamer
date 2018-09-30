@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <time.h>
 #include <assert.h>
 
 #include <event2/event.h>
@@ -188,7 +187,6 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 static void _http_callback_snapshot(struct evhttp_request *request, void *v_exposed) {
 	struct exposed_t *exposed = (struct exposed_t *)v_exposed;
 	struct evbuffer *buf;
-	struct timespec x_timestamp_spec;
 	char x_timestamp_buf[64];
 
 	PROCESS_HEAD_REQUEST;
@@ -196,17 +194,11 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_expo
 	assert((buf = evbuffer_new()));
 	assert(!evbuffer_add(buf, (const void *)exposed->picture.data, exposed->picture.size));
 
-	assert(!clock_gettime(CLOCK_REALTIME, &x_timestamp_spec));
-	sprintf(
-		x_timestamp_buf, "%u.%06u",
-		(unsigned)x_timestamp_spec.tv_sec,
-		(unsigned)(x_timestamp_spec.tv_nsec / 1000) // TODO: round?
-	);
-
 	ADD_HEADER("Access-Control-Allow-Origin:", "*");
 	ADD_HEADER("Cache-Control", "no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0");
 	ADD_HEADER("Pragma", "no-cache");
 	ADD_HEADER("Expires", "Mon, 3 Jan 2000 12:34:56 GMT");
+	sprintf(x_timestamp_buf, "%.06Lf", now_real_ms());
 	ADD_HEADER("X-Timestamp", x_timestamp_buf);
 	ADD_HEADER("Content-Type", "image/jpeg");
 
@@ -264,10 +256,8 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_client) {
 	struct stream_client_t *client = (struct stream_client_t *)v_client;
 	struct evbuffer *buf;
-	struct timespec x_timestamp_spec;
 
 	assert((buf = evbuffer_new()));
-	assert(!clock_gettime(CLOCK_REALTIME, &x_timestamp_spec));
 
 	if (client->need_initial) {
 		assert(evbuffer_add_printf(buf,
@@ -287,11 +277,10 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	assert(evbuffer_add_printf(buf,
 		"Content-Type: image/jpeg" RN
 		"Content-Length: %lu" RN
-		"X-Timestamp: %u.%06u" RN
+		"X-Timestamp: %.06Lf" RN
 		RN,
 		client->server->run->exposed->picture.size * sizeof(*client->server->run->exposed->picture.data),
-		(unsigned)x_timestamp_spec.tv_sec,
-		(unsigned)(x_timestamp_spec.tv_nsec / 1000) // TODO: round?
+		now_real_ms()
 	));
 	assert(!evbuffer_add(buf,
 		(void *)client->server->run->exposed->picture.data,
