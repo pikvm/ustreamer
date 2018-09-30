@@ -162,10 +162,12 @@ void stream_loop(struct stream_t *stream) {
 					LOG_DEBUG("Frame is ready");
 
 					struct v4l2_buffer buf_info;
+					long double now = now_monotonic_ms();
 
 					if (_stream_grab_buffer(stream->dev, &buf_info) < 0) {
 						break;
 					}
+					stream->dev->run->pictures[buf_info.index].grab_time = now;
 
 					if (stream->dev->every_frame) {
 						if (frames_count < stream->dev->every_frame - 1) {
@@ -187,8 +189,6 @@ void stream_loop(struct stream_t *stream) {
 					}
 
 					{
-						long double now = now_monotonic_ms();
-
 						if (now < grab_after) {
 							fluency_passed += 1;
 							LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf; grab_after=%.03Lf", fluency_passed, now, grab_after);
@@ -291,6 +291,9 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) 
 		stream->picture.data, stream->dev->run->pictures[buf_index].data,
 		stream->picture.size * sizeof(*stream->picture.data)
 	);
+	stream->picture.grab_time = stream->dev->run->pictures[buf_index].grab_time;
+	stream->picture.encode_begin_time = stream->dev->run->pictures[buf_index].encode_begin_time;
+	stream->picture.encode_end_time = stream->dev->run->pictures[buf_index].encode_end_time;
 
 	stream->width = stream->dev->run->width;
 	stream->height = stream->dev->run->height;
@@ -404,11 +407,6 @@ static void *_stream_worker_thread(void *v_ctx) {
 		A_PTHREAD_M_UNLOCK(ctx->has_job_mutex);
 
 		if (!*ctx->workers_stop) {
-			long double start_time;
-			long double last_comp_time;
-
-			start_time = now_monotonic_ms();
-
 			LOG_DEBUG("Worker %u compressing JPEG from buffer %d ...", ctx->number, ctx->buf_index);
 
 			if (encoder_compress_buffer(ctx->encoder, ctx->dev, ctx->buf_index) < 0) {
@@ -416,10 +414,10 @@ static void *_stream_worker_thread(void *v_ctx) {
 			}
 
 			if (_stream_release_buffer(ctx->dev, &ctx->buf_info) == 0) {
-				*ctx->job_start_time = start_time;
+				*ctx->job_start_time = ctx->dev->run->pictures[ctx->buf_index].encode_begin_time;
 				*ctx->has_job = false;
 
-				last_comp_time = now_monotonic_ms() - start_time;
+				long double last_comp_time = ctx->dev->run->pictures[ctx->buf_index].encode_end_time - *ctx->job_start_time;
 
 				A_PTHREAD_M_LOCK(ctx->last_comp_time_mutex);
 				*ctx->last_comp_time = last_comp_time;

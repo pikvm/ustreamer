@@ -45,6 +45,8 @@ struct exposed_t {
 	unsigned			fps;
 	bool				online;
 	unsigned			dropped;
+	long double			expose_begin_time;
+	long double			expose_end_time;
 };
 
 struct http_server_runtime_t {
@@ -62,6 +64,7 @@ struct http_server_t {
 	char		*host;
 	unsigned	port;
 	unsigned	drop_same_frames;
+	bool		add_x_timings;
 	unsigned	fake_width;
 	unsigned	fake_height;
 	unsigned	timeout;

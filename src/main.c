@@ -63,9 +63,10 @@ static const struct option _long_opts[] = {
 	{"host",					required_argument,	NULL,	's'},
 	{"port",					required_argument,	NULL,	'p'},
 	{"drop-same-frames",		required_argument,	NULL,	'r'},
-	{"fake-width",				required_argument,	NULL,	2000},
-	{"fake-height",				required_argument,	NULL,	2001},
-	{"server-timeout",			required_argument,	NULL,	2002},
+	{"add-x-timings",			no_argument,		NULL,	2000},
+	{"fake-width",				required_argument,	NULL,	2001},
+	{"fake-height",				required_argument,	NULL,	2002},
+	{"server-timeout",			required_argument,	NULL,	2003},
 
 	{"perf",					no_argument,		NULL,	5000},
 	{"verbose",					no_argument,		NULL,	5001},
@@ -116,6 +117,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                  It can significantly reduce the outgoing traffic, but will increase\n");
 	printf("                                  the CPU loading. Don't use this option with analog signal sources\n");
 	printf("                                  or webcams, it's useless. Default: disabled.\n\n");
+	printf("    --add-x-timings            -- Add X-UStreamer-*-Time headers to the /stream and /snapshot handles.\n");
+	printf("                                  Default: disabled.\n\n");
 	printf("    --fake-width <N>           -- Override image width for /ping. Default: disabled\n\n");
 	printf("    --fake-height <N>          -- Override image height for /ping. Default: disabled.\n\n");
 	printf("    --server-timeout <seconds> -- Timeout for client connections. Default: %d\n\n", server->timeout);
@@ -179,9 +182,10 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 's':	server->host = optarg; break;
 			case 'p':	OPT_UNSIGNED(server->port, "--port", 1, 65535);
 			case 'r':	OPT_UNSIGNED(server->drop_same_frames, "--drop-same-frames", 0, 30);
-			case 2000:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
-			case 2001:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
-			case 2002:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
+			case 2000:	server->add_x_timings = true; break;
+			case 2001:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
+			case 2002:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
+			case 2003:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
 
 			case 5000:	log_level = LOG_LEVEL_PERF; break;
 			case 5001:	log_level = LOG_LEVEL_VERBOSE; break;

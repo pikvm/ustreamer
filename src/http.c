@@ -85,7 +85,7 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 
 	assert(!evhttp_set_cb(run->http, "/", _http_callback_root, NULL));
 	assert(!evhttp_set_cb(run->http, "/ping", _http_callback_ping, (void *)server));
-	assert(!evhttp_set_cb(run->http, "/snapshot", _http_callback_snapshot, (void *)exposed));
+	assert(!evhttp_set_cb(run->http, "/snapshot", _http_callback_snapshot, (void *)server));
 	assert(!evhttp_set_cb(run->http, "/stream", _http_callback_stream, (void *)server));
 
 	refresh_interval.tv_sec = 0;
@@ -184,22 +184,44 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 	evbuffer_free(buf);
 }
 
-static void _http_callback_snapshot(struct evhttp_request *request, void *v_exposed) {
-	struct exposed_t *exposed = (struct exposed_t *)v_exposed;
+static void _http_callback_snapshot(struct evhttp_request *request, void *v_server) {
+	struct http_server_t *server = (struct http_server_t *)v_server;
 	struct evbuffer *buf;
 	char x_timestamp_buf[64];
 
 	PROCESS_HEAD_REQUEST;
 
 	assert((buf = evbuffer_new()));
-	assert(!evbuffer_add(buf, (const void *)exposed->picture.data, exposed->picture.size));
+	assert(!evbuffer_add(buf, (const void *)server->run->exposed->picture.data, server->run->exposed->picture.size));
 
 	ADD_HEADER("Access-Control-Allow-Origin:", "*");
 	ADD_HEADER("Cache-Control", "no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0");
 	ADD_HEADER("Pragma", "no-cache");
 	ADD_HEADER("Expires", "Mon, 3 Jan 2000 12:34:56 GMT");
+
 	sprintf(x_timestamp_buf, "%.06Lf", now_real_ms());
 	ADD_HEADER("X-Timestamp", x_timestamp_buf);
+
+	if (server->add_x_timings) {
+		sprintf(x_timestamp_buf, "%.06Lf", server->run->exposed->picture.grab_time);
+		ADD_HEADER("X-UStreamer-Grab-Time", x_timestamp_buf);
+
+		sprintf(x_timestamp_buf, "%.06Lf", server->run->exposed->picture.encode_begin_time);
+		ADD_HEADER("X-UStreamer-Encode-Begin-Time", x_timestamp_buf);
+
+		sprintf(x_timestamp_buf, "%.06Lf", server->run->exposed->picture.encode_end_time);
+		ADD_HEADER("X-UStreamer-Encode-End-Time", x_timestamp_buf);
+
+		sprintf(x_timestamp_buf, "%.06Lf", server->run->exposed->expose_begin_time);
+		ADD_HEADER("X-UStreamer-Expose-Begin-Time", x_timestamp_buf);
+
+		sprintf(x_timestamp_buf, "%.06Lf", server->run->exposed->expose_end_time);
+		ADD_HEADER("X-UStreamer-Expose-End-Time", x_timestamp_buf);
+
+		sprintf(x_timestamp_buf, "%.06Lf", now_monotonic_ms());
+		ADD_HEADER("X-UStreamer-Send-Time", x_timestamp_buf);
+	}
+
 	ADD_HEADER("Content-Type", "image/jpeg");
 
 	evhttp_send_reply(request, HTTP_OK, "OK", buf);
@@ -287,10 +309,28 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 		"Content-Type: image/jpeg" RN
 		"Content-Length: %lu" RN
 		"X-Timestamp: %.06Lf" RN
-		RN,
+		"%s",
 		client->server->run->exposed->picture.size * sizeof(*client->server->run->exposed->picture.data),
-		now_real_ms()
+		now_real_ms(), (client->server->add_x_timings ? "" : RN)
 	));
+	if (client->server->add_x_timings) {
+		assert(evbuffer_add_printf(buf,
+			"X-UStreamer-Grab-Time: %.06Lf" RN
+			"X-UStreamer-Encode-Begin-Time: %.06Lf" RN
+			"X-UStreamer-Encode-End-Time: %.06Lf" RN
+			"X-UStreamer-Expose-Begin-Time: %.06Lf" RN
+			"X-UStreamer-Expose-End-Time: %.06Lf" RN
+			"X-UStreamer-Send-Time: %.06Lf" RN
+			RN,
+			client->server->run->exposed->picture.grab_time,
+			client->server->run->exposed->picture.encode_begin_time,
+			client->server->run->exposed->picture.encode_end_time,
+			client->server->run->exposed->expose_begin_time,
+			client->server->run->exposed->expose_end_time,
+			now_monotonic_ms()
+		));
+	}
+
 	assert(!evbuffer_add(buf,
 		(void *)client->server->run->exposed->picture.data,
 		client->server->run->exposed->picture.size * sizeof(*client->server->run->exposed->picture.data)
@@ -393,6 +433,7 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 static bool _expose_new_picture(struct http_server_t *server) {
 	assert(server->run->stream->picture.size > 0);
 	server->run->exposed->fps = server->run->stream->fps;
+	server->run->exposed->expose_begin_time = now_monotonic_ms();
 
 #	define MEM_STREAM_TO_EXPOSED \
 		server->run->exposed->picture.data, server->run->stream->picture.data, \
@@ -407,6 +448,7 @@ static bool _expose_new_picture(struct http_server_t *server) {
 		) {
 			LOG_PERF("HTTP: dropped same frame number %u", server->run->exposed->dropped);
 			server->run->exposed->dropped += 1;
+			server->run->exposed->expose_end_time = now_monotonic_ms();
 			return false; // Not updated
 		}
 	}
@@ -421,14 +463,22 @@ static bool _expose_new_picture(struct http_server_t *server) {
 #	undef MEM_STREAM_TO_EXPOSED
 
 	server->run->exposed->picture.size = server->run->stream->picture.size;
+
+	server->run->exposed->picture.grab_time = server->run->stream->picture.grab_time;
+	server->run->exposed->picture.encode_begin_time = server->run->stream->picture.encode_begin_time;
+	server->run->exposed->picture.encode_end_time = server->run->stream->picture.encode_end_time;
+
 	server->run->exposed->width = server->run->stream->width;
 	server->run->exposed->height = server->run->stream->height;
 	server->run->exposed->online = true;
 	server->run->exposed->dropped = 0;
+	server->run->exposed->expose_end_time = now_monotonic_ms();
 	return true; // Updated
 }
 
 static bool _expose_blank_picture(struct http_server_t *server) {
+	server->run->exposed->expose_begin_time = now_monotonic_ms();
+
 	if (server->run->exposed->online || server->run->exposed->picture.size == 0) {
 		if (server->run->exposed->picture.allocated < BLANK_JPG_SIZE) {
 			A_REALLOC(server->run->exposed->picture.data, BLANK_JPG_SIZE);
@@ -441,6 +491,11 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 		);
 
 		server->run->exposed->picture.size = BLANK_JPG_SIZE;
+
+		server->run->exposed->picture.grab_time = 0;
+		server->run->exposed->picture.encode_begin_time = 0;
+		server->run->exposed->picture.encode_end_time = 0;
+
 		server->run->exposed->width = BLANK_JPG_WIDTH;
 		server->run->exposed->height = BLANK_JPG_HEIGHT;
 		server->run->exposed->fps = 0;
@@ -451,10 +506,12 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 	if (server->run->exposed->dropped < server->run->drop_same_frames_blank) {
 		LOG_PERF("HTTP: dropped same frame (BLANK) number %u", server->run->exposed->dropped);
 		server->run->exposed->dropped += 1;
+		server->run->exposed->expose_end_time = now_monotonic_ms();
 		return false; // Not updated
 	}
 
 	updated:
 		server->run->exposed->dropped = 0;
+		server->run->exposed->expose_end_time = now_monotonic_ms();
 		return true; // Updated
 }

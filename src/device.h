@@ -44,6 +44,9 @@ struct picture_t {
 	unsigned char	*data;
 	unsigned long	size;
 	unsigned long	allocated;
+	long double		grab_time;
+	long double		encode_begin_time;
+	long double		encode_end_time;
 };
 
 struct device_runtime_t {
