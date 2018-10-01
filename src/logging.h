@@ -54,65 +54,72 @@ pthread_mutex_t log_mutex;
 #define LOGGING_UNLOCK	assert(!pthread_mutex_unlock(&log_mutex))
 
 
-#define SEP_INFO(_x_ch) { \
+#define SEP_INFO(_ch) { \
 		LOGGING_LOCK; \
 		for (int _i = 0; _i < 80; ++_i) { \
-			putchar(_x_ch); \
+			putchar(_ch); \
 		} \
 		putchar('\n'); \
+		fflush(stdout); \
 		LOGGING_UNLOCK; \
 	}
 
-#define SEP_DEBUG(_x_ch) { \
+#define SEP_DEBUG(_ch) { \
 		if (log_level >= LOG_LEVEL_DEBUG) { \
-			SEP_INFO(_x_ch); \
+			SEP_INFO(_ch); \
 		} \
 	}
 
-#define LOG_ERROR(_x_msg, ...) { \
+#define LOG_PRINTF_NOLOCK(_label, _msg, ...) { \
+		printf("-- " _label " [%.03Lf tid=%ld] -- " _msg "\n", now_monotonic_ms(), syscall(SYS_gettid), ##__VA_ARGS__); \
+		fflush(stdout); \
+	}
+
+#define LOG_ERROR(_msg, ...) { \
 		LOGGING_LOCK; \
-		printf("-- ERROR [%.03Lf tid=%ld] -- " _x_msg "\n", now_monotonic_ms(), syscall(SYS_gettid), ##__VA_ARGS__); \
+		LOG_PRINTF_NOLOCK("ERROR", _msg, ##__VA_ARGS__); \
 		LOGGING_UNLOCK; \
 	}
 
-#define LOG_PERROR(_x_msg, ...) { \
+#define LOG_PERROR(_msg, ...) { \
 		char _buf[1024] = ""; \
 		strerror_r(errno, _buf, 1024); \
 		LOGGING_LOCK; \
-		printf("-- ERROR [%.03Lf tid=%ld] -- " _x_msg ": %s\n", now_monotonic_ms(), syscall(SYS_gettid), ##__VA_ARGS__, _buf); \
+		printf("-- ERROR [%.03Lf tid=%ld] -- " _msg ": %s\n", now_monotonic_ms(), syscall(SYS_gettid), ##__VA_ARGS__, _buf); \
+		fflush(stdout); \
 		LOGGING_UNLOCK; \
 	}
 
-#define LOG_INFO(_x_msg, ...) { \
+#define LOG_INFO(_msg, ...) { \
 		LOGGING_LOCK; \
-		printf("-- INFO  [%.03Lf tid=%ld] -- " _x_msg "\n", now_monotonic_ms(), syscall(SYS_gettid), ##__VA_ARGS__); \
+		LOG_PRINTF_NOLOCK("INFO ", _msg, ##__VA_ARGS__); \
 		LOGGING_UNLOCK; \
 	}
 
-#define LOG_INFO_NOLOCK(_x_msg, ...) { \
-		printf("-- INFO  [%.03Lf tid=%ld] -- " _x_msg "\n", now_monotonic_ms(), syscall(SYS_gettid), ##__VA_ARGS__); \
+#define LOG_INFO_NOLOCK(_msg, ...) { \
+		LOG_PRINTF_NOLOCK("INFO ", _msg, ##__VA_ARGS__); \
 	}
 
-#define LOG_PERF(_x_msg, ...) { \
+#define LOG_PERF(_msg, ...) { \
 		if (log_level >= LOG_LEVEL_PERF) { \
 			LOGGING_LOCK; \
-			printf("-- PERF  [%.03Lf tid=%ld] -- " _x_msg "\n", now_monotonic_ms(), syscall(SYS_gettid), ##__VA_ARGS__); \
+			LOG_PRINTF_NOLOCK("PERF ", _msg, ##__VA_ARGS__); \
 			LOGGING_UNLOCK; \
 		} \
 	}
 
-#define LOG_VERBOSE(_x_msg, ...) { \
+#define LOG_VERBOSE(_msg, ...) { \
 		if (log_level >= LOG_LEVEL_VERBOSE) { \
 			LOGGING_LOCK; \
-			printf("-- VERB  [%.03Lf tid=%ld] -- " _x_msg "\n", now_monotonic_ms(), syscall(SYS_gettid), ##__VA_ARGS__); \
+			LOG_PRINTF_NOLOCK("VERB ", _msg, ##__VA_ARGS__); \
 			LOGGING_UNLOCK; \
 		} \
 	}
 
-#define LOG_DEBUG(_x_msg, ...) { \
+#define LOG_DEBUG(_msg, ...) { \
 		if (log_level >= LOG_LEVEL_DEBUG) { \
 			LOGGING_LOCK; \
-			printf("-- DEBUG [%.03Lf tid=%ld] -- " _x_msg "\n", now_monotonic_ms(), syscall(SYS_gettid), ##__VA_ARGS__); \
+			LOG_PRINTF_NOLOCK("DEBUG", _msg, ##__VA_ARGS__); \
 			LOGGING_UNLOCK; \
 		} \
 	}
