@@ -29,12 +29,12 @@
 #include "formatters.h"
 
 
-#define CASE_TO_STRING(_val) \
-	case _val: { return #_val; }
+#define CASE_TO_STRING(_value) \
+	case _value: { return #_value; }
 
-#define CASE_ASSERT(_msg, _val) default: { \
+#define CASE_ASSERT(_msg, _value) default: { \
 		char *_buf; A_CALLOC(_buf, 128); \
-		sprintf(_buf, _msg ": 0x%08x", _val); \
+		sprintf(_buf, _msg ": 0x%08x", _value); \
 		assert(0 && _buf); \
 	}
 
