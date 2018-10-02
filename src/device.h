@@ -64,6 +64,7 @@ struct device_runtime_t {
 
 struct device_t {
 	char			*path;
+	unsigned		input;
 	unsigned		width;
 	unsigned		height;
 	unsigned		format;

@@ -40,9 +40,10 @@
 #include "http.h"
 
 
-static const char _short_opts[] = "d:x:y:f:a:e:z:tn:w:q:c:s:p:r:h";
+static const char _short_opts[] = "d:i:x:y:f:a:e:z:tn:w:q:c:s:p:r:h";
 static const struct option _long_opts[] = {
 	{"device",					required_argument,	NULL,	'd'},
+	{"input",					required_argument,	NULL,	'i'},
 	{"width",					required_argument,	NULL,	'x'},
 	{"height",					required_argument,	NULL,	'y'},
 	{"format",					required_argument,	NULL,	'f'},
@@ -83,9 +84,10 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("Copyright (C) 2018 Maxim Devaev <mdevaev@gmail.com>\n\n");
 	printf("Capturing options:\n");
 	printf("------------------\n");
-	printf("    -d|--device </dev/path>          -- Path to V4L2 device. Default: %s\n\n", dev->path);
-	printf("    -x|--width <N>                   -- Initial image width. Default: %d\n\n", dev->width);
-	printf("    -y|--height <N>                  -- Initial image height. Default: %d\n\n", dev->height);
+	printf("    -d|--device </dev/path>          -- Path to V4L2 device. Default: %s.\n\n", dev->path);
+	printf("    -i|--input <N>                   -- Input channel. Default: %u.\n\n", dev->input);
+	printf("    -x|--width <N>                   -- Initial image width. Default: %d.\n\n", dev->width);
+	printf("    -y|--height <N>                  -- Initial image height. Default: %d.\n\n", dev->height);
 	printf("    -f|--format <fmt>                -- Image format.\n");
 	printf("                                        Available: %s; default: YUYV.\n\n", FORMATS_STR);
 	printf("    -a|--tv-standard <std>           -- Force TV standard.\n");
@@ -156,6 +158,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 	while ((ch = getopt_long(argc, argv, _short_opts, _long_opts, &index)) >= 0) {
 		switch (ch) {
 			case 'd':	OPT_SET(dev->path, optarg);
+			case 'i':	OPT_UNSIGNED(dev->input, "--input", 0, 128);
 			case 'x':	OPT_UNSIGNED(dev->width, "--width", 320, 1920);
 			case 'y':	OPT_UNSIGNED(dev->height, "--height", 180, 1200);
 #			pragma GCC diagnostic ignored "-Wsign-compare"

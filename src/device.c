@@ -185,6 +185,7 @@ void device_close(struct device_t *dev) {
 
 static int _device_open_check_cap(struct device_t *dev) {
 	struct v4l2_capability cap;
+	int input = dev->input; // Needs pointer to int for ioctl()
 
 	MEMSET_ZERO(cap);
 
@@ -204,10 +205,16 @@ static int _device_open_check_cap(struct device_t *dev) {
 		return -1;
 	}
 
+	LOG_INFO("Using input channel: %d", input);
+	if (xioctl(dev->run->fd, VIDIOC_S_INPUT, &input) < 0) {
+		LOG_ERROR("Can't set input channel");
+		return -1;
+	}
+
 	if (dev->standard != V4L2_STD_UNKNOWN) {
 		LOG_INFO("Using TV standard: %s", _standard_to_string(dev->standard));
 		if (xioctl(dev->run->fd, VIDIOC_S_STD, &dev->standard) < 0) {
-			LOG_PERROR("Can't set video standard");
+			LOG_ERROR("Can't set video standard");
 			return -1;
 		}
 	} else {
