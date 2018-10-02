@@ -71,7 +71,6 @@ def main():
         *****************************************************************************/
     """).strip() + "\n\n\n" + text
 
-
     with open(dest, "w") as h_file:
         h_file.write(text)
 
