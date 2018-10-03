@@ -45,6 +45,7 @@ struct exposed_t {
 	unsigned			fps;
 	bool				online;
 	unsigned			dropped;
+	unsigned			eps;
 	long double			expose_begin_time;
 	long double			expose_end_time;
 };

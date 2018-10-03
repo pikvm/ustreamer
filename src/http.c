@@ -174,10 +174,12 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 	assert(evbuffer_add_printf(buf,
 		"{\"stream\": {\"resolution\":"
 		" {\"width\": %u, \"height\": %u},"
-		" \"fps\": %u, \"online\": %s, \"clients\": %u}}",
+		" \"fps\": %u, \"eps\": %u,"
+		" \"online\": %s, \"clients\": %u}}",
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
 		(server->fake_height ? server->fake_height : server->run->exposed->height),
-		server->run->exposed->fps,
+		server->run->exposed->fps, // frame per second (capturing)
+		server->run->exposed->eps, // expose per second (server)
 		(server->run->exposed->online ? "true" : "false"),
 		server->run->stream_clients_count
 	));
@@ -400,6 +402,9 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	struct http_server_t *server = (struct http_server_t *)v_server;
 	bool updated = false;
 	bool queue_send = false;
+	long long now;
+	static unsigned eps = 0;
+	static long long eps_second = 0;
 
 #define LOCK_STREAM \
 	A_PTHREAD_M_LOCK(&server->run->stream->mutex);
@@ -425,6 +430,13 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	}
 
 	if (queue_send) {
+		if ((now = (long long)now_monotonic_ms()) != eps_second) {
+			server->run->exposed->eps = eps;
+			eps = 0;
+			eps_second = now;
+		}
+		eps += 1;
+
 		_http_queue_send_stream(server, updated);
 	}
 
