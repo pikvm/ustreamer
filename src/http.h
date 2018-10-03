@@ -72,7 +72,7 @@ struct http_server_t {
 	char		*host;
 	unsigned	port;
 	unsigned	drop_same_frames;
-	bool		add_x_timings;
+	bool		extra_stream_headers;
 	unsigned	fake_width;
 	unsigned	fake_height;
 	unsigned	timeout;
