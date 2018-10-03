@@ -174,10 +174,12 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 	assert(evbuffer_add_printf(buf,
 		"{\"stream\": {\"resolution\":"
 		" {\"width\": %u, \"height\": %u},"
-		" \"fps\": %u, \"online\": %s}}",
+		" \"fps\": %u, \"online\": %s, \"clients\": %u}}",
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
 		(server->fake_height ? server->fake_height : server->run->exposed->height),
-		server->run->exposed->fps, (server->run->exposed->online ? "true" : "false")
+		server->run->exposed->fps,
+		(server->run->exposed->online ? "true" : "false"),
+		server->run->stream_clients_count
 	));
 	ADD_HEADER("Content-Type", "application/json");
 	evhttp_send_reply(request, HTTP_OK, "OK", buf);
