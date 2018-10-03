@@ -430,7 +430,7 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	}
 
 	if (queue_send) {
-		if ((now = (long long)now_monotonic_ms()) != eps_second) {
+		if ((now = ms_to_s(now_monotonic_ms())) != eps_second) {
 			server->run->exposed->eps = eps;
 			eps = 0;
 			eps_second = now;

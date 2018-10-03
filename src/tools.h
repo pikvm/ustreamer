@@ -61,6 +61,10 @@ INLINE unsigned max_u(unsigned a, unsigned b) {
 	return (a > b ? a : b);
 }
 
+INLINE long long ms_to_s(long double now) {
+	return (long long) now - (now < (long long) now); // floor()
+}
+
 INLINE void now_ms(clockid_t clk_id, time_t *sec, long *msec) {
 	struct timespec spec;
 

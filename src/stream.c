@@ -163,6 +163,7 @@ void stream_loop(struct stream_t *stream) {
 
 					struct v4l2_buffer buf_info;
 					long double now = now_monotonic_ms();
+					long long now_second = ms_to_s(now);
 
 					if (_stream_grab_buffer(stream->dev, &buf_info) < 0) {
 						break;
@@ -196,11 +197,11 @@ void stream_loop(struct stream_t *stream) {
 						}
 						fluency_passed = 0;
 
-						if ((long long)now != fps_second) {
+						if (now_second != fps_second) {
 							LOG_PERF("Oldest worker complete, encoding FPS = %u", fps);
 							stream->fps = fps;
 							fps = 0;
-							fps_second = (long long)now;
+							fps_second = now_second;
 						}
 						fps += 1;
 
