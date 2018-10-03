@@ -131,7 +131,7 @@ void encoder_prepare_for_device(struct encoder_t *encoder, struct device_t *dev)
 int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, const unsigned index) {
 	assert(encoder->type != ENCODER_TYPE_UNKNOWN);
 
-	dev->run->pictures[index].encode_begin_time = now_monotonic_ms();
+	dev->run->pictures[index].encode_begin_time = get_now_monotonic();
 
 	if (encoder->type == ENCODER_TYPE_CPU) {
 		jpeg_encoder_compress_buffer(dev, index, encoder->quality);
@@ -144,7 +144,7 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, con
 	}
 #	endif
 
-	dev->run->pictures[index].encode_end_time = now_monotonic_ms();
+	dev->run->pictures[index].encode_end_time = get_now_monotonic();
 
 	return 0;
 

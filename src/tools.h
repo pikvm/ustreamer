@@ -61,11 +61,11 @@ INLINE unsigned max_u(unsigned a, unsigned b) {
 	return (a > b ? a : b);
 }
 
-INLINE long long ms_to_s(long double now) {
+INLINE long long floor_ms(long double now) {
 	return (long long) now - (now < (long long) now); // floor()
 }
 
-INLINE void now_ms(clockid_t clk_id, time_t *sec, long *msec) {
+INLINE void get_now(clockid_t clk_id, time_t *sec, long *msec) {
 	struct timespec spec;
 
 	assert(!clock_gettime(clk_id, &spec));
@@ -78,18 +78,18 @@ INLINE void now_ms(clockid_t clk_id, time_t *sec, long *msec) {
 	}
 }
 
-INLINE long double now_monotonic_ms(void) {
+INLINE long double get_now_monotonic(void) {
 	time_t sec;
 	long msec;
 
-	now_ms(CLOCK_MONOTONIC_RAW, &sec, &msec);
+	get_now(CLOCK_MONOTONIC_RAW, &sec, &msec);
 	return (long double)sec + ((long double)msec) / 1000;
 }
 
-INLINE long double now_real_ms(void) {
+INLINE long double get_now_real(void) {
 	time_t sec;
 	long msec;
 
-	now_ms(CLOCK_REALTIME, &sec, &msec);
+	get_now(CLOCK_REALTIME, &sec, &msec);
 	return (long double)sec + ((long double)msec) / 1000;
 }

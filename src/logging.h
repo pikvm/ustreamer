@@ -71,7 +71,7 @@ pthread_mutex_t log_mutex;
 	}
 
 #define LOG_PRINTF_NOLOCK(_label, _msg, ...) { \
-		printf("-- " _label " [%.03Lf tid=%ld] -- " _msg "\n", now_monotonic_ms(), syscall(SYS_gettid), ##__VA_ARGS__); \
+		printf("-- " _label " [%.03Lf tid=%ld] -- " _msg "\n", get_now_monotonic(), syscall(SYS_gettid), ##__VA_ARGS__); \
 		fflush(stdout); \
 	}
 
@@ -85,7 +85,7 @@ pthread_mutex_t log_mutex;
 		char _buf[1024] = ""; \
 		strerror_r(errno, _buf, 1024); \
 		LOGGING_LOCK; \
-		printf("-- ERROR [%.03Lf tid=%ld] -- " _msg ": %s\n", now_monotonic_ms(), syscall(SYS_gettid), ##__VA_ARGS__, _buf); \
+		printf("-- ERROR [%.03Lf tid=%ld] -- " _msg ": %s\n", get_now_monotonic(), syscall(SYS_gettid), ##__VA_ARGS__, _buf); \
 		fflush(stdout); \
 		LOGGING_UNLOCK; \
 	}

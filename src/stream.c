@@ -162,8 +162,8 @@ void stream_loop(struct stream_t *stream) {
 					LOG_DEBUG("Frame is ready");
 
 					struct v4l2_buffer buf_info;
-					long double now = now_monotonic_ms();
-					long long now_second = ms_to_s(now);
+					long double now = get_now_monotonic();
+					long long now_second = floor_ms(now);
 
 					if (_stream_grab_buffer(stream->dev, &buf_info) < 0) {
 						break;

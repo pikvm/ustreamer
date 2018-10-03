@@ -208,7 +208,7 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 #	define ADD_TIME_HEADER(_key, _value) \
 		{ sprintf(time_buf, "%.06Lf", _value); ADD_HEADER(_key, time_buf); }
 
-	ADD_TIME_HEADER("X-Timestamp", now_real_ms());
+	ADD_TIME_HEADER("X-Timestamp", get_now_real());
 
 	ADD_HEADER("X-UStreamer-Picture-Type",				(EXPOSED(type) == PICTURE_TYPE_REAL ? "real" : "blank"));
 	ADD_TIME_HEADER("X-UStreamer-Grab-Time",			EXPOSED(picture.grab_time));
@@ -217,7 +217,7 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	ADD_TIME_HEADER("X-UStreamer-Expose-Begin-Time",	EXPOSED(expose_begin_time));
 	ADD_TIME_HEADER("X-UStreamer-Expose-Cmp-Time",		EXPOSED(expose_cmp_time));
 	ADD_TIME_HEADER("X-UStreamer-Expose-End-Time",		EXPOSED(expose_end_time));
-	ADD_TIME_HEADER("X-UStreamer-Send-Time",			now_monotonic_ms());
+	ADD_TIME_HEADER("X-UStreamer-Send-Time",			get_now_monotonic());
 
 #	undef ADD_TIME_HEADER
 
@@ -314,7 +314,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 		"X-Timestamp: %.06Lf" RN
 		"%s",
 		EXPOSED(picture.size) * sizeof(*EXPOSED(picture.data)),
-		now_real_ms(), (client->server->extra_stream_headers ? "" : RN)
+		get_now_real(), (client->server->extra_stream_headers ? "" : RN)
 	));
 	if (client->server->extra_stream_headers) {
 		assert(evbuffer_add_printf(buf,
@@ -334,7 +334,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			EXPOSED(expose_begin_time),
 			EXPOSED(expose_cmp_time),
 			EXPOSED(expose_end_time),
-			now_monotonic_ms()
+			get_now_monotonic()
 		));
 	}
 
@@ -434,7 +434,7 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	}
 
 	if (queue_send) {
-		if ((now = ms_to_s(now_monotonic_ms())) != eps_second) {
+		if ((now = floor_ms(get_now_monotonic())) != eps_second) {
 			server->run->exposed->eps = eps;
 			eps = 0;
 			eps_second = now;
@@ -454,7 +454,7 @@ static bool _expose_new_picture(struct http_server_t *server) {
 
 	assert(STREAM(picture.size) > 0);
 	EXPOSED(fps) = STREAM(fps);
-	EXPOSED(expose_begin_time) = now_monotonic_ms();
+	EXPOSED(expose_begin_time) = get_now_monotonic();
 
 #	define MEM_STREAM_TO_EXPOSED \
 		EXPOSED(picture.data), STREAM(picture.data), \
@@ -467,7 +467,7 @@ static bool _expose_new_picture(struct http_server_t *server) {
 			&& EXPOSED(picture.size) == STREAM(picture.size)
 			&& !memcmp(MEM_STREAM_TO_EXPOSED)
 		) {
-			EXPOSED(expose_cmp_time) = now_monotonic_ms();
+			EXPOSED(expose_cmp_time) = get_now_monotonic();
 			EXPOSED(expose_end_time) = EXPOSED(expose_cmp_time);
 			LOG_PERF(
 				"HTTP: dropped same frame number %u; comparsion time = %.06Lf",
@@ -476,7 +476,7 @@ static bool _expose_new_picture(struct http_server_t *server) {
 			EXPOSED(dropped) += 1;
 			return false; // Not updated
 		} else {
-			EXPOSED(expose_cmp_time) = now_monotonic_ms();
+			EXPOSED(expose_cmp_time) = get_now_monotonic();
 			LOG_PERF(
 				"HTTP: passed same frame check (frames are differ); comparsion time = %.06Lf",
 				EXPOSED(expose_cmp_time) - EXPOSED(expose_begin_time)
@@ -505,7 +505,7 @@ static bool _expose_new_picture(struct http_server_t *server) {
 	EXPOSED(online) = true;
 	EXPOSED(dropped) = 0;
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
-	EXPOSED(expose_end_time) = now_monotonic_ms();
+	EXPOSED(expose_end_time) = get_now_monotonic();
 
 #	undef STREAM
 #	undef EXPOSED
@@ -515,7 +515,7 @@ static bool _expose_new_picture(struct http_server_t *server) {
 static bool _expose_blank_picture(struct http_server_t *server) {
 #	define EXPOSED(_next) server->run->exposed->_next
 
-	EXPOSED(expose_begin_time) = now_monotonic_ms();
+	EXPOSED(expose_begin_time) = get_now_monotonic();
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
 
 	if (EXPOSED(online) || EXPOSED(picture.size) == 0) {
@@ -546,13 +546,13 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 	if (EXPOSED(dropped) < server->run->drop_same_frames_blank) {
 		LOG_PERF("HTTP: dropped same frame (BLANK) number %u", EXPOSED(dropped));
 		EXPOSED(dropped) += 1;
-		EXPOSED(expose_end_time) = now_monotonic_ms();
+		EXPOSED(expose_end_time) = get_now_monotonic();
 		return false; // Not updated
 	}
 
 	updated:
 		EXPOSED(dropped) = 0;
-		EXPOSED(expose_end_time) = now_monotonic_ms();
+		EXPOSED(expose_end_time) = get_now_monotonic();
 		return true; // Updated
 
 #	undef EXPOSED
