@@ -38,14 +38,8 @@ struct stream_client_t {
 	struct stream_client_t	*next;
 };
 
-enum picture_type_t {
-	PICTURE_TYPE_BLANK,
-	PICTURE_TYPE_REAL,
-};
-
 struct exposed_t {
 	struct picture_t	picture;
-	enum picture_type_t	type;
 	unsigned			width;
 	unsigned			height;
 	unsigned			fps;

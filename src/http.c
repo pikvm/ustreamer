@@ -210,7 +210,7 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 
 	ADD_TIME_HEADER("X-Timestamp", get_now_real());
 
-	ADD_HEADER("X-UStreamer-Picture-Type",				(EXPOSED(type) == PICTURE_TYPE_REAL ? "real" : "blank"));
+	ADD_HEADER("X-UStreamer-Online",					(EXPOSED(online) ? "true" : "false"));
 	ADD_TIME_HEADER("X-UStreamer-Grab-Time",			EXPOSED(picture.grab_time));
 	ADD_TIME_HEADER("X-UStreamer-Encode-Begin-Time",	EXPOSED(picture.encode_begin_time));
 	ADD_TIME_HEADER("X-UStreamer-Encode-End-Time",		EXPOSED(picture.encode_end_time));
@@ -318,7 +318,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	));
 	if (client->server->extra_stream_headers) {
 		assert(evbuffer_add_printf(buf,
-			"X-UStreamer-Picture-Type: %s" RN
+			"X-UStreamer-Online: %s" RN
 			"X-UStreamer-Grab-Time: %.06Lf" RN
 			"X-UStreamer-Encode-Begin-Time: %.06Lf" RN
 			"X-UStreamer-Encode-End-Time: %.06Lf" RN
@@ -327,7 +327,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"X-UStreamer-Expose-End-Time: %.06Lf" RN
 			"X-UStreamer-Send-Time: %.06Lf" RN
 			RN,
-			(EXPOSED(type) == PICTURE_TYPE_REAL ? "real" : "blank"),
+			(EXPOSED(online) ? "true" : "false"),
 			EXPOSED(picture.grab_time),
 			EXPOSED(picture.encode_begin_time),
 			EXPOSED(picture.encode_end_time),
@@ -499,7 +499,6 @@ static bool _expose_new_picture(struct http_server_t *server) {
 	EXPOSED(picture.encode_begin_time) = STREAM(picture.encode_begin_time);
 	EXPOSED(picture.encode_end_time) = STREAM(picture.encode_end_time);
 
-	EXPOSED(type) = PICTURE_TYPE_REAL;
 	EXPOSED(width) = STREAM(width);
 	EXPOSED(height) = STREAM(height);
 	EXPOSED(online) = true;
@@ -535,7 +534,6 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 		EXPOSED(picture.encode_begin_time) = 0;
 		EXPOSED(picture.encode_end_time) = 0;
 
-		EXPOSED(type) = PICTURE_TYPE_BLANK;
 		EXPOSED(width) = BLANK_JPG_WIDTH;
 		EXPOSED(height) = BLANK_JPG_HEIGHT;
 		EXPOSED(fps) = 0;
