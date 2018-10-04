@@ -174,12 +174,12 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 	assert(evbuffer_add_printf(buf,
 		"{\"stream\": {\"resolution\":"
 		" {\"width\": %u, \"height\": %u},"
-		" \"cps\": %u, \"eps\": %u,"
+		" \"captured_fps\": %u, \"queued_fps\": %u,"
 		" \"online\": %s, \"clients\": %u}}",
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
 		(server->fake_height ? server->fake_height : server->run->exposed->height),
-		server->run->exposed->cps, // Captured per second
-		server->run->exposed->eps, // Exposed per second (server)
+		server->run->exposed->captured_fps,
+		server->run->exposed->queued_fps,
 		(server->run->exposed->online ? "true" : "false"),
 		server->run->stream_clients_count
 	));
@@ -390,6 +390,10 @@ static void _http_queue_send_stream(struct http_server_t *server, const bool upd
 	struct stream_client_t *client;
 	struct evhttp_connection *conn;
 	struct bufferevent *buf_event;
+	long long now;
+	bool queued = false;
+	static unsigned queued_fps = 0;
+	static long long queued_fps_second = 0;
 
 	for (client = server->run->stream_clients; client != NULL; client = client->next) {
 		conn = evhttp_request_get_connection(client->request);
@@ -398,7 +402,17 @@ static void _http_queue_send_stream(struct http_server_t *server, const bool upd
 			bufferevent_setcb(buf_event, NULL, _http_callback_stream_write, _http_callback_stream_error, (void *)client);
 			bufferevent_enable(buf_event, EV_READ|EV_WRITE);
 			client->need_first_frame = false;
+			queued = true;
 		}
+	}
+
+	if (queued) {
+		if ((now = floor_ms(get_now_monotonic())) != queued_fps_second) {
+			server->run->exposed->queued_fps = queued_fps;
+			queued_fps = 0;
+			queued_fps_second = now;
+		}
+		queued_fps += 1;
 	}
 }
 
@@ -406,9 +420,6 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	struct http_server_t *server = (struct http_server_t *)v_server;
 	bool updated = false;
 	bool queue_send = false;
-	long long now;
-	static unsigned eps = 0;
-	static long long eps_second = 0;
 
 #define LOCK_STREAM \
 	A_PTHREAD_M_LOCK(&server->run->stream->mutex);
@@ -434,13 +445,6 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	}
 
 	if (queue_send) {
-		if ((now = floor_ms(get_now_monotonic())) != eps_second) {
-			server->run->exposed->eps = eps;
-			eps = 0;
-			eps_second = now;
-		}
-		eps += 1;
-
 		if (server->drop_same_frames) {
 			// Хром всегда показывает не новый пришедший фрейм, а предыдущий.
 			// При updated == false нужно еще один раз послать предыдущий фрейм
@@ -467,7 +471,7 @@ static bool _expose_new_picture(struct http_server_t *server) {
 #	define EXPOSED(_next) server->run->exposed->_next
 
 	assert(STREAM(picture.size) > 0);
-	EXPOSED(cps) = STREAM(cps);
+	EXPOSED(captured_fps) = STREAM(captured_fps);
 	EXPOSED(expose_begin_time) = get_now_monotonic();
 
 #	define MEM_STREAM_TO_EXPOSED \
@@ -550,7 +554,7 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 
 		EXPOSED(width) = BLANK_JPG_WIDTH;
 		EXPOSED(height) = BLANK_JPG_HEIGHT;
-		EXPOSED(cps) = 0;
+		EXPOSED(captured_fps) = 0;
 		EXPOSED(online) = false;
 		goto updated;
 	}

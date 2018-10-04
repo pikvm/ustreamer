@@ -85,8 +85,8 @@ void stream_loop(struct stream_t *stream) {
 		unsigned frames_count = 0;
 		long double grab_after = 0;
 		unsigned fluency_passed = 0;
-		unsigned cps = 0; // Captured per second
-		long long cps_second = 0;
+		unsigned captured_fps = 0;
+		long long captured_fps_second = 0;
 
 		LOG_DEBUG("Allocation memory for stream picture ...");
 		A_CALLOC(stream->picture.data, stream->dev->run->max_picture_size);
@@ -197,13 +197,13 @@ void stream_loop(struct stream_t *stream) {
 						}
 						fluency_passed = 0;
 
-						if (now_second != cps_second) {
-							LOG_PERF("Oldest worker complete, CPS = %u", cps);
-							stream->cps = cps;
-							cps = 0;
-							cps_second = now_second;
+						if (now_second != captured_fps_second) {
+							LOG_PERF("Oldest worker complete, Captured-FPS = %u", captured_fps);
+							stream->captured_fps = captured_fps;
+							captured_fps = 0;
+							captured_fps_second = now_second;
 						}
-						cps += 1;
+						captured_fps += 1;
 
 						long double fluency_delay = _stream_get_fluency_delay(stream->dev, &pool);
 
