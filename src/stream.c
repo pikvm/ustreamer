@@ -111,7 +111,7 @@ void stream_loop(struct stream_t *stream) {
 				free_worker_number = oldest_worker->ctx.number;
 				oldest_worker = oldest_worker->order_next;
 
-				LOG_PERF("##### ACCEPT : %u", free_worker_number);
+				LOG_PERF("##### Raw frame accepted; worker = %u", free_worker_number);
 			} else {
 				for (unsigned number = 0; number < stream->dev->run->n_workers; ++number) {
 					if (!pool.workers[number].has_job && (free_worker_number == -1
@@ -125,7 +125,7 @@ void stream_loop(struct stream_t *stream) {
 				assert(free_worker_number >= 0);
 				assert(!pool.workers[free_worker_number].has_job);
 
-				LOG_PERF("----- DROP   : %u", free_worker_number);
+				LOG_PERF("----- Raw frame dropped;  worker = %u", free_worker_number);
 			}
 
 			if (stream->dev->stop) {
