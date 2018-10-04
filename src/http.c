@@ -441,6 +441,20 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 		}
 		eps += 1;
 
+		if (server->drop_same_frames) {
+			// Хром всегда показывает не новый пришедший фрейм, а предыдущий.
+			// При updated == false нужно еще один раз послать предыдущий фрейм
+			// https://bugs.chromium.org/p/chromium/issues/detail?id=527446
+
+			static bool updated_prev = false;
+			bool updated_orig = updated;
+
+			if (updated_prev && !updated_orig) {
+				updated = true;
+			}
+			updated_prev = updated_orig;
+		}
+
 		_http_queue_send_stream(server, updated);
 	}
 
