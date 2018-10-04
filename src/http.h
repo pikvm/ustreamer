@@ -42,10 +42,10 @@ struct exposed_t {
 	struct picture_t	picture;
 	unsigned			width;
 	unsigned			height;
-	unsigned			fps;
+	unsigned			cps; // Captured per second
+	unsigned			eps; // Exposed per second
 	bool				online;
 	unsigned			dropped;
-	unsigned			eps;
 	long double			expose_begin_time;
 	long double			expose_cmp_time;
 	long double			expose_end_time;

@@ -174,12 +174,12 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 	assert(evbuffer_add_printf(buf,
 		"{\"stream\": {\"resolution\":"
 		" {\"width\": %u, \"height\": %u},"
-		" \"fps\": %u, \"eps\": %u,"
+		" \"cps\": %u, \"eps\": %u,"
 		" \"online\": %s, \"clients\": %u}}",
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
 		(server->fake_height ? server->fake_height : server->run->exposed->height),
-		server->run->exposed->fps, // frame per second (capturing)
-		server->run->exposed->eps, // expose per second (server)
+		server->run->exposed->cps, // Captured per second
+		server->run->exposed->eps, // Exposed per second (server)
 		(server->run->exposed->online ? "true" : "false"),
 		server->run->stream_clients_count
 	));
@@ -453,7 +453,7 @@ static bool _expose_new_picture(struct http_server_t *server) {
 #	define EXPOSED(_next) server->run->exposed->_next
 
 	assert(STREAM(picture.size) > 0);
-	EXPOSED(fps) = STREAM(fps);
+	EXPOSED(cps) = STREAM(cps);
 	EXPOSED(expose_begin_time) = get_now_monotonic();
 
 #	define MEM_STREAM_TO_EXPOSED \
@@ -536,7 +536,7 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 
 		EXPOSED(width) = BLANK_JPG_WIDTH;
 		EXPOSED(height) = BLANK_JPG_HEIGHT;
-		EXPOSED(fps) = 0;
+		EXPOSED(cps) = 0;
 		EXPOSED(online) = false;
 		goto updated;
 	}

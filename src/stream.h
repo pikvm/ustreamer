@@ -86,7 +86,7 @@ struct stream_t {
 	struct picture_t	picture;
 	unsigned			width;
 	unsigned			height;
-	unsigned			fps;
+	unsigned			cps; // Captured per second
 	bool				updated;
 	pthread_mutex_t		mutex;
 	struct device_t		*dev;
