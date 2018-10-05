@@ -30,6 +30,8 @@
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 
+#include <uuid/uuid.h>
+
 #ifndef EVTHREAD_USE_PTHREADS_IMPLEMENTED
 #	error Required libevent-pthreads support
 #endif
@@ -166,6 +168,7 @@ static void _http_callback_root(struct evhttp_request *request, UNUSED void *arg
 
 static void _http_callback_ping(struct evhttp_request *request, void *v_server) {
 	struct http_server_t *server = (struct http_server_t *)v_server;
+	struct stream_client_t *client;
 	struct evbuffer *buf;
 
 	PROCESS_HEAD_REQUEST;
@@ -175,7 +178,7 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 		"{\"stream\": {\"resolution\":"
 		" {\"width\": %u, \"height\": %u},"
 		" \"captured_fps\": %u, \"queued_fps\": %u,"
-		" \"online\": %s, \"clients\": %u}}",
+		" \"online\": %s, \"clients\": %u, \"clients_stat\": {",
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
 		(server->fake_height ? server->fake_height : server->run->exposed->height),
 		server->run->exposed->captured_fps,
@@ -183,6 +186,14 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 		(server->run->exposed->online ? "true" : "false"),
 		server->run->stream_clients_count
 	));
+	for (client = server->run->stream_clients; client != NULL; client = client->next) {
+		assert(evbuffer_add_printf(buf,
+			"\"%s\": {\"fps\": %u}%s",
+			client->id, client->fps, (client->next ? ", " : "")
+		));
+	}
+	assert(evbuffer_add_printf(buf, "}}}"));
+
 	ADD_HEADER("Content-Type", "application/json");
 	evhttp_send_reply(request, HTTP_OK, "OK", buf);
 	evbuffer_free(buf);
@@ -244,6 +255,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 	struct stream_client_t *client;
 	char *client_addr;
 	unsigned short client_port;
+	uuid_t uuid;
 
 	PROCESS_HEAD_REQUEST;
 
@@ -254,6 +266,9 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		client->request = request;
 		client->need_initial = true;
 		client->need_first_frame = true;
+
+		uuid_generate(uuid);
+		uuid_unparse_lower(uuid, client->id);
 
 		if (server->run->stream_clients == NULL) {
 			server->run->stream_clients = client;
@@ -268,8 +283,8 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
 		LOG_INFO(
-			"HTTP: Registered the new stream client: [%s]:%u; clients now: %u",
-			client_addr, client_port, server->run->stream_clients_count
+			"HTTP: Registered the new stream client: [%s]:%u; id=%s; clients now: %u",
+			client_addr, client_port, client->id, server->run->stream_clients_count
 		);
 
 		buf_event = evhttp_connection_get_bufferevent(conn);
@@ -288,6 +303,15 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 
 	struct stream_client_t *client = (struct stream_client_t *)v_client;
 	struct evbuffer *buf;
+	long double now = get_now_monotonic();
+	long long now_second = floor_ms(now);
+
+	if (now_second != client->fps_accum_second) {
+		client->fps = client->fps_accum;
+		client->fps_accum = 0;
+		client->fps_accum_second = now_second;
+	}
+	client->fps_accum += 1;
 
 	assert((buf = evbuffer_new()));
 
@@ -298,9 +322,11 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"Cache-Control: no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0" RN
 			"Pragma: no-cache" RN
 			"Expires: Mon, 3 Jan 2000 12:34:56 GMT" RN
+			"Set-Cookie: stream_client_id=%s; path=/; max-age=30" RN
 			"Content-Type: multipart/x-mixed-replace;boundary=" BOUNDARY RN
 			RN
-			"--" BOUNDARY RN
+			"--" BOUNDARY RN,
+			client->id
 		));
 		assert(!bufferevent_write_buffer(buf_event, buf));
 		client->need_initial = false;
@@ -319,6 +345,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	if (client->server->extra_stream_headers) {
 		assert(evbuffer_add_printf(buf,
 			"X-UStreamer-Online: %s" RN
+			"X-UStreamer-Client-FPS: %u" RN
 			"X-UStreamer-Grab-Time: %.06Lf" RN
 			"X-UStreamer-Encode-Begin-Time: %.06Lf" RN
 			"X-UStreamer-Encode-End-Time: %.06Lf" RN
@@ -328,13 +355,14 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"X-UStreamer-Send-Time: %.06Lf" RN
 			RN,
 			(EXPOSED(online) ? "true" : "false"),
+			client->fps,
 			EXPOSED(picture.grab_time),
 			EXPOSED(picture.encode_begin_time),
 			EXPOSED(picture.encode_end_time),
 			EXPOSED(expose_begin_time),
 			EXPOSED(expose_cmp_time),
 			EXPOSED(expose_end_time),
-			get_now_monotonic()
+			now
 		));
 	}
 
