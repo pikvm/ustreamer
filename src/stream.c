@@ -85,7 +85,7 @@ void stream_loop(struct stream_t *stream) {
 		unsigned frames_count = 0;
 		long double grab_after = 0;
 		unsigned fluency_passed = 0;
-		unsigned captured_fps = 0;
+		unsigned captured_fps_accum = 0;
 		long long captured_fps_second = 0;
 
 		LOG_DEBUG("Allocation memory for stream picture ...");
@@ -198,12 +198,12 @@ void stream_loop(struct stream_t *stream) {
 						fluency_passed = 0;
 
 						if (now_second != captured_fps_second) {
-							LOG_PERF("Oldest worker complete, Captured-FPS = %u", captured_fps);
-							stream->captured_fps = captured_fps;
-							captured_fps = 0;
+							stream->captured_fps = captured_fps_accum;
+							captured_fps_accum = 0;
 							captured_fps_second = now_second;
+							LOG_PERF("Oldest worker complete, Captured-FPS = %u", stream->captured_fps);
 						}
-						captured_fps += 1;
+						captured_fps_accum += 1;
 
 						long double fluency_delay = _stream_get_fluency_delay(stream->dev, &pool);
 

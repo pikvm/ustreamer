@@ -168,7 +168,6 @@ static void _http_callback_root(struct evhttp_request *request, UNUSED void *arg
 
 static void _http_callback_ping(struct evhttp_request *request, void *v_server) {
 	struct http_server_t *server = (struct http_server_t *)v_server;
-	struct stream_client_t *client;
 	struct evbuffer *buf;
 
 	PROCESS_HEAD_REQUEST;
@@ -186,7 +185,7 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 		(server->run->exposed->online ? "true" : "false"),
 		server->run->stream_clients_count
 	));
-	for (client = server->run->stream_clients; client != NULL; client = client->next) {
+	for (struct stream_client_t * client = server->run->stream_clients; client != NULL; client = client->next) {
 		assert(evbuffer_add_printf(buf,
 			"\"%s\": {\"fps\": %u}%s",
 			client->id, client->fps, (client->next ? ", " : "")
@@ -415,15 +414,14 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 }
 
 static void _http_queue_send_stream(struct http_server_t *server, const bool updated) {
-	struct stream_client_t *client;
 	struct evhttp_connection *conn;
 	struct bufferevent *buf_event;
 	long long now;
 	bool queued = false;
-	static unsigned queued_fps = 0;
+	static unsigned queued_fps_accum = 0;
 	static long long queued_fps_second = 0;
 
-	for (client = server->run->stream_clients; client != NULL; client = client->next) {
+	for (struct stream_client_t *client = server->run->stream_clients; client != NULL; client = client->next) {
 		conn = evhttp_request_get_connection(client->request);
 		if (conn != NULL && (updated || client->need_first_frame)) {
 			buf_event = evhttp_connection_get_bufferevent(conn);
@@ -436,11 +434,11 @@ static void _http_queue_send_stream(struct http_server_t *server, const bool upd
 
 	if (queued) {
 		if ((now = floor_ms(get_now_monotonic())) != queued_fps_second) {
-			server->run->exposed->queued_fps = queued_fps;
-			queued_fps = 0;
+			server->run->exposed->queued_fps = queued_fps_accum;
+			queued_fps_accum = 0;
 			queued_fps_second = now;
 		}
-		queued_fps += 1;
+		queued_fps_accum += 1;
 	}
 }
 
