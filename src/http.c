@@ -174,15 +174,15 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 
 	assert((buf = evbuffer_new()));
 	assert(evbuffer_add_printf(buf,
-		"{\"stream\": {\"resolution\":"
-		" {\"width\": %u, \"height\": %u},"
-		" \"captured_fps\": %u, \"queued_fps\": %u,"
-		" \"online\": %s, \"clients\": %u, \"clients_stat\": {",
+		"{\"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
+		" \"online\": %s, \"quality\": %u, \"captured_fps\": %u},"
+		" \"stream\": {\"queued_fps\": %u,  \"clients\": %u, \"clients_stat\": {",
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
 		(server->fake_height ? server->fake_height : server->run->exposed->height),
+		(server->run->exposed->online ? "true" : "false"),
+		server->run->stream->encoder->quality,
 		server->run->exposed->captured_fps,
 		server->run->exposed->queued_fps,
-		(server->run->exposed->online ? "true" : "false"),
 		server->run->stream_clients_count
 	));
 	for (struct stream_client_t * client = server->run->stream_clients; client != NULL; client = client->next) {
