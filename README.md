@@ -31,7 +31,7 @@
 
 -----
 # Сборка
-Для сборки вам понадобятся ```make```, ```gcc```, ```libevent``` с поддержкой ```pthreads``` и ```libjpeg8```/```libjpeg-turbo```.
+Для сборки вам понадобятся ```make```, ```gcc```, ```libevent``` с поддержкой ```pthreads```, ```libjpeg8```/```libjpeg-turbo``` и ```libuuid```.
 
 На Raspberry Pi програма автоматически собирается с поддержкой OpenMAX IL, если обнаружит нужные хедеры в ```/opt/vc/include```.
 
