@@ -25,7 +25,7 @@
 #endif
 
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdbool.h>
 #include <signal.h>
 #include <getopt.h>
 
@@ -74,13 +74,26 @@ static const struct option _long_opts[] = {
 	{"debug",					no_argument,		NULL,	5002},
 	{"log-level",				required_argument,	NULL,	5010},
 	{"help",					no_argument,		NULL,	'h'},
+	{"version",					no_argument,		NULL,	6000},
 	{NULL, 0, NULL, 0},
 };
+
+static void _version(bool nl) {
+	printf(VERSION);
+#	ifdef OMX_ENCODER
+	printf(" with OMX");
+#	endif
+	if (nl) {
+		putchar('\n');
+	}
+}
 
 static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server) {
 	printf("\nuStreamer - Lightweight and fast MJPG-HTTP streamer\n");
 	printf("===================================================\n\n");
-	printf("Version: %s; license: GPLv3\n", VERSION);
+	printf("Version: ");
+	_version(false);
+	printf("; license: GPLv3\n");
 	printf("Copyright (C) 2018 Maxim Devaev <mdevaev@gmail.com>\n\n");
 	printf("Capturing options:\n");
 	printf("------------------\n");
@@ -191,8 +204,10 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 5001:	OPT_SET(log_level, LOG_LEVEL_VERBOSE);
 			case 5002:	OPT_SET(log_level, LOG_LEVEL_DEBUG);
 			case 5010:	OPT_UNSIGNED(log_level, "--log-level", 0, 3);
+			case 'h':	_help(dev, encoder, server); return 1;
+			case 6000:	_version(true); return 1;
 			case 0:		break;
-			case 'h':	default: _help(dev, encoder, server); return -1;
+			default:	_help(dev, encoder, server); return -1;
 		}
 	}
 
@@ -294,5 +309,5 @@ int main(int argc, char *argv[]) {
 	device_destroy(dev);
 
 	LOGGING_DESTROY;
-	return abs(exit_code);
+	return (exit_code < 0 ? 1 : 0);
 }
