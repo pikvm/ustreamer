@@ -83,9 +83,9 @@ pthread_mutex_t log_mutex;
 
 #define LOG_PERROR(_msg, ...) { \
 		char _buf[1024] = ""; \
-		strerror_r(errno, _buf, 1024); \
+		char *_ptr = strerror_r(errno, _buf, 1024); \
 		LOGGING_LOCK; \
-		printf("-- ERROR [%.03Lf tid=%ld] -- " _msg ": %s\n", get_now_monotonic(), syscall(SYS_gettid), ##__VA_ARGS__, _buf); \
+		printf("-- ERROR [%.03Lf tid=%ld] -- " _msg ": %s\n", get_now_monotonic(), syscall(SYS_gettid), ##__VA_ARGS__, _ptr); \
 		fflush(stdout); \
 		LOGGING_UNLOCK; \
 	}
