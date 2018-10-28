@@ -87,9 +87,12 @@ void stream_loop(struct stream_t *stream) {
 		unsigned fluency_passed = 0;
 		unsigned captured_fps_accum = 0;
 		long long captured_fps_second = 0;
+		bool persistent_timeout_reported = false;
 
 		LOG_DEBUG("Allocation memory for stream picture ...");
 		A_CALLOC(stream->picture.data, stream->dev->run->max_picture_size);
+
+		LOG_INFO("Capturing ...");
 
 		while (!stream->dev->stop) {
 			int free_worker_number = -1;
@@ -154,10 +157,20 @@ void stream_loop(struct stream_t *stream) {
 				}
 
 			} else if (retval == 0) {
-				LOG_ERROR("Mainloop select() timeout");
-				break;
+				if (stream->dev->persistent) {
+					if (!persistent_timeout_reported) {
+						LOG_ERROR("Mainloop select() timeout, polling ...")
+						persistent_timeout_reported = true;
+					}
+					continue;
+				} else {
+					LOG_ERROR("Mainloop select() timeout");
+					break;
+				}
 
 			} else {
+				persistent_timeout_reported = false;
+
 				if (FD_ISSET(stream->dev->run->fd, &read_fds)) {
 					LOG_DEBUG("Frame is ready");
 
@@ -327,8 +340,8 @@ static int _stream_init_loop(struct device_t *dev, struct workers_pool_t *pool) 
 	LOG_DEBUG("%s: *dev->stop = %d", __FUNCTION__, dev->stop);
 	while (!dev->stop) {
 		if ((retval = _stream_init(dev, pool)) < 0) {
-			LOG_INFO("Sleeping %d seconds before new stream init ...", dev->error_timeout);
-			sleep(dev->error_timeout);
+			LOG_INFO("Sleeping %d seconds before new stream init ...", dev->error_delay);
+			sleep(dev->error_delay);
 		} else {
 			break;
 		}

@@ -59,7 +59,8 @@ static const struct option _long_opts[] = {
 	{"encoder-omx-use-ijg",		required_argument,	NULL,	500},
 #	endif
 	{"device-timeout",			required_argument,	NULL,	1000},
-	{"device-error-timeout",	required_argument,	NULL,	1001},
+	{"device-persistent",		no_argument,		NULL,	1001},
+	{"device-error-delay",		required_argument,	NULL,	1002},
 
 	{"host",					required_argument,	NULL,	's'},
 	{"port",					required_argument,	NULL,	'p'},
@@ -122,8 +123,9 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                        Default: disabled.\n\n");
 #	endif
 	printf("    --device-timeout <seconds>       -- Timeout for device querying. Default: %d\n\n", dev->timeout);
-	printf("    --device-error-timeout <seconds> -- Delay before trying to connect to the device again\n");
-	printf("                                        after a timeout. Default: %d\n\n", dev->error_timeout);
+	printf("    --device-persistent              -- Don't re-initialize device on timeout. Default: disabled.\n\n");
+	printf("    --device-error-delay <seconds>   -- Delay before trying to connect to the device again\n");
+	printf("                                        after a timeout. Default: %d\n\n", dev->error_delay);
 	printf("HTTP server options:\n");
 	printf("--------------------\n");
 	printf("    --host <address>           -- Listen on Hostname or IP. Default: %s\n\n", server->host);
@@ -189,8 +191,9 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 #			ifdef OMX_ENCODER
 			case 500:	OPT_SET(encoder->omx_use_ijg, true);
 #			endif
-			case 1000:	OPT_UNSIGNED(dev->timeout, "--timeout", 1, 60);
-			case 1001:	OPT_UNSIGNED(dev->error_timeout, "--error-timeout", 1, 60);
+			case 1000:	OPT_UNSIGNED(dev->timeout, "--device-timeout", 1, 60);
+			case 1001:	OPT_SET(dev->persistent, true);
+			case 1002:	OPT_UNSIGNED(dev->error_delay, "--device-error-delay", 1, 60);
 
 			case 's':	OPT_SET(server->host, optarg);
 			case 'p':	OPT_UNSIGNED(server->port, "--port", 1, 65535);

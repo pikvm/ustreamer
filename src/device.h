@@ -74,8 +74,9 @@ struct device_t {
 	unsigned		n_workers;
 	unsigned		every_frame;
 	unsigned		min_frame_size;
+	bool			persistent;
 	unsigned		timeout;
-	unsigned		error_timeout;
+	unsigned		error_delay;
 
 	struct device_runtime_t *run;
 	sig_atomic_t volatile stop;
