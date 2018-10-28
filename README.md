@@ -48,7 +48,7 @@ AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer
 
 -----
 # Usage
-Without arguments, ```ustreamer``` will try to open ```/dev/video0``` with 640x480 resolution and start broadcasting on  ```http://localhost:8080```. You can override this behavior using parameters ```--device```, ```--host``` and ```--port```. For example, to broadcast to the world, run:
+Without arguments, ```ustreamer``` will try to open ```/dev/video0``` with 640x480 resolution and start broadcasting on  ```http://127.0.0.1:8080```. You can override this behavior using parameters ```--device```, ```--host``` and ```--port```. For example, to broadcast to the world, run:
 ```
 # ./ustreamer --device=/dev/video1 --host=0.0.0.0 --port=80
 ```

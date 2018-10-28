@@ -73,7 +73,7 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	run->drop_same_frames_blank = 10;
 
 	A_CALLOC(server, 1);
-	server->host = "localhost";
+	server->host = "127.0.0.1";
 	server->port = 8080;
 	server->timeout = 10;
 	server->run = run;
