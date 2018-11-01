@@ -84,6 +84,7 @@ struct device_t *device_init() {
 	dev->standard = V4L2_STD_UNKNOWN;
 	dev->n_buffers = max_u(sysconf(_SC_NPROCESSORS_ONLN), 1) + 1;
 	dev->n_workers = dev->n_buffers;
+	dev->soft_fps = 30;
 	dev->timeout = 1;
 	dev->error_delay = 1;
 	dev->run = run;

@@ -63,7 +63,6 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	struct http_server_runtime_t *run;
 	struct http_server_t *server;
 	struct exposed_t *exposed;
-	struct timeval refresh_interval;
 
 	A_CALLOC(exposed, 1);
 
@@ -90,17 +89,15 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	assert(!evhttp_set_cb(run->http, "/snapshot", _http_callback_snapshot, (void *)server));
 	assert(!evhttp_set_cb(run->http, "/stream", _http_callback_stream, (void *)server));
 
-	refresh_interval.tv_sec = 0;
-	refresh_interval.tv_usec = 30000; // ~30 refreshes per second
-	assert((run->refresh = event_new(run->base, -1, EV_PERSIST, _http_exposed_refresh, server)));
-	assert(!event_add(run->refresh, &refresh_interval));
-
 	return server;
 }
 
 void http_server_destroy(struct http_server_t *server) {
-	event_del(server->run->refresh);
-	event_free(server->run->refresh);
+	if (server->run->refresh) {
+		event_del(server->run->refresh);
+		event_free(server->run->refresh);
+	}
+
 	evhttp_free(server->run->http);
 	event_base_free(server->run->base);
 	libevent_global_shutdown();
@@ -112,6 +109,13 @@ void http_server_destroy(struct http_server_t *server) {
 }
 
 int http_server_listen(struct http_server_t *server) {
+	struct timeval refresh_interval;
+
+	refresh_interval.tv_sec = 0;
+	refresh_interval.tv_usec = 1000000 / (server->run->stream->dev->soft_fps * 2);
+	assert((server->run->refresh = event_new(server->run->base, -1, EV_PERSIST, _http_exposed_refresh, server)));
+	assert(!event_add(server->run->refresh, &refresh_interval));
+
 	server->run->drop_same_frames_blank = max_u(server->drop_same_frames, server->run->drop_same_frames_blank);
 
 	LOG_DEBUG("Binding HTTP to [%s]:%d ...", server->host, server->port);
@@ -473,7 +477,7 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	if (queue_send) {
 		if (server->drop_same_frames) {
 			// Хром всегда показывает не новый пришедший фрейм, а предыдущий.
-			// При updated == false нужно еще один раз послать предыдущий фрейм
+			// При updated == false нужно еще один раз послать последний значимый фрейм.
 			// https://bugs.chromium.org/p/chromium/issues/detail?id=527446
 
 			static bool updated_prev = false;
@@ -513,7 +517,7 @@ static bool _expose_new_picture(struct http_server_t *server) {
 		) {
 			EXPOSED(expose_cmp_time) = get_now_monotonic();
 			EXPOSED(expose_end_time) = EXPOSED(expose_cmp_time);
-			LOG_PERF(
+			LOG_VERBOSE(
 				"HTTP: dropped same frame number %u; comparsion time = %.06Lf",
 				EXPOSED(dropped), EXPOSED(expose_cmp_time) - EXPOSED(expose_begin_time)
 			);
@@ -521,7 +525,7 @@ static bool _expose_new_picture(struct http_server_t *server) {
 			return false; // Not updated
 		} else {
 			EXPOSED(expose_cmp_time) = get_now_monotonic();
-			LOG_PERF(
+			LOG_VERBOSE(
 				"HTTP: passed same frame check (frames are differ); comparsion time = %.06Lf",
 				EXPOSED(expose_cmp_time) - EXPOSED(expose_begin_time)
 			);
@@ -549,6 +553,11 @@ static bool _expose_new_picture(struct http_server_t *server) {
 	EXPOSED(dropped) = 0;
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
 	EXPOSED(expose_end_time) = get_now_monotonic();
+
+	LOG_VERBOSE(
+		"HTTP: exposed new frame; full exposition time =  %.06Lf",
+		 EXPOSED(expose_end_time) - EXPOSED(expose_begin_time)
+	);
 
 #	undef STREAM
 #	undef EXPOSED

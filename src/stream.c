@@ -321,17 +321,26 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) 
 }
 
 static long double _stream_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool) {
-	long double delay = 0;
+	long double comp_time = 0;
+	long double min_delay;
+	long double soft_delay;
 
 	for (unsigned number = 0; number < dev->run->n_workers; ++number) {
 		A_PTHREAD_M_LOCK(&pool->workers[number].last_comp_time_mutex);
 		if (pool->workers[number].last_comp_time > 0) {
-			delay += pool->workers[number].last_comp_time;
+			comp_time += pool->workers[number].last_comp_time;
 		}
 		A_PTHREAD_M_UNLOCK(&pool->workers[number].last_comp_time_mutex);
 	}
-	// Среднее арифметическое деленное на количество воркеров
-	return delay / dev->run->n_workers / dev->run->n_workers;
+	comp_time = comp_time / dev->run->n_workers; // Среднее время работы воркеров
+
+	min_delay = comp_time / dev->run->n_workers; // Минимальное время работы размазывается на N воркеров
+	soft_delay = ((long double)1) / dev->soft_fps; // Искусственное время задержки на основе желаемого FPS
+
+	if (min_delay > 0) {
+		return (min_delay > soft_delay ? min_delay : soft_delay);
+	}
+	return min_delay;
 }
 
 static int _stream_init_loop(struct device_t *dev, struct workers_pool_t *pool) {
