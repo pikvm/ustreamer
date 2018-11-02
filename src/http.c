@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <strings.h>
 #include <assert.h>
 
 #include <event2/event.h>
@@ -29,6 +30,7 @@
 #include <event2/http.h>
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
+#include <event2/keyvalq_struct.h>
 
 #include <uuid/uuid.h>
 
@@ -43,6 +45,8 @@
 
 #include "data/blank.h"
 
+
+static bool _http_get_param_true(struct evkeyvalq *params, const char *key);
 
 static void _http_callback_root(struct evhttp_request *request, void *arg);
 static void _http_callback_ping(struct evhttp_request *request, void *v_server);
@@ -141,6 +145,17 @@ void http_server_loop_break(struct http_server_t *server) {
 }
 
 
+static bool _http_get_param_true(struct evkeyvalq *params, const char *key) {
+	const char *value_str;
+
+	if ((value_str = evhttp_find_header(params, key)) != NULL) {
+		if (!strcasecmp(value_str, "true") || !strcasecmp(value_str, "yes") || value_str[0] == '1') {
+			return true;
+		}
+	}
+	return false;
+}
+
 #define ADD_HEADER(_key, _value) \
 	assert(!evhttp_add_header(evhttp_request_get_output_headers(request), _key, _value))
 
@@ -191,8 +206,11 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 	));
 	for (struct stream_client_t * client = server->run->stream_clients; client != NULL; client = client->next) {
 		assert(evbuffer_add_printf(buf,
-			"\"%s\": {\"fps\": %u}%s",
-			client->id, client->fps, (client->next ? ", " : "")
+			"\"%s\": {\"fps\": %u, \"advance_headers\": %s}%s",
+			client->id,
+			client->fps,
+			(client->advance_headers ? "true" : "false"),
+			(client->next ? ", " : "")
 		));
 	}
 	assert(evbuffer_add_printf(buf, "}}}"));
@@ -254,6 +272,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 
 	struct http_server_t *server = (struct http_server_t *)v_server;
 	struct evhttp_connection *conn;
+	struct evkeyvalq params;
 	struct bufferevent *buf_event;
 	struct stream_client_t *client;
 	char *client_addr;
@@ -269,6 +288,10 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		client->request = request;
 		client->need_initial = true;
 		client->need_first_frame = true;
+
+		evhttp_parse_query(evhttp_request_get_uri(request), &params);
+		client->advance_headers = _http_get_param_true(&params, "advance_headers");
+		evhttp_clear_headers(&params);
 
 		uuid_generate(uuid);
 		uuid_unparse_lower(uuid, client->id);
@@ -318,6 +341,29 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 
 	assert((buf = evbuffer_new()));
 
+	// В хроме и его производных есть фундаментальный баг: он отрисовывает
+	// фрейм с задержкой на один, как только ему придут заголовки следующего.
+	// В сочетании с drop_same_frames это дает значительный лаг стрима
+	// при большом количестве дропов (на статичном изображении, где внезапно
+	// что-то изменилось.
+	//
+	// https://bugs.chromium.org/p/chromium/issues/detail?id=527446
+	//
+	// Включение advance_headers заставляет стример отсылать заголовки
+	// будущего фрейма сразу после данных текущего, чтобы триггернуть отрисовку.
+	// Естественным следствием этого является невозможность установки заголовка
+	// Content-Length, так как предсказывать будущее мы еще не научились.
+	// Его наличие не требуется RFC, однако никаких стандартов на MJPG over HTTP
+	// в природе не существует, и никто не может гарантировать, что отсутствие
+	// Content-Length не сломает вещание для каких-нибудь маргинальных браузеров.
+	//
+	// Кроме того, advance_headers форсит отключение заголовков X-UStreamer-*
+	// по тем же причинам, по которым у нас нет Content-Length.
+
+#	define ADD_ADVANCE_HEADERS \
+		{ assert(evbuffer_add_printf(buf, \
+		"Content-Type: image/jpeg" RN "X-Timestamp: %.06Lf" RN RN, get_now_real())); }
+
 	if (client->need_initial) {
 		assert(evbuffer_add_printf(buf,
 			"HTTP/1.0 200 OK" RN
@@ -331,42 +377,49 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"--" BOUNDARY RN,
 			client->id
 		));
+
+		if (client->advance_headers) {
+			ADD_ADVANCE_HEADERS;
+		}
+
 		assert(!bufferevent_write_buffer(buf_event, buf));
 		client->need_initial = false;
 	}
 
 #	define EXPOSED(_next) client->server->run->exposed->_next
 
-	assert(evbuffer_add_printf(buf,
-		"Content-Type: image/jpeg" RN
-		"Content-Length: %lu" RN
-		"X-Timestamp: %.06Lf" RN
-		"%s",
-		EXPOSED(picture.size) * sizeof(*EXPOSED(picture.data)),
-		get_now_real(), (client->server->extra_stream_headers ? "" : RN)
-	));
-	if (client->server->extra_stream_headers) {
+	if (!client->advance_headers) {
 		assert(evbuffer_add_printf(buf,
-			"X-UStreamer-Online: %s" RN
-			"X-UStreamer-Client-FPS: %u" RN
-			"X-UStreamer-Grab-Time: %.06Lf" RN
-			"X-UStreamer-Encode-Begin-Time: %.06Lf" RN
-			"X-UStreamer-Encode-End-Time: %.06Lf" RN
-			"X-UStreamer-Expose-Begin-Time: %.06Lf" RN
-			"X-UStreamer-Expose-Cmp-Time: %.06Lf" RN
-			"X-UStreamer-Expose-End-Time: %.06Lf" RN
-			"X-UStreamer-Send-Time: %.06Lf" RN
-			RN,
-			(EXPOSED(online) ? "true" : "false"),
-			client->fps,
-			EXPOSED(picture.grab_time),
-			EXPOSED(picture.encode_begin_time),
-			EXPOSED(picture.encode_end_time),
-			EXPOSED(expose_begin_time),
-			EXPOSED(expose_cmp_time),
-			EXPOSED(expose_end_time),
-			now
+			"Content-Type: image/jpeg" RN
+			"Content-Length: %lu" RN
+			"X-Timestamp: %.06Lf" RN
+			"%s",
+			EXPOSED(picture.size) * sizeof(*EXPOSED(picture.data)),
+			get_now_real(), (client->server->extra_stream_headers ? "" : RN)
 		));
+		if (client->server->extra_stream_headers) {
+			assert(evbuffer_add_printf(buf,
+				"X-UStreamer-Online: %s" RN
+				"X-UStreamer-Client-FPS: %u" RN
+				"X-UStreamer-Grab-Time: %.06Lf" RN
+				"X-UStreamer-Encode-Begin-Time: %.06Lf" RN
+				"X-UStreamer-Encode-End-Time: %.06Lf" RN
+				"X-UStreamer-Expose-Begin-Time: %.06Lf" RN
+				"X-UStreamer-Expose-Cmp-Time: %.06Lf" RN
+				"X-UStreamer-Expose-End-Time: %.06Lf" RN
+				"X-UStreamer-Send-Time: %.06Lf" RN
+				RN,
+				(EXPOSED(online) ? "true" : "false"),
+				client->fps,
+				EXPOSED(picture.grab_time),
+				EXPOSED(picture.encode_begin_time),
+				EXPOSED(picture.encode_end_time),
+				EXPOSED(expose_begin_time),
+				EXPOSED(expose_cmp_time),
+				EXPOSED(expose_end_time),
+				now
+			));
+		}
 	}
 
 	assert(!evbuffer_add(buf,
@@ -374,6 +427,10 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 		EXPOSED(picture.size) * sizeof(*EXPOSED(picture.data))
 	));
 	assert(evbuffer_add_printf(buf, RN "--" BOUNDARY RN));
+
+	if (client->advance_headers) {
+		ADD_ADVANCE_HEADERS;
+	}
 
 	assert(!bufferevent_write_buffer(buf_event, buf));
 	evbuffer_free(buf);
@@ -383,6 +440,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 
 #	undef BOUNDARY
 #	undef RN
+#	undef ADD_ADVANCE_HEADERS
 #	undef EXPOSED
 }
 
@@ -449,17 +507,13 @@ static void _http_queue_send_stream(struct http_server_t *server, const bool upd
 static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_server) {
 	struct http_server_t *server = (struct http_server_t *)v_server;
 	bool updated = false;
-	bool queue_send = false;
 
-#define LOCK_STREAM \
-	A_PTHREAD_M_LOCK(&server->run->stream->mutex);
-
-#define UNLOCK_STREAM \
-	{ server->run->stream->updated = false; A_PTHREAD_M_UNLOCK(&server->run->stream->mutex); }
+#	define UNLOCK_STREAM \
+		{ server->run->stream->updated = false; A_PTHREAD_M_UNLOCK(&server->run->stream->mutex); }
 
 	if (server->run->stream->updated) {
 		LOG_DEBUG("Refreshing HTTP exposed ...");
-		LOCK_STREAM;
+		A_PTHREAD_M_LOCK(&server->run->stream->mutex);
 		if (server->run->stream->picture.size > 0) { // If online
 			updated = _expose_new_picture(server);
 			UNLOCK_STREAM;
@@ -467,33 +521,14 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 			UNLOCK_STREAM;
 			updated = _expose_blank_picture(server);
 		}
-		queue_send = true;
 	} else if (!server->run->exposed->online) {
 		LOG_DEBUG("Refreshing HTTP exposed (BLANK) ...");
 		updated = _expose_blank_picture(server);
-		queue_send = true;
 	}
 
-	if (queue_send) {
-		if (server->drop_same_frames) {
-			// Хром всегда показывает не новый пришедший фрейм, а предыдущий.
-			// При updated == false нужно еще один раз послать последний значимый фрейм.
-			// https://bugs.chromium.org/p/chromium/issues/detail?id=527446
-
-			static bool updated_prev = false;
-			bool updated_orig = updated;
-
-			if (updated_prev && !updated_orig) {
-				updated = true;
-			}
-			updated_prev = updated_orig;
-		}
-
-		_http_queue_send_stream(server, updated);
-	}
-
-#	undef LOCK_STREAM
 #	undef UNLOCK_STREAM
+
+	_http_queue_send_stream(server, updated);
 }
 
 static bool _expose_new_picture(struct http_server_t *server) {
