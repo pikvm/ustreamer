@@ -43,6 +43,7 @@
 #include "stream.h"
 #include "http.h"
 
+#include "data/html_index.h"
 #include "data/blank.h"
 
 
@@ -172,14 +173,7 @@ static void _http_callback_root(struct evhttp_request *request, UNUSED void *arg
 	PROCESS_HEAD_REQUEST;
 
 	assert((buf = evbuffer_new()));
-	assert(evbuffer_add_printf(buf,
-		"<!DOCTYPE html><html><head><meta charset=\"utf-8\">"
-		"<title>uStreamer</title></head><body><ul>"
-		"<li><a href=\"/ping\">/ping</a></li>"
-		"<li><a href=\"/snapshot\">/snapshot</a></li>"
-		"<li><a href=\"/stream\">/stream</a></li>"
-		"</body></html>"
-	));
+	assert(evbuffer_add_printf(buf, HTML_INDEX_PAGE));
 	ADD_HEADER("Content-Type", "text/html");
 	evhttp_send_reply(request, HTTP_OK, "OK", buf);
 	evbuffer_free(buf);
