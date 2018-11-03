@@ -47,8 +47,14 @@ const char *HTML_INDEX_PAGE = " \
 			<br> \
 			<li> \
 				<a href=\"/stream\"><b>/stream</b></a><br> \
-				Get a live stream. Query params: \
+				Get a live stream. Query params:<br> \
+				<br> \
 				<ul> \
+					<li> \
+						<i>extra_headers=1</i><br> \
+						Add X-UStreamer-* headers to /stream handle (like on <a href=\"/snapshot\">/snapshot</a>). \
+					</li> \
+					<br> \
 					<li> \
 						<i>advance_headers=1</i><br> \
 						Enable workaround for Chromium/Blink \

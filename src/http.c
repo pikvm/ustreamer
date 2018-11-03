@@ -284,6 +284,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		client->need_first_frame = true;
 
 		evhttp_parse_query(evhttp_request_get_uri(request), &params);
+		client->extra_headers = _http_get_param_true(&params, "extra_headers");
 		client->advance_headers = _http_get_param_true(&params, "advance_headers");
 		evhttp_clear_headers(&params);
 
@@ -389,9 +390,9 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"X-Timestamp: %.06Lf" RN
 			"%s",
 			EXPOSED(picture.size) * sizeof(*EXPOSED(picture.data)),
-			get_now_real(), (client->server->extra_stream_headers ? "" : RN)
+			get_now_real(), (client->extra_headers ? "" : RN)
 		));
-		if (client->server->extra_stream_headers) {
+		if (client->extra_headers) {
 			assert(evbuffer_add_printf(buf,
 				"X-UStreamer-Online: %s" RN
 				"X-UStreamer-Client-FPS: %u" RN

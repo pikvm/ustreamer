@@ -66,7 +66,6 @@ static const struct option _long_opts[] = {
 	{"host",					required_argument,	NULL,	's'},
 	{"port",					required_argument,	NULL,	'p'},
 	{"drop-same-frames",		required_argument,	NULL,	'r'},
-	{"extra-stream-headers",	no_argument,		NULL,	2000},
 	{"fake-width",				required_argument,	NULL,	2001},
 	{"fake-height",				required_argument,	NULL,	2002},
 	{"server-timeout",			required_argument,	NULL,	2003},
@@ -136,8 +135,6 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                  It can significantly reduce the outgoing traffic, but will increase\n");
 	printf("                                  the CPU loading. Don't use this option with analog signal sources\n");
 	printf("                                  or webcams, it's useless. Default: disabled.\n\n");
-	printf("    --extra-stream-headers     -- Add X-UStreamer-* headers to /stream handle (like /snapshot).\n");
-	printf("                                  Default: disabled.\n\n");
 	printf("    --fake-width <N>           -- Override image width for /ping. Default: disabled\n\n");
 	printf("    --fake-height <N>          -- Override image height for /ping. Default: disabled.\n\n");
 	printf("    --server-timeout <seconds> -- Timeout for client connections. Default: %d\n\n", server->timeout);
@@ -201,7 +198,6 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 's':	OPT_SET(server->host, optarg);
 			case 'p':	OPT_UNSIGNED(server->port, "--port", 1, 65535);
 			case 'r':	OPT_UNSIGNED(server->drop_same_frames, "--drop-same-frames", 0, 30);
-			case 2000:	OPT_SET(server->extra_stream_headers, true);
 			case 2001:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
 			case 2002:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
 			case 2003:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
