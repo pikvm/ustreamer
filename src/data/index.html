@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+	<meta charset=\"utf-8\">
+	<title>uStreamer</title>
+</head>
+
+<body>
+	<h3>&micro;Streamer v%VERSION%</h3>
+	<hr>
+	<ul>
+		<li>
+			<a href=\"/ping\"><b>/ping</b></a><br>
+			Get JSON structure with state of the server.
+		</li>
+		<br>
+		<li>
+			<a href=\"/snapshot\"><b>/snapshot</b></a><br>
+			Get a current actual image from server.
+		</li>
+		<br>
+		<li>
+			<a href=\"/stream\"><b>/stream</b></a><br>
+			Get a live stream. Query params:<br>
+			<br>
+			<ul>
+				<li>
+					<i>extra_headers=1</i><br>
+					Add X-UStreamer-* headers to /stream handle (like on <a href=\"/snapshot\">/snapshot</a>).
+				</li>
+				<br>
+				<li>
+					<i>advance_headers=1</i><br>
+					Enable workaround for Chromium/Blink
+					<a href=\"https://bugs.chromium.org/p/chromium/issues/detail?id=527446\">Bug #527446</a>.
+				</li>
+			</ul>
+		</li>
+		<br>
+	</ul>
+	<br>
+	<hr>
+	<a href=\"https://github.com/pi-kvm/ustreamer\">Sources &amp; docs</a>
+</body>
+</html>

@@ -26,11 +26,13 @@
 
 const char *HTML_INDEX_PAGE = " \
 	<!DOCTYPE html> \
+	\
 	<html> \
 	<head> \
 		<meta charset=\"utf-8\"> \
 		<title>uStreamer</title> \
 	</head> \
+	\
 	<body> \
 		<h3>&micro;Streamer v" VERSION "</h3> \
 		<hr> \
