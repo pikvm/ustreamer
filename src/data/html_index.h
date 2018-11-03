@@ -32,17 +32,19 @@ const char *HTML_INDEX_PAGE = " \
 		<title>uStreamer</title> \
 	</head> \
 	<body> \
+		<h3>&micro;Streamer v" VERSION "</h3> \
+		<hr> \
 		<ul> \
 			<li> \
 				<a href=\"/ping\"><b>/ping</b></a><br> \
 				Get JSON structure with state of the server. \
 			</li> \
-			<hr><br> \
+			<br> \
 			<li> \
 				<a href=\"/snapshot\"><b>/snapshot</b></a><br> \
 				Get a current actual image from server. \
 			</li> \
-			<hr><br> \
+			<br> \
 			<li> \
 				<a href=\"/stream\"><b>/stream</b></a><br> \
 				Get a live stream. Query params: \
@@ -56,8 +58,9 @@ const char *HTML_INDEX_PAGE = " \
 			</li> \
 			<br> \
 		</ul> \
+		<br> \
 		<hr> \
-		&nbsp;&nbsp;&nbsp;&nbsp; &micro;Streamer v" VERSION " \
+		<a href=\"https://github.com/pi-kvm/ustreamer\">Sources &amp; docs</a> \
 	</body> \
 	</html> \
 ";
