@@ -29,7 +29,7 @@ install: $(PROG)
 
 
 regen:
-	tools/make-jpg-h.py src/data/blank.jpg src/data/blank.h BLANK 640 480
+	tools/make-jpeg-h.py src/data/blank.jpeg src/data/blank.h BLANK 640 480
 	tools/make-html-h.py src/data/index.html src/data/html_index.h HTML_INDEX_PAGE
 
 

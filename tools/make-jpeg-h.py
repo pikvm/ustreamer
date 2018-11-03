@@ -45,7 +45,7 @@ def main():
         rows[-1].append(hex(ch))
 
     text = ",\n\t".join(", ".join(row) for row in rows)
-    text = "const unsigned char %s_JPG_DATA[] = {\n\t%s\n};" % (prefix, text)
+    text = "const unsigned char %s_JPG_DATA[] = {\n\t%s\n};\n" % (prefix, text)
     text = "const unsigned long %s_JPG_SIZE = %d;\n\n" % (prefix, len(jpg_data)) + text
     text = "const unsigned %s_JPG_HEIGHT = %d;\n\n" % (prefix, height) + text
     text = "const unsigned %s_JPG_WIDTH = %d;\n" % (prefix, width) + text
