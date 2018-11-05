@@ -62,6 +62,13 @@ const char *HTML_INDEX_PAGE = " \
 						Enable workaround for Chromium/Blink \
 						<a href=\"https://bugs.chromium.org/p/chromium/issues/detail?id=527446\">Bug #527446</a>. \
 					</li> \
+					<br> \
+					<li> \
+						<i>dual_final_frames=1</i><br> \
+						Enable workaround for Safari/WebKit bug when using option --drop-same-frames.<br> \
+						Without this option, when the frame series is completed, WebKit-based browser<br> \
+						renders the last one with a delay. \
+					</li> \
 				</ul> \
 			</li> \
 			<br> \

@@ -31,11 +31,15 @@
 struct stream_client_t {
 	struct http_server_t	*server;
 	struct evhttp_request	*request;
-	char					id[37]; // ex. "1b4e28ba-2fa1-11d2-883f-0016d3cca427" + "\0"
+
 	bool					extra_headers;
 	bool					advance_headers;
+	bool					dual_final_frames;
+
+	char					id[37]; // ex. "1b4e28ba-2fa1-11d2-883f-0016d3cca427" + "\0"
 	bool					need_initial;
 	bool					need_first_frame;
+	bool					updated_prev;
 	unsigned				fps;
 	unsigned				fps_accum;
 	long long				fps_accum_second;

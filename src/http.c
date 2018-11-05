@@ -58,7 +58,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 static void _http_callback_stream_error(struct bufferevent *buf_event, short what, void *v_ctx);
 
 static void _http_exposed_refresh(int fd, short event, void *v_server);
-static void _http_queue_send_stream(struct http_server_t *server, const bool updated);
+static void _http_queue_send_stream(struct http_server_t *server, const bool stream_updated, const bool picture_updated);
 
 static bool _expose_new_picture(struct http_server_t *server);
 static bool _expose_blank_picture(struct http_server_t *server);
@@ -200,10 +200,11 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 	));
 	for (struct stream_client_t * client = server->run->stream_clients; client != NULL; client = client->next) {
 		assert(evbuffer_add_printf(buf,
-			"\"%s\": {\"fps\": %u, \"advance_headers\": %s}%s",
+			"\"%s\": {\"fps\": %u, \"advance_headers\": %s, \"dual_final_frames\": %s}%s",
 			client->id,
 			client->fps,
 			(client->advance_headers ? "true" : "false"),
+			(client->dual_final_frames ? "true" : "false"),
 			(client->next ? ", " : "")
 		));
 	}
@@ -286,6 +287,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		evhttp_parse_query(evhttp_request_get_uri(request), &params);
 		client->extra_headers = _http_get_param_true(&params, "extra_headers");
 		client->advance_headers = _http_get_param_true(&params, "advance_headers");
+		client->dual_final_frames = _http_get_param_true(&params, "dual_final_frames");
 		evhttp_clear_headers(&params);
 
 		uuid_generate(uuid);
@@ -470,7 +472,7 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	free(client);
 }
 
-static void _http_queue_send_stream(struct http_server_t *server, const bool updated) {
+static void _http_queue_send_stream(struct http_server_t *server, const bool stream_updated, const bool picture_updated) {
 	struct evhttp_connection *conn;
 	struct bufferevent *buf_event;
 	long long now;
@@ -480,12 +482,32 @@ static void _http_queue_send_stream(struct http_server_t *server, const bool upd
 
 	for (struct stream_client_t *client = server->run->stream_clients; client != NULL; client = client->next) {
 		conn = evhttp_request_get_connection(client->request);
-		if (conn != NULL && (updated || client->need_first_frame)) {
-			buf_event = evhttp_connection_get_bufferevent(conn);
-			bufferevent_setcb(buf_event, NULL, _http_callback_stream_write, _http_callback_stream_error, (void *)client);
-			bufferevent_enable(buf_event, EV_READ|EV_WRITE);
-			client->need_first_frame = false;
-			queued = true;
+		if (conn != NULL) {
+			// Фикс для бага WebKit. При включенной опции дропа одинаковых фреймов,
+			// WebKit отрисовывает последний фрейм в серии с некоторой задержкой,
+			// и нужно послать два фрейма, чтобы серия была вовремя завершена.
+			// Это похоже на баг Blink (см. _http_callback_stream_write() и advance_headers),
+			// но фикс для него не лечит проблему вебкита. Такие дела.
+
+			bool dual_update = (
+				server->drop_same_frames
+				&& client->dual_final_frames
+				&& stream_updated
+				&& client->updated_prev
+				&& !picture_updated
+			);
+
+			if (dual_update || picture_updated || client->need_first_frame) {
+				buf_event = evhttp_connection_get_bufferevent(conn);
+				bufferevent_setcb(buf_event, NULL, _http_callback_stream_write, _http_callback_stream_error, (void *)client);
+				bufferevent_enable(buf_event, EV_READ|EV_WRITE);
+
+				client->need_first_frame = false;
+				client->updated_prev = (picture_updated || client->need_first_frame); // Игнорировать dual
+				queued = true;
+			} else if (stream_updated) { // Для dual
+				client->updated_prev = false;
+			}
 		}
 	}
 
@@ -501,7 +523,8 @@ static void _http_queue_send_stream(struct http_server_t *server, const bool upd
 
 static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_server) {
 	struct http_server_t *server = (struct http_server_t *)v_server;
-	bool updated = false;
+	bool stream_updated = false;
+	bool picture_updated = false;
 
 #	define UNLOCK_STREAM \
 		{ server->run->stream->updated = false; A_PTHREAD_M_UNLOCK(&server->run->stream->mutex); }
@@ -510,20 +533,22 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 		LOG_DEBUG("Refreshing HTTP exposed ...");
 		A_PTHREAD_M_LOCK(&server->run->stream->mutex);
 		if (server->run->stream->picture.size > 0) { // If online
-			updated = _expose_new_picture(server);
+			picture_updated = _expose_new_picture(server);
 			UNLOCK_STREAM;
 		} else {
 			UNLOCK_STREAM;
-			updated = _expose_blank_picture(server);
+			picture_updated = _expose_blank_picture(server);
 		}
+		stream_updated = true;
 	} else if (!server->run->exposed->online) {
 		LOG_DEBUG("Refreshing HTTP exposed (BLANK) ...");
-		updated = _expose_blank_picture(server);
+		picture_updated = _expose_blank_picture(server);
+		stream_updated = true;
 	}
 
 #	undef UNLOCK_STREAM
 
-	_http_queue_send_stream(server, updated);
+	_http_queue_send_stream(server, stream_updated, picture_updated);
 }
 
 static bool _expose_new_picture(struct http_server_t *server) {
