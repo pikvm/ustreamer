@@ -54,7 +54,11 @@ struct encoder_t *encoder_init() {
 	return encoder;
 }
 
-void encoder_prepare(struct encoder_t *encoder) {
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic push
+void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
+#pragma GCC diagnostic pop
+
 	assert(encoder->type != ENCODER_TYPE_UNKNOWN);
 
 	if (encoder->type != ENCODER_TYPE_CPU) {
@@ -65,8 +69,20 @@ void encoder_prepare(struct encoder_t *encoder) {
 
 #	ifdef OMX_ENCODER
 	if (encoder->type == ENCODER_TYPE_OMX) {
-		if ((encoder->omx = omx_encoder_init()) == NULL) {
-			goto use_fallback;
+		if (dev->n_workers > OMX_MAX_ENCODERS) {
+			LOG_INFO(
+				"OMX-based encoder can only work with %u worker threads; forced --workers=%u",
+				OMX_MAX_ENCODERS, OMX_MAX_ENCODERS
+			);
+			dev->n_workers = OMX_MAX_ENCODERS;
+		}
+		encoder->n_omxs = dev->n_workers;
+
+		A_CALLOC(encoder->omxs, encoder->n_omxs);
+		for (unsigned index = 0; index < encoder->n_omxs; ++index) {
+			if ((encoder->omxs[index] = omx_encoder_init()) == NULL) {
+				goto use_fallback;
+			}
 		}
 	}
 #	endif
@@ -83,8 +99,13 @@ void encoder_prepare(struct encoder_t *encoder) {
 
 void encoder_destroy(struct encoder_t *encoder) {
 #	ifdef OMX_ENCODER
-	if (encoder->omx) {
-		omx_encoder_destroy(encoder->omx);
+	if (encoder->omxs) {
+		for (unsigned index = 0; index < encoder->n_omxs; ++index) {
+			if (encoder->omxs[index]) {
+				omx_encoder_destroy(encoder->omxs[index]);
+			}
+		}
+		free(encoder->omxs);
 	}
 #	endif
 	free(encoder);
@@ -101,18 +122,16 @@ enum encoder_type_t encoder_parse_type(const char *const str) {
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic push
-void encoder_prepare_for_device(struct encoder_t *encoder, struct device_t *dev) {
+void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev) {
 	assert(encoder->type != ENCODER_TYPE_UNKNOWN);
 
 #pragma GCC diagnostic pop
 #	ifdef OMX_ENCODER
 	if (encoder->type == ENCODER_TYPE_OMX) {
-		if (omx_encoder_prepare_for_device(encoder->omx, dev, encoder->quality, encoder->omx_use_ijg) < 0) {
-			goto use_fallback;
-		}
-		if (dev->run->n_workers > 1) {
-			LOG_INFO("OMX encoder can only work with one worker thread; forcing n_workers to 1");
-			dev->run->n_workers = 1;
+		for (unsigned index = 0; index < encoder->n_omxs; ++index) {
+			if (omx_encoder_prepare_live(encoder->omxs[index], dev, encoder->quality, encoder->omx_use_ijg) < 0) {
+				goto use_fallback;
+			}
 		}
 	}
 #	endif
@@ -124,27 +143,31 @@ void encoder_prepare_for_device(struct encoder_t *encoder, struct device_t *dev)
 	use_fallback:
 		LOG_ERROR("Can't prepare selected encoder, falling back to CPU");
 		encoder->type = ENCODER_TYPE_CPU;
-		dev->run->n_workers = dev->n_workers;
 #	pragma GCC diagnostic pop
 }
 
-int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, const unsigned index) {
+#pragma GCC diagnostic ignored "-Wunused-label"
+#pragma GCC diagnostic push
+int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev,
+	const unsigned worker_number, const unsigned buf_index) {
+#pragma GCC diagnostic pop
+
 	assert(encoder->type != ENCODER_TYPE_UNKNOWN);
 
-	dev->run->pictures[index].encode_begin_time = get_now_monotonic();
+	dev->run->pictures[buf_index].encode_begin_time = get_now_monotonic();
 
 	if (encoder->type == ENCODER_TYPE_CPU) {
-		jpeg_encoder_compress_buffer(dev, index, encoder->quality);
+		jpeg_encoder_compress_buffer(dev, buf_index, encoder->quality);
 	}
 #	ifdef OMX_ENCODER
 	else if (encoder->type == ENCODER_TYPE_OMX) {
-		if (omx_encoder_compress_buffer(encoder->omx, dev, index) < 0) {
+		if (omx_encoder_compress_buffer(encoder->omxs[worker_number], dev, buf_index) < 0) {
 			goto error;
 		}
 	}
 #	endif
 
-	dev->run->pictures[index].encode_end_time = get_now_monotonic();
+	dev->run->pictures[buf_index].encode_end_time = get_now_monotonic();
 
 	return 0;
 
@@ -153,7 +176,6 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, con
 	error:
 		LOG_INFO("HW compressing error, falling back to CPU");
 		encoder->type = ENCODER_TYPE_CPU;
-		dev->run->n_workers = dev->n_workers;
 		return -1;
 #	pragma GCC diagnostic pop
 }

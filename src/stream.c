@@ -116,7 +116,7 @@ void stream_loop(struct stream_t *stream) {
 
 				LOG_PERF("##### Raw frame accepted; worker = %u", free_worker_number);
 			} else {
-				for (unsigned number = 0; number < stream->dev->run->n_workers; ++number) {
+				for (unsigned number = 0; number < stream->dev->n_workers; ++number) {
 					if (!pool.workers[number].has_job && (free_worker_number == -1
 						|| pool.workers[free_worker_number].job_start_time < pool.workers[number].job_start_time
 					)) {
@@ -325,16 +325,16 @@ static long double _stream_get_fluency_delay(struct device_t *dev, struct worker
 	long double min_delay;
 	long double soft_delay;
 
-	for (unsigned number = 0; number < dev->run->n_workers; ++number) {
+	for (unsigned number = 0; number < dev->n_workers; ++number) {
 		A_PTHREAD_M_LOCK(&pool->workers[number].last_comp_time_mutex);
 		if (pool->workers[number].last_comp_time > 0) {
 			comp_time += pool->workers[number].last_comp_time;
 		}
 		A_PTHREAD_M_UNLOCK(&pool->workers[number].last_comp_time_mutex);
 	}
-	comp_time = comp_time / dev->run->n_workers; // Среднее время работы воркеров
+	comp_time = comp_time / dev->n_workers; // Среднее время работы воркеров
 
-	min_delay = comp_time / dev->run->n_workers; // Минимальное время работы размазывается на N воркеров
+	min_delay = comp_time / dev->n_workers; // Минимальное время работы размазывается на N воркеров
 	soft_delay = ((long double)1) / dev->soft_fps; // Искусственное время задержки на основе желаемого FPS
 
 	if (min_delay > 0) {
@@ -372,7 +372,7 @@ static int _stream_init(struct device_t *dev, struct workers_pool_t *pool) {
 		goto error;
 	}
 
-	encoder_prepare_for_device(pool->encoder, dev);
+	encoder_prepare_live(pool->encoder, dev);
 
 	_stream_init_workers(dev, pool);
 
@@ -384,15 +384,15 @@ static int _stream_init(struct device_t *dev, struct workers_pool_t *pool) {
 }
 
 static void _stream_init_workers(struct device_t *dev, struct workers_pool_t *pool) {
-	LOG_INFO("Spawning %d workers ...", dev->run->n_workers);
+	LOG_INFO("Spawning %d workers ...", dev->n_workers);
 
 	*pool->workers_stop = false;
-	A_CALLOC(pool->workers, dev->run->n_workers);
+	A_CALLOC(pool->workers, dev->n_workers);
 
 	A_PTHREAD_M_INIT(&pool->free_workers_mutex);
 	A_PTHREAD_C_INIT(&pool->free_workers_cond);
 
-	for (unsigned number = 0; number < dev->run->n_workers; ++number) {
+	for (unsigned number = 0; number < dev->n_workers; ++number) {
 		pool->free_workers += 1;
 
 		A_PTHREAD_M_INIT(&pool->workers[number].has_job_mutex);
@@ -440,7 +440,7 @@ static void *_stream_worker_thread(void *v_ctx) {
 		if (!*ctx->workers_stop) {
 			LOG_DEBUG("Worker %u compressing JPEG from buffer %d ...", ctx->number, ctx->buf_index);
 
-			if (encoder_compress_buffer(ctx->encoder, ctx->dev, ctx->buf_index) < 0) {
+			if (encoder_compress_buffer(ctx->encoder, ctx->dev, ctx->number, ctx->buf_index) < 0) {
 				*ctx->job_failed = true;
 			}
 
@@ -479,7 +479,7 @@ static void _stream_destroy_workers(struct device_t *dev, struct workers_pool_t 
 		LOG_INFO("Destroying workers ...");
 
 		*pool->workers_stop = true;
-		for (unsigned number = 0; number < dev->run->n_workers; ++number) {
+		for (unsigned number = 0; number < dev->n_workers; ++number) {
 			A_PTHREAD_M_LOCK(&pool->workers[number].has_job_mutex);
 			pool->workers[number].has_job = true; // Final job: die
 			A_PTHREAD_M_UNLOCK(&pool->workers[number].has_job_mutex);

@@ -72,7 +72,7 @@ struct worker_t {
 };
 
 struct workers_pool_t {
-	struct worker_t*workers;
+	struct worker_t		*workers;
 	bool				*workers_stop;
 
 	pthread_mutex_t		free_workers_mutex;

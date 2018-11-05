@@ -45,6 +45,9 @@
 #define OUTPUT_PORT 341
 
 
+static int _i_omx = 0;
+
+
 static int _omx_init_component(struct omx_encoder_t *omx);
 static int _omx_init_disable_ports(struct omx_encoder_t *omx);
 static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev);
@@ -77,17 +80,20 @@ struct omx_encoder_t *omx_encoder_init() {
 
 	A_CALLOC(omx, 1);
 
-	LOG_INFO("Initializing OMX JPEG encoder ...");
+	assert(_i_omx >= 0);
+	if (_i_omx == 0) {
+		LOG_INFO("Initializing BCM ...");
+		bcm_host_init();
 
-	LOG_DEBUG("Initializing BCM ...");
-	bcm_host_init();
-
-	LOG_DEBUG("Initializing OMX ...");
-	if ((error = OMX_Init()) != OMX_ErrorNone) {
-		LOG_OMX_ERROR(error, "Can't initialize OMX");
-		goto error;
+		LOG_INFO("Initializing OMX ...");
+		if ((error = OMX_Init()) != OMX_ErrorNone) {
+			LOG_OMX_ERROR(error, "Can't initialize OMX");
+			goto error;
+		}
 	}
-	omx->i_omx = true;
+	_i_omx += 1;
+
+	LOG_INFO("Initializing OMX JPEG encoder ...");
 
 	if (vcos_semaphore_create(&omx->handler_lock, "handler_lock", 0) != VCOS_SUCCESS) {
 		LOG_ERROR("Can't create VCOS semaphore");
@@ -129,14 +135,20 @@ void omx_encoder_destroy(struct omx_encoder_t *omx) {
 		}
 	}
 
-	if (omx->i_omx) {
+	assert(_i_omx >= 0);
+	_i_omx -= 1;
+	if (_i_omx == 0) {
+		LOG_INFO("Destroying OMX ...");
 		OMX_Deinit();
+
+		LOG_INFO("Destroying BCM ...");
+		bcm_host_deinit();
 	}
-	bcm_host_deinit();
+
 	free(omx);
 }
 
-int omx_encoder_prepare_for_device(struct omx_encoder_t *omx, struct device_t *dev, const unsigned quality, const bool use_ijg) {
+int omx_encoder_prepare_live(struct omx_encoder_t *omx, struct device_t *dev, const unsigned quality, const bool use_ijg) {
 	if (component_set_state(&omx->encoder, OMX_StateIdle) < 0) {
 		return -1;
 	}

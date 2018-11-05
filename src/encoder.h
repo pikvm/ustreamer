@@ -49,7 +49,8 @@ struct encoder_t {
 	unsigned				quality;
 #ifdef OMX_ENCODER
 	bool					omx_use_ijg;
-	struct omx_encoder_t	*omx;
+	unsigned				n_omxs;
+	struct omx_encoder_t	**omxs;
 #endif
 };
 
@@ -59,6 +60,8 @@ void encoder_destroy(struct encoder_t *encoder);
 
 enum encoder_type_t encoder_parse_type(const char *const str);
 
-void encoder_prepare(struct encoder_t *encoder);
-void encoder_prepare_for_device(struct encoder_t *encoder, struct device_t *dev);
-int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, const unsigned index);
+void encoder_prepare(struct encoder_t *encoder, struct device_t *dev);
+void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev);
+
+int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev,
+	const unsigned worker_number, const unsigned buf_index);

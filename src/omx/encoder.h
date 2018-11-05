@@ -29,6 +29,9 @@
 #include "../device.h"
 
 
+#define OMX_MAX_ENCODERS 3
+
+
 struct omx_encoder_t {
 	OMX_HANDLETYPE			encoder;
 	OMX_BUFFERHEADERTYPE	*input_buffer;
@@ -38,7 +41,6 @@ struct omx_encoder_t {
 	bool					failed;
 	VCOS_SEMAPHORE_T		handler_lock;
 
-	bool	i_omx;
 	bool	i_handler_lock;
 	bool	i_encoder;
 	bool	i_input_port_enabled;
@@ -49,5 +51,5 @@ struct omx_encoder_t {
 struct omx_encoder_t *omx_encoder_init();
 void omx_encoder_destroy(struct omx_encoder_t *omx);
 
-int omx_encoder_prepare_for_device(struct omx_encoder_t *omx, struct device_t *dev, const unsigned quality, const bool use_ijg);
+int omx_encoder_prepare_live(struct omx_encoder_t *omx, struct device_t *dev, const unsigned quality, const bool use_ijg);
 int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, const unsigned index);
