@@ -219,7 +219,7 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 static void _http_callback_snapshot(struct evhttp_request *request, void *v_server) {
 	struct http_server_t *server = (struct http_server_t *)v_server;
 	struct evbuffer *buf;
-	char time_buf[64];
+	char header_buf[64];
 
 	PROCESS_HEAD_REQUEST;
 
@@ -234,11 +234,16 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	ADD_HEADER("Expires", "Mon, 3 Jan 2000 12:34:56 GMT");
 
 #	define ADD_TIME_HEADER(_key, _value) \
-		{ sprintf(time_buf, "%.06Lf", _value); ADD_HEADER(_key, time_buf); }
+		{ sprintf(header_buf, "%.06Lf", _value); ADD_HEADER(_key, header_buf); }
+
+#	define ADD_UNSIGNED_HEADER(_key, _value) \
+		{ sprintf(header_buf, "%u", _value); ADD_HEADER(_key, header_buf); }
 
 	ADD_TIME_HEADER("X-Timestamp", get_now_real());
 
 	ADD_HEADER("X-UStreamer-Online",					bool_to_string(EXPOSED(online)));
+	ADD_UNSIGNED_HEADER("X-UStreamer-Width",			EXPOSED(width));
+	ADD_UNSIGNED_HEADER("X-UStreamer-Height",			EXPOSED(height));
 	ADD_TIME_HEADER("X-UStreamer-Grab-Time",			EXPOSED(picture.grab_time));
 	ADD_TIME_HEADER("X-UStreamer-Encode-Begin-Time",	EXPOSED(picture.encode_begin_time));
 	ADD_TIME_HEADER("X-UStreamer-Encode-End-Time",		EXPOSED(picture.encode_end_time));
@@ -248,6 +253,7 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	ADD_TIME_HEADER("X-UStreamer-Send-Time",			get_now_monotonic());
 
 #	undef ADD_TIME_HEADER
+#	undef ADD_UNSUGNED_HEADER
 
 	ADD_HEADER("Content-Type", "image/jpeg");
 
@@ -404,6 +410,8 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 		if (client->extra_headers) {
 			assert(evbuffer_add_printf(buf,
 				"X-UStreamer-Online: %s" RN
+				"X-UStreamer-Width: %u" RN
+				"X-UStreamer-Height: %u" RN
 				"X-UStreamer-Client-FPS: %u" RN
 				"X-UStreamer-Grab-Time: %.06Lf" RN
 				"X-UStreamer-Encode-Begin-Time: %.06Lf" RN
@@ -414,6 +422,8 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				"X-UStreamer-Send-Time: %.06Lf" RN
 				RN,
 				bool_to_string(EXPOSED(online)),
+				EXPOSED(width),
+				EXPOSED(height),
 				client->fps,
 				EXPOSED(picture.grab_time),
 				EXPOSED(picture.encode_begin_time),
