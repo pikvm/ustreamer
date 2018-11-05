@@ -37,6 +37,7 @@ def main():
         text = html_file.read()
 
     text = text.strip()
+    text = text.replace("\"", "\\\"")
     text = text.replace("%VERSION%", "\" VERSION \"")
     text = textwrap.indent(text, "\t", (lambda line: True))
     text = "\n".join(("%s \\" if line.strip() else "%s\\") % (line) for line in text.split("\n"))

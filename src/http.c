@@ -43,8 +43,8 @@
 #include "stream.h"
 #include "http.h"
 
-#include "data/html_index.h"
-#include "data/blank.h"
+#include "data/index_html.h"
+#include "data/blank_jpeg.h"
 
 
 static bool _http_get_param_true(struct evkeyvalq *params, const char *key);
@@ -192,7 +192,7 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 		" \"stream\": {\"queued_fps\": %u,  \"clients\": %u, \"clients_stat\": {",
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
 		(server->fake_height ? server->fake_height : server->run->exposed->height),
-		(server->run->exposed->online ? "true" : "false"),
+		bool_to_string(server->run->exposed->online),
 		server->run->stream->encoder->quality,
 		server->run->exposed->captured_fps,
 		server->run->exposed->queued_fps,
@@ -203,8 +203,8 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 			"\"%s\": {\"fps\": %u, \"advance_headers\": %s, \"dual_final_frames\": %s}%s",
 			client->id,
 			client->fps,
-			(client->advance_headers ? "true" : "false"),
-			(client->dual_final_frames ? "true" : "false"),
+			bool_to_string(client->advance_headers),
+			bool_to_string(client->dual_final_frames),
 			(client->next ? ", " : "")
 		));
 	}
@@ -237,7 +237,7 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 
 	ADD_TIME_HEADER("X-Timestamp", get_now_real());
 
-	ADD_HEADER("X-UStreamer-Online",					(EXPOSED(online) ? "true" : "false"));
+	ADD_HEADER("X-UStreamer-Online",					bool_to_string(EXPOSED(online)));
 	ADD_TIME_HEADER("X-UStreamer-Grab-Time",			EXPOSED(picture.grab_time));
 	ADD_TIME_HEADER("X-UStreamer-Encode-Begin-Time",	EXPOSED(picture.encode_begin_time));
 	ADD_TIME_HEADER("X-UStreamer-Encode-End-Time",		EXPOSED(picture.encode_end_time));
@@ -406,7 +406,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				"X-UStreamer-Expose-End-Time: %.06Lf" RN
 				"X-UStreamer-Send-Time: %.06Lf" RN
 				RN,
-				(EXPOSED(online) ? "true" : "false"),
+				bool_to_string(EXPOSED(online)),
 				client->fps,
 				EXPOSED(picture.grab_time),
 				EXPOSED(picture.encode_begin_time),

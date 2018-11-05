@@ -23,6 +23,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <math.h>
 #include <pthread.h>
@@ -56,6 +57,10 @@
 #define INLINE inline __attribute__((always_inline))
 #define UNUSED __attribute__((unused))
 
+
+INLINE char *bool_to_string(const bool flag) {
+	return (flag ? "true" : "false");
+}
 
 INLINE unsigned max_u(unsigned a, unsigned b) {
 	return (a > b ? a : b);
