@@ -306,8 +306,14 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
 		LOG_INFO(
-			"HTTP: Registered the new stream client: [%s]:%u; id=%s; clients now: %u",
-			client_addr, client_port, client->id, server->run->stream_clients_count
+			"HTTP: Registered the new stream client: [%s]:%u; id=%s;"
+			" advance_headers=%s; dual_final_frames=%s; clients now: %u",
+			client_addr,
+			client_port,
+			client->id,
+			bool_to_string(client->advance_headers),
+			bool_to_string(client->dual_final_frames),
+			server->run->stream_clients_count
 		);
 
 		buf_event = evhttp_connection_get_bufferevent(conn);
