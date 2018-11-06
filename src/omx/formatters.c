@@ -78,5 +78,5 @@ const char *omx_state_to_string(const OMX_STATETYPE state) {
 	}
 }
 
-#undef CASE_TO_STRING
 #undef CASE_ASSERT
+#undef CASE_TO_STRING

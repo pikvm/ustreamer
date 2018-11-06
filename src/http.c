@@ -252,8 +252,8 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	ADD_TIME_HEADER("X-UStreamer-Expose-End-Time",		EXPOSED(expose_end_time));
 	ADD_TIME_HEADER("X-UStreamer-Send-Time",			get_now_monotonic());
 
-#	undef ADD_TIME_HEADER
 #	undef ADD_UNSUGNED_HEADER
+#	undef ADD_TIME_HEADER
 
 	ADD_HEADER("Content-Type", "image/jpeg");
 
@@ -452,10 +452,10 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	bufferevent_setcb(buf_event, NULL, NULL, _http_callback_stream_error, (void *)client);
 	bufferevent_enable(buf_event, EV_READ);
 
-#	undef BOUNDARY
-#	undef RN
-#	undef ADD_ADVANCE_HEADERS
 #	undef EXPOSED
+#	undef ADD_ADVANCE_HEADERS
+#	undef RN
+#	undef BOUNDARY
 }
 
 static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UNUSED short what, void *v_client) {
@@ -631,8 +631,8 @@ static bool _expose_new_picture(struct http_server_t *server) {
 		 EXPOSED(expose_end_time) - EXPOSED(expose_begin_time)
 	);
 
-#	undef STREAM
 #	undef EXPOSED
+#	undef STREAM
 	return true; // Updated
 }
 

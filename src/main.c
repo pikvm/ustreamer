@@ -213,9 +213,9 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 		}
 	}
 
-#	undef OPT_SET
-#	undef OPT_UNSIGNED
 #	undef OPT_PARSE
+#	undef OPT_UNSIGNED
+#	undef OPT_SET
 	return 0;
 }
 
