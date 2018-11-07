@@ -392,7 +392,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"Cache-Control: no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0" RN
 			"Pragma: no-cache" RN
 			"Expires: Mon, 3 Jan 2000 12:34:56 GMT" RN
-			"Set-Cookie: stream_client_key=%s; stream_client_id=%s; path=/; max-age=30" RN
+			"Set-Cookie: stream_client=%s/%s; path=/; max-age=30" RN
 			"Content-Type: multipart/x-mixed-replace;boundary=" BOUNDARY RN
 			RN
 			"--" BOUNDARY RN,
