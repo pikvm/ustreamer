@@ -197,7 +197,8 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 
 	assert((buf = evbuffer_new()));
 	assert(evbuffer_add_printf(buf,
-		"{\"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
+		"{\"ok\": true, \"result\":"
+		" {\"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
 		" \"online\": %s, \"quality\": %u, \"soft_fps\": %u, \"captured_fps\": %u},"
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
@@ -211,15 +212,16 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 	));
 	for (struct stream_client_t * client = server->run->stream_clients; client != NULL; client = client->next) {
 		assert(evbuffer_add_printf(buf,
-			"\"%s\": {\"fps\": %u, \"advance_headers\": %s, \"dual_final_frames\": %s}%s",
+			"\"%s\": {\"fps\": %u, \"extra_headers\": %s, \"advance_headers\": %s, \"dual_final_frames\": %s}%s",
 			client->id,
 			client->fps,
+			bool_to_string(client->extra_headers),
 			bool_to_string(client->advance_headers),
 			bool_to_string(client->dual_final_frames),
 			(client->next ? ", " : "")
 		));
 	}
-	assert(evbuffer_add_printf(buf, "}}}"));
+	assert(evbuffer_add_printf(buf, "}}}}"));
 
 	ADD_HEADER("Content-Type", "application/json");
 	evhttp_send_reply(request, HTTP_OK, "OK", buf);
