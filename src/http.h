@@ -32,6 +32,7 @@ struct stream_client_t {
 	struct http_server_t	*server;
 	struct evhttp_request	*request;
 
+	char					*key;
 	bool					extra_headers;
 	bool					advance_headers;
 	bool					dual_final_frames;

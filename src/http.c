@@ -48,6 +48,7 @@
 
 
 static bool _http_get_param_true(struct evkeyvalq *params, const char *key);
+static char *_http_get_param_uri(struct evkeyvalq *params, const char *key);
 
 static void _http_callback_root(struct evhttp_request *request, void *arg);
 static void _http_callback_ping(struct evhttp_request *request, void *v_server);
@@ -155,6 +156,15 @@ static bool _http_get_param_true(struct evkeyvalq *params, const char *key) {
 		}
 	}
 	return false;
+}
+
+static char *_http_get_param_uri(struct evkeyvalq *params, const char *key) {
+	const char *value_str;
+
+	if ((value_str = evhttp_find_header(params, key)) != NULL) {
+		return evhttp_encode_uri(value_str);
+	}
+	return NULL;
 }
 
 #define ADD_HEADER(_key, _value) \
@@ -292,6 +302,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		client->need_first_frame = true;
 
 		evhttp_parse_query(evhttp_request_get_uri(request), &params);
+		client->key = _http_get_param_uri(&params, "key");
 		client->extra_headers = _http_get_param_true(&params, "extra_headers");
 		client->advance_headers = _http_get_param_true(&params, "advance_headers");
 		client->dual_final_frames = _http_get_param_true(&params, "dual_final_frames");
@@ -381,10 +392,11 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"Cache-Control: no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0" RN
 			"Pragma: no-cache" RN
 			"Expires: Mon, 3 Jan 2000 12:34:56 GMT" RN
-			"Set-Cookie: stream_client_id=%s; path=/; max-age=30" RN
+			"Set-Cookie: stream_client_key=%s; stream_client_id=%s; path=/; max-age=30" RN
 			"Content-Type: multipart/x-mixed-replace;boundary=" BOUNDARY RN
 			RN
 			"--" BOUNDARY RN,
+			(client->key != NULL ? client->key : "0"),
 			client->id
 		));
 
@@ -486,6 +498,7 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	if (client->next != NULL) {
 		client->next->prev = client->prev;
 	}
+	free(client->key);
 	free(client);
 }
 
