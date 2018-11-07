@@ -135,8 +135,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                  It can significantly reduce the outgoing traffic, but will increase\n");
 	printf("                                  the CPU loading. Don't use this option with analog signal sources\n");
 	printf("                                  or webcams, it's useless. Default: disabled.\n\n");
-	printf("    --fake-width <N>           -- Override image width for /ping. Default: disabled\n\n");
-	printf("    --fake-height <N>          -- Override image height for /ping. Default: disabled.\n\n");
+	printf("    --fake-width <N>           -- Override image width for /state. Default: disabled\n\n");
+	printf("    --fake-height <N>          -- Override image height for /state. Default: disabled.\n\n");
 	printf("    --server-timeout <seconds> -- Timeout for client connections. Default: %d\n\n", server->timeout);
 	printf("Misc options:\n");
 	printf("-------------\n");

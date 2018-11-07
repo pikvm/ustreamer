@@ -51,7 +51,7 @@ static bool _http_get_param_true(struct evkeyvalq *params, const char *key);
 static char *_http_get_param_uri(struct evkeyvalq *params, const char *key);
 
 static void _http_callback_root(struct evhttp_request *request, void *arg);
-static void _http_callback_ping(struct evhttp_request *request, void *v_server);
+static void _http_callback_state(struct evhttp_request *request, void *v_server);
 static void _http_callback_snapshot(struct evhttp_request *request, void *v_server);
 
 static void _http_callback_stream(struct evhttp_request *request, void *v_server);
@@ -91,7 +91,7 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	evhttp_set_allowed_methods(run->http, EVHTTP_REQ_GET|EVHTTP_REQ_HEAD);
 
 	assert(!evhttp_set_cb(run->http, "/", _http_callback_root, NULL));
-	assert(!evhttp_set_cb(run->http, "/ping", _http_callback_ping, (void *)server));
+	assert(!evhttp_set_cb(run->http, "/state", _http_callback_state, (void *)server));
 	assert(!evhttp_set_cb(run->http, "/snapshot", _http_callback_snapshot, (void *)server));
 	assert(!evhttp_set_cb(run->http, "/stream", _http_callback_stream, (void *)server));
 
@@ -189,7 +189,7 @@ static void _http_callback_root(struct evhttp_request *request, UNUSED void *arg
 	evbuffer_free(buf);
 }
 
-static void _http_callback_ping(struct evhttp_request *request, void *v_server) {
+static void _http_callback_state(struct evhttp_request *request, void *v_server) {
 	struct http_server_t *server = (struct http_server_t *)v_server;
 	struct evbuffer *buf;
 
@@ -199,7 +199,7 @@ static void _http_callback_ping(struct evhttp_request *request, void *v_server) 
 	assert(evbuffer_add_printf(buf,
 		"{\"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
 		" \"online\": %s, \"quality\": %u, \"soft_fps\": %u, \"captured_fps\": %u},"
-		" \"stream\": {\"queued_fps\": %u,  \"clients\": %u, \"clients_stat\": {",
+		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
 		(server->fake_height ? server->fake_height : server->run->exposed->height),
 		bool_to_string(server->run->exposed->online),

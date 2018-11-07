@@ -11,7 +11,7 @@
 	<hr>
 	<ul>
 		<li>
-			<a href="/ping"><b><samp>/ping</samp></b></a><br>
+			<a href="/state"><b><samp>/state</samp></b></a><br>
 			Get JSON structure with state of the server.
 		</li>
 		<br>
@@ -25,6 +25,12 @@
 			Get a live stream. Query params:<br>
 			<br>
 			<ul>
+				<li>
+					<b><samp>key=abc123</samp></b><br>
+					User-defined key, which is part of cookie <samp>stream_client</samp>, which allows<br>
+					the stream client to determine its identifier and view statistics using <a href="/state"><samp>/state</samp></a>.
+				</li>
+				<br>
 				<li>
 					<b><samp>extra_headers=1</samp></b><br>
 					Add <samp>X-UStreamer-*</samp> headers to /stream handle (like on <a href="/snapshot"><samp>/snapshot</samp></a>).
@@ -40,7 +46,7 @@
 					<b><samp>dual_final_frames=1</samp></b><br>
 					Enable workaround for Safari/WebKit bug when using option <samp>--drop-same-frames</samp>.<br>
 					Without this option, when the frame series is completed, WebKit-based browsers<br>
-					renders the last one with a delay.
+					renders the last frame with a delay.
 				</li>
 			</ul>
 		</li>
