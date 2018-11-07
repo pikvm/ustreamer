@@ -437,18 +437,22 @@ static void *_stream_worker_thread(void *v_ctx) {
 		A_PTHREAD_C_WAIT_TRUE(*ctx->has_job, ctx->has_job_cond, ctx->has_job_mutex);
 		A_PTHREAD_M_UNLOCK(ctx->has_job_mutex);
 
+#	define PICTURE(_next) ctx->dev->run->pictures[ctx->buf_index]._next
+
 		if (!*ctx->workers_stop) {
 			LOG_DEBUG("Worker %u compressing JPEG from buffer %d ...", ctx->number, ctx->buf_index);
 
+			PICTURE(encode_begin_time) = get_now_monotonic();
 			if (encoder_compress_buffer(ctx->encoder, ctx->dev, ctx->number, ctx->buf_index) < 0) {
 				*ctx->job_failed = true;
 			}
+			PICTURE(encode_end_time) = get_now_monotonic();
 
 			if (_stream_release_buffer(ctx->dev, &ctx->buf_info) == 0) {
-				*ctx->job_start_time = ctx->dev->run->pictures[ctx->buf_index].encode_begin_time;
+				*ctx->job_start_time = PICTURE(encode_begin_time);
 				*ctx->has_job = false;
 
-				long double last_comp_time = ctx->dev->run->pictures[ctx->buf_index].encode_end_time - *ctx->job_start_time;
+				long double last_comp_time = PICTURE(encode_end_time) - *ctx->job_start_time;
 
 				A_PTHREAD_M_LOCK(ctx->last_comp_time_mutex);
 				*ctx->last_comp_time = last_comp_time;
@@ -456,13 +460,15 @@ static void *_stream_worker_thread(void *v_ctx) {
 
 				LOG_VERBOSE(
 					"Compressed JPEG size=%ld; time=%0.3Lf; worker=%u; buffer=%d",
-					ctx->dev->run->pictures[ctx->buf_index].size, last_comp_time, ctx->number, ctx->buf_index
+					PICTURE(size), last_comp_time, ctx->number, ctx->buf_index
 				);
 			} else {
 				*ctx->job_failed = true;
 				*ctx->has_job = false;
 			}
 		}
+
+#	undef PICTURE
 
 		A_PTHREAD_M_LOCK(ctx->free_workers_mutex);
 		*ctx->free_workers += 1;
