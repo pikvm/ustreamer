@@ -321,25 +321,28 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) 
 }
 
 static long double _stream_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool) {
-	long double comp_time = 0;
+	long double sum_comp_time = 0;
+	long double avg_comp_time;
 	long double min_delay;
 	long double soft_delay;
 
 	for (unsigned number = 0; number < dev->n_workers; ++number) {
 		A_PTHREAD_M_LOCK(&pool->workers[number].last_comp_time_mutex);
 		if (pool->workers[number].last_comp_time > 0) {
-			comp_time += pool->workers[number].last_comp_time;
+			sum_comp_time += pool->workers[number].last_comp_time;
 		}
 		A_PTHREAD_M_UNLOCK(&pool->workers[number].last_comp_time_mutex);
 	}
-	comp_time = comp_time / dev->n_workers; // Среднее время работы воркеров
+	avg_comp_time = sum_comp_time / dev->n_workers; // Среднее время работы воркеров
 
-	min_delay = comp_time / dev->n_workers; // Минимальное время работы размазывается на N воркеров
-	soft_delay = ((long double)1) / dev->soft_fps; // Искусственное время задержки на основе желаемого FPS
+	min_delay = avg_comp_time / dev->n_workers; // Среднее время работы размазывается на N воркеров
 
-	if (min_delay > 0) {
+	if (dev->soft_fps > 0 && min_delay > 0) {
+		// Искусственное время задержки на основе желаемого FPS, если включен --soft-fps
+		soft_delay = ((long double)1) / dev->soft_fps - sum_comp_time;
 		return (min_delay > soft_delay ? min_delay : soft_delay);
 	}
+
 	return min_delay;
 }
 

@@ -118,7 +118,11 @@ int http_server_listen(struct http_server_t *server) {
 	struct timeval refresh_interval;
 
 	refresh_interval.tv_sec = 0;
-	refresh_interval.tv_usec = 1000000 / (server->run->stream->dev->soft_fps * 2);
+	if (server->run->stream->dev->soft_fps > 0) {
+		refresh_interval.tv_usec = 1000000 / (server->run->stream->dev->soft_fps * 2);
+	} else {
+		refresh_interval.tv_usec = 16000; // ~60fps
+	}
 	assert((server->run->refresh = event_new(server->run->base, -1, EV_PERSIST, _http_exposed_refresh, server)));
 	assert(!event_add(server->run->refresh, &refresh_interval));
 

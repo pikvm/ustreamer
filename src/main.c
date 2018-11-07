@@ -106,7 +106,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                        Available: %s; default: YUYV.\n\n", FORMATS_STR);
 	printf("    -a|--tv-standard <std>           -- Force TV standard.\n");
 	printf("                                        Available: %s; default: disabled.\n\n", STANDARDS_STR);
-	printf("    -m|--soft-fps <N>                -- Soft FPS limit; default: %u.\n\n", dev->soft_fps);
+	printf("    -m|--soft-fps <N>                -- Soft FPS limit; default: disabled.\n\n");
 	printf("    -e|--every-frame <N>             -- Drop all input frames except specified. Default: disabled.\n\n");
 	printf("    -z|--min-frame-size <N>          -- Drop frames smaller then this limit.\n");
 	printf("                                        Useful if the device produces small-sized garbage frames.\n\n");
@@ -180,7 +180,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 'f':	OPT_PARSE(dev->format, device_parse_format, FORMAT_UNKNOWN, "pixel format");
 #			pragma GCC diagnostic pop
 			case 'a':	OPT_PARSE(dev->standard, device_parse_standard, STANDARD_UNKNOWN, "TV standard");
-			case 'm':	OPT_UNSIGNED(dev->soft_fps, "--soft-fps", 1, 30);
+			case 'm':	OPT_UNSIGNED(dev->soft_fps, "--soft-fps", 0, 30);
 			case 'e':	OPT_UNSIGNED(dev->every_frame, "--every-frame", 1, 30);
 			case 'z':	OPT_UNSIGNED(dev->min_frame_size, "--min-frame-size", 0, 8192);
 			case 't':	OPT_SET(dev->dv_timings, true);
