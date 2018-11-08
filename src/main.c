@@ -48,7 +48,7 @@ static const struct option _long_opts[] = {
 	{"height",					required_argument,	NULL,	'y'},
 	{"format",					required_argument,	NULL,	'm'},
 	{"tv-standard",				required_argument,	NULL,	'a'},
-	{"fps",						required_argument,	NULL,	'f'},
+	{"desired-fps",				required_argument,	NULL,	'f'},
 	{"every-frame",				required_argument,	NULL,	'e'},
 	{"min-frame-size",			required_argument,	NULL,	'z'},
 	{"dv-timings",				no_argument,		NULL,	't'},
