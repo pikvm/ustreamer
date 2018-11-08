@@ -118,8 +118,8 @@ int http_server_listen(struct http_server_t *server) {
 	struct timeval refresh_interval;
 
 	refresh_interval.tv_sec = 0;
-	if (server->run->stream->dev->soft_fps > 0) {
-		refresh_interval.tv_usec = 1000000 / (server->run->stream->dev->soft_fps * 2);
+	if (server->run->stream->dev->desired_fps > 0) {
+		refresh_interval.tv_usec = 1000000 / (server->run->stream->dev->desired_fps * 2);
 	} else {
 		refresh_interval.tv_usec = 16000; // ~60fps
 	}
@@ -203,13 +203,13 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 	assert(evbuffer_add_printf(buf,
 		"{\"ok\": true, \"result\":"
 		" {\"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
-		" \"online\": %s, \"quality\": %u, \"soft_fps\": %u, \"captured_fps\": %u},"
+		" \"online\": %s, \"quality\": %u, \"desired_fps\": %u, \"captured_fps\": %u},"
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
 		(server->fake_height ? server->fake_height : server->run->exposed->height),
 		bool_to_string(server->run->exposed->online),
 		server->run->stream->encoder->quality,
-		server->run->stream->dev->soft_fps,
+		server->run->stream->dev->desired_fps,
 		server->run->exposed->captured_fps,
 		server->run->exposed->queued_fps,
 		server->run->stream_clients_count

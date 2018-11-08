@@ -337,9 +337,9 @@ static long double _stream_get_fluency_delay(struct device_t *dev, struct worker
 
 	min_delay = avg_comp_time / dev->n_workers; // Среднее время работы размазывается на N воркеров
 
-	if (dev->soft_fps > 0 && min_delay > 0) {
-		// Искусственное время задержки на основе желаемого FPS, если включен --soft-fps
-		soft_delay = ((long double)1) / dev->soft_fps - sum_comp_time;
+	if (dev->desired_fps > 0 && min_delay > 0) {
+		// Искусственное время задержки на основе желаемого FPS, если включен --desired-fps
+		soft_delay = ((long double) 1) / dev->desired_fps - sum_comp_time;
 		return (min_delay > soft_delay ? min_delay : soft_delay);
 	}
 

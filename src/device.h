@@ -72,7 +72,7 @@ struct device_t {
 	bool			dv_timings;
 	unsigned		n_buffers;
 	unsigned		n_workers;
-	unsigned		soft_fps;
+	unsigned		desired_fps;
 	unsigned		every_frame;
 	unsigned		min_frame_size;
 	bool			persistent;
