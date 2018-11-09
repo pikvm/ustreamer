@@ -40,7 +40,7 @@
 #include "http.h"
 
 
-static const char _short_opts[] = "d:i:x:y:f:a:e:z:tn:w:q:c:s:p:r:h";
+static const char _short_opts[] = "d:i:x:y:f:a:z:tn:w:q:c:s:p:r:h";
 static const struct option _long_opts[] = {
 	{"device",					required_argument,	NULL,	'd'},
 	{"input",					required_argument,	NULL,	'i'},
@@ -49,7 +49,6 @@ static const struct option _long_opts[] = {
 	{"format",					required_argument,	NULL,	'm'},
 	{"tv-standard",				required_argument,	NULL,	'a'},
 	{"desired-fps",				required_argument,	NULL,	'f'},
-	{"every-frame",				required_argument,	NULL,	'e'},
 	{"min-frame-size",			required_argument,	NULL,	'z'},
 	{"dv-timings",				no_argument,		NULL,	't'},
 	{"buffers",					required_argument,	NULL,	'b'},
@@ -107,7 +106,6 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    -a|--tv-standard <std>           -- Force TV standard.\n");
 	printf("                                        Available: %s; default: disabled.\n\n", STANDARDS_STR);
 	printf("    -f|--desired-fps <N>             -- Desired FPS; default: maximum as possible.\n\n");
-	printf("    -e|--every-frame <N>             -- Drop all input frames except specified. Default: disabled.\n\n");
 	printf("    -z|--min-frame-size <N>          -- Drop frames smaller then this limit.\n");
 	printf("                                        Useful if the device produces small-sized garbage frames.\n\n");
 	printf("    -t|--dv-timings                  -- Enable DV timings queriyng and events processing.\n");
@@ -181,7 +179,6 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 #			pragma GCC diagnostic pop
 			case 'a':	OPT_PARSE(dev->standard, device_parse_standard, STANDARD_UNKNOWN, "TV standard");
 			case 'f':	OPT_UNSIGNED(dev->desired_fps, "--desired-fps", 0, 30);
-			case 'e':	OPT_UNSIGNED(dev->every_frame, "--every-frame", 1, 30);
 			case 'z':	OPT_UNSIGNED(dev->min_frame_size, "--min-frame-size", 0, 8192);
 			case 't':	OPT_SET(dev->dv_timings, true);
 			case 'b':	OPT_UNSIGNED(dev->n_buffers, "--buffers", 1, 32);

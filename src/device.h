@@ -73,7 +73,6 @@ struct device_t {
 	unsigned		n_buffers;
 	unsigned		n_workers;
 	unsigned		desired_fps;
-	unsigned		every_frame;
 	unsigned		min_frame_size;
 	bool			persistent;
 	unsigned		timeout;

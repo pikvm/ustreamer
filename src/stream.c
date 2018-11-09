@@ -83,7 +83,6 @@ void stream_loop(struct stream_t *stream) {
 	while (_stream_init_loop(stream->dev, &pool) == 0) {
 		struct worker_t *oldest_worker = NULL;
 		struct worker_t *last_worker = NULL;
-		unsigned frames_count = 0;
 		long double grab_after = 0;
 		unsigned fluency_passed = 0;
 		unsigned captured_fps_accum = 0;
@@ -183,15 +182,6 @@ void stream_loop(struct stream_t *stream) {
 						break;
 					}
 					stream->dev->run->pictures[buf_info.index].grab_time = now;
-
-					if (stream->dev->every_frame) {
-						if (frames_count < stream->dev->every_frame - 1) {
-							frames_count += 1;
-							LOG_DEBUG("Dropping frame %d for option --every-frame=%d", frames_count, stream->dev->every_frame);
-							goto pass_frame;
-						}
-						frames_count = 0;
-					}
 
 					// Workaround for broken, corrupted frames:
 					// Under low light conditions corrupted frames may get captured.
