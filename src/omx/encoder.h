@@ -51,5 +51,5 @@ struct omx_encoder_t {
 struct omx_encoder_t *omx_encoder_init();
 void omx_encoder_destroy(struct omx_encoder_t *omx);
 
-int omx_encoder_prepare_live(struct omx_encoder_t *omx, struct device_t *dev, const unsigned quality, const bool use_ijg);
+int omx_encoder_prepare_live(struct omx_encoder_t *omx, struct device_t *dev, const unsigned quality);
 int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, const unsigned index);

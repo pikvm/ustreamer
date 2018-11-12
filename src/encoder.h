@@ -48,7 +48,6 @@ struct encoder_t {
 	enum encoder_type_t		type;
 	unsigned				quality;
 #ifdef OMX_ENCODER
-	bool					omx_use_ijg;
 	unsigned				n_omxs;
 	struct omx_encoder_t	**omxs;
 #endif

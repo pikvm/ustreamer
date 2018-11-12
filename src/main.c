@@ -55,9 +55,6 @@ static const struct option _long_opts[] = {
 	{"workers",					required_argument,	NULL,	'w'},
 	{"quality",					required_argument,	NULL,	'q'},
 	{"encoder",					required_argument,	NULL,	'c'},
-#	ifdef OMX_ENCODER
-	{"encoder-omx-use-ijg",		required_argument,	NULL,	500},
-#	endif
 	{"device-timeout",			required_argument,	NULL,	1000},
 	{"device-persistent",		no_argument,		NULL,	1001},
 	{"device-error-delay",		required_argument,	NULL,	1002},
@@ -117,10 +114,6 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    -q|--quality <N>                 -- Set quality of JPEG encoding from 1 to 100 (best). Default: %d.\n\n", encoder->quality);
 	printf("    --encoder <type>                 -- Use specified encoder. It may affects to workers number.\n");
 	printf("                                     -- Available: %s; default: CPU.\n\n", ENCODER_TYPES_STR);
-#	ifdef OMX_ENCODER
-	printf("    --encoder-omx-use-ijg            -- Use the standard IJG quality tables when encoding images using OMX.\n");
-	printf("                                        Default: disabled.\n\n");
-#	endif
 	printf("    --device-timeout <seconds>       -- Timeout for device querying. Default: %d\n\n", dev->timeout);
 	printf("    --device-persistent              -- Don't re-initialize device on timeout. Default: disabled.\n\n");
 	printf("    --device-error-delay <seconds>   -- Delay before trying to connect to the device again\n");
@@ -185,9 +178,6 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 'w':	OPT_UNSIGNED(dev->n_workers, "--workers", 1, 32);
 			case 'q':	OPT_UNSIGNED(encoder->quality, "--quality", 1, 100);
 			case 'c':	OPT_PARSE(encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, "encoder type");
-#			ifdef OMX_ENCODER
-			case 500:	OPT_SET(encoder->omx_use_ijg, true);
-#			endif
 			case 1000:	OPT_UNSIGNED(dev->timeout, "--device-timeout", 1, 60);
 			case 1001:	OPT_SET(dev->persistent, true);
 			case 1002:	OPT_UNSIGNED(dev->error_delay, "--device-error-delay", 1, 60);

@@ -129,7 +129,7 @@ void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev) {
 #	ifdef OMX_ENCODER
 	if (encoder->type == ENCODER_TYPE_OMX) {
 		for (unsigned index = 0; index < encoder->n_omxs; ++index) {
-			if (omx_encoder_prepare_live(encoder->omxs[index], dev, encoder->quality, encoder->omx_use_ijg) < 0) {
+			if (omx_encoder_prepare_live(encoder->omxs[index], dev, encoder->quality) < 0) {
 				goto use_fallback;
 			}
 		}

@@ -51,7 +51,7 @@ static int _i_omx = 0;
 static int _omx_init_component(struct omx_encoder_t *omx);
 static int _omx_init_disable_ports(struct omx_encoder_t *omx);
 static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev);
-static int _omx_setup_output(struct omx_encoder_t *omx, const unsigned quality, const bool use_ijg);
+static int _omx_setup_output(struct omx_encoder_t *omx, const unsigned quality);
 static int _omx_encoder_clear_ports(struct omx_encoder_t *omx);
 
 static OMX_ERRORTYPE _omx_event_handler(UNUSED OMX_HANDLETYPE encoder,
@@ -148,7 +148,7 @@ void omx_encoder_destroy(struct omx_encoder_t *omx) {
 	free(omx);
 }
 
-int omx_encoder_prepare_live(struct omx_encoder_t *omx, struct device_t *dev, const unsigned quality, const bool use_ijg) {
+int omx_encoder_prepare_live(struct omx_encoder_t *omx, struct device_t *dev, const unsigned quality) {
 	if (component_set_state(&omx->encoder, OMX_StateIdle) < 0) {
 		return -1;
 	}
@@ -158,7 +158,7 @@ int omx_encoder_prepare_live(struct omx_encoder_t *omx, struct device_t *dev, co
 	if (_omx_setup_input(omx, dev) < 0) {
 		return -1;
 	}
-	if (_omx_setup_output(omx, quality, use_ijg) < 0) {
+	if (_omx_setup_output(omx, quality) < 0) {
 		return -1;
 	}
 	if (component_set_state(&omx->encoder, OMX_StateExecuting) < 0) {
@@ -329,7 +329,7 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 	return 0;
 }
 
-static int _omx_setup_output(struct omx_encoder_t *omx, const unsigned quality, const bool use_ijg) {
+static int _omx_setup_output(struct omx_encoder_t *omx, const unsigned quality) {
 	OMX_ERRORTYPE error;
 	OMX_PARAM_PORTDEFINITIONTYPE portdef;
 
@@ -365,7 +365,7 @@ static int _omx_setup_output(struct omx_encoder_t *omx, const unsigned quality, 
 		}
 	}
 
-	if (use_ijg) {
+	{
 		OMX_PARAM_IJGSCALINGTYPE ijg;
 
 		OMX_INIT_STRUCTURE(ijg);

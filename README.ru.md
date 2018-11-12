@@ -58,7 +58,6 @@ $ ./ustreamer --help
 $ ./ustreamer \
     --format=uyvy \ # Настройка входного формата устройства
     --encoder=omx \ # Использование аппаратного кодирования с помощью OpenMAX
-    --encoder-omx-use-ijg \ # Использование таблиц квантования IJG
     --dv-timings \ # Включение DV-таймингов
     --quality=20 \ # У OpenMAX нелинейная шкала качества
     --drop-same-frames=30 # Экономим трафик
