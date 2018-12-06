@@ -40,7 +40,7 @@
 #include "http.h"
 
 
-static const char _short_opts[] = "d:i:x:y:f:a:z:tn:w:q:c:s:p:r:h";
+static const char _short_opts[] = "d:i:x:y:f:a:z:tn:w:q:c:s:p:u:er:h";
 static const struct option _long_opts[] = {
 	{"device",					required_argument,	NULL,	'd'},
 	{"input",					required_argument,	NULL,	'i'},
@@ -61,6 +61,8 @@ static const struct option _long_opts[] = {
 
 	{"host",					required_argument,	NULL,	's'},
 	{"port",					required_argument,	NULL,	'p'},
+	{"unix",					required_argument,	NULL,	'u'},
+	{"unix-rm",					no_argument,		NULL,	'e'},
 	{"drop-same-frames",		required_argument,	NULL,	'r'},
 	{"fake-width",				required_argument,	NULL,	2001},
 	{"fake-height",				required_argument,	NULL,	2002},
@@ -122,6 +124,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("--------------------\n");
 	printf("    --host <address>           -- Listen on Hostname or IP. Default: %s\n\n", server->host);
 	printf("    --port <N>                 -- Bind to this TCP port. Default: %d\n\n", server->port);
+	printf("    --unix <path>              -- Bind to UNIX domain socket. Default: disabled\n\n");
+	printf("    --unix-rm                  -- Try to remove old UNIX socket file before binding. Default: disabled\n\n");
 	printf("    --drop-same-frames <N>     -- Don't send same frames to clients, but no more than specified number.\n");
 	printf("                                  It can significantly reduce the outgoing traffic, but will increase\n");
 	printf("                                  the CPU loading. Don't use this option with analog signal sources\n");
@@ -184,6 +188,8 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 
 			case 's':	OPT_SET(server->host, optarg);
 			case 'p':	OPT_UNSIGNED(server->port, "--port", 1, 65535);
+			case 'u':	OPT_SET(server->unix_path, optarg);
+			case 'e':	OPT_SET(server->unix_rm, true);
 			case 'r':	OPT_UNSIGNED(server->drop_same_frames, "--drop-same-frames", 0, 30);
 			case 2001:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
 			case 2002:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);

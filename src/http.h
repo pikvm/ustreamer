@@ -23,6 +23,7 @@
 
 #include <event2/event.h>
 #include <event2/http.h>
+#include <event2/util.h>
 
 #include "tools.h"
 #include "stream.h"
@@ -65,6 +66,7 @@ struct exposed_t {
 struct http_server_runtime_t {
 	struct event_base		*base;
 	struct evhttp			*http;
+	evutil_socket_t			unix_fd;
 	struct event			*refresh;
 	struct stream_t			*stream;
 	struct exposed_t		*exposed;
@@ -76,6 +78,8 @@ struct http_server_runtime_t {
 struct http_server_t {
 	char		*host;
 	unsigned	port;
+	char		*unix_path;
+	bool		unix_rm;
 	unsigned	drop_same_frames;
 	unsigned	fake_width;
 	unsigned	fake_height;

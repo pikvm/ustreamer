@@ -5,4 +5,5 @@
 /ustreamer-*.pkg.tar.xz
 /vgcore.*
 /ustreamer
+/*.sock
 *.o
