@@ -40,7 +40,7 @@
 #include "http.h"
 
 
-static const char _short_opts[] = "d:i:x:y:f:a:z:tn:w:q:c:s:p:u:er:h";
+static const char _short_opts[] = "d:i:x:y:f:a:z:tn:w:q:c:s:p:u:ro:e:h";
 static const struct option _long_opts[] = {
 	{"device",					required_argument,	NULL,	'd'},
 	{"input",					required_argument,	NULL,	'i'},
@@ -62,8 +62,9 @@ static const struct option _long_opts[] = {
 	{"host",					required_argument,	NULL,	's'},
 	{"port",					required_argument,	NULL,	'p'},
 	{"unix",					required_argument,	NULL,	'u'},
-	{"unix-rm",					no_argument,		NULL,	'e'},
-	{"drop-same-frames",		required_argument,	NULL,	'r'},
+	{"unix-rm",					no_argument,		NULL,	'r'},
+	{"unix-mode",				required_argument,	NULL,	'o'},
+	{"drop-same-frames",		required_argument,	NULL,	'e'},
 	{"fake-width",				required_argument,	NULL,	2001},
 	{"fake-height",				required_argument,	NULL,	2002},
 	{"server-timeout",			required_argument,	NULL,	2003},
@@ -114,7 +115,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                        Default: %d (number of CPU cores + 1)\n\n", dev->n_buffers);
 	printf("    -w|--workers <N>                 -- The number of compressing threads. Default: %d (== --buffers).\n\n", dev->n_workers);
 	printf("    -q|--quality <N>                 -- Set quality of JPEG encoding from 1 to 100 (best). Default: %d.\n\n", encoder->quality);
-	printf("    --encoder <type>                 -- Use specified encoder. It may affects to workers number.\n");
+	printf("    -c|--encoder <type>              -- Use specified encoder. It may affects to workers number.\n");
 	printf("                                     -- Available: %s; default: CPU.\n\n", ENCODER_TYPES_STR);
 	printf("    --device-timeout <seconds>       -- Timeout for device querying. Default: %d\n\n", dev->timeout);
 	printf("    --device-persistent              -- Don't re-initialize device on timeout. Default: disabled.\n\n");
@@ -122,11 +123,12 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                        after a timeout. Default: %d\n\n", dev->error_delay);
 	printf("HTTP server options:\n");
 	printf("--------------------\n");
-	printf("    --host <address>           -- Listen on Hostname or IP. Default: %s\n\n", server->host);
-	printf("    --port <N>                 -- Bind to this TCP port. Default: %d\n\n", server->port);
-	printf("    --unix <path>              -- Bind to UNIX domain socket. Default: disabled\n\n");
-	printf("    --unix-rm                  -- Try to remove old UNIX socket file before binding. Default: disabled\n\n");
-	printf("    --drop-same-frames <N>     -- Don't send same frames to clients, but no more than specified number.\n");
+	printf("    -s|--host <address>        -- Listen on Hostname or IP. Default: %s\n\n", server->host);
+	printf("    -p|--port <N>              -- Bind to this TCP port. Default: %d\n\n", server->port);
+	printf("    -u|--unix <path>           -- Bind to UNIX domain socket. Default: disabled\n\n");
+	printf("    -r|--unix-rm               -- Try to remove old UNIX socket file before binding. Default: disabled\n\n");
+	printf("    -o|--unix-mode <mode>      -- Set UNIX socket file permissions (like 777). Default: disabled\n\n");
+	printf("    -e|--drop-same-frames <N>  -- Don't send same frames to clients, but no more than specified number.\n");
 	printf("                                  It can significantly reduce the outgoing traffic, but will increase\n");
 	printf("                                  the CPU loading. Don't use this option with analog signal sources\n");
 	printf("                                  or webcams, it's useless. Default: disabled.\n\n");
@@ -150,15 +152,21 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 		{ _dest = _value; break; }
 
 #	define OPT_UNSIGNED(_dest, _name, _min, _max) \
-		{ errno = 0; int _tmp = strtol(optarg, NULL, 0); \
-		if (errno || _tmp < _min || _tmp > _max) \
-		{ printf("Invalid value for '%s=%u'; min=%u; max=%u\n", _name, _tmp, _min, _max); return -1; } \
+		{ errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, 0); \
+		if (errno || *_end || _tmp < _min || _tmp > _max) \
+		{ printf("Invalid value for '%s=%s'; min=%u; max=%u\n", _name, optarg, _min, _max); return -1; } \
 		_dest = _tmp; break; }
 
 #	define OPT_PARSE(_dest, _func, _invalid, _name) \
 		{ if ((_dest = _func(optarg)) == _invalid) \
 		{ printf("Unknown " _name ": %s\n", optarg); return -1; } \
 		break; }
+
+#	define OPT_CHMOD(_dest, _name) \
+		{ errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, 8); \
+		if (errno || *_end) \
+		{ printf("Invalid value for '%s=%s'\n", _name, optarg); return -1; } \
+		_dest = _tmp; break; }
 
 	int index;
 	int ch;
@@ -189,8 +197,9 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 's':	OPT_SET(server->host, optarg);
 			case 'p':	OPT_UNSIGNED(server->port, "--port", 1, 65535);
 			case 'u':	OPT_SET(server->unix_path, optarg);
-			case 'e':	OPT_SET(server->unix_rm, true);
-			case 'r':	OPT_UNSIGNED(server->drop_same_frames, "--drop-same-frames", 0, 30);
+			case 'r':	OPT_SET(server->unix_rm, true);
+			case 'o':	OPT_CHMOD(server->unix_mode, "--unix-mode");
+			case 'e':	OPT_UNSIGNED(server->drop_same_frames, "--drop-same-frames", 0, 30);
 			case 2001:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
 			case 2002:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
 			case 2003:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
@@ -206,6 +215,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 		}
 	}
 
+#	undef OPT_CHMOD
 #	undef OPT_PARSE
 #	undef OPT_UNSIGNED
 #	undef OPT_SET

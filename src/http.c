@@ -29,6 +29,7 @@
 
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/stat.h>
 
 #include <event2/event.h>
 #include <event2/thread.h>
@@ -153,7 +154,7 @@ int http_server_listen(struct http_server_t *server) {
 		unix_addr.sun_path[107] = '\0';
 		unix_addr.sun_family = AF_UNIX;
 
-		if (server->unix_path && server->unix_rm && unlink(server->unix_path) < 0) {
+		if (server->unix_rm && unlink(server->unix_path) < 0) {
 			if (errno != ENOENT) {
 				LOG_PERROR("Can't remove old UNIX socket '%s'", server->unix_path);
 				return -1;
@@ -161,6 +162,10 @@ int http_server_listen(struct http_server_t *server) {
 		}
 		if (bind(server->run->unix_fd, (struct sockaddr *)&unix_addr, sizeof(struct sockaddr_un)) < 0) {
 			LOG_PERROR("Can't bind HTTP to UNIX socket '%s'", server->unix_path);
+			return -1;
+		}
+		if (server->unix_mode && chmod(server->unix_path, server->unix_mode) < 0) {
+			LOG_PERROR("Can't set permissions %o to UNIX socket '%s'", server->unix_mode, server->unix_path);
 			return -1;
 		}
 		if (listen(server->run->unix_fd, 128) < 0) {

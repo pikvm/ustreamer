@@ -21,6 +21,8 @@
 
 #include <stdbool.h>
 
+#include <sys/stat.h>
+
 #include <event2/event.h>
 #include <event2/http.h>
 #include <event2/util.h>
@@ -80,6 +82,7 @@ struct http_server_t {
 	unsigned	port;
 	char		*unix_path;
 	bool		unix_rm;
+	mode_t		unix_mode;
 	unsigned	drop_same_frames;
 	unsigned	fake_width;
 	unsigned	fake_height;
