@@ -28,6 +28,12 @@
 #include <linux/videodev2.h>
 
 
+#define VIDEO_MIN_WIDTH		320
+#define VIDEO_MAX_WIDTH		1920
+
+#define VIDEO_MIN_HEIGHT	180
+#define VIDEO_MAX_HEIGHT	1200
+
 #define STANDARD_UNKNOWN	V4L2_STD_UNKNOWN
 #define STANDARDS_STR		"UNKNOWN, PAL, NTSC, SECAM"
 

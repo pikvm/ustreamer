@@ -26,6 +26,7 @@
 #include <strings.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <assert.h>
 
 #include <sys/mman.h>
 #include <linux/videodev2.h>
@@ -63,6 +64,7 @@ static int _device_open_format(struct device_t *dev);
 static void _device_open_alloc_picbufs(struct device_t *dev);
 static int _device_open_mmap(struct device_t *dev);
 static int _device_open_queue_buffers(struct device_t *dev);
+static int _device_apply_resolution(struct device_t *dev, const unsigned width, const unsigned height);
 
 static const char *_format_to_string_auto(char *buf, const size_t size, const unsigned format);
 static const char *_format_to_string_null(const unsigned format);
@@ -222,6 +224,7 @@ static int _device_open_check_cap(struct device_t *dev) {
 }
 
 static int _device_open_dv_timings(struct device_t *dev) {
+	_device_apply_resolution(dev, dev->width, dev->height);
 	if (dev->dv_timings) {
 		LOG_DEBUG("Using DV-timings");
 
@@ -239,10 +242,6 @@ static int _device_open_dv_timings(struct device_t *dev) {
 			LOG_PERROR("Can't subscribe to V4L2_EVENT_SOURCE_CHANGE");
 			return -1;
 		}
-
-	} else {
-		dev->run->width = dev->width;
-		dev->run->height = dev->height;
 	}
 	return 0;
 }
@@ -267,8 +266,9 @@ static int _device_apply_dv_timings(struct device_t *dev) {
 			return -1;
 		}
 
-		dev->run->width = dv_timings.bt.width;
-		dev->run->height = dv_timings.bt.height;
+		if (_device_apply_resolution(dev, dv_timings.bt.width, dv_timings.bt.height) < 0) {
+			return -1;
+		}
 
 	} else {
 		LOG_DEBUG("Calling ioctl(VIDIOC_QUERYSTD) ...");
@@ -311,8 +311,9 @@ static int _device_open_format(struct device_t *dev) {
 	if (fmt.fmt.pix.width != dev->run->width || fmt.fmt.pix.height != dev->run->height) {
 		LOG_ERROR("Requested resolution=%dx%d is unavailable", dev->run->width, dev->run->height);
 	}
-	dev->run->width = fmt.fmt.pix.width;
-	dev->run->height = fmt.fmt.pix.height;
+	if (_device_apply_resolution(dev, fmt.fmt.pix.width, fmt.fmt.pix.height) < 0) {
+		return -1;
+	}
 	LOG_INFO("Using resolution: %dx%d", dev->run->width, dev->run->height);
 
 	// Check format
@@ -419,6 +420,22 @@ static void _device_open_alloc_picbufs(struct device_t *dev) {
 		A_CALLOC(dev->run->pictures[index].data, dev->run->max_picture_size);
 		dev->run->pictures[index].allocated = dev->run->max_picture_size;
 	}
+}
+
+static int _device_apply_resolution(struct device_t *dev, const unsigned width, const unsigned height) {
+	// Тут VIDEO_MIN_* не используются из-за странностей минимального разрешения при отсутствии сигнала
+	// у некоторых устройств, например Auvidea B101
+	if (
+		width == 0 || width > VIDEO_MAX_WIDTH
+		|| height == 0 || height > VIDEO_MAX_HEIGHT
+	) {
+		LOG_ERROR("Requested forbidden resolution=%ux%u: min=1x1; max=%ux%u",
+			width, height, VIDEO_MAX_WIDTH, VIDEO_MAX_HEIGHT);
+		return -1;
+	}
+	dev->run->width = width;
+	dev->run->height = height;
+	return 0;
 }
 
 static const char *_format_to_string_auto(char *buf, const size_t size, const unsigned format) {

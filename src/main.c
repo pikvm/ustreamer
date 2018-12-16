@@ -176,8 +176,8 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 		switch (ch) {
 			case 'd':	OPT_SET(dev->path, optarg);
 			case 'i':	OPT_UNSIGNED(dev->input, "--input", 0, 128);
-			case 'x':	OPT_UNSIGNED(dev->width, "--width", 320, 1920);
-			case 'y':	OPT_UNSIGNED(dev->height, "--height", 180, 1200);
+			case 'x':	OPT_UNSIGNED(dev->width, "--width", VIDEO_MIN_WIDTH, VIDEO_MAX_WIDTH);
+			case 'y':	OPT_UNSIGNED(dev->height, "--height", VIDEO_MIN_HEIGHT, VIDEO_MAX_HEIGHT);
 #			pragma GCC diagnostic ignored "-Wsign-compare"
 #			pragma GCC diagnostic push
 			case 'm':	OPT_PARSE(dev->format, device_parse_format, FORMAT_UNKNOWN, "pixel format");
