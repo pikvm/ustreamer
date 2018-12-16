@@ -163,7 +163,7 @@ void device_close(struct device_t *dev) {
 		for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
 			if (dev->run->hw_buffers[index].start != MAP_FAILED) {
 				if (munmap(dev->run->hw_buffers[index].start, dev->run->hw_buffers[index].length) < 0) {
-					LOG_PERROR("Can't unmap device buffer %d", index);
+					LOG_PERROR("Can't unmap device buffer %u", index);
 				}
 			}
 		}
@@ -254,7 +254,7 @@ static int _device_apply_dv_timings(struct device_t *dev) {
 	LOG_DEBUG("Calling ioctl(VIDIOC_QUERY_DV_TIMINGS) ...");
 	if (xioctl(dev->run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv_timings) == 0) {
 		LOG_INFO(
-			"Got new DV timings: resolution=%dx%d; pixclk=%llu",
+			"Got new DV timings: resolution=%ux%u; pixclk=%llu",
 			dv_timings.bt.width,
 			dv_timings.bt.height,
 			dv_timings.bt.pixelclock
@@ -299,7 +299,7 @@ static int _device_open_format(struct device_t *dev) {
 		char format_str[8];
 
 		LOG_PERROR(
-			"Unable to set format=%s; resolution=%dx%d",
+			"Unable to set format=%s; resolution=%ux%u",
 			_format_to_string_auto(format_str, 8, dev->format),
 			dev->run->width,
 			dev->run->height
@@ -309,12 +309,12 @@ static int _device_open_format(struct device_t *dev) {
 
 	// Check resolution
 	if (fmt.fmt.pix.width != dev->run->width || fmt.fmt.pix.height != dev->run->height) {
-		LOG_ERROR("Requested resolution=%dx%d is unavailable", dev->run->width, dev->run->height);
+		LOG_ERROR("Requested resolution=%ux%u is unavailable", dev->run->width, dev->run->height);
 	}
 	if (_device_apply_resolution(dev, fmt.fmt.pix.width, fmt.fmt.pix.height) < 0) {
 		return -1;
 	}
-	LOG_INFO("Using resolution: %dx%d", dev->run->width, dev->run->height);
+	LOG_INFO("Using resolution: %ux%u", dev->run->width, dev->run->height);
 
 	// Check format
 	if (fmt.fmt.pix.pixelformat != dev->format) {
@@ -358,10 +358,10 @@ static int _device_open_mmap(struct device_t *dev) {
 	}
 
 	if (req.count < 1) {
-		LOG_ERROR("Insufficient buffer memory: %d", req.count);
+		LOG_ERROR("Insufficient buffer memory: %u", req.count);
 		return -1;
 	} else {
-		LOG_INFO("Requested %d HW buffers, got %d", dev->n_buffers, req.count);
+		LOG_INFO("Requested %u HW buffers, got %u", dev->n_buffers, req.count);
 	}
 
 	LOG_DEBUG("Allocating HW buffers ...");
@@ -375,17 +375,17 @@ static int _device_open_mmap(struct device_t *dev) {
 		buf_info.memory = V4L2_MEMORY_MMAP;
 		buf_info.index = dev->run->n_buffers;
 
-		LOG_DEBUG("Calling ioctl(VIDIOC_QUERYBUF) for device buffer %d ...", dev->run->n_buffers);
+		LOG_DEBUG("Calling ioctl(VIDIOC_QUERYBUF) for device buffer %u ...", dev->run->n_buffers);
 		if (xioctl(dev->run->fd, VIDIOC_QUERYBUF, &buf_info) < 0) {
 			LOG_PERROR("Can't VIDIOC_QUERYBUF");
 			return -1;
 		}
 
-		LOG_DEBUG("Mapping device buffer %d ...", dev->run->n_buffers);
+		LOG_DEBUG("Mapping device buffer %u ...", dev->run->n_buffers);
 		dev->run->hw_buffers[dev->run->n_buffers].length = buf_info.length;
 		dev->run->hw_buffers[dev->run->n_buffers].start = mmap(NULL, buf_info.length, PROT_READ|PROT_WRITE, MAP_SHARED, dev->run->fd, buf_info.m.offset);
 		if (dev->run->hw_buffers[dev->run->n_buffers].start == MAP_FAILED) {
-			LOG_PERROR("Can't map device buffer %d", dev->run->n_buffers);
+			LOG_PERROR("Can't map device buffer %u", dev->run->n_buffers);
 			return -1;
 		}
 	}
@@ -401,7 +401,7 @@ static int _device_open_queue_buffers(struct device_t *dev) {
 		buf_info.memory = V4L2_MEMORY_MMAP;
 		buf_info.index = index;
 
-		LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) for buffer %d ...", index);
+		LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) for buffer %u ...", index);
 		if (xioctl(dev->run->fd, VIDIOC_QBUF, &buf_info) < 0) {
 			LOG_PERROR("Can't VIDIOC_QBUF");
 			return -1;
@@ -416,7 +416,7 @@ static void _device_open_alloc_picbufs(struct device_t *dev) {
 
 	dev->run->max_picture_size = ((dev->run->width * dev->run->height) << 1) * 2;
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
-		LOG_DEBUG("Allocating picture buffer %d sized %lu bytes... ", index, dev->run->max_picture_size);
+		LOG_DEBUG("Allocating picture buffer %u sized %lu bytes... ", index, dev->run->max_picture_size);
 		A_CALLOC(dev->run->pictures[index].data, dev->run->max_picture_size);
 		dev->run->pictures[index].allocated = dev->run->max_picture_size;
 	}

@@ -189,7 +189,7 @@ void stream_loop(struct stream_t *stream) {
 					// For example a VGA (640x480) webcam picture is normally >= 8kByte large,
 					// corrupted frames are smaller.
 					if (buf_info.bytesused < stream->dev->min_frame_size) {
-						LOG_DEBUG("Dropping too small frame sized %d bytes, assuming it as broken", buf_info.bytesused);
+						LOG_DEBUG("Dropping too small frame sized %u bytes, assuming it as broken", buf_info.bytesused);
 						goto pass_frame;
 					}
 
@@ -215,7 +215,7 @@ void stream_loop(struct stream_t *stream) {
 						LOG_VERBOSE("Fluency: delay=%.03Lf; grab_after=%.03Lf", fluency_delay, grab_after);
 					}
 
-					LOG_DEBUG("Grabbed a new frame to buffer %d", buf_info.index);
+					LOG_DEBUG("Grabbed a new frame to buffer %u", buf_info.index);
 					pool.workers[free_worker_number].ctx.buf_info = buf_info;
 
 					if (!oldest_worker) {
@@ -343,7 +343,7 @@ static int _stream_init_loop(struct device_t *dev, struct workers_pool_t *pool) 
 	LOG_DEBUG("%s: *dev->stop = %d", __FUNCTION__, dev->stop);
 	while (!dev->stop) {
 		if ((retval = _stream_init(dev, pool)) < 0) {
-			LOG_INFO("Sleeping %d seconds before new stream init ...", dev->error_delay);
+			LOG_INFO("Sleeping %u seconds before new stream init ...", dev->error_delay);
 			sleep(dev->error_delay);
 		} else {
 			break;
@@ -378,7 +378,7 @@ static int _stream_init(struct device_t *dev, struct workers_pool_t *pool) {
 }
 
 static void _stream_init_workers(struct device_t *dev, struct workers_pool_t *pool) {
-	LOG_INFO("Spawning %d workers ...", dev->n_workers);
+	LOG_INFO("Spawning %u workers ...", dev->n_workers);
 
 	*pool->workers_stop = false;
 	A_CALLOC(pool->workers, dev->n_workers);
@@ -434,7 +434,7 @@ static void *_stream_worker_thread(void *v_ctx) {
 #	define PICTURE(_next) ctx->dev->run->pictures[ctx->buf_index]._next
 
 		if (!*ctx->workers_stop) {
-			LOG_DEBUG("Worker %u compressing JPEG from buffer %d ...", ctx->number, ctx->buf_index);
+			LOG_DEBUG("Worker %u compressing JPEG from buffer %u ...", ctx->number, ctx->buf_index);
 
 			PICTURE(encode_begin_time) = get_now_monotonic();
 			if (encoder_compress_buffer(ctx->encoder, ctx->dev, ctx->number, ctx->buf_index) < 0) {
@@ -453,7 +453,7 @@ static void *_stream_worker_thread(void *v_ctx) {
 				A_PTHREAD_M_UNLOCK(ctx->last_comp_time_mutex);
 
 				LOG_VERBOSE(
-					"Compressed JPEG size=%ld; time=%0.3Lf; worker=%u; buffer=%d",
+					"Compressed JPEG size=%ld; time=%0.3Lf; worker=%u; buffer=%u",
 					PICTURE(size), last_comp_time, ctx->number, ctx->buf_index
 				);
 			} else {
@@ -470,7 +470,7 @@ static void *_stream_worker_thread(void *v_ctx) {
 		A_PTHREAD_C_SIGNAL(ctx->free_workers_cond);
 	}
 
-	LOG_DEBUG("Bye-bye (worker %d)", ctx->number);
+	LOG_DEBUG("Bye-bye (worker %u)", ctx->number);
 	return NULL;
 }
 
@@ -528,9 +528,9 @@ static int _stream_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_inf
 		return -1;
 	}
 
-	LOG_DEBUG("Got a new frame in buffer index=%d; bytesused=%d", buf_info->index, buf_info->bytesused);
+	LOG_DEBUG("Got a new frame in buffer index=%u; bytesused=%u", buf_info->index, buf_info->bytesused);
 	if (buf_info->index >= dev->run->n_buffers) {
-		LOG_ERROR("Got invalid buffer index=%d; nbuffers=%d", buf_info->index, dev->run->n_buffers);
+		LOG_ERROR("Got invalid buffer index=%u; nbuffers=%u", buf_info->index, dev->run->n_buffers);
 		return -1;
 	}
 	return 0;

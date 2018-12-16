@@ -180,12 +180,12 @@ int http_server_listen(struct http_server_t *server) {
 		LOG_INFO("Listening HTTP on UNIX socket '%s'", server->unix_path);
 
 	} else {
-		LOG_DEBUG("Binding HTTP to [%s]:%d ...", server->host, server->port);
+		LOG_DEBUG("Binding HTTP to [%s]:%u ...", server->host, server->port);
 		if (evhttp_bind_socket(server->run->http, server->host, server->port) < 0) {
-			LOG_PERROR("Can't bind HTTP on [%s]:%d", server->host, server->port)
+			LOG_PERROR("Can't bind HTTP on [%s]:%u", server->host, server->port)
 			return -1;
 		}
-		LOG_INFO("Listening HTTP on [%s]:%d", server->host, server->port);
+		LOG_INFO("Listening HTTP on [%s]:%u", server->host, server->port);
 	}
 
 	return 0;

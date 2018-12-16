@@ -65,7 +65,7 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 		LOG_DEBUG("Initializing encoder ...");
 	}
 
-	LOG_INFO("Using JPEG quality: %d%%", encoder->quality);
+	LOG_INFO("Using JPEG quality: %u%%", encoder->quality);
 
 #	ifdef OMX_ENCODER
 	if (encoder->type == ENCODER_TYPE_OMX) {
