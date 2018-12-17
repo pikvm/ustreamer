@@ -309,6 +309,7 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	ADD_TIME_HEADER("X-Timestamp", get_now_real());
 
 	ADD_HEADER("X-UStreamer-Online",					bool_to_string(EXPOSED(online)));
+	ADD_UNSIGNED_HEADER("X-UStreamer-Dropped",			EXPOSED(dropped));
 	ADD_UNSIGNED_HEADER("X-UStreamer-Width",			EXPOSED(width));
 	ADD_UNSIGNED_HEADER("X-UStreamer-Height",			EXPOSED(height));
 	ADD_TIME_HEADER("X-UStreamer-Grab-Time",			EXPOSED(picture.grab_time));
@@ -479,6 +480,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 		if (client->extra_headers) {
 			assert(evbuffer_add_printf(buf,
 				"X-UStreamer-Online: %s" RN
+				"X-UStreamer-Dropped: %u" RN
 				"X-UStreamer-Width: %u" RN
 				"X-UStreamer-Height: %u" RN
 				"X-UStreamer-Client-FPS: %u" RN
@@ -491,6 +493,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				"X-UStreamer-Send-Time: %.06Lf" RN
 				RN,
 				bool_to_string(EXPOSED(online)),
+				EXPOSED(dropped),
 				EXPOSED(width),
 				EXPOSED(height),
 				client->fps,
