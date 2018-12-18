@@ -296,7 +296,7 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	assert(!evbuffer_add(buf, (const void *)EXPOSED(picture.data), EXPOSED(picture.size)));
 
 	ADD_HEADER("Access-Control-Allow-Origin:", "*");
-	ADD_HEADER("Cache-Control", "no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0");
+	ADD_HEADER("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, pre-check=0, post-check=0, max-age=0");
 	ADD_HEADER("Pragma", "no-cache");
 	ADD_HEADER("Expires", "Mon, 3 Jan 2000 12:34:56 GMT");
 
@@ -447,7 +447,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 		assert(evbuffer_add_printf(buf,
 			"HTTP/1.0 200 OK" RN
 			"Access-Control-Allow-Origin: *" RN
-			"Cache-Control: no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0" RN
+			"Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, pre-check=0, post-check=0, max-age=0" RN
 			"Pragma: no-cache" RN
 			"Expires: Mon, 3 Jan 2000 12:34:56 GMT" RN
 			"Set-Cookie: stream_client=%s/%s; path=/; max-age=30" RN
