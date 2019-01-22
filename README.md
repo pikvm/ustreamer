@@ -60,7 +60,6 @@ $ ./ustreamer \
     --format=uyvy \ # Device input format
     --encoder=omx \ # Hardware encoding with OpenMAX
     --dv-timings \ # Use DV-timings
-    --quality=20 \ # OpenMAX has a non-linear quality scale
     --drop-same-frames=30 # Save that traffic
 ```
 
