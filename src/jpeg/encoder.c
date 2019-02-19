@@ -1,4 +1,5 @@
 /*****************************************************************************
+#                                                                            #
 #    uStreamer - Lightweight and fast MJPG-HTTP streamer.                    #
 #                                                                            #
 #    This source file based on code of MJPG-Streamer.                        #

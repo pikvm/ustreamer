@@ -51,6 +51,7 @@ def main():
     text = "const unsigned %s_JPG_WIDTH = %d;\n" % (prefix, width) + text
     text = textwrap.dedent("""
         /*****************************************************************************
+        #                                                                            #
         #    uStreamer - Lightweight and fast MJPG-HTTP streamer.                    #
         #                                                                            #
         #    Copyright (C) 2018  Maxim Devaev <mdevaev@gmail.com>                    #

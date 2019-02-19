@@ -1,4 +1,5 @@
 /*****************************************************************************
+#                                                                            #
 #    uStreamer - Lightweight and fast MJPG-HTTP streamer.                    #
 #                                                                            #
 #    Copyright (C) 2018  Maxim Devaev <mdevaev@gmail.com>                    #

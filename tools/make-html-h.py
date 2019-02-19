@@ -44,6 +44,7 @@ def main():
     text = "const char *%s = \" \\\n%s\n\";\n" % (name, text)
     text = textwrap.dedent("""
         /*****************************************************************************
+        #                                                                            #
         #    uStreamer - Lightweight and fast MJPG-HTTP streamer.                    #
         #                                                                            #
         #    Copyright (C) 2018  Maxim Devaev <mdevaev@gmail.com>                    #
