@@ -42,7 +42,7 @@ def main():
     for ch in jpg_data:
         if len(rows[-1]) > 20:
             rows.append([])
-        rows[-1].append(hex(ch))
+        rows[-1].append("0x%.2X" % (ch))
 
     text = ",\n\t".join(", ".join(row) for row in rows)
     text = "const unsigned char %s_JPG_DATA[] = {\n\t%s\n};\n" % (prefix, text)

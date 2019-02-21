@@ -441,10 +441,10 @@ static int _device_apply_resolution(struct device_t *dev, const unsigned width, 
 
 static const char *_format_to_string_auto(char *buf, const size_t size, const unsigned format) {
 	assert(size >= 8);
-	buf[0] = format & 0x7f;
-	buf[1] = (format >> 8) & 0x7f;
-	buf[2] = (format >> 16) & 0x7f;
-	buf[3] = (format >> 24) & 0x7f;
+	buf[0] = format & 0x7F;
+	buf[1] = (format >> 8) & 0x7F;
+	buf[2] = (format >> 16) & 0x7F;
+	buf[3] = (format >> 24) & 0x7F;
 	if (format & (1 << 31)) {
 		buf[4] = '-';
 		buf[5] = 'B';
