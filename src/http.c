@@ -118,6 +118,14 @@ void http_server_destroy(struct http_server_t *server) {
 	event_base_free(server->run->base);
 	libevent_global_shutdown();
 
+	for (struct stream_client_t *client = server->run->stream_clients; client != NULL;) {
+		struct stream_client_t *next = client->next;
+
+		free(client->key);
+		free(client);
+		client = next;
+	}
+
 	free(server->run->exposed->picture.data);
 	free(server->run->exposed);
 	free(server->run);
