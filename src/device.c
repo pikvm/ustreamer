@@ -286,6 +286,7 @@ static int _device_apply_dv_timings(struct device_t *dev) {
 
 static int _device_open_format(struct device_t *dev) {
 	struct v4l2_format fmt;
+	char format_str[8];
 
 	MEMSET_ZERO(fmt);
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -297,8 +298,6 @@ static int _device_open_format(struct device_t *dev) {
 	// Set format
 	LOG_DEBUG("Calling ioctl(VIDIOC_S_FMT) ...");
 	if (xioctl(dev->run->fd, VIDIOC_S_FMT, &fmt) < 0) {
-		char format_str[8];
-
 		LOG_PERROR(
 			"Unable to set format=%s; resolution=%ux%u",
 			_format_to_string_auto(format_str, 8, dev->format),
@@ -319,13 +318,12 @@ static int _device_open_format(struct device_t *dev) {
 
 	// Check format
 	if (fmt.fmt.pix.pixelformat != dev->format) {
-		char format_requested_str[8];
 		char format_obtained_str[8];
 		char *format_str_nullable;
 
 		LOG_ERROR(
 			"Could not obtain the requested pixelformat=%s; driver gave us %s",
-			_format_to_string_auto(format_requested_str, 8, dev->format),
+			_format_to_string_auto(format_str, 8, dev->format),
 			_format_to_string_auto(format_obtained_str, 8, fmt.fmt.pix.pixelformat)
 		);
 
@@ -340,7 +338,9 @@ static int _device_open_format(struct device_t *dev) {
 			return -1;
 		}
 	}
+
 	dev->run->format = fmt.fmt.pix.pixelformat;
+	LOG_INFO("Using pixelformat: %s", _format_to_string_auto(format_str, 8, dev->run->format));
 	return 0;
 }
 
