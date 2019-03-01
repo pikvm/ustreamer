@@ -41,7 +41,7 @@
 #include "http.h"
 
 
-static const char _short_opts[] = "d:i:x:y:f:a:z:tn:w:q:c:s:p:u:ro:e:h";
+static const char _short_opts[] = "d:i:x:y:m:a:f:z:tb:w:q:c:s:p:u:ro:e:h";
 static const struct option _long_opts[] = {
 	{"device",					required_argument,	NULL,	'd'},
 	{"input",					required_argument,	NULL,	'i'},
