@@ -50,8 +50,8 @@ struct _mjpg_destination_mgr {
 static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, unsigned long *written);
 
 static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg,
-    unsigned char *line_buffer, const unsigned char *data,
-    const unsigned width, const unsigned height);
+	unsigned char *line_buffer, const unsigned char *data,
+	const unsigned width, const unsigned height);
 
 static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg,
 	unsigned char *line_buffer, const unsigned char *data,
@@ -93,6 +93,7 @@ void jpeg_encoder_compress_buffer(struct device_t *dev, const unsigned index, co
 
 #	define WRITE_SCANLINES(_func) \
 		_func(&jpeg, line_buffer, dev->run->hw_buffers[index].start, dev->run->width, dev->run->height)
+
 	switch (dev->run->format) {
 		// https://www.fourcc.org/yuv.php
 		case V4L2_PIX_FMT_YUYV: WRITE_SCANLINES(_jpeg_write_scanlines_yuyv); break;
@@ -100,6 +101,7 @@ void jpeg_encoder_compress_buffer(struct device_t *dev, const unsigned index, co
 		case V4L2_PIX_FMT_RGB565: WRITE_SCANLINES(_jpeg_write_scanlines_rgb565); break;
 		default: assert(0 && "Unsupported input format for JPEG compressor");
 	}
+
 #	undef WRITE_SCANLINES
 
 	// TODO: process jpeg errors:
@@ -128,6 +130,8 @@ static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, 
 	dest->written = written;
 }
 
+#define NORM_COMPONENT(_x) (((_x) > 255) ? 255 : (((_x) < 0) ? 0 : (_x)))
+
 static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg,
 	unsigned char *line_buffer, const unsigned char *data,
 	const unsigned width, const unsigned height) {
@@ -147,9 +151,9 @@ static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg,
 			int g = (y - (88 * u) - (183 * v)) >> 8;
 			int b = (y + (454 * u)) >> 8;
 
-			*(ptr++) = (r > 255) ? 255 : ((r < 0) ? 0 : r);
-			*(ptr++) = (g > 255) ? 255 : ((g < 0) ? 0 : g);
-			*(ptr++) = (b > 255) ? 255 : ((b < 0) ? 0 : b);
+			*(ptr++) = NORM_COMPONENT(r);
+			*(ptr++) = NORM_COMPONENT(g);
+			*(ptr++) = NORM_COMPONENT(b);
 
 			if (z++) {
 				z = 0;
@@ -181,9 +185,9 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg,
 			int g = (y - (88 * u) - (183 * v)) >> 8;
 			int b = (y + (454 * u)) >> 8;
 
-			*(ptr++) = (r > 255) ? 255 : ((r < 0) ? 0 : r);
-			*(ptr++) = (g > 255) ? 255 : ((g < 0) ? 0 : g);
-			*(ptr++) = (b > 255) ? 255 : ((b < 0) ? 0 : b);
+			*(ptr++) = NORM_COMPONENT(r);
+			*(ptr++) = NORM_COMPONENT(g);
+			*(ptr++) = NORM_COMPONENT(b);
 
 			if (z++) {
 				z = 0;
@@ -195,6 +199,8 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg,
 		jpeg_write_scanlines(jpeg, scanlines, 1);
 	}
 }
+
+#undef NORM_COMPONENT
 
 static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg,
 	unsigned char *line_buffer, const unsigned char *data,
