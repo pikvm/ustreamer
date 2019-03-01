@@ -3,7 +3,7 @@
 
 
 pkgname=ustreamer
-pkgver=0.49
+pkgver=0.50
 pkgrel=1
 pkgdesc="Lightweight and fast MJPG-HTTP streamer"
 url="https://github.com/pi-kvm/ustreamer"
