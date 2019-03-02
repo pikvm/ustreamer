@@ -48,12 +48,12 @@
 #define A_PTHREAD_C_SIGNAL(...)		assert(!pthread_cond_signal(__VA_ARGS__))
 #define A_PTHREAD_C_WAIT_TRUE(_var, _cond, _mutex) { while(!_var) assert(!pthread_cond_wait(_cond, _mutex)); }
 
-
 #define A_CALLOC(_dest, _nmemb)		assert((_dest = calloc(_nmemb, sizeof(*(_dest)))))
 #define A_REALLOC(_dest, _nmemb)	assert((_dest = realloc(_dest, _nmemb * sizeof(*(_dest)))))
 #define MEMSET_ZERO(_obj)			memset(&(_obj), 0, sizeof(_obj))
 #define MEMSET_ZERO_PTR(_ptr)		memset(_ptr, 0, sizeof(*(_ptr)))
 
+#define ARRAY_LEN(_array) (sizeof(_array) / sizeof(_array[0]))
 
 #define INLINE inline __attribute__((always_inline))
 #define UNUSED __attribute__((unused))

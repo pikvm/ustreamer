@@ -99,7 +99,7 @@ void device_destroy(struct device_t *dev) {
 }
 
 int device_parse_format(const char *const str) {
-	for (unsigned index = 0; index < sizeof(_FORMATS) / sizeof(_FORMATS[0]); ++index) {
+	for (unsigned index = 0; index < ARRAY_LEN(_FORMATS); ++index) {
 		if (!strcasecmp(str, _FORMATS[index].name)) {
 			return _FORMATS[index].format;
 		}
@@ -108,7 +108,7 @@ int device_parse_format(const char *const str) {
 }
 
 v4l2_std_id device_parse_standard(const char *const str) {
-	for (unsigned index = 1; index < sizeof(_STANDARDS) / sizeof(_STANDARDS[0]); ++index) {
+	for (unsigned index = 1; index < ARRAY_LEN(_STANDARDS); ++index) {
 		if (!strcasecmp(str, _STANDARDS[index].name)) {
 			return _STANDARDS[index].standard;
 		}
@@ -457,7 +457,7 @@ static const char *_format_to_string_auto(char *buf, const size_t size, const un
 }
 
 static const char *_format_to_string_null(const unsigned format) {
-    for (unsigned index = 0; index < sizeof(_FORMATS) / sizeof(_FORMATS[0]); ++index) {
+    for (unsigned index = 0; index < ARRAY_LEN(_FORMATS); ++index) {
 		if (format == _FORMATS[index].format) {
 			return _FORMATS[index].name;
 		}
@@ -466,7 +466,7 @@ static const char *_format_to_string_null(const unsigned format) {
 }
 
 static const char *_standard_to_string(v4l2_std_id standard) {
-	for (unsigned index = 0; index < sizeof(_STANDARDS) / sizeof(_STANDARDS[0]); ++index) {
+	for (unsigned index = 0; index < ARRAY_LEN(_STANDARDS); ++index) {
 		if (standard == _STANDARDS[index].standard) {
 			return _STANDARDS[index].name;
 		}

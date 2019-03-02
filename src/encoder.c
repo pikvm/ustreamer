@@ -120,7 +120,7 @@ void encoder_destroy(struct encoder_t *encoder) {
 }
 
 enum encoder_type_t encoder_parse_type(const char *const str) {
-	for (unsigned index = 0; index < sizeof(_ENCODER_TYPES) / sizeof(_ENCODER_TYPES[0]); ++index) {
+	for (unsigned index = 0; index < ARRAY_LEN(_ENCODER_TYPES); ++index) {
 		if (!strcasecmp(str, _ENCODER_TYPES[index].name)) {
 			return _ENCODER_TYPES[index].type;
 		}
