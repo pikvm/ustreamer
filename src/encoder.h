@@ -45,13 +45,20 @@ enum encoder_type_t {
 #endif
 };
 
-struct encoder_t {
-	enum encoder_type_t		type;
-	unsigned				quality;
+struct encoder_runtime_t {
+	enum encoder_type_t type;
 #ifdef OMX_ENCODER
 	unsigned				n_omxs;
 	struct omx_encoder_t	**omxs;
 #endif
+};
+
+
+struct encoder_t {
+	enum encoder_type_t	type;
+	unsigned			quality;
+
+	struct encoder_runtime_t *run;
 };
 
 

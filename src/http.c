@@ -261,14 +261,16 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 
 	assert((buf = evbuffer_new()));
 	assert(evbuffer_add_printf(buf,
-		"{\"ok\": true, \"result\":"
-		" {\"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
-		" \"online\": %s, \"quality\": %u, \"desired_fps\": %u, \"captured_fps\": %u},"
+		"{\"ok\": true, \"result\": {"
+		" \"encoder\": {\"fallback\": %s, \"quality\": %u},"
+		" \"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
+		" \"online\": %s, \"desired_fps\": %u, \"captured_fps\": %u},"
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
+		bool_to_string(server->run->stream->encoder->type != server->run->stream->encoder->run->type),
+		server->run->stream->encoder->quality,
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
 		(server->fake_height ? server->fake_height : server->run->exposed->height),
 		bool_to_string(server->run->exposed->online),
-		server->run->stream->encoder->quality,
 		server->run->stream->dev->desired_fps,
 		server->run->exposed->captured_fps,
 		server->run->exposed->queued_fps,
