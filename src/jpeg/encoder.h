@@ -25,4 +25,4 @@
 #include "../device.h"
 
 
-void jpeg_encoder_compress_buffer(struct device_t *dev, const unsigned index, const unsigned quality);
+void jpeg_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned quality);

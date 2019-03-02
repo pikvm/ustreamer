@@ -42,5 +42,5 @@
 	}
 
 
-const char *omx_error_to_string(const OMX_ERRORTYPE error);
-const char *omx_state_to_string(const OMX_STATETYPE state);
+const char *omx_error_to_string(OMX_ERRORTYPE error);
+const char *omx_state_to_string(OMX_STATETYPE state);

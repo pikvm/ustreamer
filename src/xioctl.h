@@ -33,7 +33,7 @@
 #define XIOCTL_RETRIES 4
 
 
-INLINE int xioctl(const int fd, const int request, void *arg) {
+INLINE int xioctl(int fd, int request, void *arg) {
 	int retries = XIOCTL_RETRIES;
 	int retval = -1;
 

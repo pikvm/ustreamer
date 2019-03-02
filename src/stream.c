@@ -49,7 +49,7 @@ static void _stream_init_workers(struct device_t *dev, struct workers_pool_t *po
 static void *_stream_worker_thread(void *v_ctx);
 static void _stream_destroy_workers(struct device_t *dev, struct workers_pool_t *pool);
 
-static int _stream_control(struct device_t *dev, const bool enable);
+static int _stream_control(struct device_t *dev, bool enable);
 static int _stream_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_info);
 static int _stream_release_buffer(struct device_t *dev, struct v4l2_buffer *buf_info);
 static int _stream_handle_event(struct device_t *dev);
@@ -500,7 +500,7 @@ static void _stream_destroy_workers(struct device_t *dev, struct workers_pool_t 
 	pool->workers = NULL;
 }
 
-static int _stream_control(struct device_t *dev, const bool enable) {
+static int _stream_control(struct device_t *dev, bool enable) {
 	if (enable != dev->run->capturing) {
 		enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 

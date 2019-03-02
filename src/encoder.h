@@ -65,10 +65,9 @@ struct encoder_t {
 struct encoder_t *encoder_init();
 void encoder_destroy(struct encoder_t *encoder);
 
-enum encoder_type_t encoder_parse_type(const char *const str);
+enum encoder_type_t encoder_parse_type(const char *str);
 
 void encoder_prepare(struct encoder_t *encoder, struct device_t *dev);
 void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev);
 
-int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev,
-	const unsigned worker_number, const unsigned buf_index);
+int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, unsigned worker_number, unsigned buf_index);

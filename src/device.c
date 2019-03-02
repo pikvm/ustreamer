@@ -65,11 +65,11 @@ static int _device_open_format(struct device_t *dev);
 static void _device_open_alloc_picbufs(struct device_t *dev);
 static int _device_open_mmap(struct device_t *dev);
 static int _device_open_queue_buffers(struct device_t *dev);
-static int _device_apply_resolution(struct device_t *dev, const unsigned width, const unsigned height);
+static int _device_apply_resolution(struct device_t *dev, unsigned width, unsigned height);
 
-static const char *_format_to_string_auto(char *buf, const size_t size, const unsigned format);
-static const char *_format_to_string_null(const unsigned format);
-static const char *_standard_to_string(const v4l2_std_id standard);
+static const char *_format_to_string_auto(char *buf, size_t size, unsigned format);
+static const char *_format_to_string_null(unsigned format);
+static const char *_standard_to_string(v4l2_std_id standard);
 
 
 struct device_t *device_init() {
@@ -98,7 +98,7 @@ void device_destroy(struct device_t *dev) {
 	free(dev);
 }
 
-int device_parse_format(const char *const str) {
+int device_parse_format(const char *str) {
 	for (unsigned index = 0; index < ARRAY_LEN(_FORMATS); ++index) {
 		if (!strcasecmp(str, _FORMATS[index].name)) {
 			return _FORMATS[index].format;
@@ -107,7 +107,7 @@ int device_parse_format(const char *const str) {
 	return FORMAT_UNKNOWN;
 }
 
-v4l2_std_id device_parse_standard(const char *const str) {
+v4l2_std_id device_parse_standard(const char *str) {
 	for (unsigned index = 1; index < ARRAY_LEN(_STANDARDS); ++index) {
 		if (!strcasecmp(str, _STANDARDS[index].name)) {
 			return _STANDARDS[index].standard;
@@ -423,7 +423,7 @@ static void _device_open_alloc_picbufs(struct device_t *dev) {
 	}
 }
 
-static int _device_apply_resolution(struct device_t *dev, const unsigned width, const unsigned height) {
+static int _device_apply_resolution(struct device_t *dev, unsigned width, unsigned height) {
 	// Тут VIDEO_MIN_* не используются из-за странностей минимального разрешения при отсутствии сигнала
 	// у некоторых устройств, например Auvidea B101
 	if (
@@ -439,7 +439,7 @@ static int _device_apply_resolution(struct device_t *dev, const unsigned width, 
 	return 0;
 }
 
-static const char *_format_to_string_auto(char *buf, const size_t size, const unsigned format) {
+static const char *_format_to_string_auto(char *buf, size_t size, unsigned format) {
 	assert(size >= 8);
 	buf[0] = format & 0x7F;
 	buf[1] = (format >> 8) & 0x7F;
@@ -456,7 +456,7 @@ static const char *_format_to_string_auto(char *buf, const size_t size, const un
 	return buf;
 }
 
-static const char *_format_to_string_null(const unsigned format) {
+static const char *_format_to_string_null(unsigned format) {
     for (unsigned index = 0; index < ARRAY_LEN(_FORMATS); ++index) {
 		if (format == _FORMATS[index].format) {
 			return _FORMATS[index].name;

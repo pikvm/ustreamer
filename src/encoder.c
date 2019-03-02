@@ -119,7 +119,7 @@ void encoder_destroy(struct encoder_t *encoder) {
 	free(encoder);
 }
 
-enum encoder_type_t encoder_parse_type(const char *const str) {
+enum encoder_type_t encoder_parse_type(const char *str) {
 	for (unsigned index = 0; index < ARRAY_LEN(_ENCODER_TYPES); ++index) {
 		if (!strcasecmp(str, _ENCODER_TYPES[index].name)) {
 			return _ENCODER_TYPES[index].type;
@@ -156,8 +156,7 @@ void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev) {
 
 #pragma GCC diagnostic ignored "-Wunused-label"
 #pragma GCC diagnostic push
-int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev,
-	const unsigned worker_number, const unsigned buf_index) {
+int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, unsigned worker_number, unsigned buf_index) {
 #pragma GCC diagnostic pop
 
 	assert(encoder->run->type != ENCODER_TYPE_UNKNOWN);

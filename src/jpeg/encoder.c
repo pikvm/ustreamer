@@ -49,24 +49,27 @@ struct _mjpg_destination_mgr {
 
 static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, unsigned long *written);
 
-static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg,
+static void _jpeg_write_scanlines_yuyv(
+	struct jpeg_compress_struct *jpeg,
 	unsigned char *line_buffer, const unsigned char *data,
-	const unsigned width, const unsigned height);
+	unsigned width, unsigned height);
 
-static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg,
+static void _jpeg_write_scanlines_uyvy(
+	struct jpeg_compress_struct *jpeg,
 	unsigned char *line_buffer, const unsigned char *data,
-	const unsigned width, const unsigned height);
+	unsigned width, unsigned height);
 
-static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg,
+static void _jpeg_write_scanlines_rgb565(
+	struct jpeg_compress_struct *jpeg,
 	unsigned char *line_buffer, const unsigned char *data,
-	const unsigned width, const unsigned height);
+	unsigned width, unsigned height);
 
 static void _jpeg_init_destination(j_compress_ptr jpeg);
 static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
 static void _jpeg_term_destination(j_compress_ptr jpeg);
 
 
-void jpeg_encoder_compress_buffer(struct device_t *dev, const unsigned index, const unsigned quality) {
+void jpeg_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned quality) {
 	// This function based on compress_image_to_jpeg() from mjpg-streamer
 
 	struct jpeg_compress_struct jpeg;
@@ -132,9 +135,10 @@ static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, 
 
 #define NORM_COMPONENT(_x) (((_x) > 255) ? 255 : (((_x) < 0) ? 0 : (_x)))
 
-static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg,
+static void _jpeg_write_scanlines_yuyv(
+	struct jpeg_compress_struct *jpeg,
 	unsigned char *line_buffer, const unsigned char *data,
-	const unsigned width, const unsigned height) {
+	unsigned width, unsigned height) {
 
 	JSAMPROW scanlines[1];
 	unsigned z = 0;
@@ -166,9 +170,10 @@ static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg,
 	}
 }
 
-static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg,
+static void _jpeg_write_scanlines_uyvy(
+	struct jpeg_compress_struct *jpeg,
 	unsigned char *line_buffer, const unsigned char *data,
-	const unsigned width, const unsigned height) {
+	unsigned width, unsigned height) {
 
 	JSAMPROW scanlines[1];
 	unsigned z = 0;
@@ -202,9 +207,10 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg,
 
 #undef NORM_COMPONENT
 
-static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg,
+static void _jpeg_write_scanlines_rgb565(
+	struct jpeg_compress_struct *jpeg,
 	unsigned char *line_buffer, const unsigned char *data,
-	const unsigned width, const unsigned height) {
+	unsigned width, unsigned height) {
 
 	JSAMPROW scanlines[1];
 

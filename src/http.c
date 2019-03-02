@@ -66,7 +66,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 static void _http_callback_stream_error(struct bufferevent *buf_event, short what, void *v_ctx);
 
 static void _http_exposed_refresh(int fd, short event, void *v_server);
-static void _http_queue_send_stream(struct http_server_t *server, const bool stream_updated, const bool picture_updated);
+static void _http_queue_send_stream(struct http_server_t *server, bool stream_updated, bool picture_updated);
 
 static bool _expose_new_picture(struct http_server_t *server);
 static bool _expose_blank_picture(struct http_server_t *server);
@@ -573,7 +573,7 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	free(client);
 }
 
-static void _http_queue_send_stream(struct http_server_t *server, const bool stream_updated, const bool picture_updated) {
+static void _http_queue_send_stream(struct http_server_t *server, bool stream_updated, bool picture_updated) {
 	struct evhttp_connection *conn;
 	struct bufferevent *buf_event;
 	long long now;

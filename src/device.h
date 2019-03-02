@@ -93,8 +93,8 @@ struct device_t {
 struct device_t *device_init();
 void device_destroy(struct device_t *dev);
 
-int device_parse_format(const char *const str);
-v4l2_std_id device_parse_standard(const char *const str);
+int device_parse_format(const char *str);
+v4l2_std_id device_parse_standard(const char *str);
 
 int device_open(struct device_t *dev);
 void device_close(struct device_t *dev);

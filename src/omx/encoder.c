@@ -52,17 +52,20 @@ static int _i_omx = 0;
 static int _omx_init_component(struct omx_encoder_t *omx);
 static int _omx_init_disable_ports(struct omx_encoder_t *omx);
 static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev);
-static int _omx_setup_output(struct omx_encoder_t *omx, const unsigned quality);
+static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality);
 static int _omx_encoder_clear_ports(struct omx_encoder_t *omx);
 
-static OMX_ERRORTYPE _omx_event_handler(UNUSED OMX_HANDLETYPE encoder,
+static OMX_ERRORTYPE _omx_event_handler(
+	UNUSED OMX_HANDLETYPE encoder,
 	OMX_PTR v_omx, OMX_EVENTTYPE event, OMX_U32 data1,
 	UNUSED OMX_U32 data2, UNUSED OMX_PTR event_data);
 
-static OMX_ERRORTYPE _omx_input_required_handler(UNUSED OMX_HANDLETYPE encoder,
+static OMX_ERRORTYPE _omx_input_required_handler(
+	UNUSED OMX_HANDLETYPE encoder,
 	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buffer);
 
-static OMX_ERRORTYPE _omx_output_available_handler(UNUSED OMX_HANDLETYPE encoder,
+static OMX_ERRORTYPE _omx_output_available_handler(
+	UNUSED OMX_HANDLETYPE encoder,
 	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buffer);
 
 
@@ -149,7 +152,7 @@ void omx_encoder_destroy(struct omx_encoder_t *omx) {
 	free(omx);
 }
 
-int omx_encoder_prepare_live(struct omx_encoder_t *omx, struct device_t *dev, const unsigned quality) {
+int omx_encoder_prepare_live(struct omx_encoder_t *omx, struct device_t *dev, unsigned quality) {
 	if (component_set_state(&omx->encoder, OMX_StateIdle) < 0) {
 		return -1;
 	}
@@ -168,7 +171,7 @@ int omx_encoder_prepare_live(struct omx_encoder_t *omx, struct device_t *dev, co
 	return 0;
 }
 
-int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, const unsigned index) {
+int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, unsigned index) {
 	OMX_ERRORTYPE error;
 	bool loaded = false;
 
@@ -330,7 +333,7 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 	return 0;
 }
 
-static int _omx_setup_output(struct omx_encoder_t *omx, const unsigned quality) {
+static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality) {
 	OMX_ERRORTYPE error;
 	OMX_PARAM_PORTDEFINITIONTYPE portdef;
 
@@ -434,7 +437,8 @@ static int _omx_encoder_clear_ports(struct omx_encoder_t *omx) {
 	return retcode;
 }
 
-static OMX_ERRORTYPE _omx_event_handler(UNUSED OMX_HANDLETYPE encoder,
+static OMX_ERRORTYPE _omx_event_handler(
+	UNUSED OMX_HANDLETYPE encoder,
 	OMX_PTR v_omx, OMX_EVENTTYPE event, OMX_U32 data1,
 	UNUSED OMX_U32 data2, UNUSED OMX_PTR event_data) {
 
@@ -450,7 +454,8 @@ static OMX_ERRORTYPE _omx_event_handler(UNUSED OMX_HANDLETYPE encoder,
 	return OMX_ErrorNone;
 }
 
-static OMX_ERRORTYPE _omx_input_required_handler(UNUSED OMX_HANDLETYPE encoder,
+static OMX_ERRORTYPE _omx_input_required_handler(
+	UNUSED OMX_HANDLETYPE encoder,
 	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buffer) {
 
 	// Called by OMX when the encoder component requires
@@ -463,7 +468,8 @@ static OMX_ERRORTYPE _omx_input_required_handler(UNUSED OMX_HANDLETYPE encoder,
 	return OMX_ErrorNone;
 }
 
-static OMX_ERRORTYPE _omx_output_available_handler(UNUSED OMX_HANDLETYPE encoder,
+static OMX_ERRORTYPE _omx_output_available_handler(
+	UNUSED OMX_HANDLETYPE encoder,
 	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buffer) {
 
 	// Called by OMX when the encoder component has filled
