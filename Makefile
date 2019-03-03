@@ -8,7 +8,7 @@ LDFLAGS ?=
 CC = gcc
 LIBS = -lm -ljpeg -pthread -levent -levent_pthreads -luuid
 override CFLAGS += -c -std=c99 -Wall -Wextra -D_GNU_SOURCE
-SOURCES = $(shell ls src/*.c src/jpeg/*.c)
+SOURCES = $(shell ls src/*.c src/jpeg/*.c src/hw/*.c)
 OBJECTS = $(SOURCES:.c=.o)
 PROG = ustreamer
 

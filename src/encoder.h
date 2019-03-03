@@ -22,6 +22,8 @@
 
 #pragma once
 
+#include "pthread.h"
+
 #include "tools.h"
 #include "device.h"
 
@@ -34,19 +36,23 @@
 
 
 #define ENCODER_TYPES_STR \
-	"CPU" \
+	"CPU, HW" \
 	ENCODER_TYPES_OMX_HINT
 
 enum encoder_type_t {
 	ENCODER_TYPE_UNKNOWN, // Only for encoder_parse_type() and main()
 	ENCODER_TYPE_CPU,
+	ENCODER_TYPE_HW,
 #ifdef OMX_ENCODER
 	ENCODER_TYPE_OMX,
 #endif
 };
 
 struct encoder_runtime_t {
-	enum encoder_type_t type;
+	enum encoder_type_t	type;
+	unsigned			quality;
+	pthread_mutex_t		mutex;
+
 #ifdef OMX_ENCODER
 	unsigned				n_omxs;
 	struct omx_encoder_t	**omxs;

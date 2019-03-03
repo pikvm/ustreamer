@@ -47,6 +47,7 @@
 
 #include "tools.h"
 #include "logging.h"
+#include "encoder.h"
 #include "stream.h"
 #include "http.h"
 
@@ -259,6 +260,11 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 
 	PROCESS_HEAD_REQUEST;
 
+	A_PTHREAD_M_LOCK(&server->run->stream->encoder->run->mutex);
+	enum encoder_type_t encoder_run_type = server->run->stream->encoder->run->type;
+	unsigned encoder_run_quality = server->run->stream->encoder->run->quality;
+	A_PTHREAD_M_UNLOCK(&server->run->stream->encoder->run->mutex);
+
 	assert((buf = evbuffer_new()));
 	assert(evbuffer_add_printf(buf,
 		"{\"ok\": true, \"result\": {"
@@ -266,8 +272,8 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		" \"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
 		" \"online\": %s, \"desired_fps\": %u, \"captured_fps\": %u},"
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
-		bool_to_string(server->run->stream->encoder->type != server->run->stream->encoder->run->type),
-		server->run->stream->encoder->quality,
+		bool_to_string(server->run->stream->encoder->type != encoder_run_type),
+		encoder_run_quality,
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
 		(server->fake_height ? server->fake_height : server->run->exposed->height),
 		bool_to_string(server->run->exposed->online),

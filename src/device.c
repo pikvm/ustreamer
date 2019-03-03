@@ -55,6 +55,8 @@ static const struct {
 	{"YUYV",	V4L2_PIX_FMT_YUYV},
 	{"UYVY",	V4L2_PIX_FMT_UYVY},
 	{"RGB565",	V4L2_PIX_FMT_RGB565},
+	{"JPEG",	V4L2_PIX_FMT_MJPEG},
+	{"JPEG",	V4L2_PIX_FMT_JPEG},
 };
 
 

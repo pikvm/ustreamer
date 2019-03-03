@@ -20,81 +20,39 @@
 *****************************************************************************/
 
 
-#pragma once
-
-#include <stddef.h>
-#include <stdbool.h>
-#include <signal.h>
+#include <string.h>
+#include <assert.h>
 
 #include <linux/videodev2.h>
 
-
-#define VIDEO_MIN_WIDTH		320
-#define VIDEO_MAX_WIDTH		1920
-
-#define VIDEO_MIN_HEIGHT	180
-#define VIDEO_MAX_HEIGHT	1200
-
-#define STANDARD_UNKNOWN	V4L2_STD_UNKNOWN
-#define STANDARDS_STR		"UNKNOWN, PAL, NTSC, SECAM"
-
-#define FORMAT_UNKNOWN	-1
-#define FORMATS_STR		"YUYV, UYVY, RGB565, JPEG"
+#include "../tools.h"
+#include "../logging.h"
+#include "../xioctl.h"
+#include "../device.h"
 
 
-struct hw_buffer_t {
-	void	*start;
-	size_t	length;
-};
+int hw_encoder_prepare_live(struct device_t *dev, unsigned quality) {
+	struct v4l2_jpegcompression comp;
 
-struct picture_t {
-	unsigned char	*data;
-	unsigned long	size;
-	unsigned long	allocated;
-	long double		grab_time;
-	long double		encode_begin_time;
-	long double		encode_end_time;
-};
+	MEMSET_ZERO(comp);
 
-struct device_runtime_t {
-	int					fd;
-	unsigned			width;
-	unsigned			height;
-	unsigned			format;
-	unsigned			n_buffers;
-//	unsigned			n_workers; // FIXME
-	struct hw_buffer_t	*hw_buffers;
-	struct picture_t	*pictures;
-	unsigned long		max_picture_size;
-	bool				capturing;
-};
+	if (xioctl(dev->run->fd, VIDIOC_G_JPEGCOMP, &comp) < 0) {
+		LOG_ERROR("Can't query HW JPEG compressor params and set quality (unsupported)");
+		return -1;
+	}
+	comp.quality = quality;
+	if (xioctl(dev->run->fd, VIDIOC_S_JPEGCOMP, &comp) < 0) {
+		LOG_ERROR("Can't set HW JPEG compressor quality (unsopported)");
+		return -1;
+	}
+	return 0;
+}
 
-struct device_t {
-	char			*path;
-	unsigned		input;
-	unsigned		width;
-	unsigned		height;
-	unsigned		format;
-	v4l2_std_id		standard;
-	bool			dv_timings;
-	unsigned		n_buffers;
-	unsigned		n_workers;
-	unsigned		desired_fps;
-	unsigned		min_frame_size;
-	bool			persistent;
-	unsigned		timeout;
-	unsigned		error_delay;
-
-	struct device_runtime_t *run;
-	sig_atomic_t volatile stop;
-};
-
-
-struct device_t *device_init();
-void device_destroy(struct device_t *dev);
-
-int device_parse_format(const char *str);
-v4l2_std_id device_parse_standard(const char *str);
-
-int device_open(struct device_t *dev);
-void device_close(struct device_t *dev);
+void hw_encoder_compress_buffer(struct device_t *dev, unsigned index) {
+	if (dev->run->format != V4L2_PIX_FMT_MJPEG && dev->run->format != V4L2_PIX_FMT_JPEG) {
+		assert(0 && "Unsupported input format for HW JPEG compressor");
+	}
+	assert(dev->run->pictures[index].allocated >= dev->run->hw_buffers[index].length);
+	memcpy(dev->run->pictures[index].data, dev->run->hw_buffers[index].start, dev->run->hw_buffers[index].length);
+	dev->run->pictures[index].size = dev->run->hw_buffers[index].length;
+}
