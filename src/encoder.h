@@ -72,6 +72,7 @@ struct encoder_t *encoder_init();
 void encoder_destroy(struct encoder_t *encoder);
 
 enum encoder_type_t encoder_parse_type(const char *str);
+const char *encoder_type_to_string(enum encoder_type_t type);
 
 void encoder_prepare(struct encoder_t *encoder, struct device_t *dev);
 void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev);

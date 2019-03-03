@@ -257,22 +257,28 @@ static void _http_callback_root(struct evhttp_request *request, UNUSED void *arg
 static void _http_callback_state(struct evhttp_request *request, void *v_server) {
 	struct http_server_t *server = (struct http_server_t *)v_server;
 	struct evbuffer *buf;
+	enum encoder_type_t encoder_run_type;
+	unsigned encoder_run_quality;
 
 	PROCESS_HEAD_REQUEST;
 
-	A_PTHREAD_M_LOCK(&server->run->stream->encoder->run->mutex);
-	enum encoder_type_t encoder_run_type = server->run->stream->encoder->run->type;
-	unsigned encoder_run_quality = server->run->stream->encoder->run->quality;
-	A_PTHREAD_M_UNLOCK(&server->run->stream->encoder->run->mutex);
+#	define ENCODER(_next) server->run->stream->encoder->_next
+
+	A_PTHREAD_M_LOCK(&ENCODER(run->mutex));
+	encoder_run_type = ENCODER(run->type);
+	encoder_run_quality = ENCODER(run->quality);
+	A_PTHREAD_M_UNLOCK(&ENCODER(run->mutex));
 
 	assert((buf = evbuffer_new()));
+
 	assert(evbuffer_add_printf(buf,
 		"{\"ok\": true, \"result\": {"
-		" \"encoder\": {\"fallback\": %s, \"quality\": %u},"
+		" \"encoder\": {\"type\": \"%s\", \"fallback\": %s, \"quality\": %u},"
 		" \"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
 		" \"online\": %s, \"desired_fps\": %u, \"captured_fps\": %u},"
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
-		bool_to_string(server->run->stream->encoder->type != encoder_run_type),
+		encoder_type_to_string(encoder_run_type),
+		bool_to_string(ENCODER(type) != encoder_run_type),
 		encoder_run_quality,
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
 		(server->fake_height ? server->fake_height : server->run->exposed->height),
@@ -282,6 +288,9 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		server->run->exposed->queued_fps,
 		server->run->stream_clients_count
 	));
+
+#	undef ENCODER
+
 	for (struct stream_client_t * client = server->run->stream_clients; client != NULL; client = client->next) {
 		assert(evbuffer_add_printf(buf,
 			"\"%s\": {\"fps\": %u, \"extra_headers\": %s, \"advance_headers\": %s, \"dual_final_frames\": %s}%s",
@@ -293,6 +302,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 			(client->next ? ", " : "")
 		));
 	}
+
 	assert(evbuffer_add_printf(buf, "}}}}"));
 
 	ADD_HEADER("Content-Type", "application/json");

@@ -136,6 +136,15 @@ enum encoder_type_t encoder_parse_type(const char *str) {
 	return ENCODER_TYPE_UNKNOWN;
 }
 
+const char *encoder_type_to_string(enum encoder_type_t type) {
+	for (unsigned index = 0; index < ARRAY_LEN(_ENCODER_TYPES); ++index) {
+		if (_ENCODER_TYPES[index].type == type) {
+			return _ENCODER_TYPES[index].name;
+		}
+	}
+	return _ENCODER_TYPES[0].name;
+}
+
 void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev) {
 	assert(encoder->run->type != ENCODER_TYPE_UNKNOWN);
 
