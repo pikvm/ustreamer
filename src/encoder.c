@@ -136,8 +136,6 @@ enum encoder_type_t encoder_parse_type(const char *str) {
 	return ENCODER_TYPE_UNKNOWN;
 }
 
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic push
 void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev) {
 	assert(encoder->run->type != ENCODER_TYPE_UNKNOWN);
 
@@ -160,9 +158,9 @@ void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev) {
 			A_PTHREAD_M_LOCK(&encoder->run->mutex);
 			encoder->run->quality = 0;
 			A_PTHREAD_M_UNLOCK(&encoder->run->mutex);
+			LOG_INFO("Using JPEG quality: HW default");
 		}
 	}
-#pragma GCC diagnostic pop
 #	ifdef OMX_ENCODER
 	else if (encoder->run->type == ENCODER_TYPE_OMX) {
 		for (unsigned index = 0; index < encoder->run->n_omxs; ++index) {
@@ -176,14 +174,11 @@ void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev) {
 
 	return;
 
-#	pragma GCC diagnostic ignored "-Wunused-label"
-#	pragma GCC diagnostic push
 	use_fallback:
 		A_PTHREAD_M_LOCK(&encoder->run->mutex);
 		encoder->run->type = ENCODER_TYPE_CPU;
 		encoder->run->quality = encoder->quality;
 		A_PTHREAD_M_UNLOCK(&encoder->run->mutex);
-#	pragma GCC diagnostic pop
 }
 
 #pragma GCC diagnostic ignored "-Wunused-label"
