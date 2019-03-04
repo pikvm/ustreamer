@@ -8,13 +8,13 @@ LDFLAGS ?=
 CC = gcc
 LIBS = -lm -ljpeg -pthread -levent -levent_pthreads -luuid
 override CFLAGS += -c -std=c99 -Wall -Wextra -D_GNU_SOURCE
-SOURCES = $(shell ls src/*.c src/jpeg/*.c src/hw/*.c)
+SOURCES = $(shell ls src/*.c src/encoders/jpeg/*.c src/encoders/hw/*.c)
 OBJECTS = $(SOURCES:.c=.o)
 PROG = ustreamer
 
 
 ifeq ($(shell ls -d /opt/vc/include 2>/dev/null), /opt/vc/include)
-SOURCES += $(shell ls src/omx/*.c)
+SOURCES += $(shell ls src/encoders/omx/*.c)
 LIBS += -lbcm_host -lvcos -lopenmaxil -L/opt/vc/lib
 override CFLAGS += -DOMX_ENCODER -DOMX_SKIP64BIT -I/opt/vc/include
 endif
@@ -59,5 +59,5 @@ push:
 
 clean-all: clean
 clean:
-	rm -f src/*.o src/{jpeg,hw,omx}/*.o vgcore.* *.sock $(PROG)
+	rm -f src/*.o src/encoders/*/*.o vgcore.* *.sock $(PROG)
 	rm -rf pkg src/$(PROG)-* src/v*.tar.gz v*.tar.gz $(PROG)-*.pkg.tar.xz

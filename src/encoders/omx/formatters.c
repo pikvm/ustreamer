@@ -26,7 +26,7 @@
 #include <IL/OMX_IVCommon.h>
 #include <IL/OMX_Core.h>
 
-#include "../tools.h"
+#include "../../tools.h"
 #include "formatters.h"
 
 

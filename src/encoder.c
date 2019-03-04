@@ -30,11 +30,11 @@
 #include "device.h"
 #include "encoder.h"
 
-#include "jpeg/encoder.h"
-#include "hw/encoder.h"
+#include "encoders/jpeg/encoder.h"
+#include "encoders/hw/encoder.h"
 
 #ifdef OMX_ENCODER
-#	include "omx/encoder.h"
+#	include "encoders/omx/encoder.h"
 #endif
 
 

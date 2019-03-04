@@ -28,7 +28,7 @@
 #include "device.h"
 
 #ifdef OMX_ENCODER
-#	include "omx/encoder.h"
+#	include "encoders/omx/encoder.h"
 #	define ENCODER_TYPES_OMX_HINT ", OMX"
 #else
 #	define ENCODER_TYPES_OMX_HINT ""

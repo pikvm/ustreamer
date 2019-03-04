@@ -22,8 +22,25 @@
 
 #pragma once
 
-#include "../device.h"
+#include <stdio.h>
+
+#include <sys/syscall.h>
+
+#include <IL/OMX_IVCommon.h>
+#include <IL/OMX_Core.h>
+#include <IL/OMX_Image.h>
+
+#include "../../logging.h"
+#include "../../tools.h"
 
 
-int hw_encoder_prepare_live(struct device_t *dev, unsigned quality);
-void hw_encoder_compress_buffer(struct device_t *dev, unsigned index);
+#define LOG_OMX_ERROR(_error, _msg, ...) { \
+		LOGGING_LOCK; \
+		printf("-- ERROR [%.03Lf tid=%ld] -- " _msg ": %s\n", get_now_monotonic(), \
+			syscall(SYS_gettid), ##__VA_ARGS__, omx_error_to_string(_error)); \
+		LOGGING_UNLOCK; \
+	}
+
+
+const char *omx_error_to_string(OMX_ERRORTYPE error);
+const char *omx_state_to_string(OMX_STATETYPE state);

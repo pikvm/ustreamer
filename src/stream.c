@@ -36,8 +36,6 @@
 #include "encoder.h"
 #include "stream.h"
 
-#include "jpeg/encoder.h"
-
 
 static long double _stream_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool);
 static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index);

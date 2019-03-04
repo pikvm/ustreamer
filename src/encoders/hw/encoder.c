@@ -25,10 +25,10 @@
 
 #include <linux/videodev2.h>
 
-#include "../tools.h"
-#include "../logging.h"
-#include "../xioctl.h"
-#include "../device.h"
+#include "../../tools.h"
+#include "../../logging.h"
+#include "../../xioctl.h"
+#include "../../device.h"
 
 
 int hw_encoder_prepare_live(struct device_t *dev, unsigned quality) {

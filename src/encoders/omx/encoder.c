@@ -33,9 +33,9 @@
 #include <IL/OMX_Broadcom.h>
 #include <interface/vcos/vcos_semaphore.h>
 
-#include "../logging.h"
-#include "../tools.h"
-#include "../device.h"
+#include "../../logging.h"
+#include "../../tools.h"
+#include "../../device.h"
 
 #include "formatters.h"
 #include "component.h"

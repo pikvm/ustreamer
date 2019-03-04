@@ -25,7 +25,7 @@
 #include <IL/OMX_Core.h>
 #include <IL/OMX_Component.h>
 
-#include "../logging.h"
+#include "../../logging.h"
 
 #include "formatters.h"
 #include "component.h"

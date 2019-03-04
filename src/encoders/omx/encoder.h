@@ -22,25 +22,35 @@
 
 #pragma once
 
-#include <stdio.h>
+#include <stdbool.h>
 
-#include <sys/syscall.h>
+#include <IL/OMX_Component.h>
+#include <interface/vcos/vcos_semaphore.h>
 
-#include <IL/OMX_IVCommon.h>
-#include <IL/OMX_Core.h>
-#include <IL/OMX_Image.h>
-
-#include "../logging.h"
-#include "../tools.h"
+#include "../../device.h"
 
 
-#define LOG_OMX_ERROR(_error, _msg, ...) { \
-		LOGGING_LOCK; \
-		printf("-- ERROR [%.03Lf tid=%ld] -- " _msg ": %s\n", get_now_monotonic(), \
-			syscall(SYS_gettid), ##__VA_ARGS__, omx_error_to_string(_error)); \
-		LOGGING_UNLOCK; \
-	}
+#define OMX_MAX_ENCODERS 3
 
 
-const char *omx_error_to_string(OMX_ERRORTYPE error);
-const char *omx_state_to_string(OMX_STATETYPE state);
+struct omx_encoder_t {
+	OMX_HANDLETYPE			encoder;
+	OMX_BUFFERHEADERTYPE	*input_buffer;
+	OMX_BUFFERHEADERTYPE	*output_buffer;
+	bool					input_required;
+	bool					output_available;
+	bool					failed;
+	VCOS_SEMAPHORE_T		handler_lock;
+
+	bool	i_handler_lock;
+	bool	i_encoder;
+	bool	i_input_port_enabled;
+	bool	i_output_port_enabled;
+};
+
+
+struct omx_encoder_t *omx_encoder_init();
+void omx_encoder_destroy(struct omx_encoder_t *omx);
+
+int omx_encoder_prepare_live(struct omx_encoder_t *omx, struct device_t *dev, unsigned quality);
+int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, unsigned index);

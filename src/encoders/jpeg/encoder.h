@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include "../device.h"
+#include "../../device.h"
 
 
 void jpeg_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned quality);

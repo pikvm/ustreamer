@@ -33,8 +33,8 @@
 #include <jpeglib.h>
 #include <linux/videodev2.h>
 
-#include "../tools.h"
-#include "../device.h"
+#include "../../tools.h"
+#include "../../device.h"
 
 #include "encoder.h"
 
