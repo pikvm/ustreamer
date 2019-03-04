@@ -50,18 +50,19 @@ struct _mjpg_destination_mgr {
 static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, unsigned long *written);
 
 static void _jpeg_write_scanlines_yuyv(
-	struct jpeg_compress_struct *jpeg,
-	unsigned char *line_buffer, const unsigned char *data,
+	struct jpeg_compress_struct *jpeg, const unsigned char *data,
 	unsigned width, unsigned height);
 
 static void _jpeg_write_scanlines_uyvy(
-	struct jpeg_compress_struct *jpeg,
-	unsigned char *line_buffer, const unsigned char *data,
+	struct jpeg_compress_struct *jpeg, const unsigned char *data,
 	unsigned width, unsigned height);
 
 static void _jpeg_write_scanlines_rgb565(
-	struct jpeg_compress_struct *jpeg,
-	unsigned char *line_buffer, const unsigned char *data,
+	struct jpeg_compress_struct *jpeg, const unsigned char *data,
+	unsigned width, unsigned height);
+
+static void _jpeg_write_scanlines_rgb24(
+	struct jpeg_compress_struct *jpeg, const unsigned char *data,
 	unsigned width, unsigned height);
 
 static void _jpeg_init_destination(j_compress_ptr jpeg);
@@ -74,9 +75,6 @@ void jpeg_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned
 
 	struct jpeg_compress_struct jpeg;
 	struct jpeg_error_mgr jpeg_error;
-	unsigned char *line_buffer;
-
-	A_CALLOC(line_buffer, dev->run->width * 3);
 
 	jpeg.err = jpeg_std_error(&jpeg_error);
 	jpeg_create_compress(&jpeg);
@@ -94,14 +92,15 @@ void jpeg_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned
 
 	jpeg_start_compress(&jpeg, TRUE);
 
-#	define WRITE_SCANLINES(_func) \
-		_func(&jpeg, line_buffer, dev->run->hw_buffers[index].start, dev->run->width, dev->run->height)
+#	define WRITE_SCANLINES(_format, _func) \
+		case _format: { _func(&jpeg, dev->run->hw_buffers[index].start, dev->run->width, dev->run->height); break; }
 
 	switch (dev->run->format) {
 		// https://www.fourcc.org/yuv.php
-		case V4L2_PIX_FMT_YUYV: WRITE_SCANLINES(_jpeg_write_scanlines_yuyv); break;
-		case V4L2_PIX_FMT_UYVY: WRITE_SCANLINES(_jpeg_write_scanlines_uyvy); break;
-		case V4L2_PIX_FMT_RGB565: WRITE_SCANLINES(_jpeg_write_scanlines_rgb565); break;
+		WRITE_SCANLINES(V4L2_PIX_FMT_YUYV, _jpeg_write_scanlines_yuyv);
+		WRITE_SCANLINES(V4L2_PIX_FMT_UYVY, _jpeg_write_scanlines_uyvy);
+		WRITE_SCANLINES(V4L2_PIX_FMT_RGB565, _jpeg_write_scanlines_rgb565);
+		WRITE_SCANLINES(V4L2_PIX_FMT_RGB24, _jpeg_write_scanlines_rgb24);
 		default: assert(0 && "Unsupported input format for JPEG compressor");
 	}
 
@@ -111,7 +110,6 @@ void jpeg_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned
 	// https://stackoverflow.com/questions/19857766/error-handling-in-libjpeg
 	jpeg_finish_compress(&jpeg);
 	jpeg_destroy_compress(&jpeg);
-	free(line_buffer);
 	assert(dev->run->pictures[index].size > 0);
 	assert(dev->run->pictures[index].size <= dev->run->max_picture_size);
 }
@@ -136,12 +134,14 @@ static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, 
 #define NORM_COMPONENT(_x) (((_x) > 255) ? 255 : (((_x) < 0) ? 0 : (_x)))
 
 static void _jpeg_write_scanlines_yuyv(
-	struct jpeg_compress_struct *jpeg,
-	unsigned char *line_buffer, const unsigned char *data,
+	struct jpeg_compress_struct *jpeg, const unsigned char *data,
 	unsigned width, unsigned height) {
 
+	unsigned char *line_buffer;
 	JSAMPROW scanlines[1];
 	unsigned z = 0;
+
+	A_CALLOC(line_buffer, width * 3);
 
 	while (jpeg->next_scanline < height) {
 		unsigned char *ptr = line_buffer;
@@ -168,17 +168,21 @@ static void _jpeg_write_scanlines_yuyv(
 		scanlines[0] = line_buffer;
 		jpeg_write_scanlines(jpeg, scanlines, 1);
 	}
+
+	free(line_buffer);
 }
 
 static void _jpeg_write_scanlines_uyvy(
-	struct jpeg_compress_struct *jpeg,
-	unsigned char *line_buffer, const unsigned char *data,
+	struct jpeg_compress_struct *jpeg, const unsigned char *data,
 	unsigned width, unsigned height) {
 
+	unsigned char *line_buffer;
 	JSAMPROW scanlines[1];
 	unsigned z = 0;
 
-	while(jpeg->next_scanline < height) {
+	A_CALLOC(line_buffer, width * 3);
+
+	while (jpeg->next_scanline < height) {
 		unsigned char *ptr = line_buffer;
 
 		for(unsigned x = 0; x < width; ++x) {
@@ -203,18 +207,22 @@ static void _jpeg_write_scanlines_uyvy(
 		scanlines[0] = line_buffer;
 		jpeg_write_scanlines(jpeg, scanlines, 1);
 	}
+
+	free(line_buffer);
 }
 
 #undef NORM_COMPONENT
 
 static void _jpeg_write_scanlines_rgb565(
-	struct jpeg_compress_struct *jpeg,
-	unsigned char *line_buffer, const unsigned char *data,
+	struct jpeg_compress_struct *jpeg, const unsigned char *data,
 	unsigned width, unsigned height) {
 
+	unsigned char *line_buffer;
 	JSAMPROW scanlines[1];
 
-	while(jpeg->next_scanline < height) {
+	A_CALLOC(line_buffer, width * 3);
+
+	while (jpeg->next_scanline < height) {
 		unsigned char *ptr = line_buffer;
 
 		for(unsigned x = 0; x < width; ++x) {
@@ -228,6 +236,20 @@ static void _jpeg_write_scanlines_rgb565(
 		}
 
 		scanlines[0] = line_buffer;
+		jpeg_write_scanlines(jpeg, scanlines, 1);
+	}
+
+	free(line_buffer);
+}
+
+static void _jpeg_write_scanlines_rgb24(
+	struct jpeg_compress_struct *jpeg, const unsigned char *data,
+	unsigned width, unsigned height) {
+
+	JSAMPROW scanlines[1];
+
+	while (jpeg->next_scanline < height) {
+		scanlines[0] = (unsigned char *)(data + jpeg->next_scanline * width * 3);
 		jpeg_write_scanlines(jpeg, scanlines, 1);
 	}
 }

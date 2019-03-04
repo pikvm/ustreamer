@@ -39,7 +39,7 @@
 #define STANDARDS_STR		"UNKNOWN, PAL, NTSC, SECAM"
 
 #define FORMAT_UNKNOWN	-1
-#define FORMATS_STR		"YUYV, UYVY, RGB565, JPEG"
+#define FORMATS_STR		"YUYV, UYVY, RGB565, RGB24, JPEG"
 
 
 struct hw_buffer_t {

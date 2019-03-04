@@ -295,22 +295,31 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 	portdef.format.image.nFrameWidth = dev->run->width;
 	portdef.format.image.nFrameHeight = dev->run->height;
 	portdef.format.image.nStride = 0;
-#	define ALIGN(_x, _y) (((_x) + ((_y) - 1)) & ~((_y) - 1))
-	portdef.format.image.nSliceHeight = ALIGN(dev->run->height, 16);
-#	undef ALIGN
+#	define ALIGN_HEIGHT(_x, _y) (((_x) + ((_y) - 1)) & ~((_y) - 1))
+	portdef.format.image.nSliceHeight = ALIGN_HEIGHT(dev->run->height, 16);
+#	undef ALIGN_HEIGHT
 	portdef.format.image.bFlagErrorConcealment = OMX_FALSE;
 	portdef.format.image.eCompressionFormat = OMX_IMAGE_CodingUnused;
 	portdef.nBufferSize = dev->run->max_picture_size;
 
+#	define MAP_FORMAT(_v4l2_format, _omx_format) \
+		case _v4l2_format: { portdef.format.image.eColorFormat = _omx_format; break; }
+
 	switch (dev->run->format) {
 		// https://www.fourcc.org/yuv.php
 		// Also see comments inside OMX_IVCommon.h
-		case V4L2_PIX_FMT_YUYV: portdef.format.image.eColorFormat = OMX_COLOR_FormatYCbYCr; break;
-		case V4L2_PIX_FMT_UYVY: portdef.format.image.eColorFormat = OMX_COLOR_FormatCbYCrY; break;
-		case V4L2_PIX_FMT_RGB565: portdef.format.image.eColorFormat = OMX_COLOR_Format16bitRGB565; break;
-		// TODO: Check RGB565 + OMX. I don't have any USB devices which supports it.
+		MAP_FORMAT(V4L2_PIX_FMT_YUYV, OMX_COLOR_FormatYCbYCr);
+		MAP_FORMAT(V4L2_PIX_FMT_UYVY, OMX_COLOR_FormatCbYCrY);
+		MAP_FORMAT(V4L2_PIX_FMT_RGB565, OMX_COLOR_Format16bitRGB565);
+		MAP_FORMAT(V4L2_PIX_FMT_RGB24, OMX_COLOR_Format24bitRGB888);
+		// TODO: найти устройство с RGB565 и протестить его.
+		// FIXME: RGB24 не работает нормально, нижняя половина экрана зеленая.
+		// FIXME: Китайский EasyCap тоже не работает, мусор на экране.
+		// Вероятно обе проблемы вызваны некорректной реализацией OMX на пае.
 		default: assert(0 && "Unsupported input format for OMX JPEG compressor");
 	}
+
+#	undef MAP_FORMAT
 
 	if (component_set_portdef(&omx->encoder, &portdef) < 0) {
 		return -1;
