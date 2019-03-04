@@ -273,12 +273,11 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 
 	assert(evbuffer_add_printf(buf,
 		"{\"ok\": true, \"result\": {"
-		" \"encoder\": {\"type\": \"%s\", \"fallback\": %s, \"quality\": %u},"
+		" \"encoder\": {\"type\": \"%s\", \"quality\": %u},"
 		" \"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
 		" \"online\": %s, \"desired_fps\": %u, \"captured_fps\": %u},"
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
 		encoder_type_to_string(encoder_run_type),
-		bool_to_string(ENCODER(type) != encoder_run_type),
 		encoder_run_quality,
 		(server->fake_width ? server->fake_width : server->run->exposed->width),
 		(server->fake_height ? server->fake_height : server->run->exposed->height),
