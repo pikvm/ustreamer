@@ -9,15 +9,15 @@ CC = gcc
 LIBS = -lm -ljpeg -pthread -levent -levent_pthreads -luuid
 override CFLAGS += -c -std=c99 -Wall -Wextra -D_GNU_SOURCE
 SOURCES = $(shell ls src/*.c src/encoders/cpu/*.c src/encoders/hw/*.c)
-OBJECTS = $(SOURCES:.c=.o)
 PROG = ustreamer
-
 
 ifeq ($(shell ls -d /opt/vc/include 2>/dev/null), /opt/vc/include)
 SOURCES += $(shell ls src/encoders/omx/*.c)
 LIBS += -lbcm_host -lvcos -lopenmaxil -L/opt/vc/lib
 override CFLAGS += -DWITH_OMX_ENCODER -DOMX_SKIP64BIT -I/opt/vc/include
 endif
+
+OBJECTS = $(SOURCES:.c=.o)
 
 
 # =====
