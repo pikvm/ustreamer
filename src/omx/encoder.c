@@ -173,7 +173,8 @@ int omx_encoder_prepare_live(struct omx_encoder_t *omx, struct device_t *dev, un
 
 int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, unsigned index) {
 	OMX_ERRORTYPE error;
-	bool loaded = false;
+	unsigned slice_size = omx->input_buffer->nAllocLen;
+	unsigned pos = 0;
 
 	if ((error = OMX_FillThisBuffer(omx->encoder, omx->output_buffer)) != OMX_ErrorNone) {
 		LOG_OMX_ERROR(error, "Failed to request filling of the output buffer on encoder");
@@ -194,7 +195,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 
 			memcpy(
 				dev->run->pictures[index].data + dev->run->pictures[index].size,
-				omx->output_buffer->pBuffer,
+				omx->output_buffer->pBuffer + omx->output_buffer->nOffset,
 				omx->output_buffer->nFilledLen
 			);
 			assert(dev->run->pictures[index].size + omx->output_buffer->nFilledLen <= dev->run->max_picture_size);
@@ -213,14 +214,20 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 
 		if (omx->input_required) {
 			omx->input_required = false;
-			if (loaded) {
+
+			if (pos == dev->run->hw_buffers[index].length) {
 				continue;
 			}
-			loaded = true;
 
-			memcpy(omx->input_buffer->pBuffer, dev->run->hw_buffers[index].start, dev->run->hw_buffers[index].length);
+			memcpy(omx->input_buffer->pBuffer, dev->run->hw_buffers[index].start + pos, slice_size);
 			omx->input_buffer->nOffset = 0;
-			omx->input_buffer->nFilledLen = dev->run->hw_buffers[index].length;
+			omx->input_buffer->nFilledLen = slice_size;
+
+			pos += slice_size;
+
+			if (pos + slice_size > dev->run->hw_buffers[index].length) {
+				slice_size = dev->run->hw_buffers[index].length - pos;
+			}
 
 			if ((error = OMX_EmptyThisBuffer(omx->encoder, omx->input_buffer)) != OMX_ErrorNone) {
 				LOG_OMX_ERROR(error, "Failed to request emptying of the input buffer on encoder");
