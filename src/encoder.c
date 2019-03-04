@@ -80,7 +80,7 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 
 #	ifdef OMX_ENCODER
 	if (encoder->run->type == ENCODER_TYPE_OMX) {
-		LOG_DEBUG("Preparing OMX encoder ...");
+		LOG_DEBUG("Preparing OMX JPEG encoder ...");
 
 		if (dev->n_workers > OMX_MAX_ENCODERS) {
 			LOG_INFO(
@@ -152,7 +152,7 @@ void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev) {
 		(dev->run->format == V4L2_PIX_FMT_MJPEG || dev->run->format == V4L2_PIX_FMT_JPEG)
 		&& encoder->run->type != ENCODER_TYPE_HW
 	) {
-		LOG_INFO("Switching to HW encoder because the input format is (M)JPEG");
+		LOG_INFO("Switching to HW JPEG encoder because the input format is (M)JPEG");
 		A_PTHREAD_M_LOCK(&encoder->run->mutex);
 		encoder->run->type = ENCODER_TYPE_HW;
 		A_PTHREAD_M_UNLOCK(&encoder->run->mutex);
@@ -160,21 +160,21 @@ void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev) {
 
 	if (encoder->run->type == ENCODER_TYPE_HW) {
 		if (dev->run->format != V4L2_PIX_FMT_MJPEG && dev->run->format != V4L2_PIX_FMT_JPEG) {
-			LOG_INFO("Switching to CPU encoder because the input format is not (M)JPEG");
+			LOG_INFO("Switching to CPU JPEG encoder because the input format is not (M)JPEG");
 			goto use_fallback;
 		}
 		if (hw_encoder_prepare_live(dev, encoder->quality) < 0) {
 			A_PTHREAD_M_LOCK(&encoder->run->mutex);
 			encoder->run->quality = 0;
 			A_PTHREAD_M_UNLOCK(&encoder->run->mutex);
-			LOG_INFO("Using JPEG quality: HW default");
+			LOG_INFO("Using JPEG quality: HW-default");
 		}
 	}
 #	ifdef OMX_ENCODER
 	else if (encoder->run->type == ENCODER_TYPE_OMX) {
 		for (unsigned index = 0; index < encoder->run->n_omxs; ++index) {
 			if (omx_encoder_prepare_live(encoder->run->omxs[index], dev, encoder->quality) < 0) {
-				LOG_ERROR("Can't prepare OMX encoder, falling back to CPU");
+				LOG_ERROR("Can't prepare OMX JPEG encoder, falling back to CPU");
 				goto use_fallback;
 			}
 		}

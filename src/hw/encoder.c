@@ -37,12 +37,12 @@ int hw_encoder_prepare_live(struct device_t *dev, unsigned quality) {
 	MEMSET_ZERO(comp);
 
 	if (xioctl(dev->run->fd, VIDIOC_G_JPEGCOMP, &comp) < 0) {
-		LOG_ERROR("Can't query HW JPEG compressor params and set quality (unsupported)");
+		LOG_ERROR("Can't query HW JPEG encoder params and set quality (unsupported)");
 		return -1;
 	}
 	comp.quality = quality;
 	if (xioctl(dev->run->fd, VIDIOC_S_JPEGCOMP, &comp) < 0) {
-		LOG_ERROR("Can't set HW JPEG compressor quality (unsopported)");
+		LOG_ERROR("Can't set HW JPEG encoder quality (unsopported)");
 		return -1;
 	}
 	return 0;
@@ -50,7 +50,7 @@ int hw_encoder_prepare_live(struct device_t *dev, unsigned quality) {
 
 void hw_encoder_compress_buffer(struct device_t *dev, unsigned index) {
 	if (dev->run->format != V4L2_PIX_FMT_MJPEG && dev->run->format != V4L2_PIX_FMT_JPEG) {
-		assert(0 && "Unsupported input format for HW JPEG compressor");
+		assert(0 && "Unsupported input format for HW JPEG encoder");
 	}
 	assert(dev->run->pictures[index].allocated >= dev->run->hw_buffers[index].length);
 	memcpy(dev->run->pictures[index].data, dev->run->hw_buffers[index].start, dev->run->hw_buffers[index].length);

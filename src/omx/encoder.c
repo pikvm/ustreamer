@@ -323,7 +323,7 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 		// FIXME: RGB24 не работает нормально, нижняя половина экрана зеленая.
 		// FIXME: Китайский EasyCap тоже не работает, мусор на экране.
 		// Вероятно обе проблемы вызваны некорректной реализацией OMX на пае.
-		default: assert(0 && "Unsupported input format for OMX JPEG compressor");
+		default: assert(0 && "Unsupported input format for OMX JPEG encoder");
 	}
 
 #	undef MAP_FORMAT
