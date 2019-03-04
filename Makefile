@@ -16,7 +16,7 @@ PROG = ustreamer
 ifeq ($(shell ls -d /opt/vc/include 2>/dev/null), /opt/vc/include)
 SOURCES += $(shell ls src/encoders/omx/*.c)
 LIBS += -lbcm_host -lvcos -lopenmaxil -L/opt/vc/lib
-override CFLAGS += -DOMX_ENCODER -DOMX_SKIP64BIT -I/opt/vc/include
+override CFLAGS += -DWITH_OMX_ENCODER -DOMX_SKIP64BIT -I/opt/vc/include
 endif
 
 

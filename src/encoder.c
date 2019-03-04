@@ -33,7 +33,7 @@
 #include "encoders/cpu/encoder.h"
 #include "encoders/hw/encoder.h"
 
-#ifdef OMX_ENCODER
+#ifdef WITH_OMX_ENCODER
 #	include "encoders/omx/encoder.h"
 #endif
 
@@ -44,7 +44,7 @@ static const struct {
 } _ENCODER_TYPES[] = {
 	{"CPU",	ENCODER_TYPE_CPU},
 	{"HW",	ENCODER_TYPE_HW},
-#	ifdef OMX_ENCODER
+#	ifdef WITH_OMX_ENCODER
 	{"OMX",	ENCODER_TYPE_OMX},
 #	endif
 };
@@ -78,7 +78,7 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 
 	LOG_INFO("Using JPEG quality: %u%%", encoder->quality);
 
-#	ifdef OMX_ENCODER
+#	ifdef WITH_OMX_ENCODER
 	if (encoder->run->type == ENCODER_TYPE_OMX) {
 		LOG_DEBUG("Preparing OMX JPEG encoder ...");
 
@@ -112,7 +112,7 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 }
 
 void encoder_destroy(struct encoder_t *encoder) {
-#	ifdef OMX_ENCODER
+#	ifdef WITH_OMX_ENCODER
 	if (encoder->run->omxs) {
 		for (unsigned index = 0; index < encoder->run->n_omxs; ++index) {
 			if (encoder->run->omxs[index]) {
@@ -170,7 +170,7 @@ void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev) {
 			LOG_INFO("Using JPEG quality: HW-default");
 		}
 	}
-#	ifdef OMX_ENCODER
+#	ifdef WITH_OMX_ENCODER
 	else if (encoder->run->type == ENCODER_TYPE_OMX) {
 		for (unsigned index = 0; index < encoder->run->n_omxs; ++index) {
 			if (omx_encoder_prepare_live(encoder->run->omxs[index], dev, encoder->quality) < 0) {
@@ -202,7 +202,7 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, uns
 	} else if (encoder->run->type == ENCODER_TYPE_HW) {
 		hw_encoder_compress_buffer(dev, buf_index);
 	}
-#	ifdef OMX_ENCODER
+#	ifdef WITH_OMX_ENCODER
 	else if (encoder->run->type == ENCODER_TYPE_OMX) {
 		if (omx_encoder_compress_buffer(encoder->run->omxs[worker_number], dev, buf_index) < 0) {
 			goto use_fallback;
