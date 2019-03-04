@@ -70,8 +70,9 @@ static int _device_open_mmap(struct device_t *dev);
 static int _device_open_queue_buffers(struct device_t *dev);
 static int _device_apply_resolution(struct device_t *dev, unsigned width, unsigned height);
 
-static const char *_format_to_string_auto(char *buf, size_t size, unsigned format);
-static const char *_format_to_string_null(unsigned format);
+static const char *_format_to_string_fourcc(char *buf, size_t size, unsigned format);
+static const char *_format_to_string_nullable(unsigned format);
+static const char *_format_to_string_supported(unsigned format);
 static const char *_standard_to_string(v4l2_std_id standard);
 
 
@@ -289,7 +290,6 @@ static int _device_apply_dv_timings(struct device_t *dev) {
 
 static int _device_open_format(struct device_t *dev) {
 	struct v4l2_format fmt;
-	char format_str[8];
 
 	MEMSET_ZERO(fmt);
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -302,8 +302,8 @@ static int _device_open_format(struct device_t *dev) {
 	LOG_DEBUG("Calling ioctl(VIDIOC_S_FMT) ...");
 	if (xioctl(dev->run->fd, VIDIOC_S_FMT, &fmt) < 0) {
 		LOG_PERROR(
-			"Unable to set format=%s; resolution=%ux%u",
-			_format_to_string_auto(format_str, 8, dev->format),
+			"Unable to set pixelformat=%s; resolution=%ux%u",
+			_format_to_string_supported(dev->format),
 			dev->run->width,
 			dev->run->height
 		);
@@ -326,24 +326,27 @@ static int _device_open_format(struct device_t *dev) {
 
 		LOG_ERROR(
 			"Could not obtain the requested pixelformat=%s; driver gave us %s",
-			_format_to_string_auto(format_str, 8, dev->format),
-			_format_to_string_auto(format_obtained_str, 8, fmt.fmt.pix.pixelformat)
+			_format_to_string_supported(dev->format),
+			_format_to_string_supported(fmt.fmt.pix.pixelformat)
 		);
 
-		if ((format_str_nullable = (char *)_format_to_string_null(fmt.fmt.pix.pixelformat)) != NULL) {
+		if ((format_str_nullable = (char *)_format_to_string_nullable(fmt.fmt.pix.pixelformat)) != NULL) {
 			LOG_INFO(
 				"Falling back to %s mode (consider using '--format=%s' option)",
 				format_str_nullable,
 				format_str_nullable
 			);
 		} else {
-			LOG_ERROR("Unsupported pixel format");
+			LOG_ERROR(
+				"Unsupported pixelformat=%s (fourcc)",
+				_format_to_string_fourcc(format_obtained_str, 8, fmt.fmt.pix.pixelformat)
+			);
 			return -1;
 		}
 	}
 
 	dev->run->format = fmt.fmt.pix.pixelformat;
-	LOG_INFO("Using pixelformat: %s", _format_to_string_auto(format_str, 8, dev->run->format));
+	LOG_INFO("Using pixelformat: %s", _format_to_string_supported(dev->run->format));
 	return 0;
 }
 
@@ -442,7 +445,7 @@ static int _device_apply_resolution(struct device_t *dev, unsigned width, unsign
 	return 0;
 }
 
-static const char *_format_to_string_auto(char *buf, size_t size, unsigned format) {
+static const char *_format_to_string_fourcc(char *buf, size_t size, unsigned format) {
 	assert(size >= 8);
 	buf[0] = format & 0x7F;
 	buf[1] = (format >> 8) & 0x7F;
@@ -459,13 +462,18 @@ static const char *_format_to_string_auto(char *buf, size_t size, unsigned forma
 	return buf;
 }
 
-static const char *_format_to_string_null(unsigned format) {
+static const char *_format_to_string_nullable(unsigned format) {
     for (unsigned index = 0; index < ARRAY_LEN(_FORMATS); ++index) {
 		if (format == _FORMATS[index].format) {
 			return _FORMATS[index].name;
 		}
     }
     return NULL;
+}
+
+static const char *_format_to_string_supported(unsigned format) {
+	const char *format_str = _format_to_string_nullable(format);
+	return (format_str == NULL ? "unsupported" : format_str);
 }
 
 static const char *_standard_to_string(v4l2_std_id standard) {
