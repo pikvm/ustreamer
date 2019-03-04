@@ -30,7 +30,7 @@
 #include "device.h"
 #include "encoder.h"
 
-#include "encoders/jpeg/encoder.h"
+#include "encoders/cpu/encoder.h"
 #include "encoders/hw/encoder.h"
 
 #ifdef OMX_ENCODER
@@ -198,7 +198,7 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, uns
 	assert(encoder->run->type != ENCODER_TYPE_UNKNOWN);
 
 	if (encoder->run->type == ENCODER_TYPE_CPU) {
-		jpeg_encoder_compress_buffer(dev, buf_index, encoder->quality);
+		cpu_encoder_compress_buffer(dev, buf_index, encoder->quality);
 	} else if (encoder->run->type == ENCODER_TYPE_HW) {
 		hw_encoder_compress_buffer(dev, buf_index);
 	}

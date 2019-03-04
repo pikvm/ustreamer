@@ -39,7 +39,7 @@
 #include "encoder.h"
 
 
-struct _mjpg_destination_mgr {
+struct _jpeg_dest_manager_t {
 	struct			jpeg_destination_mgr mgr; // Default manager
 	JOCTET			*buffer; // Start of buffer
 	unsigned char	*outbuffer_cursor;
@@ -70,7 +70,7 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
 static void _jpeg_term_destination(j_compress_ptr jpeg);
 
 
-void jpeg_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned quality) {
+void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned quality) {
 	// This function based on compress_image_to_jpeg() from mjpg-streamer
 
 	struct jpeg_compress_struct jpeg;
@@ -115,15 +115,15 @@ void jpeg_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned
 }
 
 static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, unsigned long *written) {
-	struct _mjpg_destination_mgr *dest;
+	struct _jpeg_dest_manager_t *dest;
 
 	if (jpeg->dest == NULL) {
 		assert((jpeg->dest = (struct jpeg_destination_mgr *)(*jpeg->mem->alloc_small)(
-			(j_common_ptr) jpeg, JPOOL_PERMANENT, sizeof(struct _mjpg_destination_mgr)
+			(j_common_ptr) jpeg, JPOOL_PERMANENT, sizeof(struct _jpeg_dest_manager_t)
 		)));
 	}
 
-	dest = (struct _mjpg_destination_mgr *)jpeg->dest;
+	dest = (struct _jpeg_dest_manager_t *)jpeg->dest;
 	dest->mgr.init_destination = _jpeg_init_destination;
 	dest->mgr.empty_output_buffer = _jpeg_empty_output_buffer;
 	dest->mgr.term_destination = _jpeg_term_destination;
@@ -257,7 +257,7 @@ static void _jpeg_write_scanlines_rgb24(
 #define JPEG_OUTPUT_BUFFER_SIZE  4096
 
 static void _jpeg_init_destination(j_compress_ptr jpeg) {
-	struct _mjpg_destination_mgr *dest = (struct _mjpg_destination_mgr *)jpeg->dest;
+	struct _jpeg_dest_manager_t *dest = (struct _jpeg_dest_manager_t *)jpeg->dest;
 
 	// Allocate the output buffer - it will be released when done with image
 	assert((dest->buffer = (JOCTET *)(*jpeg->mem->alloc_small)(
@@ -271,7 +271,7 @@ static void _jpeg_init_destination(j_compress_ptr jpeg) {
 static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg) {
 	// Called whenever local jpeg buffer fills up
 
-	struct _mjpg_destination_mgr *dest = (struct _mjpg_destination_mgr *)jpeg->dest;
+	struct _jpeg_dest_manager_t *dest = (struct _jpeg_dest_manager_t *)jpeg->dest;
 
 	memcpy(dest->outbuffer_cursor, dest->buffer, JPEG_OUTPUT_BUFFER_SIZE);
 	dest->outbuffer_cursor += JPEG_OUTPUT_BUFFER_SIZE;
@@ -287,7 +287,7 @@ static void _jpeg_term_destination(j_compress_ptr jpeg) {
 	// Called by jpeg_finish_compress after all data has been written.
 	// Usually needs to flush buffer
 
-	struct _mjpg_destination_mgr *dest = (struct _mjpg_destination_mgr *)jpeg->dest;
+	struct _jpeg_dest_manager_t *dest = (struct _jpeg_dest_manager_t *)jpeg->dest;
 	size_t data_count = JPEG_OUTPUT_BUFFER_SIZE - dest->mgr.free_in_buffer;
 
 	// Write any data remaining in the buffer
