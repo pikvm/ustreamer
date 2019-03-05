@@ -60,15 +60,24 @@ static const struct option _long_opts[] = {
 	{"device-persistent",		no_argument,		NULL,	1001},
 	{"device-error-delay",		required_argument,	NULL,	1002},
 
+	{"image-brightness",		required_argument,	NULL,	2000},
+	{"image-brightness-auto",	no_argument,		NULL,	2001},
+	{"image-contrast",			required_argument,	NULL,	2002},
+	{"image-saturation",		required_argument,	NULL,	2003},
+	{"image-hue",				required_argument,	NULL,	2004},
+	{"image-hue-auto",			no_argument,		NULL,	2005},
+	{"image-gamma",				required_argument,	NULL,	2006},
+	{"image-sharpness",			required_argument,	NULL,	2007},
+
 	{"host",					required_argument,	NULL,	's'},
 	{"port",					required_argument,	NULL,	'p'},
 	{"unix",					required_argument,	NULL,	'u'},
 	{"unix-rm",					no_argument,		NULL,	'r'},
 	{"unix-mode",				required_argument,	NULL,	'o'},
 	{"drop-same-frames",		required_argument,	NULL,	'e'},
-	{"fake-width",				required_argument,	NULL,	2001},
-	{"fake-height",				required_argument,	NULL,	2002},
-	{"server-timeout",			required_argument,	NULL,	2003},
+	{"fake-width",				required_argument,	NULL,	3001},
+	{"fake-height",				required_argument,	NULL,	3002},
+	{"server-timeout",			required_argument,	NULL,	3003},
 
 	{"perf",					no_argument,		NULL,	5000},
 	{"verbose",					no_argument,		NULL,	5001},
@@ -122,6 +131,16 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --device-persistent              -- Don't re-initialize device on timeout. Default: disabled.\n\n");
 	printf("    --device-error-delay <seconds>   -- Delay before trying to connect to the device again\n");
 	printf("                                        after a timeout. Default: %u\n\n", dev->error_delay);
+	printf("Image options:\n");
+	printf("---------------\n");
+	printf("    --image-brightness <N>  -- Set brightness. Default: no change.\n\n");
+	printf("    --image-brightness-auto -- Enable automatic brightness control. Default: no change.\n\n");
+	printf("    --image-contrast <N>    -- Set contrast. Default: no change.\n\n");
+	printf("    --image-saturation <N>  -- Set saturation. Default: no change.\n\n");
+	printf("    --image-hue <N>         -- Set hue. Default: no change.\n\n");
+	printf("    --image-hue-auto        -- Enable automatic hue control. Default: no change.\n\n");
+	printf("    --image-gamma <N>       -- Set gamma. Default: no change.\n\n");
+	printf("    --image-sharpness <N>   -- Set sharpness. Default: no change.\n\n");
 	printf("HTTP server options:\n");
 	printf("--------------------\n");
 	printf("    -s|--host <address>        -- Listen on Hostname or IP. Default: %s\n\n", server->host);
@@ -152,22 +171,34 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 #	define OPT_SET(_dest, _value) \
 		{ _dest = _value; break; }
 
-#	define OPT_UNSIGNED(_dest, _name, _min, _max) \
-		{ errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, 0); \
-		if (errno || *_end || _tmp < _min || _tmp > _max) \
-		{ printf("Invalid value for '%s=%s'; min=%u; max=%u\n", _name, optarg, _min, _max); return -1; } \
-		_dest = _tmp; break; }
+#	define OPT_UNSIGNED(_dest, _name, _min, _max) { \
+		errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, 0); \
+		if (errno || *_end || _tmp < _min || _tmp > _max) { \
+			printf("Invalid value for '%s=%s'; min=%u; max=%u\n", _name, optarg, _min, _max); \
+			return -1; \
+		} _dest = _tmp; break; }
 
-#	define OPT_PARSE(_dest, _func, _invalid, _name) \
-		{ if ((_dest = _func(optarg)) == _invalid) \
-		{ printf("Unknown " _name ": %s\n", optarg); return -1; } \
-		break; }
+#	define OPT_PARSE(_dest, _func, _invalid, _name) { \
+		if ((_dest = _func(optarg)) == _invalid) { \
+			printf("Unknown " _name ": %s\n", optarg); \
+			return -1; \
+		} break; }
+
+#	define OPT_INT(_dest, _name, _base) { \
+		errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, _base); \
+		if (errno || *_end) { \
+			printf("Invalid value for '%s=%s'\n", _name, optarg); \
+			return -1; \
+		} _dest = _tmp; break; }
 
 #	define OPT_CHMOD(_dest, _name) \
-		{ errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, 8); \
-		if (errno || *_end) \
-		{ printf("Invalid value for '%s=%s'\n", _name, optarg); return -1; } \
-		_dest = _tmp; break; }
+		OPT_INT(_dest, _name, 8)
+
+#	define OPT_IMG(_dest) \
+		{ dev->img->_dest##_set = true; OPT_INT(dev->img->_dest, "--image-"#_dest, 10); break; }
+
+#	define OPT_IMG_AUTO(_dest) \
+		{ dev->img->_dest##_set = true; dev->img->_dest##_auto = true; break; }
 
 	int index;
 	int ch;
@@ -195,15 +226,24 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 1001:	OPT_SET(dev->persistent, true);
 			case 1002:	OPT_UNSIGNED(dev->error_delay, "--device-error-delay", 1, 60);
 
+			case 2000:	OPT_IMG(brightness);
+			case 2001:	OPT_IMG_AUTO(brightness);
+			case 2002:	OPT_IMG(contrast);
+			case 2003:	OPT_IMG(saturation);
+			case 2004:	OPT_IMG(hue);
+			case 2005:	OPT_IMG_AUTO(hue);
+			case 2006:	OPT_IMG(gamma);
+			case 2007:	OPT_IMG(sharpness);
+
 			case 's':	OPT_SET(server->host, optarg);
 			case 'p':	OPT_UNSIGNED(server->port, "--port", 1, 65535);
 			case 'u':	OPT_SET(server->unix_path, optarg);
 			case 'r':	OPT_SET(server->unix_rm, true);
 			case 'o':	OPT_CHMOD(server->unix_mode, "--unix-mode");
 			case 'e':	OPT_UNSIGNED(server->drop_same_frames, "--drop-same-frames", 0, 30);
-			case 2001:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
-			case 2002:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
-			case 2003:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
+			case 3001:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
+			case 3002:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
+			case 3003:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
 
 			case 5000:	OPT_SET(log_level, LOG_LEVEL_PERF);
 			case 5001:	OPT_SET(log_level, LOG_LEVEL_VERBOSE);
@@ -216,7 +256,10 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 		}
 	}
 
+#	undef OPT_IMG_AUTO
+#	undef OPT_IMG
 #	undef OPT_CHMOD
+#	undef OPT_INT
 #	undef OPT_PARSE
 #	undef OPT_UNSIGNED
 #	undef OPT_SET

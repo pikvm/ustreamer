@@ -69,6 +69,21 @@ struct device_runtime_t {
 	bool				capturing;
 };
 
+#define S_MANUAL(_dest)	int _dest; bool _dest##_set;
+#define S_AUTO(_dest)	int _dest; bool _dest##_set; bool _dest##_auto;
+
+struct image_settings_t {
+	S_AUTO		(brightness);
+	S_MANUAL	(contrast);
+	S_MANUAL	(saturation);
+	S_AUTO		(hue);
+	S_MANUAL	(gamma);
+	S_MANUAL	(sharpness);
+};
+
+#undef S_AUTO
+#undef S_MANUAL
+
 struct device_t {
 	char			*path;
 	unsigned		input;
@@ -84,6 +99,8 @@ struct device_t {
 	bool			persistent;
 	unsigned		timeout;
 	unsigned		error_delay;
+
+	struct image_settings_t *img;
 
 	struct device_runtime_t *run;
 	sig_atomic_t volatile stop;

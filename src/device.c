@@ -65,6 +65,7 @@ static int _device_open_check_cap(struct device_t *dev);
 static int _device_open_dv_timings(struct device_t *dev);
 static int _device_apply_dv_timings(struct device_t *dev);
 static int _device_open_format(struct device_t *dev);
+static void _device_open_set_image_settings(struct device_t *dev);
 static void _device_open_alloc_picbufs(struct device_t *dev);
 static int _device_open_mmap(struct device_t *dev);
 static int _device_open_queue_buffers(struct device_t *dev);
@@ -77,8 +78,11 @@ static const char *_standard_to_string(v4l2_std_id standard);
 
 
 struct device_t *device_init() {
+	struct image_settings_t *img;
 	struct device_runtime_t *run;
 	struct device_t *dev;
+
+	A_CALLOC(img, 1);
 
 	A_CALLOC(run, 1);
 	run->fd = -1;
@@ -93,12 +97,14 @@ struct device_t *device_init() {
 	dev->n_workers = dev->n_buffers;
 	dev->timeout = 1;
 	dev->error_delay = 1;
+	dev->img = img;
 	dev->run = run;
 	return dev;
 }
 
 void device_destroy(struct device_t *dev) {
 	free(dev->run);
+	free(dev->img);
 	free(dev);
 }
 
@@ -136,6 +142,7 @@ int device_open(struct device_t *dev) {
 	if (_device_open_format(dev) < 0) {
 		goto error;
 	}
+	_device_open_set_image_settings(dev);
 	if (_device_open_mmap(dev) < 0) {
 		goto error;
 	}
@@ -348,6 +355,44 @@ static int _device_open_format(struct device_t *dev) {
 	dev->run->format = fmt.fmt.pix.pixelformat;
 	LOG_INFO("Using pixelformat: %s", _format_to_string_supported(dev->run->format));
 	return 0;
+}
+
+static void _device_open_set_image_settings(struct device_t *dev) {
+	struct v4l2_queryctrl query;
+	struct v4l2_control ctl;
+
+#	define SET_CID(_cid, _dest) { \
+			MEMSET_ZERO(query); query.id = _cid; \
+			if (xioctl(dev->run->fd, VIDIOC_QUERYCTRL, &query) != 0) { \
+				LOG_INFO("Changing image " #_dest " is unsupported"); \
+			} else { \
+				MEMSET_ZERO(ctl); ctl.id = _cid; ctl.value = (int)dev->img->_dest; \
+				if (xioctl(dev->run->fd, VIDIOC_S_CTRL, &ctl) < 0) { LOG_PERROR("Can't set image " #_dest); } \
+				else { LOG_INFO("Using image " #_dest ": %d", ctl.value); } \
+			} \
+		}
+
+#	define SET_CID_MANUAL(_cid, _dest) { \
+			if (dev->img->_dest##_set) { SET_CID(_cid, _dest); } \
+		}
+
+#	define SET_CID_AUTO(_cid_auto, _cid_manual, _dest) { \
+			if (dev->img->_dest##_set) { \
+				SET_CID(_cid_auto, _dest##_auto); \
+				if (!dev->img->_dest##_auto) { SET_CID(_cid_manual, _dest); } \
+			} \
+		}
+
+	SET_CID_AUTO	(V4L2_CID_AUTOBRIGHTNESS,	V4L2_CID_BRIGHTNESS,	brightness);
+	SET_CID_MANUAL	(							V4L2_CID_CONTRAST,		contrast);
+	SET_CID_MANUAL	(							V4L2_CID_SATURATION,	saturation);
+	SET_CID_AUTO	(V4L2_CID_HUE_AUTO,			V4L2_CID_HUE,			hue);
+	SET_CID_MANUAL	(							V4L2_CID_GAMMA,			gamma);
+	SET_CID_MANUAL	(							V4L2_CID_SHARPNESS,		sharpness);
+
+#	undef SET_CID_AUTO
+#	undef SET_CID_MANUAL
+#	undef SET_CID
 }
 
 static int _device_open_mmap(struct device_t *dev) {
