@@ -59,7 +59,6 @@ struct encoder_runtime_t {
 #	endif
 };
 
-
 struct encoder_t {
 	enum encoder_type_t	type;
 	unsigned			quality;

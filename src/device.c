@@ -65,11 +65,11 @@ static int _device_open_check_cap(struct device_t *dev);
 static int _device_open_dv_timings(struct device_t *dev);
 static int _device_apply_dv_timings(struct device_t *dev);
 static int _device_open_format(struct device_t *dev);
-static void _device_apply_image_settings(struct device_t *dev);
-static void _device_open_alloc_picbufs(struct device_t *dev);
 static int _device_open_mmap(struct device_t *dev);
 static int _device_open_queue_buffers(struct device_t *dev);
+static void _device_open_alloc_picbufs(struct device_t *dev);
 static int _device_apply_resolution(struct device_t *dev, unsigned width, unsigned height);
+static void _device_apply_image_settings(struct device_t *dev);
 
 static const char *_format_to_string_fourcc(char *buf, size_t size, unsigned format);
 static const char *_format_to_string_nullable(unsigned format);
@@ -142,7 +142,6 @@ int device_open(struct device_t *dev) {
 	if (_device_open_format(dev) < 0) {
 		goto error;
 	}
-	_device_apply_image_settings(dev);
 	if (_device_open_mmap(dev) < 0) {
 		goto error;
 	}
@@ -150,6 +149,7 @@ int device_open(struct device_t *dev) {
 		goto error;
 	}
 	_device_open_alloc_picbufs(dev);
+	_device_apply_image_settings(dev);
 
 	LOG_DEBUG("Device fd=%d initialized", dev->run->fd);
 	return 0;
@@ -357,58 +357,6 @@ static int _device_open_format(struct device_t *dev) {
 	return 0;
 }
 
-static void _device_apply_image_settings(struct device_t *dev) {
-	struct v4l2_queryctrl query;
-	struct v4l2_control ctl;
-
-// https://www.linuxtv.org/downloads/v4l-dvb-apis-old/vidioc-queryctrl.html#v4l2-queryctrl
-
-#	define SET_CID(_cid, _dest) { \
-			MEMSET_ZERO(query); query.id = _cid; \
-			if (xioctl(dev->run->fd, VIDIOC_QUERYCTRL, &query) < 0 || query.flags & V4L2_CTRL_FLAG_DISABLED) { \
-				LOG_INFO("Changing image " #_dest " is unsupported"); \
-			} else { \
-				MEMSET_ZERO(ctl); ctl.id = _cid; ctl.value = (int)dev->img->_dest; \
-				if (ctl.value < query.minimum || ctl.value > query.maximum || ctl.value % query.step != 0) { \
-					LOG_ERROR("Invalid value %d for image " #_dest ": min=%d, max=%d, default=%d, step=%u", \
-						ctl.value, query.minimum, query.maximum, query.default_value, query.step); \
-				} else { \
-					if (xioctl(dev->run->fd, VIDIOC_S_CTRL, &ctl) < 0) { \
-						LOG_PERROR("Can't set image " #_dest); \
-					} else { \
-						LOG_INFO("Using image " #_dest ": %d (min=%d, max=%d, default=%d, step=%u)", \
-							ctl.value, query.minimum, query.maximum, query.default_value, query.step); \
-					} \
-				} \
-			} \
-		}
-
-#	define SET_CID_MANUAL(_cid, _dest) { \
-			if (dev->img->_dest##_set) { SET_CID(_cid, _dest); } \
-		}
-
-#	define SET_CID_AUTO(_cid_auto, _cid_manual, _dest) { \
-			if (dev->img->_dest##_set) { \
-				SET_CID(_cid_auto, _dest##_auto); \
-				if (!dev->img->_dest##_auto) { SET_CID(_cid_manual, _dest); } \
-			} \
-		}
-
-	SET_CID_AUTO	(V4L2_CID_AUTOBRIGHTNESS,		V4L2_CID_BRIGHTNESS,				brightness);
-	SET_CID_MANUAL	(								V4L2_CID_CONTRAST,					contrast);
-	SET_CID_MANUAL	(								V4L2_CID_SATURATION,				saturation);
-	SET_CID_AUTO	(V4L2_CID_HUE_AUTO,				V4L2_CID_HUE,						hue);
-	SET_CID_MANUAL	(								V4L2_CID_GAMMA,						gamma);
-	SET_CID_MANUAL	(								V4L2_CID_SHARPNESS,					sharpness);
-	SET_CID_MANUAL	(								V4L2_CID_BACKLIGHT_COMPENSATION,	backlight_compensation);
-	SET_CID_AUTO	(V4L2_CID_AUTO_WHITE_BALANCE,	V4L2_CID_WHITE_BALANCE_TEMPERATURE,	white_balance);
-	SET_CID_AUTO	(V4L2_CID_AUTOGAIN,				V4L2_CID_GAIN,						gain);
-
-#	undef SET_CID_AUTO
-#	undef SET_CID_MANUAL
-#	undef SET_CID
-}
-
 static int _device_open_mmap(struct device_t *dev) {
 	struct v4l2_requestbuffers req;
 
@@ -502,6 +450,56 @@ static int _device_apply_resolution(struct device_t *dev, unsigned width, unsign
 	dev->run->width = width;
 	dev->run->height = height;
 	return 0;
+}
+
+static void _device_apply_image_settings(struct device_t *dev) {
+	struct v4l2_queryctrl query;
+	struct v4l2_control ctl;
+
+#	define SET_CID(_cid, _dest) { \
+			MEMSET_ZERO(query); query.id = _cid; \
+			if (xioctl(dev->run->fd, VIDIOC_QUERYCTRL, &query) < 0 || query.flags & V4L2_CTRL_FLAG_DISABLED) { \
+				LOG_INFO("Changing image " #_dest " is unsupported"); \
+			} else { \
+				MEMSET_ZERO(ctl); ctl.id = _cid; ctl.value = (int)dev->img->_dest; \
+				if (ctl.value < query.minimum || ctl.value > query.maximum || ctl.value % query.step != 0) { \
+					LOG_ERROR("Invalid value %d for image " #_dest ": min=%d, max=%d, default=%d, step=%u", \
+						ctl.value, query.minimum, query.maximum, query.default_value, query.step); \
+				} else { \
+					if (xioctl(dev->run->fd, VIDIOC_S_CTRL, &ctl) < 0) { \
+						LOG_PERROR("Can't set image " #_dest); \
+					} else { \
+						LOG_INFO("Using image " #_dest ": %d (min=%d, max=%d, default=%d, step=%u)", \
+							ctl.value, query.minimum, query.maximum, query.default_value, query.step); \
+					} \
+				} \
+			} \
+		}
+
+#	define SET_CID_MANUAL(_cid, _dest) { \
+			if (dev->img->_dest##_set) { SET_CID(_cid, _dest); } \
+		}
+
+#	define SET_CID_AUTO(_cid_auto, _cid_manual, _dest) { \
+			if (dev->img->_dest##_set) { \
+				SET_CID(_cid_auto, _dest##_auto); \
+				if (!dev->img->_dest##_auto) { SET_CID(_cid_manual, _dest); } \
+			} \
+		}
+
+	SET_CID_AUTO	(V4L2_CID_AUTOBRIGHTNESS,		V4L2_CID_BRIGHTNESS,				brightness);
+	SET_CID_MANUAL	(								V4L2_CID_CONTRAST,					contrast);
+	SET_CID_MANUAL	(								V4L2_CID_SATURATION,				saturation);
+	SET_CID_AUTO	(V4L2_CID_HUE_AUTO,				V4L2_CID_HUE,						hue);
+	SET_CID_MANUAL	(								V4L2_CID_GAMMA,						gamma);
+	SET_CID_MANUAL	(								V4L2_CID_SHARPNESS,					sharpness);
+	SET_CID_MANUAL	(								V4L2_CID_BACKLIGHT_COMPENSATION,	backlight_compensation);
+	SET_CID_AUTO	(V4L2_CID_AUTO_WHITE_BALANCE,	V4L2_CID_WHITE_BALANCE_TEMPERATURE,	white_balance);
+	SET_CID_AUTO	(V4L2_CID_AUTOGAIN,				V4L2_CID_GAIN,						gain);
+
+#	undef SET_CID_AUTO
+#	undef SET_CID_MANUAL
+#	undef SET_CID
 }
 
 static const char *_format_to_string_fourcc(char *buf, size_t size, unsigned format) {
