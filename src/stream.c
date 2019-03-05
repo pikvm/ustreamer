@@ -454,7 +454,7 @@ static void *_stream_worker_thread(void *v_ctx) {
 				A_PTHREAD_M_UNLOCK(ctx->last_comp_time_mutex);
 
 				LOG_VERBOSE(
-					"Compressed JPEG size=%ld; time=%0.3Lf; worker=%u; buffer=%u",
+					"Compressed JPEG size=%zu; time=%0.3Lf; worker=%u; buffer=%u",
 					PICTURE(size), last_comp_time, ctx->number, ctx->buf_index
 				);
 			} else {

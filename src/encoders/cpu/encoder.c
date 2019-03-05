@@ -43,11 +43,11 @@ struct _jpeg_dest_manager_t {
 	struct			jpeg_destination_mgr mgr; // Default manager
 	JOCTET			*buffer; // Start of buffer
 	unsigned char	*outbuffer_cursor;
-	unsigned long	*written;
+	size_t			*written;
 };
 
 
-static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, unsigned long *written);
+static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, size_t *written);
 
 static void _jpeg_write_scanlines_yuyv(
 	struct jpeg_compress_struct *jpeg, const unsigned char *data,
@@ -114,7 +114,7 @@ void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned 
 	assert(dev->run->pictures[index].size <= dev->run->max_picture_size);
 }
 
-static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, unsigned long *written) {
+static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, size_t *written) {
 	struct _jpeg_dest_manager_t *dest;
 
 	if (jpeg->dest == NULL) {

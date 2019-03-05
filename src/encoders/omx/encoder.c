@@ -173,8 +173,8 @@ int omx_encoder_prepare_live(struct omx_encoder_t *omx, struct device_t *dev, un
 
 int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, unsigned index) {
 	OMX_ERRORTYPE error;
-	unsigned slice_size = omx->input_buffer->nAllocLen;
-	unsigned pos = 0;
+	size_t slice_size = omx->input_buffer->nAllocLen;
+	size_t pos = 0;
 
 	if ((error = OMX_FillThisBuffer(omx->encoder, omx->output_buffer)) != OMX_ErrorNone) {
 		LOG_OMX_ERROR(error, "Failed to request filling of the output buffer on encoder");

@@ -430,7 +430,7 @@ static void _device_open_alloc_picbufs(struct device_t *dev) {
 
 	dev->run->max_picture_size = ((dev->run->width * dev->run->height) << 1) * 2;
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
-		LOG_DEBUG("Allocating picture buffer %u sized %lu bytes... ", index, dev->run->max_picture_size);
+		LOG_DEBUG("Allocating picture buffer %u sized %zu bytes... ", index, dev->run->max_picture_size);
 		A_CALLOC(dev->run->pictures[index].data, dev->run->max_picture_size);
 		dev->run->pictures[index].allocated = dev->run->max_picture_size;
 	}

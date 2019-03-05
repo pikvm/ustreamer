@@ -49,8 +49,8 @@ struct hw_buffer_t {
 
 struct picture_t {
 	unsigned char	*data;
-	unsigned long	size;
-	unsigned long	allocated;
+	size_t			size;
+	size_t			allocated;
 	long double		grab_time;
 	long double		encode_begin_time;
 	long double		encode_end_time;
@@ -65,7 +65,7 @@ struct device_runtime_t {
 //	unsigned			n_workers; // FIXME
 	struct hw_buffer_t	*hw_buffers;
 	struct picture_t	*pictures;
-	unsigned long		max_picture_size;
+	size_t				max_picture_size;
 	bool				capturing;
 };
 
@@ -98,7 +98,7 @@ struct device_t {
 	unsigned		n_buffers;
 	unsigned		n_workers;
 	unsigned		desired_fps;
-	unsigned		min_frame_size;
+	size_t			min_frame_size;
 	bool			persistent;
 	unsigned		timeout;
 	unsigned		error_delay;

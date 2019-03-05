@@ -497,7 +497,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	if (!client->advance_headers) {
 		assert(evbuffer_add_printf(buf,
 			"Content-Type: image/jpeg" RN
-			"Content-Length: %lu" RN
+			"Content-Length: %zu" RN
 			"X-Timestamp: %.06Lf" RN
 			"%s",
 			EXPOSED(picture.size) * sizeof(*EXPOSED(picture.data)),
