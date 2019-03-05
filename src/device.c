@@ -65,7 +65,7 @@ static int _device_open_check_cap(struct device_t *dev);
 static int _device_open_dv_timings(struct device_t *dev);
 static int _device_apply_dv_timings(struct device_t *dev);
 static int _device_open_format(struct device_t *dev);
-static void _device_open_set_image_settings(struct device_t *dev);
+static void _device_apply_image_settings(struct device_t *dev);
 static void _device_open_alloc_picbufs(struct device_t *dev);
 static int _device_open_mmap(struct device_t *dev);
 static int _device_open_queue_buffers(struct device_t *dev);
@@ -142,7 +142,7 @@ int device_open(struct device_t *dev) {
 	if (_device_open_format(dev) < 0) {
 		goto error;
 	}
-	_device_open_set_image_settings(dev);
+	_device_apply_image_settings(dev);
 	if (_device_open_mmap(dev) < 0) {
 		goto error;
 	}
@@ -357,18 +357,29 @@ static int _device_open_format(struct device_t *dev) {
 	return 0;
 }
 
-static void _device_open_set_image_settings(struct device_t *dev) {
+static void _device_apply_image_settings(struct device_t *dev) {
 	struct v4l2_queryctrl query;
 	struct v4l2_control ctl;
 
+// https://www.linuxtv.org/downloads/v4l-dvb-apis-old/vidioc-queryctrl.html#v4l2-queryctrl
+
 #	define SET_CID(_cid, _dest) { \
 			MEMSET_ZERO(query); query.id = _cid; \
-			if (xioctl(dev->run->fd, VIDIOC_QUERYCTRL, &query) != 0) { \
+			if (xioctl(dev->run->fd, VIDIOC_QUERYCTRL, &query) < 0 || query.flags & V4L2_CTRL_FLAG_DISABLED) { \
 				LOG_INFO("Changing image " #_dest " is unsupported"); \
 			} else { \
 				MEMSET_ZERO(ctl); ctl.id = _cid; ctl.value = (int)dev->img->_dest; \
-				if (xioctl(dev->run->fd, VIDIOC_S_CTRL, &ctl) < 0) { LOG_PERROR("Can't set image " #_dest); } \
-				else { LOG_INFO("Using image " #_dest ": %d", ctl.value); } \
+				if (ctl.value < query.minimum || ctl.value > query.maximum || ctl.value % query.step != 0) { \
+					LOG_ERROR("Invalid value %d for image " #_dest ": min=%d, max=%d, default=%d, step=%u", \
+						ctl.value, query.minimum, query.maximum, query.default_value, query.step); \
+				} else { \
+					if (xioctl(dev->run->fd, VIDIOC_S_CTRL, &ctl) < 0) { \
+						LOG_PERROR("Can't set image " #_dest); \
+					} else { \
+						LOG_INFO("Using image " #_dest ": %d (min=%d, max=%d, default=%d, step=%u)", \
+							ctl.value, query.minimum, query.maximum, query.default_value, query.step); \
+					} \
+				} \
 			} \
 		}
 
