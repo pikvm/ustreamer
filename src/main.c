@@ -147,8 +147,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --image-gamma <N>                  -- Set gamma. Default: no change.\n\n");
 	printf("    --image-sharpness <N>              -- Set sharpness. Default: no change.\n\n");
 	printf("    --image-backlight-compensation <N> -- Set backlight compensation. Default: no change.\n\n");
-	printf("    --image-white-combalance <N>       -- Set white balance. Default: no change.\n\n");
-	printf("    --image-white-combalance-auto      -- Enable automatic white balance control. Default: no change.\n\n");
+	printf("    --image-white-balance <N>          -- Set white balance. Default: no change.\n\n");
+	printf("    --image-white-balance-auto         -- Enable automatic white balance control. Default: no change.\n\n");
 	printf("    --image-gain <N>                   -- Set gain. Default: no change.\n\n");
 	printf("    --image-gain-auto                  -- Enable automatic gain control. Default: no change.\n\n");
 	printf("HTTP server options:\n");
