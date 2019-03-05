@@ -172,27 +172,34 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 		{ _dest = _value; break; }
 
 #	define OPT_UNSIGNED(_dest, _name, _min, _max) { \
-		errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, 0); \
-		if (errno || *_end || _tmp < _min || _tmp > _max) { \
-			printf("Invalid value for '%s=%s'; min=%u; max=%u\n", _name, optarg, _min, _max); \
-			return -1; \
-		} _dest = _tmp; break; }
+			errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, 0); \
+			if (errno || *_end || _tmp < _min || _tmp > _max) { \
+				printf("Invalid value for '%s=%s'; min=%u; max=%u\n", _name, optarg, _min, _max); \
+				return -1; \
+			} \
+			_dest = _tmp; \
+			break; \
+		}
 
 #	define OPT_PARSE(_dest, _func, _invalid, _name) { \
-		if ((_dest = _func(optarg)) == _invalid) { \
-			printf("Unknown " _name ": %s\n", optarg); \
-			return -1; \
-		} break; }
+			if ((_dest = _func(optarg)) == _invalid) { \
+				printf("Unknown " _name ": %s\n", optarg); \
+				return -1; \
+			} \
+			break; \
+		}
 
 #	define OPT_INT(_dest, _name, _base) { \
-		errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, _base); \
-		if (errno || *_end) { \
-			printf("Invalid value for '%s=%s'\n", _name, optarg); \
-			return -1; \
-		} _dest = _tmp; break; }
+			errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, _base); \
+			if (errno || *_end) { \
+				printf("Invalid value for '%s=%s'\n", _name, optarg); \
+				return -1; \
+			} \
+			_dest = _tmp; \
+			break; \
+		}
 
-#	define OPT_CHMOD(_dest, _name) \
-		OPT_INT(_dest, _name, 8)
+#	define OPT_CHMOD(_dest, _name) OPT_INT(_dest, _name, 8)
 
 #	define OPT_IMG(_dest) \
 		{ dev->img->_dest##_set = true; OPT_INT(dev->img->_dest, "--image-"#_dest, 10); break; }

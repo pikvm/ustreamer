@@ -136,9 +136,11 @@ void stream_loop(struct stream_t *stream) {
 
 #	define INIT_FD_SET(_set) \
 		fd_set _set; FD_ZERO(&_set); FD_SET(stream->dev->run->fd, &_set);
+
 			INIT_FD_SET(read_fds);
 			INIT_FD_SET(write_fds);
 			INIT_FD_SET(error_fds);
+
 #	undef INIT_FD_SET
 
 			struct timeval timeout;
