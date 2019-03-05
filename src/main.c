@@ -68,6 +68,11 @@ static const struct option _long_opts[] = {
 	{"image-hue-auto",			no_argument,		NULL,	2005},
 	{"image-gamma",				required_argument,	NULL,	2006},
 	{"image-sharpness",			required_argument,	NULL,	2007},
+	{"image-backlight-compensation",	required_argument,	NULL,	2008},
+	{"image-white-balance",				required_argument,	NULL,	2009},
+	{"image-white-balance-auto",		no_argument,		NULL,	2010},
+	{"image-gain",						required_argument,	NULL,	2011},
+	{"image-gain-auto",					no_argument,		NULL,	2012},
 
 	{"host",					required_argument,	NULL,	's'},
 	{"port",					required_argument,	NULL,	'p'},
@@ -133,14 +138,19 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                        after a timeout. Default: %u\n\n", dev->error_delay);
 	printf("Image options:\n");
 	printf("---------------\n");
-	printf("    --image-brightness <N>  -- Set brightness. Default: no change.\n\n");
-	printf("    --image-brightness-auto -- Enable automatic brightness control. Default: no change.\n\n");
-	printf("    --image-contrast <N>    -- Set contrast. Default: no change.\n\n");
-	printf("    --image-saturation <N>  -- Set saturation. Default: no change.\n\n");
-	printf("    --image-hue <N>         -- Set hue. Default: no change.\n\n");
-	printf("    --image-hue-auto        -- Enable automatic hue control. Default: no change.\n\n");
-	printf("    --image-gamma <N>       -- Set gamma. Default: no change.\n\n");
-	printf("    --image-sharpness <N>   -- Set sharpness. Default: no change.\n\n");
+	printf("    --image-brightness <N>             -- Set brightness. Default: no change.\n\n");
+	printf("    --image-brightness-auto            -- Enable automatic brightness control. Default: no change.\n\n");
+	printf("    --image-contrast <N>               -- Set contrast. Default: no change.\n\n");
+	printf("    --image-saturation <N>             -- Set saturation. Default: no change.\n\n");
+	printf("    --image-hue <N>                    -- Set hue. Default: no change.\n\n");
+	printf("    --image-hue-auto                   -- Enable automatic hue control. Default: no change.\n\n");
+	printf("    --image-gamma <N>                  -- Set gamma. Default: no change.\n\n");
+	printf("    --image-sharpness <N>              -- Set sharpness. Default: no change.\n\n");
+	printf("    --image-backlight-compensation <N> -- Set backlight compensation. Default: no change.\n\n");
+	printf("    --image-white-combalance <N>       -- Set white balance. Default: no change.\n\n");
+	printf("    --image-white-combalance-auto      -- Enable automatic white balance control. Default: no change.\n\n");
+	printf("    --image-gain <N>                   -- Set gain. Default: no change.\n\n");
+	printf("    --image-gain-auto                  -- Enable automatic gain control. Default: no change.\n\n");
 	printf("HTTP server options:\n");
 	printf("--------------------\n");
 	printf("    -s|--host <address>        -- Listen on Hostname or IP. Default: %s\n\n", server->host);
@@ -241,6 +251,11 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 2005:	OPT_IMG_AUTO(hue);
 			case 2006:	OPT_IMG(gamma);
 			case 2007:	OPT_IMG(sharpness);
+			case 2008:	OPT_IMG(backlight_compensation);
+			case 2009:	OPT_IMG(white_balance);
+			case 2010:	OPT_IMG_AUTO(white_balance);
+			case 2011:	OPT_IMG(gain);
+			case 2012:	OPT_IMG_AUTO(gain);
 
 			case 's':	OPT_SET(server->host, optarg);
 			case 'p':	OPT_UNSIGNED(server->port, "--port", 1, 65535);

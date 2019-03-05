@@ -79,6 +79,9 @@ struct image_settings_t {
 	S_AUTO		(hue);
 	S_MANUAL	(gamma);
 	S_MANUAL	(sharpness);
+	S_MANUAL	(backlight_compensation);
+	S_AUTO		(white_balance);
+	S_AUTO		(gain);
 };
 
 #undef S_AUTO

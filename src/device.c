@@ -383,12 +383,15 @@ static void _device_open_set_image_settings(struct device_t *dev) {
 			} \
 		}
 
-	SET_CID_AUTO	(V4L2_CID_AUTOBRIGHTNESS,	V4L2_CID_BRIGHTNESS,	brightness);
-	SET_CID_MANUAL	(							V4L2_CID_CONTRAST,		contrast);
-	SET_CID_MANUAL	(							V4L2_CID_SATURATION,	saturation);
-	SET_CID_AUTO	(V4L2_CID_HUE_AUTO,			V4L2_CID_HUE,			hue);
-	SET_CID_MANUAL	(							V4L2_CID_GAMMA,			gamma);
-	SET_CID_MANUAL	(							V4L2_CID_SHARPNESS,		sharpness);
+	SET_CID_AUTO	(V4L2_CID_AUTOBRIGHTNESS,		V4L2_CID_BRIGHTNESS,				brightness);
+	SET_CID_MANUAL	(								V4L2_CID_CONTRAST,					contrast);
+	SET_CID_MANUAL	(								V4L2_CID_SATURATION,				saturation);
+	SET_CID_AUTO	(V4L2_CID_HUE_AUTO,				V4L2_CID_HUE,						hue);
+	SET_CID_MANUAL	(								V4L2_CID_GAMMA,						gamma);
+	SET_CID_MANUAL	(								V4L2_CID_SHARPNESS,					sharpness);
+	SET_CID_MANUAL	(								V4L2_CID_BACKLIGHT_COMPENSATION,	backlight_compensation);
+	SET_CID_AUTO	(V4L2_CID_AUTO_WHITE_BALANCE,	V4L2_CID_WHITE_BALANCE_TEMPERATURE,	white_balance);
+	SET_CID_AUTO	(V4L2_CID_AUTOGAIN,				V4L2_CID_GAIN,						gain);
 
 #	undef SET_CID_AUTO
 #	undef SET_CID_MANUAL
