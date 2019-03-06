@@ -43,8 +43,8 @@
 
 
 struct hw_buffer_t {
-	void	*start;
-	size_t	length;
+	unsigned char	*data;
+	size_t			size;
 };
 
 struct picture_t {

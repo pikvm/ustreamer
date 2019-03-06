@@ -173,11 +173,15 @@ void device_close(struct device_t *dev) {
 	if (dev->run->hw_buffers) {
 		LOG_DEBUG("Unmapping HW buffers ...");
 		for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
-			if (dev->run->hw_buffers[index].start != MAP_FAILED) {
-				if (munmap(dev->run->hw_buffers[index].start, dev->run->hw_buffers[index].length) < 0) {
+#			define HW_BUFFER(_next) dev->run->hw_buffers[index]._next
+
+			if (HW_BUFFER(size) > 0 && HW_BUFFER(data) != MAP_FAILED) {
+				if (munmap(HW_BUFFER(data), HW_BUFFER(size)) < 0) {
 					LOG_PERROR("Can't unmap device buffer %u", index);
 				}
 			}
+
+#			undef HW_BUFFER
 		}
 		dev->run->n_buffers = 0;
 		free(dev->run->hw_buffers);
@@ -395,13 +399,17 @@ static int _device_open_mmap(struct device_t *dev) {
 			return -1;
 		}
 
+#		define HW_BUFFER(_next) dev->run->hw_buffers[dev->run->n_buffers]._next
+
 		LOG_DEBUG("Mapping device buffer %u ...", dev->run->n_buffers);
-		dev->run->hw_buffers[dev->run->n_buffers].length = buf_info.length;
-		dev->run->hw_buffers[dev->run->n_buffers].start = mmap(NULL, buf_info.length, PROT_READ|PROT_WRITE, MAP_SHARED, dev->run->fd, buf_info.m.offset);
-		if (dev->run->hw_buffers[dev->run->n_buffers].start == MAP_FAILED) {
+		HW_BUFFER(data) = mmap(NULL, buf_info.length, PROT_READ|PROT_WRITE, MAP_SHARED, dev->run->fd, buf_info.m.offset);
+		if (HW_BUFFER(data) == MAP_FAILED) {
 			LOG_PERROR("Can't map device buffer %u", dev->run->n_buffers);
 			return -1;
 		}
+		HW_BUFFER(size) = buf_info.length;
+
+#		undef HW_BUFFER
 	}
 	return 0;
 }

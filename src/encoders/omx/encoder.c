@@ -216,18 +216,18 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 		if (omx->input_required) {
 			omx->input_required = false;
 
-			if (pos == HW_BUFFER(length)) {
+			if (pos == HW_BUFFER(size)) {
 				continue;
 			}
 
-			memcpy(IN(pBuffer), HW_BUFFER(start) + pos, slice_size);
+			memcpy(IN(pBuffer), HW_BUFFER(data) + pos, slice_size);
 			IN(nOffset) = 0;
 			IN(nFilledLen) = slice_size;
 
 			pos += slice_size;
 
-			if (pos + slice_size > HW_BUFFER(length)) {
-				slice_size = HW_BUFFER(length) - pos;
+			if (pos + slice_size > HW_BUFFER(size)) {
+				slice_size = HW_BUFFER(size) - pos;
 			}
 
 			if ((error = OMX_EmptyThisBuffer(omx->encoder, omx->input_buffer)) != OMX_ErrorNone) {

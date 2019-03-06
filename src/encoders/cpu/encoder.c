@@ -95,7 +95,7 @@ void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned 
 	jpeg_start_compress(&jpeg, TRUE);
 
 #	define WRITE_SCANLINES(_format, _func) \
-		case _format: { _func(&jpeg, dev->run->hw_buffers[index].start, dev->run->width, dev->run->height); break; }
+		case _format: { _func(&jpeg, dev->run->hw_buffers[index].data, dev->run->width, dev->run->height); break; }
 
 	switch (dev->run->format) {
 		// https://www.fourcc.org/yuv.php
