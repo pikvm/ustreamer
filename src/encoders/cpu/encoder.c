@@ -133,7 +133,10 @@ static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, 
 	dest->written = written;
 }
 
-#define NORM_COMPONENT(_x) (((_x) > 255) ? 255 : (((_x) < 0) ? 0 : (_x)))
+#define YUV_R(_y, _, _v)	(((_y) + (359 * (_v))) >> 8)
+#define YUV_G(_y, _u, _v)	(((_y) - (88 * (_u)) - (183 * (_v))) >> 8)
+#define YUV_B(_y, _u, _)	(((_y) + (454 * (_u))) >> 8)
+#define NORM_COMPONENT(_x)	(((_x) > 255) ? 255 : (((_x) < 0) ? 0 : (_x)))
 
 static void _jpeg_write_scanlines_yuyv(
 	struct jpeg_compress_struct *jpeg, const unsigned char *data,
@@ -153,9 +156,9 @@ static void _jpeg_write_scanlines_yuyv(
 			int u = data[1] - 128;
 			int v = data[3] - 128;
 
-			int r = (y + (359 * v)) >> 8;
-			int g = (y - (88 * u) - (183 * v)) >> 8;
-			int b = (y + (454 * u)) >> 8;
+			int r = YUV_R(y, u, v);
+			int g = YUV_G(y, u, v);
+			int b = YUV_B(y, u, v);
 
 			*(ptr++) = NORM_COMPONENT(r);
 			*(ptr++) = NORM_COMPONENT(g);
@@ -192,9 +195,9 @@ static void _jpeg_write_scanlines_uyvy(
 			int u = data[0] - 128;
 			int v = data[2] - 128;
 
-			int r = (y + (359 * v)) >> 8;
-			int g = (y - (88 * u) - (183 * v)) >> 8;
-			int b = (y + (454 * u)) >> 8;
+			int r = YUV_R(y, u, v);
+			int g = YUV_G(y, u, v);
+			int b = YUV_B(y, u, v);
 
 			*(ptr++) = NORM_COMPONENT(r);
 			*(ptr++) = NORM_COMPONENT(g);
@@ -214,6 +217,9 @@ static void _jpeg_write_scanlines_uyvy(
 }
 
 #undef NORM_COMPONENT
+#undef YUV_B
+#undef YUV_G
+#undef YUV_R
 
 static void _jpeg_write_scanlines_rgb565(
 	struct jpeg_compress_struct *jpeg, const unsigned char *data,
@@ -230,9 +236,9 @@ static void _jpeg_write_scanlines_rgb565(
 		for(unsigned x = 0; x < width; ++x) {
 			unsigned int two_byte = (data[1] << 8) + data[0];
 
-			*(ptr++) = data[1] & 248;
-			*(ptr++) = (unsigned char)((two_byte & 2016) >> 3);
-			*(ptr++) = (data[0] & 31) * 8;
+			*(ptr++) = data[1] & 248; // Red
+			*(ptr++) = (unsigned char)((two_byte & 2016) >> 3); // Green
+			*(ptr++) = (data[0] & 31) * 8; // Blue
 
 			data += 2;
 		}

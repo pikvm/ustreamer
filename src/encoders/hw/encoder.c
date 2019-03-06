@@ -76,7 +76,6 @@ void hw_encoder_compress_buffer(struct device_t *dev, unsigned index) {
 #	undef PICTURE
 }
 
-
 static bool _is_huffman(const unsigned char *data) {
 	unsigned count = 0;
 
