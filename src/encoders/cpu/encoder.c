@@ -79,8 +79,10 @@ void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned 
 	jpeg.err = jpeg_std_error(&jpeg_error);
 	jpeg_create_compress(&jpeg);
 
-	dev->run->pictures[index].size = 0;
-	_jpeg_set_dest_picture(&jpeg, dev->run->pictures[index].data, &dev->run->pictures[index].size);
+#	define PICTURE(_next) dev->run->pictures[index]._next
+
+	PICTURE(size) = 0;
+	_jpeg_set_dest_picture(&jpeg, PICTURE(data), &PICTURE(size));
 
 	jpeg.image_width = dev->run->width;
 	jpeg.image_height = dev->run->height;
@@ -110,8 +112,8 @@ void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned 
 	// https://stackoverflow.com/questions/19857766/error-handling-in-libjpeg
 	jpeg_finish_compress(&jpeg);
 	jpeg_destroy_compress(&jpeg);
-	assert(dev->run->pictures[index].size > 0);
-	assert(dev->run->pictures[index].size <= dev->run->max_picture_size);
+	assert(PICTURE(size) > 0);
+	assert(PICTURE(size) <= dev->run->max_picture_size);
 }
 
 static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, size_t *written) {

@@ -172,8 +172,13 @@ int omx_encoder_prepare_live(struct omx_encoder_t *omx, struct device_t *dev, un
 }
 
 int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, unsigned index) {
+#	define PICTURE(_next)	dev->run->pictures[index]._next
+#	define HW_BUFFER(_next)	dev->run->hw_buffers[index]._next
+#	define IN(_next)		omx->input_buffer->_next
+#	define OUT(_next)		omx->output_buffer->_next
+
 	OMX_ERRORTYPE error;
-	size_t slice_size = omx->input_buffer->nAllocLen;
+	size_t slice_size = IN(nAllocLen);
 	size_t pos = 0;
 
 	if ((error = OMX_FillThisBuffer(omx->encoder, omx->output_buffer)) != OMX_ErrorNone) {
@@ -181,7 +186,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 		return -1;
 	}
 
-	dev->run->pictures[index].size = 0;
+	PICTURE(size) = 0;
 	omx->output_available = false;
 	omx->input_required = true;
 
@@ -193,16 +198,12 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 		if (omx->output_available) {
 			omx->output_available = false;
 
-			memcpy(
-				dev->run->pictures[index].data + dev->run->pictures[index].size,
-				omx->output_buffer->pBuffer + omx->output_buffer->nOffset,
-				omx->output_buffer->nFilledLen
-			);
-			assert(dev->run->pictures[index].size + omx->output_buffer->nFilledLen <= dev->run->max_picture_size);
-			dev->run->pictures[index].size += omx->output_buffer->nFilledLen;
+			assert(PICTURE(size) + OUT(nFilledLen) <= dev->run->max_picture_size);
+			memcpy(PICTURE(data) + PICTURE(size), OUT(pBuffer) + OUT(nOffset), OUT(nFilledLen));
+			PICTURE(size) += OUT(nFilledLen);
 
-			if (omx->output_buffer->nFlags & OMX_BUFFERFLAG_ENDOFFRAME) {
-				omx->output_buffer->nFlags = 0;
+			if (OUT(nFlags) & OMX_BUFFERFLAG_ENDOFFRAME) {
+				OUT(nFlags) = 0;
 				break;
 			}
 
@@ -215,18 +216,18 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 		if (omx->input_required) {
 			omx->input_required = false;
 
-			if (pos == dev->run->hw_buffers[index].length) {
+			if (pos == HW_BUFFER(length)) {
 				continue;
 			}
 
-			memcpy(omx->input_buffer->pBuffer, dev->run->hw_buffers[index].start + pos, slice_size);
-			omx->input_buffer->nOffset = 0;
-			omx->input_buffer->nFilledLen = slice_size;
+			memcpy(IN(pBuffer), HW_BUFFER(start) + pos, slice_size);
+			IN(nOffset) = 0;
+			IN(nFilledLen) = slice_size;
 
 			pos += slice_size;
 
-			if (pos + slice_size > dev->run->hw_buffers[index].length) {
-				slice_size = dev->run->hw_buffers[index].length - pos;
+			if (pos + slice_size > HW_BUFFER(length)) {
+				slice_size = HW_BUFFER(length) - pos;
 			}
 
 			if ((error = OMX_EmptyThisBuffer(omx->encoder, omx->input_buffer)) != OMX_ErrorNone) {
@@ -237,6 +238,11 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 
 		vcos_semaphore_wait(&omx->handler_lock);
 	}
+
+#	undef OUT
+#	undef IN
+#	undef HW_BUFFER
+#	undef PICTURE
 	return 0;
 }
 
