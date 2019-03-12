@@ -69,7 +69,9 @@ static int _device_open_mmap(struct device_t *dev);
 static int _device_open_queue_buffers(struct device_t *dev);
 static void _device_open_alloc_picbufs(struct device_t *dev);
 static int _device_apply_resolution(struct device_t *dev, unsigned width, unsigned height);
-static void _device_apply_image_settings(struct device_t *dev);
+static void _device_apply_controls(struct device_t *dev);
+static int _device_check_control(struct device_t *dev, const char *name, unsigned cid, int value, bool quiet);
+static void _device_set_control(struct device_t *dev, const char *name, unsigned cid, int value, bool quiet);
 
 static const char *_format_to_string_fourcc(char *buf, size_t size, unsigned format);
 static const char *_format_to_string_nullable(unsigned format);
@@ -78,11 +80,11 @@ static const char *_standard_to_string(v4l2_std_id standard);
 
 
 struct device_t *device_init() {
-	struct image_settings_t *img;
+	struct controls_t *ctl;
 	struct device_runtime_t *run;
 	struct device_t *dev;
 
-	A_CALLOC(img, 1);
+	A_CALLOC(ctl, 1);
 
 	A_CALLOC(run, 1);
 	run->fd = -1;
@@ -97,14 +99,14 @@ struct device_t *device_init() {
 	dev->n_workers = dev->n_buffers;
 	dev->timeout = 1;
 	dev->error_delay = 1;
-	dev->img = img;
+	dev->ctl = ctl;
 	dev->run = run;
 	return dev;
 }
 
 void device_destroy(struct device_t *dev) {
 	free(dev->run);
-	free(dev->img);
+	free(dev->ctl);
 	free(dev);
 }
 
@@ -149,7 +151,7 @@ int device_open(struct device_t *dev) {
 		goto error;
 	}
 	_device_open_alloc_picbufs(dev);
-	_device_apply_image_settings(dev);
+	_device_apply_controls(dev);
 
 	LOG_DEBUG("Device fd=%d initialized", dev->run->fd);
 	return 0;
@@ -460,38 +462,23 @@ static int _device_apply_resolution(struct device_t *dev, unsigned width, unsign
 	return 0;
 }
 
-static void _device_apply_image_settings(struct device_t *dev) {
-	struct v4l2_queryctrl query;
-	struct v4l2_control ctl;
-
-#	define SET_CID(_cid, _dest) { \
-			MEMSET_ZERO(query); query.id = _cid; \
-			if (xioctl(dev->run->fd, VIDIOC_QUERYCTRL, &query) < 0 || query.flags & V4L2_CTRL_FLAG_DISABLED) { \
-				LOG_INFO("Changing image " #_dest " is unsupported"); \
-			} else { \
-				MEMSET_ZERO(ctl); ctl.id = _cid; ctl.value = (int)dev->img->_dest; \
-				if (ctl.value < query.minimum || ctl.value > query.maximum || ctl.value % query.step != 0) { \
-					LOG_ERROR("Invalid value %d for image " #_dest ": min=%d, max=%d, default=%d, step=%u", \
-						ctl.value, query.minimum, query.maximum, query.default_value, query.step); \
-				} else { \
-					if (xioctl(dev->run->fd, VIDIOC_S_CTRL, &ctl) < 0) { \
-						LOG_PERROR("Can't set image " #_dest); \
-					} else { \
-						LOG_INFO("Using image " #_dest ": %d (min=%d, max=%d, default=%d, step=%u)", \
-							ctl.value, query.minimum, query.maximum, query.default_value, query.step); \
-					} \
-				} \
+static void _device_apply_controls(struct device_t *dev) {
+#	define SET_CID(_cid, _dest, _value, _quiet) { \
+			if (_device_check_control(dev, #_dest, _cid, _value, _quiet) == 0) { \
+				_device_set_control(dev, #_dest, _cid, _value, _quiet); \
 			} \
 		}
 
 #	define SET_CID_MANUAL(_cid, _dest) { \
-			if (dev->img->_dest##_set) { SET_CID(_cid, _dest); } \
+			if (dev->ctl->_dest.value_set) { \
+				SET_CID(_cid, _dest, dev->ctl->_dest.value, false); \
+			} \
 		}
 
 #	define SET_CID_AUTO(_cid_auto, _cid_manual, _dest) { \
-			if (dev->img->_dest##_set) { \
-				SET_CID(_cid_auto, _dest##_auto); \
-				if (!dev->img->_dest##_auto) { SET_CID(_cid_manual, _dest); } \
+			if (dev->ctl->_dest.value_set || dev->ctl->_dest.auto_set) { \
+				SET_CID(_cid_auto, _dest##_auto, dev->ctl->_dest.auto_set, dev->ctl->_dest.value_set); \
+				SET_CID_MANUAL(_cid_manual, _dest); \
 			} \
 		}
 
@@ -508,6 +495,44 @@ static void _device_apply_image_settings(struct device_t *dev) {
 #	undef SET_CID_AUTO
 #	undef SET_CID_MANUAL
 #	undef SET_CID
+}
+
+static int _device_check_control(struct device_t *dev, const char *name, unsigned cid, int value, bool quiet) {
+	struct v4l2_queryctrl query;
+
+	MEMSET_ZERO(query);
+	query.id = cid;
+
+	if (xioctl(dev->run->fd, VIDIOC_QUERYCTRL, &query) < 0 || query.flags & V4L2_CTRL_FLAG_DISABLED) {
+		if (!quiet) {
+			LOG_ERROR("Changing control %s is unsupported", name);
+		}
+		return -1;
+	}
+	if (value < query.minimum || value > query.maximum || value % query.step != 0) {
+		if (!quiet) {
+			LOG_ERROR("Invalid value %d of control %s: min=%d, max=%d, default=%d, step=%u",
+				value, name, query.minimum, query.maximum, query.default_value, query.step);
+		}
+		return -2;
+	}
+	return 0;
+}
+
+static void _device_set_control(struct device_t *dev, const char *name, unsigned cid, int value, bool quiet) {
+	struct v4l2_control ctl;
+
+	MEMSET_ZERO(ctl);
+	ctl.id = cid;
+	ctl.value = value;
+
+	if (xioctl(dev->run->fd, VIDIOC_S_CTRL, &ctl) < 0) {
+		if (!quiet) {
+			LOG_PERROR("Can't set control %s", name);
+		}
+	} else if (!quiet) {
+		LOG_INFO("Using control %s: %d", name, ctl.value);
+	}
 }
 
 static const char *_format_to_string_fourcc(char *buf, size_t size, unsigned format) {

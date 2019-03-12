@@ -43,53 +43,53 @@
 
 static const char _short_opts[] = "d:i:x:y:m:a:f:z:tb:w:q:c:s:p:u:ro:e:h";
 static const struct option _long_opts[] = {
-	{"device",							required_argument,	NULL,	'd'},
-	{"input",							required_argument,	NULL,	'i'},
-	{"width",							required_argument,	NULL,	'x'},
-	{"height",							required_argument,	NULL,	'y'},
-	{"format",							required_argument,	NULL,	'm'},
-	{"tv-standard",						required_argument,	NULL,	'a'},
-	{"desired-fps",						required_argument,	NULL,	'f'},
-	{"min-frame-size",					required_argument,	NULL,	'z'},
-	{"dv-timings",						no_argument,		NULL,	't'},
-	{"buffers",							required_argument,	NULL,	'b'},
-	{"workers",							required_argument,	NULL,	'w'},
-	{"quality",							required_argument,	NULL,	'q'},
-	{"encoder",							required_argument,	NULL,	'c'},
-	{"device-timeout",					required_argument,	NULL,	1000},
-	{"device-persistent",				no_argument,		NULL,	1001},
-	{"device-error-delay",				required_argument,	NULL,	1002},
+	{"device",					required_argument,	NULL,	'd'},
+	{"input",					required_argument,	NULL,	'i'},
+	{"width",					required_argument,	NULL,	'x'},
+	{"height",					required_argument,	NULL,	'y'},
+	{"format",					required_argument,	NULL,	'm'},
+	{"tv-standard",				required_argument,	NULL,	'a'},
+	{"desired-fps",				required_argument,	NULL,	'f'},
+	{"min-frame-size",			required_argument,	NULL,	'z'},
+	{"dv-timings",				no_argument,		NULL,	't'},
+	{"buffers",					required_argument,	NULL,	'b'},
+	{"workers",					required_argument,	NULL,	'w'},
+	{"quality",					required_argument,	NULL,	'q'},
+	{"encoder",					required_argument,	NULL,	'c'},
+	{"device-timeout",			required_argument,	NULL,	1000},
+	{"device-persistent",		no_argument,		NULL,	1001},
+	{"device-error-delay",		required_argument,	NULL,	1002},
 
-	{"image-brightness",				required_argument,	NULL,	2000},
-	{"image-brightness-auto",			no_argument,		NULL,	2001},
-	{"image-contrast",					required_argument,	NULL,	2002},
-	{"image-saturation",				required_argument,	NULL,	2003},
-	{"image-hue",						required_argument,	NULL,	2004},
-	{"image-hue-auto",					no_argument,		NULL,	2005},
-	{"image-gamma",						required_argument,	NULL,	2006},
-	{"image-sharpness",					required_argument,	NULL,	2007},
-	{"image-backlight-compensation",	required_argument,	NULL,	2008},
-	{"image-white-balance",				required_argument,	NULL,	2009},
-	{"image-white-balance-auto",		no_argument,		NULL,	2010},
-	{"image-gain",						required_argument,	NULL,	2011},
-	{"image-gain-auto",					no_argument,		NULL,	2012},
+	{"brightness",				required_argument,	NULL,	2000},
+	{"brightness-auto",			no_argument,		NULL,	2001},
+	{"contrast",				required_argument,	NULL,	2002},
+	{"saturation",				required_argument,	NULL,	2003},
+	{"hue",						required_argument,	NULL,	2004},
+	{"hue-auto",				no_argument,		NULL,	2005},
+	{"gamma",					required_argument,	NULL,	2006},
+	{"sharpness",				required_argument,	NULL,	2007},
+	{"backlight-compensation",	required_argument,	NULL,	2008},
+	{"white-balance",			required_argument,	NULL,	2009},
+	{"white-balance-auto",		no_argument,		NULL,	2010},
+	{"gain",					required_argument,	NULL,	2011},
+	{"gain-auto",				no_argument,		NULL,	2012},
 
-	{"host",							required_argument,	NULL,	's'},
-	{"port",							required_argument,	NULL,	'p'},
-	{"unix",							required_argument,	NULL,	'u'},
-	{"unix-rm",							no_argument,		NULL,	'r'},
-	{"unix-mode",						required_argument,	NULL,	'o'},
-	{"drop-same-frames",				required_argument,	NULL,	'e'},
-	{"fake-width",						required_argument,	NULL,	3001},
-	{"fake-height",						required_argument,	NULL,	3002},
-	{"server-timeout",					required_argument,	NULL,	3003},
+	{"host",					required_argument,	NULL,	's'},
+	{"port",					required_argument,	NULL,	'p'},
+	{"unix",					required_argument,	NULL,	'u'},
+	{"unix-rm",					no_argument,		NULL,	'r'},
+	{"unix-mode",				required_argument,	NULL,	'o'},
+	{"drop-same-frames",		required_argument,	NULL,	'e'},
+	{"fake-width",				required_argument,	NULL,	3001},
+	{"fake-height",				required_argument,	NULL,	3002},
+	{"server-timeout",			required_argument,	NULL,	3003},
 
-	{"perf",							no_argument,		NULL,	5000},
-	{"verbose",							no_argument,		NULL,	5001},
-	{"debug",							no_argument,		NULL,	5002},
-	{"log-level",						required_argument,	NULL,	5010},
-	{"help",							no_argument,		NULL,	'h'},
-	{"version",							no_argument,		NULL,	6000},
+	{"perf",					no_argument,		NULL,	5000},
+	{"verbose",					no_argument,		NULL,	5001},
+	{"debug",					no_argument,		NULL,	5002},
+	{"log-level",				required_argument,	NULL,	5010},
+	{"help",					no_argument,		NULL,	'h'},
+	{"version",					no_argument,		NULL,	6000},
 	{NULL, 0, NULL, 0},
 };
 
@@ -136,21 +136,21 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --device-persistent              -- Don't re-initialize device on timeout. Default: disabled.\n\n");
 	printf("    --device-error-delay <seconds>   -- Delay before trying to connect to the device again\n");
 	printf("                                        after a timeout. Default: %u\n\n", dev->error_delay);
-	printf("Image options:\n");
+	printf("Image control options:\n");
 	printf("---------------\n");
-	printf("    --image-brightness <N>             -- Set brightness. Default: no change.\n\n");
-	printf("    --image-brightness-auto            -- Enable automatic brightness control. Default: no change.\n\n");
-	printf("    --image-contrast <N>               -- Set contrast. Default: no change.\n\n");
-	printf("    --image-saturation <N>             -- Set saturation. Default: no change.\n\n");
-	printf("    --image-hue <N>                    -- Set hue. Default: no change.\n\n");
-	printf("    --image-hue-auto                   -- Enable automatic hue control. Default: no change.\n\n");
-	printf("    --image-gamma <N>                  -- Set gamma. Default: no change.\n\n");
-	printf("    --image-sharpness <N>              -- Set sharpness. Default: no change.\n\n");
-	printf("    --image-backlight-compensation <N> -- Set backlight compensation. Default: no change.\n\n");
-	printf("    --image-white-balance <N>          -- Set white balance. Default: no change.\n\n");
-	printf("    --image-white-balance-auto         -- Enable automatic white balance control. Default: no change.\n\n");
-	printf("    --image-gain <N>                   -- Set gain. Default: no change.\n\n");
-	printf("    --image-gain-auto                  -- Enable automatic gain control. Default: no change.\n\n");
+	printf("    --brightness <N>             -- Set brightness. Default: no change.\n\n");
+	printf("    --brightness-auto            -- Enable automatic brightness control. Default: no change.\n\n");
+	printf("    --contrast <N>               -- Set contrast. Default: no change.\n\n");
+	printf("    --saturation <N>             -- Set saturation. Default: no change.\n\n");
+	printf("    --hue <N>                    -- Set hue. Default: no change.\n\n");
+	printf("    --hue-auto                   -- Enable automatic hue control. Default: no change.\n\n");
+	printf("    --gamma <N>                  -- Set gamma. Default: no change.\n\n");
+	printf("    --sharpness <N>              -- Set sharpness. Default: no change.\n\n");
+	printf("    --backlight-compensation <N> -- Set backlight compensation. Default: no change.\n\n");
+	printf("    --white-balance <N>          -- Set white balance. Default: no change.\n\n");
+	printf("    --white-balance-auto         -- Enable automatic white balance control. Default: no change.\n\n");
+	printf("    --gain <N>                   -- Set gain. Default: no change.\n\n");
+	printf("    --gain-auto                  -- Enable automatic gain control. Default: no change.\n\n");
 	printf("HTTP server options:\n");
 	printf("--------------------\n");
 	printf("    -s|--host <address>        -- Listen on Hostname or IP. Default: %s\n\n", server->host);
@@ -209,13 +209,21 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			break; \
 		}
 
-#	define OPT_CHMOD(_dest, _name) OPT_INT(_dest, _name, 8)
+#	define OPT_CHMOD(_dest, _name) \
+		OPT_INT(_dest, _name, 8)
 
-#	define OPT_IMG(_dest) \
-		{ dev->img->_dest##_set = true; OPT_INT(dev->img->_dest, "--image-"#_dest, 10); break; }
+#	define OPT_CTL(_dest) { \
+			dev->ctl->_dest.value_set = true; \
+			dev->ctl->_dest.auto_set = false; \
+			OPT_INT(dev->ctl->_dest.value, "--"#_dest, 10); \
+			break; \
+		}
 
-#	define OPT_IMG_AUTO(_dest) \
-		{ dev->img->_dest##_set = true; dev->img->_dest##_auto = true; break; }
+#	define OPT_CTL_AUTO(_dest) { \
+			dev->ctl->_dest.value_set = false; \
+			dev->ctl->_dest.auto_set = true; \
+			break; \
+		}
 
 	int index;
 	int ch;
@@ -243,19 +251,19 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 1001:	OPT_SET(dev->persistent, true);
 			case 1002:	OPT_UNSIGNED(dev->error_delay, "--device-error-delay", 1, 60);
 
-			case 2000:	OPT_IMG(brightness);
-			case 2001:	OPT_IMG_AUTO(brightness);
-			case 2002:	OPT_IMG(contrast);
-			case 2003:	OPT_IMG(saturation);
-			case 2004:	OPT_IMG(hue);
-			case 2005:	OPT_IMG_AUTO(hue);
-			case 2006:	OPT_IMG(gamma);
-			case 2007:	OPT_IMG(sharpness);
-			case 2008:	OPT_IMG(backlight_compensation);
-			case 2009:	OPT_IMG(white_balance);
-			case 2010:	OPT_IMG_AUTO(white_balance);
-			case 2011:	OPT_IMG(gain);
-			case 2012:	OPT_IMG_AUTO(gain);
+			case 2000:	OPT_CTL(brightness);
+			case 2001:	OPT_CTL_AUTO(brightness);
+			case 2002:	OPT_CTL(contrast);
+			case 2003:	OPT_CTL(saturation);
+			case 2004:	OPT_CTL(hue);
+			case 2005:	OPT_CTL_AUTO(hue);
+			case 2006:	OPT_CTL(gamma);
+			case 2007:	OPT_CTL(sharpness);
+			case 2008:	OPT_CTL(backlight_compensation);
+			case 2009:	OPT_CTL(white_balance);
+			case 2010:	OPT_CTL_AUTO(white_balance);
+			case 2011:	OPT_CTL(gain);
+			case 2012:	OPT_CTL_AUTO(gain);
 
 			case 's':	OPT_SET(server->host, optarg);
 			case 'p':	OPT_UNSIGNED(server->port, "--port", 1, 65535);
@@ -278,8 +286,8 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 		}
 	}
 
-#	undef OPT_IMG_AUTO
-#	undef OPT_IMG
+#	undef OPT_CTL_AUTO
+#	undef OPT_CTL
 #	undef OPT_CHMOD
 #	undef OPT_INT
 #	undef OPT_PARSE
