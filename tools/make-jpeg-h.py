@@ -35,20 +35,19 @@ def main():
     width = int(sys.argv[4])
     height = int(sys.argv[5])
 
-    with open(src, "rb") as jpg_file:
-        jpg_data = jpg_file.read()
+    with open(src, "rb") as jpeg_file:
+        jpeg_data = jpeg_file.read()
 
     rows = [[]]
-    for ch in jpg_data:
+    for ch in jpeg_data:
         if len(rows[-1]) > 20:
             rows.append([])
         rows[-1].append("0x%.2X" % (ch))
 
     text = ",\n\t".join(", ".join(row) for row in rows)
-    text = "const unsigned char %s_JPG_DATA[] = {\n\t%s\n};\n" % (prefix, text)
-    text = "const size_t %s_JPG_SIZE = %d;\n\n" % (prefix, len(jpg_data)) + text
-    text = "const unsigned %s_JPG_HEIGHT = %d;\n\n" % (prefix, height) + text
-    text = "const unsigned %s_JPG_WIDTH = %d;\n" % (prefix, width) + text
+    text = "const unsigned char %s_JPEG_DATA[] = {\n\t%s\n};\n" % (prefix, text)
+    text = "const unsigned %s_JPEG_HEIGHT = %d;\n\n" % (prefix, height) + text
+    text = "const unsigned %s_JPEG_WIDTH = %d;\n" % (prefix, width) + text
     text = textwrap.dedent("""
         /*****************************************************************************
         #                                                                            #

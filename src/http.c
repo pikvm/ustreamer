@@ -407,16 +407,13 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		server->run->stream_clients_count += 1;
 
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
-		LOG_INFO(
-			"HTTP: Registered the new stream client: [%s]:%u; id=%s;"
-			" advance_headers=%s; dual_final_frames=%s; clients now: %u",
+		LOG_INFO("HTTP: Registered the new stream client: [%s]:%u; id=%s; advance_headers=%s; dual_final_frames=%s; clients now: %u",
 			client_addr,
 			client_port,
 			client->id,
 			bool_to_string(client->advance_headers),
 			bool_to_string(client->dual_final_frames),
-			server->run->stream_clients_count
-		);
+			server->run->stream_clients_count);
 
 		buf_event = evhttp_connection_get_bufferevent(conn);
 		bufferevent_setcb(buf_event, NULL, NULL, _http_callback_stream_error, (void *)client);
@@ -568,10 +565,8 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	if (conn != NULL) {
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
 	}
-	LOG_INFO(
-		"HTTP: Disconnected the stream client: [%s]:%u; clients now: %u",
-		client_addr, client_port, client->server->run->stream_clients_count
-	);
+	LOG_INFO("HTTP: Disconnected the stream client: [%s]:%u; clients now: %u",
+		client_addr, client_port, client->server->run->stream_clients_count);
 	if (conn != NULL) {
 		evhttp_connection_free(conn);
 	}
@@ -688,18 +683,14 @@ static bool _expose_new_picture(struct http_server_t *server) {
 		) {
 			EXPOSED(expose_cmp_time) = get_now_monotonic();
 			EXPOSED(expose_end_time) = EXPOSED(expose_cmp_time);
-			LOG_VERBOSE(
-				"HTTP: dropped same frame number %u; comparsion time = %.06Lf",
-				EXPOSED(dropped), EXPOSED(expose_cmp_time) - EXPOSED(expose_begin_time)
-			);
+			LOG_VERBOSE("HTTP: dropped same frame number %u; comparsion time = %.06Lf",
+				EXPOSED(dropped), EXPOSED(expose_cmp_time) - EXPOSED(expose_begin_time));
 			EXPOSED(dropped) += 1;
 			return false; // Not updated
 		} else {
 			EXPOSED(expose_cmp_time) = get_now_monotonic();
-			LOG_VERBOSE(
-				"HTTP: passed same frame check (frames are differ); comparsion time = %.06Lf",
-				EXPOSED(expose_cmp_time) - EXPOSED(expose_begin_time)
-			);
+			LOG_VERBOSE("HTTP: passed same frame check (frames are differ); comparsion time = %.06Lf",
+				EXPOSED(expose_cmp_time) - EXPOSED(expose_begin_time));
 		}
 	}
 
@@ -725,10 +716,8 @@ static bool _expose_new_picture(struct http_server_t *server) {
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
 	EXPOSED(expose_end_time) = get_now_monotonic();
 
-	LOG_VERBOSE(
-		"HTTP: exposed new frame; full exposition time =  %.06Lf",
-		 EXPOSED(expose_end_time) - EXPOSED(expose_begin_time)
-	);
+	LOG_VERBOSE("HTTP: exposed new frame; full exposition time =  %.06Lf",
+		 EXPOSED(expose_end_time) - EXPOSED(expose_begin_time));
 
 #	undef EXPOSED
 #	undef STREAM
@@ -736,30 +725,28 @@ static bool _expose_new_picture(struct http_server_t *server) {
 }
 
 static bool _expose_blank_picture(struct http_server_t *server) {
-#	define EXPOSED(_next) server->run->exposed->_next
+#	define EXPOSED(_next)	server->run->exposed->_next
+#	define BLANK_JPEG_LEN	ARRAY_LEN(BLANK_JPEG_DATA)
 
 	EXPOSED(expose_begin_time) = get_now_monotonic();
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
 
 	if (EXPOSED(online) || EXPOSED(picture.size) == 0) {
-		if (EXPOSED(picture.allocated) < BLANK_JPG_SIZE) {
-			A_REALLOC(EXPOSED(picture.data), BLANK_JPG_SIZE);
-			EXPOSED(picture.allocated) = BLANK_JPG_SIZE;
+		if (EXPOSED(picture.allocated) < BLANK_JPEG_LEN) {
+			A_REALLOC(EXPOSED(picture.data), BLANK_JPEG_LEN);
+			EXPOSED(picture.allocated) = BLANK_JPEG_LEN;
 		}
 
-		memcpy(
-			EXPOSED(picture.data), BLANK_JPG_DATA,
-			BLANK_JPG_SIZE * sizeof(*EXPOSED(picture.data))
-		);
+		memcpy(EXPOSED(picture.data), BLANK_JPEG_DATA, BLANK_JPEG_LEN * sizeof(*EXPOSED(picture.data)));
 
-		EXPOSED(picture.size) = BLANK_JPG_SIZE;
+		EXPOSED(picture.size) = BLANK_JPEG_LEN;
 
 		EXPOSED(picture.grab_time) = 0;
 		EXPOSED(picture.encode_begin_time) = 0;
 		EXPOSED(picture.encode_end_time) = 0;
 
-		EXPOSED(width) = BLANK_JPG_WIDTH;
-		EXPOSED(height) = BLANK_JPG_HEIGHT;
+		EXPOSED(width) = BLANK_JPEG_WIDTH;
+		EXPOSED(height) = BLANK_JPEG_HEIGHT;
 		EXPOSED(captured_fps) = 0;
 		EXPOSED(online) = false;
 		goto updated;
@@ -777,5 +764,6 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 		EXPOSED(expose_end_time) = get_now_monotonic();
 		return true; // Updated
 
+#	undef BLANK_JPEG_LEN
 #	undef EXPOSED
 }

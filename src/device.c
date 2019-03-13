@@ -271,12 +271,10 @@ static int _device_apply_dv_timings(struct device_t *dev) {
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_QUERY_DV_TIMINGS) ...");
 	if (xioctl(dev->run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv_timings) == 0) {
-		LOG_INFO(
-			"Got new DV timings: resolution=%ux%u; pixclk=%llu",
+		LOG_INFO("Got new DV timings: resolution=%ux%u; pixclk=%llu",
 			dv_timings.bt.width,
 			dv_timings.bt.height,
-			dv_timings.bt.pixelclock
-		);
+			dv_timings.bt.pixelclock);
 
 		LOG_DEBUG("Calling ioctl(VIDIOC_S_DV_TIMINGS) ...");
 		if (xioctl(dev->run->fd, VIDIOC_S_DV_TIMINGS, &dv_timings) < 0) {
@@ -314,12 +312,10 @@ static int _device_open_format(struct device_t *dev) {
 	// Set format
 	LOG_DEBUG("Calling ioctl(VIDIOC_S_FMT) ...");
 	if (xioctl(dev->run->fd, VIDIOC_S_FMT, &fmt) < 0) {
-		LOG_PERROR(
-			"Unable to set pixelformat=%s; resolution=%ux%u",
+		LOG_PERROR("Unable to set pixelformat=%s; resolution=%ux%u",
 			_format_to_string_supported(dev->format),
 			dev->run->width,
-			dev->run->height
-		);
+			dev->run->height);
 		return -1;
 	}
 
@@ -337,23 +333,15 @@ static int _device_open_format(struct device_t *dev) {
 		char format_obtained_str[8];
 		char *format_str_nullable;
 
-		LOG_ERROR(
-			"Could not obtain the requested pixelformat=%s; driver gave us %s",
+		LOG_ERROR("Could not obtain the requested pixelformat=%s; driver gave us %s",
 			_format_to_string_supported(dev->format),
-			_format_to_string_supported(fmt.fmt.pix.pixelformat)
-		);
+			_format_to_string_supported(fmt.fmt.pix.pixelformat));
 
 		if ((format_str_nullable = (char *)_format_to_string_nullable(fmt.fmt.pix.pixelformat)) != NULL) {
-			LOG_INFO(
-				"Falling back to %s mode (consider using '--format=%s' option)",
-				format_str_nullable,
-				format_str_nullable
-			);
+			LOG_INFO("Falling back to pixelformat=%s", format_str_nullable);
 		} else {
-			LOG_ERROR(
-				"Unsupported pixelformat=%s (fourcc)",
-				_format_to_string_fourcc(format_obtained_str, 8, fmt.fmt.pix.pixelformat)
-			);
+			LOG_ERROR("Unsupported pixelformat=%s (fourcc)",
+				_format_to_string_fourcc(format_obtained_str, 8, fmt.fmt.pix.pixelformat));
 			return -1;
 		}
 	}

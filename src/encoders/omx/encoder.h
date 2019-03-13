@@ -29,8 +29,9 @@
 
 #include "../../device.h"
 
-
-#define OMX_MAX_ENCODERS 3
+#ifndef OMX_MAX_ENCODERS
+#	define OMX_MAX_ENCODERS 3 // Raspberry Pi limitation
+#endif
 
 
 struct omx_encoder_t {

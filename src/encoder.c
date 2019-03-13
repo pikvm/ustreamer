@@ -83,10 +83,7 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 		LOG_DEBUG("Preparing OMX JPEG encoder ...");
 
 		if (dev->n_workers > OMX_MAX_ENCODERS) {
-			LOG_INFO(
-				"OMX-based encoder can only work with %u worker threads; forced --workers=%u",
-				OMX_MAX_ENCODERS, OMX_MAX_ENCODERS
-			);
+			LOG_INFO("OMX JPEG encoder sets limit for worker threads: %u", OMX_MAX_ENCODERS);
 			dev->n_workers = OMX_MAX_ENCODERS;
 		}
 		encoder->run->n_omxs = dev->n_workers;

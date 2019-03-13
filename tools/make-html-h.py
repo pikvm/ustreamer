@@ -41,7 +41,7 @@ def main():
     text = text.replace("%VERSION%", "\" VERSION \"")
     text = textwrap.indent(text, "\t", (lambda line: True))
     text = "\n".join(("%s \\" if line.strip() else "%s\\") % (line) for line in text.split("\n"))
-    text = "const char *%s = \" \\\n%s\n\";\n" % (name, text)
+    text = "const char %s[] = \" \\\n%s\n\";\n" % (name, text)
     text = textwrap.dedent("""
         /*****************************************************************************
         #                                                                            #

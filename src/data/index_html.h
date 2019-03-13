@@ -25,7 +25,7 @@
 #include "../config.h"
 
 
-const char *HTML_INDEX_PAGE = " \
+const char HTML_INDEX_PAGE[] = " \
 	<!DOCTYPE html> \
 	\
 	<html> \

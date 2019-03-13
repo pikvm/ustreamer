@@ -302,10 +302,9 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) 
 
 	stream->picture.size = PICTURE(size);
 	stream->picture.allocated = PICTURE(allocated);
-	memcpy(
-		stream->picture.data, PICTURE(data),
-		stream->picture.size * sizeof(*stream->picture.data)
-	);
+
+	memcpy(stream->picture.data, PICTURE(data), stream->picture.size * sizeof(*stream->picture.data));
+
 	stream->picture.grab_time = PICTURE(grab_time);
 	stream->picture.encode_begin_time = PICTURE(encode_begin_time);
 	stream->picture.encode_end_time = PICTURE(encode_end_time);
@@ -466,10 +465,8 @@ static void *_stream_worker_thread(void *v_ctx) {
 				*ctx->last_comp_time = last_comp_time;
 				A_PTHREAD_M_UNLOCK(ctx->last_comp_time_mutex);
 
-				LOG_VERBOSE(
-					"Compressed JPEG size=%zu; time=%0.3Lf; worker=%u; buffer=%u",
-					PICTURE(size), last_comp_time, ctx->number, ctx->buf_index
-				);
+				LOG_VERBOSE("Compressed JPEG size=%zu; time=%0.3Lf; worker=%u; buffer=%u",
+					PICTURE(size), last_comp_time, ctx->number, ctx->buf_index);
 			} else {
 				*ctx->job_failed = true;
 				*ctx->has_job = false;
