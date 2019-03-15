@@ -63,13 +63,13 @@ struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
 	A_CALLOC(stream, 1);
 	stream->dev = dev;
 	stream->encoder = encoder;
-	A_PTHREAD_M_INIT(&stream->mutex);
+	A_MUTEX_INIT(&stream->mutex);
 	stream->proc = proc;
 	return stream;
 }
 
 void stream_destroy(struct stream_t *stream) {
-	A_PTHREAD_M_DESTROY(&stream->mutex);
+	A_MUTEX_DESTROY(&stream->mutex);
 	free(stream->proc);
 	free(stream);
 }
@@ -105,9 +105,9 @@ void stream_loop(struct stream_t *stream) {
 			SEP_DEBUG('-');
 
 			LOG_DEBUG("Waiting for workers ...");
-			A_PTHREAD_M_LOCK(&pool.free_workers_mutex);
-			A_PTHREAD_C_WAIT_TRUE(pool.free_workers, &pool.free_workers_cond, &pool.free_workers_mutex);
-			A_PTHREAD_M_UNLOCK(&pool.free_workers_mutex);
+			A_MUTEX_LOCK(&pool.free_workers_mutex);
+			A_COND_WAIT_TRUE(pool.free_workers, &pool.free_workers_cond, &pool.free_workers_mutex);
+			A_MUTEX_UNLOCK(&pool.free_workers_mutex);
 
 			if (oldest_worker && !oldest_worker->has_job && oldest_worker->ctx.buf_index >= 0) {
 				if (oldest_worker->job_failed) {
@@ -250,17 +250,17 @@ void stream_loop(struct stream_t *stream) {
 					}
 					last_worker->order_next = NULL;
 
-					A_PTHREAD_M_LOCK(&FREE_WORKER(has_job_mutex));
+					A_MUTEX_LOCK(&FREE_WORKER(has_job_mutex));
 					FREE_WORKER(ctx.buf_index) = buf_info.index;
 					FREE_WORKER(has_job) = true;
-					A_PTHREAD_M_UNLOCK(&FREE_WORKER(has_job_mutex));
-					A_PTHREAD_C_SIGNAL(&FREE_WORKER(has_job_cond));
+					A_MUTEX_UNLOCK(&FREE_WORKER(has_job_mutex));
+					A_COND_SIGNAL(&FREE_WORKER(has_job_cond));
 
 #					undef FREE_WORKER
 
-					A_PTHREAD_M_LOCK(&pool.free_workers_mutex);
+					A_MUTEX_LOCK(&pool.free_workers_mutex);
 					pool.free_workers -= 1;
-					A_PTHREAD_M_UNLOCK(&pool.free_workers_mutex);
+					A_MUTEX_UNLOCK(&pool.free_workers_mutex);
 
 					goto next_handlers; // Поток сам освободит буфер
 
@@ -287,13 +287,13 @@ void stream_loop(struct stream_t *stream) {
 			}
 		}
 
-		A_PTHREAD_M_LOCK(&stream->mutex);
+		A_MUTEX_LOCK(&stream->mutex);
 		stream->picture.size = 0; // On stream offline
 		free(stream->picture.data);
 		stream->width = 0;
 		stream->height = 0;
 		stream->updated = true;
-		A_PTHREAD_M_UNLOCK(&stream->mutex);
+		A_MUTEX_UNLOCK(&stream->mutex);
 	}
 
 	_stream_destroy_workers(stream, &pool);
@@ -312,7 +312,7 @@ void stream_switch_slowdown(struct stream_t *stream, bool slowdown) {
 static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) {
 #	define PICTURE(_next) stream->dev->run->pictures[buf_index]._next
 
-	A_PTHREAD_M_LOCK(&stream->mutex);
+	A_MUTEX_LOCK(&stream->mutex);
 
 	stream->picture.size = PICTURE(size);
 	stream->picture.allocated = PICTURE(allocated);
@@ -327,7 +327,7 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) 
 	stream->height = stream->dev->run->height;
 	stream->updated = true;
 
-	A_PTHREAD_M_UNLOCK(&stream->mutex);
+	A_MUTEX_UNLOCK(&stream->mutex);
 
 #	undef PICTURE
 }
@@ -341,11 +341,11 @@ static long double _stream_get_fluency_delay(struct device_t *dev, struct worker
 	for (unsigned number = 0; number < dev->n_workers; ++number) {
 #		define WORKER(_next) pool->workers[number]._next
 
-		A_PTHREAD_M_LOCK(&WORKER(last_comp_time_mutex));
+		A_MUTEX_LOCK(&WORKER(last_comp_time_mutex));
 		if (WORKER(last_comp_time) > 0) {
 			sum_comp_time += WORKER(last_comp_time);
 		}
-		A_PTHREAD_M_UNLOCK(&WORKER(last_comp_time_mutex));
+		A_MUTEX_UNLOCK(&WORKER(last_comp_time_mutex));
 
 #		undef WORKER
 	}
@@ -408,8 +408,8 @@ static void _stream_init_workers(struct stream_t *stream, struct workers_pool_t 
 	*pool->workers_stop = false;
 	A_CALLOC(pool->workers, stream->dev->n_workers);
 
-	A_PTHREAD_M_INIT(&pool->free_workers_mutex);
-	A_PTHREAD_C_INIT(&pool->free_workers_cond);
+	A_MUTEX_INIT(&pool->free_workers_mutex);
+	A_COND_INIT(&pool->free_workers_cond);
 
 	for (unsigned number = 0; number < stream->dev->n_workers; ++number) {
 #		define WORKER(_next)	pool->workers[number]._next
@@ -417,8 +417,8 @@ static void _stream_init_workers(struct stream_t *stream, struct workers_pool_t 
 
 		pool->free_workers += 1;
 
-		A_PTHREAD_M_INIT(&WORKER(has_job_mutex));
-		A_PTHREAD_C_INIT(&WORKER(has_job_cond));
+		A_MUTEX_INIT(&WORKER(has_job_mutex));
+		A_COND_INIT(&WORKER(has_job_cond));
 
 		CTX(number)			= number;
 		CTX(dev)			= stream->dev;
@@ -440,7 +440,7 @@ static void _stream_init_workers(struct stream_t *stream, struct workers_pool_t 
 		CTX(free_workers)		= &pool->free_workers;
 		CTX(free_workers_cond)	= &pool->free_workers_cond;
 
-		A_PTHREAD_CREATE(&WORKER(tid), _stream_worker_thread, (void *)&WORKER(ctx));
+		A_THREAD_CREATE(&WORKER(tid), _stream_worker_thread, (void *)&WORKER(ctx));
 
 #		undef CTX
 #		undef WORKER
@@ -454,9 +454,9 @@ static void *_stream_worker_thread(void *v_ctx) {
 
 	while (!*ctx->proc_stop && !*ctx->workers_stop) {
 		LOG_DEBUG("Worker %u waiting for a new job ...", ctx->number);
-		A_PTHREAD_M_LOCK(ctx->has_job_mutex);
-		A_PTHREAD_C_WAIT_TRUE(*ctx->has_job, ctx->has_job_cond, ctx->has_job_mutex);
-		A_PTHREAD_M_UNLOCK(ctx->has_job_mutex);
+		A_MUTEX_LOCK(ctx->has_job_mutex);
+		A_COND_WAIT_TRUE(*ctx->has_job, ctx->has_job_cond, ctx->has_job_mutex);
+		A_MUTEX_UNLOCK(ctx->has_job_mutex);
 
 		if (!*ctx->workers_stop) {
 #			define PICTURE(_next) ctx->dev->run->pictures[ctx->buf_index]._next
@@ -475,9 +475,9 @@ static void *_stream_worker_thread(void *v_ctx) {
 
 				long double last_comp_time = PICTURE(encode_end_time) - *ctx->job_start_time;
 
-				A_PTHREAD_M_LOCK(ctx->last_comp_time_mutex);
+				A_MUTEX_LOCK(ctx->last_comp_time_mutex);
 				*ctx->last_comp_time = last_comp_time;
-				A_PTHREAD_M_UNLOCK(ctx->last_comp_time_mutex);
+				A_MUTEX_UNLOCK(ctx->last_comp_time_mutex);
 
 				LOG_VERBOSE("Compressed JPEG size=%zu; time=%0.3Lf; worker=%u; buffer=%u",
 					PICTURE(size), last_comp_time, ctx->number, ctx->buf_index);
@@ -489,10 +489,10 @@ static void *_stream_worker_thread(void *v_ctx) {
 #			undef PICTURE
 		}
 
-		A_PTHREAD_M_LOCK(ctx->free_workers_mutex);
+		A_MUTEX_LOCK(ctx->free_workers_mutex);
 		*ctx->free_workers += 1;
-		A_PTHREAD_M_UNLOCK(ctx->free_workers_mutex);
-		A_PTHREAD_C_SIGNAL(ctx->free_workers_cond);
+		A_MUTEX_UNLOCK(ctx->free_workers_mutex);
+		A_COND_SIGNAL(ctx->free_workers_cond);
 	}
 
 	LOG_DEBUG("Bye-bye (worker %u)", ctx->number);
@@ -507,20 +507,20 @@ static void _stream_destroy_workers(struct stream_t *stream, struct workers_pool
 		for (unsigned number = 0; number < stream->dev->n_workers; ++number) {
 #			define WORKER(_next) pool->workers[number]._next
 
-			A_PTHREAD_M_LOCK(&WORKER(has_job_mutex));
+			A_MUTEX_LOCK(&WORKER(has_job_mutex));
 			WORKER(has_job) = true; // Final job: die
-			A_PTHREAD_M_UNLOCK(&WORKER(has_job_mutex));
-			A_PTHREAD_C_SIGNAL(&WORKER(has_job_cond));
+			A_MUTEX_UNLOCK(&WORKER(has_job_mutex));
+			A_COND_SIGNAL(&WORKER(has_job_cond));
 
-			A_PTHREAD_JOIN(WORKER(tid));
-			A_PTHREAD_M_DESTROY(&WORKER(has_job_mutex));
-			A_PTHREAD_C_DESTROY(&WORKER(has_job_cond));
+			A_THREAD_JOIN(WORKER(tid));
+			A_MUTEX_DESTROY(&WORKER(has_job_mutex));
+			A_COND_DESTROY(&WORKER(has_job_cond));
 
 #			undef WORKER
 		}
 
-		A_PTHREAD_M_DESTROY(&pool->free_workers_mutex);
-		A_PTHREAD_C_DESTROY(&pool->free_workers_cond);
+		A_MUTEX_DESTROY(&pool->free_workers_mutex);
+		A_COND_DESTROY(&pool->free_workers_cond);
 
 		free(pool->workers);
 	}

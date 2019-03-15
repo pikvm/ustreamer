@@ -268,10 +268,10 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 
 #	define ENCODER(_next) server->run->stream->encoder->_next
 
-	A_PTHREAD_M_LOCK(&ENCODER(run->mutex));
+	A_MUTEX_LOCK(&ENCODER(run->mutex));
 	encoder_run_type = ENCODER(run->type);
 	encoder_run_quality = ENCODER(run->quality);
-	A_PTHREAD_M_UNLOCK(&ENCODER(run->mutex));
+	A_MUTEX_UNLOCK(&ENCODER(run->mutex));
 
 	assert((buf = evbuffer_new()));
 
@@ -653,11 +653,11 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	bool picture_updated = false;
 
 #	define UNLOCK_STREAM \
-		{ server->run->stream->updated = false; A_PTHREAD_M_UNLOCK(&server->run->stream->mutex); }
+		{ server->run->stream->updated = false; A_MUTEX_UNLOCK(&server->run->stream->mutex); }
 
 	if (server->run->stream->updated) {
 		LOG_DEBUG("Refreshing HTTP exposed ...");
-		A_PTHREAD_M_LOCK(&server->run->stream->mutex);
+		A_MUTEX_LOCK(&server->run->stream->mutex);
 		if (server->run->stream->picture.size > 0) { // If online
 			picture_updated = _expose_new_picture(server);
 			UNLOCK_STREAM;

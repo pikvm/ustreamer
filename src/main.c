@@ -379,10 +379,10 @@ int main(int argc, char *argv[]) {
 		_ctx = &ctx;
 
 		if ((exit_code = http_server_listen(server)) == 0) {
-			A_PTHREAD_CREATE(&stream_loop_tid, _stream_loop_thread, NULL);
-			A_PTHREAD_CREATE(&server_loop_tid, _server_loop_thread, NULL);
-			A_PTHREAD_JOIN(server_loop_tid);
-			A_PTHREAD_JOIN(stream_loop_tid);
+			A_THREAD_CREATE(&stream_loop_tid, _stream_loop_thread, NULL);
+			A_THREAD_CREATE(&server_loop_tid, _server_loop_thread, NULL);
+			A_THREAD_JOIN(server_loop_tid);
+			A_THREAD_JOIN(stream_loop_tid);
 		}
 	}
 

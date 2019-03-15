@@ -57,7 +57,7 @@ struct encoder_t *encoder_init() {
 	A_CALLOC(run, 1);
 	run->type = ENCODER_TYPE_CPU;
 	run->quality = 80;
-	A_PTHREAD_M_INIT(&run->mutex);
+	A_MUTEX_INIT(&run->mutex);
 
 	A_CALLOC(encoder, 1);
 	encoder->type = run->type;
@@ -119,7 +119,7 @@ void encoder_destroy(struct encoder_t *encoder) {
 		free(encoder->run->omxs);
 	}
 #	endif
-	A_PTHREAD_M_DESTROY(&encoder->run->mutex);
+	A_MUTEX_DESTROY(&encoder->run->mutex);
 	free(encoder->run);
 	free(encoder);
 }
@@ -150,9 +150,9 @@ void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev) {
 		&& encoder->run->type != ENCODER_TYPE_HW
 	) {
 		LOG_INFO("Switching to HW JPEG encoder because the input format is (M)JPEG");
-		A_PTHREAD_M_LOCK(&encoder->run->mutex);
+		A_MUTEX_LOCK(&encoder->run->mutex);
 		encoder->run->type = ENCODER_TYPE_HW;
-		A_PTHREAD_M_UNLOCK(&encoder->run->mutex);
+		A_MUTEX_UNLOCK(&encoder->run->mutex);
 	}
 
 	if (encoder->run->type == ENCODER_TYPE_HW) {
@@ -161,9 +161,9 @@ void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev) {
 			goto use_fallback;
 		}
 		if (hw_encoder_prepare_live(dev, encoder->quality) < 0) {
-			A_PTHREAD_M_LOCK(&encoder->run->mutex);
+			A_MUTEX_LOCK(&encoder->run->mutex);
 			encoder->run->quality = 0;
-			A_PTHREAD_M_UNLOCK(&encoder->run->mutex);
+			A_MUTEX_UNLOCK(&encoder->run->mutex);
 			LOG_INFO("Using JPEG quality: HW-default");
 		}
 	}
@@ -181,10 +181,10 @@ void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev) {
 	return;
 
 	use_fallback:
-		A_PTHREAD_M_LOCK(&encoder->run->mutex);
+		A_MUTEX_LOCK(&encoder->run->mutex);
 		encoder->run->type = ENCODER_TYPE_CPU;
 		encoder->run->quality = encoder->quality;
-		A_PTHREAD_M_UNLOCK(&encoder->run->mutex);
+		A_MUTEX_UNLOCK(&encoder->run->mutex);
 }
 
 #pragma GCC diagnostic ignored "-Wunused-label"
@@ -213,10 +213,10 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, uns
 #	pragma GCC diagnostic push
 	use_fallback:
 		LOG_INFO("Error while compressing, falling back to CPU");
-		A_PTHREAD_M_LOCK(&encoder->run->mutex);
+		A_MUTEX_LOCK(&encoder->run->mutex);
 		encoder->run->type = ENCODER_TYPE_CPU;
 		encoder->run->quality = encoder->quality;
-		A_PTHREAD_M_UNLOCK(&encoder->run->mutex);
+		A_MUTEX_UNLOCK(&encoder->run->mutex);
 		return -1;
 #	pragma GCC diagnostic pop
 }
