@@ -31,45 +31,32 @@
 #include "encoder.h"
 
 
-struct worker_context_t {
+struct worker_t {
+	pthread_t			tid;
 	unsigned			number;
-	struct device_t		*dev;
-	int					buf_index;
-	struct v4l2_buffer	buf_info;
 	sig_atomic_t		*volatile proc_stop;
 	bool				*workers_stop;
 
-	struct encoder_t	*encoder;
+	pthread_mutex_t		last_comp_time_mutex;
+	long double			last_comp_time;
 
-	pthread_mutex_t		*last_comp_time_mutex;
-	long double			*last_comp_time;
-
-	pthread_mutex_t		*has_job_mutex;
-	bool				*has_job;
-	bool				*job_failed;
-	long double			*job_start_time;
-	pthread_cond_t		*has_job_cond;
+	pthread_mutex_t		has_job_mutex;
+	int					buf_index;
+	struct v4l2_buffer	buf_info;
+	bool				has_job;
+	bool				job_failed;
+	long double			job_start_time;
+	pthread_cond_t		has_job_cond;
 
 	pthread_mutex_t		*free_workers_mutex;
 	unsigned			*free_workers;
 	pthread_cond_t		*free_workers_cond;
-};
 
-struct worker_t {
-	struct worker_context_t	ctx;
-	pthread_t				tid;
+	struct worker_t		*order_prev;
+	struct worker_t		*order_next;
 
-	pthread_mutex_t			last_comp_time_mutex;
-	long double				last_comp_time;
-
-	pthread_mutex_t			has_job_mutex;
-	bool					has_job;
-	bool					job_failed;
-	long double				job_start_time;
-	pthread_cond_t			has_job_cond;
-
-	struct worker_t			*order_prev;
-	struct worker_t			*order_next;
+	struct device_t		*dev;
+	struct encoder_t	*encoder;
 };
 
 struct workers_pool_t {
