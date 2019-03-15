@@ -42,8 +42,8 @@
 #include "encoder.h"
 
 
-#define INPUT_PORT 340
-#define OUTPUT_PORT 341
+static const OMX_U32 _INPUT_PORT = 340;
+static const OMX_U32 _OUTPUT_PORT = 341;
 
 
 static int _i_omx = 0;
@@ -300,7 +300,7 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 
 	LOG_DEBUG("Setting up OMX JPEG input port ...");
 
-	if (component_get_portdef(&omx->encoder, &portdef, INPUT_PORT) < 0) {
+	if (component_get_portdef(&omx->encoder, &portdef, _INPUT_PORT) < 0) {
 		LOG_ERROR("... first");
 		return -1;
 	}
@@ -338,17 +338,17 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 		return -1;
 	}
 
-	if (component_get_portdef(&omx->encoder, &portdef, INPUT_PORT) < 0) {
+	if (component_get_portdef(&omx->encoder, &portdef, _INPUT_PORT) < 0) {
 		LOG_ERROR("... second");
 		return -1;
 	}
 
-	if (component_enable_port(&omx->encoder, INPUT_PORT) < 0) {
+	if (component_enable_port(&omx->encoder, _INPUT_PORT) < 0) {
 		return -1;
 	}
 	omx->i_input_port_enabled = true;
 
-	if ((error = OMX_AllocateBuffer(omx->encoder, &omx->input_buffer, INPUT_PORT, NULL, portdef.nBufferSize)) != OMX_ErrorNone) {
+	if ((error = OMX_AllocateBuffer(omx->encoder, &omx->input_buffer, _INPUT_PORT, NULL, portdef.nBufferSize)) != OMX_ErrorNone) {
 		LOG_OMX_ERROR(error, "Can't allocate OMX JPEG input buffer");
 		return -1;
 	}
@@ -361,7 +361,7 @@ static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality) {
 
 	LOG_DEBUG("Setting up OMX JPEG output port ...");
 
-	if (component_get_portdef(&omx->encoder, &portdef, OUTPUT_PORT) < 0) {
+	if (component_get_portdef(&omx->encoder, &portdef, _OUTPUT_PORT) < 0) {
 		LOG_ERROR("... first");
 		return -1;
 	}
@@ -374,7 +374,7 @@ static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality) {
 		return -1;
 	}
 
-	if (component_get_portdef(&omx->encoder, &portdef, OUTPUT_PORT) < 0) {
+	if (component_get_portdef(&omx->encoder, &portdef, _OUTPUT_PORT) < 0) {
 		LOG_ERROR("... second");
 		return -1;
 	}
@@ -395,7 +395,7 @@ static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality) {
 		OMX_PARAM_IJGSCALINGTYPE ijg;
 
 		OMX_INIT_STRUCTURE(ijg);
-		ijg.nPortIndex = OUTPUT_PORT;
+		ijg.nPortIndex = _OUTPUT_PORT;
 		ijg.bEnabled = OMX_TRUE;
 
 		if ((error = OMX_SetParameter(omx->encoder, OMX_IndexParamBrcmEnableIJGTableScaling, &ijg)) != OMX_ErrorNone) {
@@ -408,7 +408,7 @@ static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality) {
 		OMX_IMAGE_PARAM_QFACTORTYPE qfactor;
 
 		OMX_INIT_STRUCTURE(qfactor);
-		qfactor.nPortIndex = OUTPUT_PORT;
+		qfactor.nPortIndex = _OUTPUT_PORT;
 		qfactor.nQFactor = quality;
 
 		if ((error = OMX_SetParameter(omx->encoder, OMX_IndexParamQFactor, &qfactor)) != OMX_ErrorNone) {
@@ -417,12 +417,12 @@ static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality) {
 		}
 	}
 
-	if (component_enable_port(&omx->encoder, OUTPUT_PORT) < 0) {
+	if (component_enable_port(&omx->encoder, _OUTPUT_PORT) < 0) {
 		return -1;
 	}
 	omx->i_output_port_enabled = true;
 
-	if ((error = OMX_AllocateBuffer(omx->encoder, &omx->output_buffer, OUTPUT_PORT, NULL, portdef.nBufferSize)) != OMX_ErrorNone) {
+	if ((error = OMX_AllocateBuffer(omx->encoder, &omx->output_buffer, _OUTPUT_PORT, NULL, portdef.nBufferSize)) != OMX_ErrorNone) {
 		LOG_OMX_ERROR(error, "Can't allocate OMX JPEG output buffer");
 		return -1;
 	}
@@ -434,23 +434,23 @@ static int _omx_encoder_clear_ports(struct omx_encoder_t *omx) {
 	int retcode = 0;
 
 	if (omx->i_output_port_enabled) {
-		retcode -= component_disable_port(&omx->encoder, OUTPUT_PORT);
+		retcode -= component_disable_port(&omx->encoder, _OUTPUT_PORT);
 		omx->i_output_port_enabled = false;
 	}
 	if (omx->i_input_port_enabled) {
-		retcode -= component_disable_port(&omx->encoder, INPUT_PORT);
+		retcode -= component_disable_port(&omx->encoder, _INPUT_PORT);
 		omx->i_input_port_enabled = false;
 	}
 
 	if (omx->input_buffer) {
-		if ((error = OMX_FreeBuffer(omx->encoder, INPUT_PORT, omx->input_buffer)) != OMX_ErrorNone) {
+		if ((error = OMX_FreeBuffer(omx->encoder, _INPUT_PORT, omx->input_buffer)) != OMX_ErrorNone) {
 			LOG_OMX_ERROR(error, "Can't free OMX JPEG input buffer");
 			// retcode -= 1;
 		}
 		omx->input_buffer = NULL;
 	}
 	if (omx->output_buffer) {
-		if ((error = OMX_FreeBuffer(omx->encoder, OUTPUT_PORT, omx->output_buffer)) != OMX_ErrorNone) {
+		if ((error = OMX_FreeBuffer(omx->encoder, _OUTPUT_PORT, omx->output_buffer)) != OMX_ErrorNone) {
 			LOG_OMX_ERROR(error, "Can't free OMX JPEG output buffer");
 			// retcode -= 1;
 		}

@@ -41,8 +41,8 @@
 #include "http.h"
 
 
-static const char _short_opts[] = "d:i:x:y:m:a:f:z:tb:w:q:c:s:p:u:ro:e:h";
-static const struct option _long_opts[] = {
+static const char _SHORT_OPTS[] = "d:i:x:y:m:a:f:z:tb:w:q:c:s:p:u:ro:e:h";
+static const struct option _LONG_OPTS[] = {
 	{"device",					required_argument,	NULL,	'd'},
 	{"input",					required_argument,	NULL,	'i'},
 	{"width",					required_argument,	NULL,	'x'},
@@ -232,7 +232,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 	int ch;
 
 	log_level = LOG_LEVEL_INFO;
-	while ((ch = getopt_long(argc, argv, _short_opts, _long_opts, &index)) >= 0) {
+	while ((ch = getopt_long(argc, argv, _SHORT_OPTS, _LONG_OPTS, &index)) >= 0) {
 		switch (ch) {
 			case 'd':	OPT_SET(dev->path, optarg);
 			case 'i':	OPT_UNSIGNED(dev->input, "--input", 0, 128);
