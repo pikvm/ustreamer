@@ -24,7 +24,6 @@
 
 #include <stddef.h>
 #include <stdbool.h>
-#include <signal.h>
 
 #include <linux/videodev2.h>
 
@@ -106,7 +105,6 @@ struct device_t {
 	struct controls_t *ctl;
 
 	struct device_runtime_t *run;
-	sig_atomic_t volatile stop;
 };
 
 

@@ -80,6 +80,7 @@ static const struct option _long_opts[] = {
 	{"unix-rm",					no_argument,		NULL,	'r'},
 	{"unix-mode",				required_argument,	NULL,	'o'},
 	{"drop-same-frames",		required_argument,	NULL,	'e'},
+	{"slowdown",				no_argument,		NULL,	3000},
 	{"fake-width",				required_argument,	NULL,	3001},
 	{"fake-height",				required_argument,	NULL,	3002},
 	{"server-timeout",			required_argument,	NULL,	3003},
@@ -162,6 +163,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                  It can significantly reduce the outgoing traffic, but will increase\n");
 	printf("                                  the CPU loading. Don't use this option with analog signal sources\n");
 	printf("                                  or webcams, it's useless. Default: disabled.\n\n");
+	printf("    --slowdown                 -- Slowdown capturing to 1 FPS or less when no stream clients connected.\n");
+	printf("                                  Useful to reduce CPU cosumption. Default: disabled.\n\n");
 	printf("    --fake-width <N>           -- Override image width for /state. Default: disabled\n\n");
 	printf("    --fake-height <N>          -- Override image height for /state. Default: disabled.\n\n");
 	printf("    --server-timeout <seconds> -- Timeout for client connections. Default: %u\n\n", server->timeout);
@@ -271,6 +274,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 'r':	OPT_SET(server->unix_rm, true);
 			case 'o':	OPT_CHMOD(server->unix_mode, "--unix-mode");
 			case 'e':	OPT_UNSIGNED(server->drop_same_frames, "--drop-same-frames", 0, 30);
+			case 3000:	OPT_SET(server->slowdown, true);
 			case 3001:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
 			case 3002:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
 			case 3003:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
@@ -377,8 +381,8 @@ int main(int argc, char *argv[]) {
 		if ((exit_code = http_server_listen(server)) == 0) {
 			A_PTHREAD_CREATE(&stream_loop_tid, _stream_loop_thread, NULL);
 			A_PTHREAD_CREATE(&server_loop_tid, _server_loop_thread, NULL);
-			A_PTHREAD_JOIN(stream_loop_tid);
 			A_PTHREAD_JOIN(server_loop_tid);
+			A_PTHREAD_JOIN(stream_loop_tid);
 		}
 	}
 

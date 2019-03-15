@@ -85,6 +85,7 @@ struct http_server_t {
 	bool		unix_rm;
 	mode_t		unix_mode;
 	unsigned	drop_same_frames;
+	bool		slowdown;
 	unsigned	fake_width;
 	unsigned	fake_height;
 	unsigned	timeout;

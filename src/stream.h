@@ -36,7 +36,7 @@ struct worker_context_t {
 	struct device_t		*dev;
 	int					buf_index;
 	struct v4l2_buffer	buf_info;
-	sig_atomic_t		*volatile dev_stop;
+	sig_atomic_t		*volatile proc_stop;
 	bool				*workers_stop;
 
 	struct encoder_t	*encoder;
@@ -83,6 +83,11 @@ struct workers_pool_t {
 	struct encoder_t	*encoder;
 };
 
+struct process_t {
+	sig_atomic_t volatile	stop;
+	bool					slowdown;
+};
+
 struct stream_t {
 	struct picture_t	picture;
 	unsigned			width;
@@ -90,6 +95,8 @@ struct stream_t {
 	unsigned			captured_fps;
 	bool				updated;
 	pthread_mutex_t		mutex;
+
+	struct process_t	*proc;
 	struct device_t		*dev;
 	struct encoder_t	*encoder;
 };
@@ -100,3 +107,4 @@ void stream_destroy(struct stream_t *stream);
 
 void stream_loop(struct stream_t *stream);
 void stream_loop_break(struct stream_t *stream);
+void stream_switch_slowdown(struct stream_t *stream, bool slowdown);

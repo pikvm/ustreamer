@@ -147,6 +147,10 @@ int http_server_listen(struct http_server_t *server) {
 
 	server->run->drop_same_frames_blank = max_u(server->drop_same_frames, server->run->drop_same_frames_blank);
 
+	if (server->slowdown) {
+		stream_switch_slowdown(server->run->stream, true);
+	}
+
 	evhttp_set_timeout(server->run->http, server->timeout);
 
 	if (server->unix_path) {
@@ -406,6 +410,10 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		}
 		server->run->stream_clients_count += 1;
 
+		if (server->slowdown && server->run->stream_clients_count == 1) {
+			stream_switch_slowdown(server->run->stream, false);
+		}
+
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
 		LOG_INFO("HTTP: Registered the new stream client: [%s]:%u; id=%s; advance_headers=%s; dual_final_frames=%s; clients now: %u",
 			client_addr,
@@ -559,20 +567,25 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	char *client_addr = "???";
 	unsigned short client_port = 0;
 
-	client->server->run->stream_clients_count -= 1;
+#	define RUN(_next) client->server->run->_next
+
+	RUN(stream_clients_count) -= 1;
+	if (client->server->slowdown && RUN(stream_clients_count) <= 0) {
+		stream_switch_slowdown(RUN(stream), true);
+	}
 
 	conn = evhttp_request_get_connection(client->request);
 	if (conn != NULL) {
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
 	}
 	LOG_INFO("HTTP: Disconnected the stream client: [%s]:%u; clients now: %u",
-		client_addr, client_port, client->server->run->stream_clients_count);
+		client_addr, client_port, RUN(stream_clients_count));
 	if (conn != NULL) {
 		evhttp_connection_free(conn);
 	}
 
 	if (client->prev == NULL) {
-		client->server->run->stream_clients = client->next;
+		RUN(stream_clients) = client->next;
 	} else {
 		client->prev->next = client->next;
 	}
@@ -581,6 +594,8 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	}
 	free(client->key);
 	free(client);
+
+#	undef RUN
 }
 
 static void _http_queue_send_stream(struct http_server_t *server, bool stream_updated, bool picture_updated) {
