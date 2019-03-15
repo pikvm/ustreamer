@@ -20,6 +20,7 @@
 *****************************************************************************/
 
 
+#include <stdatomic.h>
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
@@ -59,10 +60,13 @@ struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
 	struct stream_t *stream;
 
 	A_CALLOC(proc, 1);
+	atomic_init(&proc->stop, false);
+	atomic_init(&proc->slowdown, false);
 
 	A_CALLOC(stream, 1);
 	stream->dev = dev;
 	stream->encoder = encoder;
+	atomic_init(&stream->updated, false);
 	A_MUTEX_INIT(&stream->mutex);
 	stream->proc = proc;
 	return stream;
@@ -76,11 +80,10 @@ void stream_destroy(struct stream_t *stream) {
 
 void stream_loop(struct stream_t *stream) {
 	struct workers_pool_t pool;
-	bool workers_stop;
 
 	MEMSET_ZERO(pool);
+	atomic_init(&pool.workers_stop, false);
 	pool.encoder = stream->encoder;
-	pool.workers_stop = &workers_stop;
 
 	LOG_INFO("Using V4L2 device: %s", stream->dev->path);
 	LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
@@ -99,7 +102,7 @@ void stream_loop(struct stream_t *stream) {
 
 		LOG_INFO("Capturing ...");
 
-		while (!stream->proc->stop) {
+		while (!atomic_load(&stream->proc->stop)) {
 			int free_worker_number = -1;
 
 			SEP_DEBUG('-');
@@ -109,7 +112,7 @@ void stream_loop(struct stream_t *stream) {
 			A_COND_WAIT_TRUE(pool.free_workers, &pool.free_workers_cond, &pool.free_workers_mutex);
 			A_MUTEX_UNLOCK(&pool.free_workers_mutex);
 
-			if (oldest_worker && !oldest_worker->has_job && oldest_worker->buf_index >= 0) {
+			if (oldest_worker && !atomic_load(&oldest_worker->has_job) && oldest_worker->buf_index >= 0) {
 				if (oldest_worker->job_failed) {
 					break;
 				}
@@ -123,7 +126,7 @@ void stream_loop(struct stream_t *stream) {
 			} else {
 				for (unsigned number = 0; number < stream->dev->n_workers; ++number) {
 					if (
-						!pool.workers[number].has_job && (
+						!atomic_load(&pool.workers[number].has_job) && (
 							free_worker_number == -1
 							|| pool.workers[free_worker_number].job_start_time < pool.workers[number].job_start_time
 						)
@@ -134,16 +137,16 @@ void stream_loop(struct stream_t *stream) {
 				}
 
 				assert(free_worker_number >= 0);
-				assert(!pool.workers[free_worker_number].has_job);
+				assert(!atomic_load(&pool.workers[free_worker_number].has_job));
 
 				LOG_PERF("----- Raw frame dropped;  worker = %u", free_worker_number);
 			}
 
-			if (stream->proc->stop) {
+			if (atomic_load(&stream->proc->stop)) {
 				break;
 			}
 
-			if (stream->proc->slowdown) {
+			if (atomic_load(&stream->proc->slowdown)) {
 				usleep(1000000);
 			}
 
@@ -252,7 +255,7 @@ void stream_loop(struct stream_t *stream) {
 
 					A_MUTEX_LOCK(&FREE_WORKER(has_job_mutex));
 					FREE_WORKER(buf_index) = buf_info.index;
-					FREE_WORKER(has_job) = true;
+					atomic_store(&FREE_WORKER(has_job), true);
 					A_MUTEX_UNLOCK(&FREE_WORKER(has_job_mutex));
 					A_COND_SIGNAL(&FREE_WORKER(has_job_cond));
 
@@ -292,7 +295,7 @@ void stream_loop(struct stream_t *stream) {
 		free(stream->picture.data);
 		stream->width = 0;
 		stream->height = 0;
-		stream->updated = true;
+		atomic_store(&stream->updated, true);
 		A_MUTEX_UNLOCK(&stream->mutex);
 	}
 
@@ -302,11 +305,11 @@ void stream_loop(struct stream_t *stream) {
 }
 
 void stream_loop_break(struct stream_t *stream) {
-	stream->proc->stop = 1;
+	atomic_store(&stream->proc->stop, true);
 }
 
 void stream_switch_slowdown(struct stream_t *stream, bool slowdown) {
-	stream->proc->slowdown = slowdown;
+	atomic_store(&stream->proc->slowdown, slowdown);
 }
 
 static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) {
@@ -325,7 +328,7 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) 
 
 	stream->width = stream->dev->run->width;
 	stream->height = stream->dev->run->height;
-	stream->updated = true;
+	atomic_store(&stream->updated, true);
 
 	A_MUTEX_UNLOCK(&stream->mutex);
 
@@ -365,8 +368,8 @@ static long double _stream_get_fluency_delay(struct device_t *dev, struct worker
 static int _stream_init_loop(struct stream_t *stream, struct workers_pool_t *pool) {
 	int retval = -1;
 
-	LOG_DEBUG("%s: *stream->proc->stop = %d", __FUNCTION__, stream->proc->stop);
-	while (!stream->proc->stop) {
+	LOG_DEBUG("%s: stream->proc->stop = %d", __FUNCTION__, atomic_load(&stream->proc->stop));
+	while (!atomic_load(&stream->proc->stop)) {
 		if ((retval = _stream_init(stream, pool)) < 0) {
 			LOG_INFO("Sleeping %u seconds before new stream init ...", stream->dev->error_delay);
 			sleep(stream->dev->error_delay);
@@ -405,7 +408,7 @@ static int _stream_init(struct stream_t *stream, struct workers_pool_t *pool) {
 static void _stream_init_workers(struct stream_t *stream, struct workers_pool_t *pool) {
 	LOG_INFO("Spawning %u workers ...", stream->dev->n_workers);
 
-	*pool->workers_stop = false;
+	atomic_store(&pool->workers_stop, false);
 	A_CALLOC(pool->workers, stream->dev->n_workers);
 
 	A_MUTEX_INIT(&pool->free_workers_mutex);
@@ -417,11 +420,12 @@ static void _stream_init_workers(struct stream_t *stream, struct workers_pool_t 
 		pool->free_workers += 1;
 
 		A_MUTEX_INIT(&WORKER(has_job_mutex));
+		atomic_init(&WORKER(has_job), false);
 		A_COND_INIT(&WORKER(has_job_cond));
 
 		WORKER(number)			= number;
-		WORKER(proc_stop)		= (sig_atomic_t *volatile)&(stream->proc->stop);
-		WORKER(workers_stop)	= pool->workers_stop;
+		WORKER(proc_stop)		= &stream->proc->stop;
+		WORKER(workers_stop)	= &pool->workers_stop;
 
 		WORKER(free_workers_mutex)	= &pool->free_workers_mutex;
 		WORKER(free_workers)		= &pool->free_workers;
@@ -441,13 +445,13 @@ static void *_stream_worker_thread(void *v_worker) {
 
 	LOG_DEBUG("Hello! I am a worker #%u ^_^", worker->number);
 
-	while (!*worker->proc_stop && !*worker->workers_stop) {
+	while (!atomic_load(worker->proc_stop) && !atomic_load(worker->workers_stop)) {
 		LOG_DEBUG("Worker %u waiting for a new job ...", worker->number);
 		A_MUTEX_LOCK(&worker->has_job_mutex);
-		A_COND_WAIT_TRUE(worker->has_job, &worker->has_job_cond, &worker->has_job_mutex);
+		A_COND_WAIT_TRUE(atomic_load(&worker->has_job), &worker->has_job_cond, &worker->has_job_mutex);
 		A_MUTEX_UNLOCK(&worker->has_job_mutex);
 
-		if (!*worker->workers_stop) {
+		if (!atomic_load(worker->workers_stop)) {
 #			define PICTURE(_next) worker->dev->run->pictures[worker->buf_index]._next
 
 			LOG_DEBUG("Worker %u compressing JPEG from buffer %u ...", worker->number, worker->buf_index);
@@ -460,7 +464,7 @@ static void *_stream_worker_thread(void *v_worker) {
 
 			if (_stream_release_buffer(worker->dev, &worker->buf_info) == 0) {
 				worker->job_start_time = PICTURE(encode_begin_time);
-				worker->has_job = false;
+				atomic_store(&worker->has_job, false);
 
 				long double last_comp_time = PICTURE(encode_end_time) - worker->job_start_time;
 
@@ -472,7 +476,7 @@ static void *_stream_worker_thread(void *v_worker) {
 					PICTURE(size), last_comp_time, worker->number, worker->buf_index);
 			} else {
 				worker->job_failed = true;
-				worker->has_job = false;
+				atomic_store(&worker->has_job, false);
 			}
 
 #			undef PICTURE
@@ -492,12 +496,12 @@ static void _stream_destroy_workers(struct stream_t *stream, struct workers_pool
 	if (pool->workers) {
 		LOG_INFO("Destroying workers ...");
 
-		*pool->workers_stop = true;
+		atomic_store(&pool->workers_stop, true);
 		for (unsigned number = 0; number < stream->dev->n_workers; ++number) {
 #			define WORKER(_next) pool->workers[number]._next
 
 			A_MUTEX_LOCK(&WORKER(has_job_mutex));
-			WORKER(has_job) = true; // Final job: die
+			atomic_store(&WORKER(has_job), true); // Final job: die
 			A_MUTEX_UNLOCK(&WORKER(has_job_mutex));
 			A_COND_SIGNAL(&WORKER(has_job_cond));
 

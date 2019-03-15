@@ -22,6 +22,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
@@ -330,11 +331,15 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	ADD_HEADER("Pragma", "no-cache");
 	ADD_HEADER("Expires", "Mon, 3 Jan 2000 12:34:56 GMT");
 
-#	define ADD_TIME_HEADER(_key, _value) \
-		{ sprintf(header_buf, "%.06Lf", _value); ADD_HEADER(_key, header_buf); }
+#	define ADD_TIME_HEADER(_key, _value) { \
+			sprintf(header_buf, "%.06Lf", _value); \
+			ADD_HEADER(_key, header_buf); \
+		}
 
-#	define ADD_UNSIGNED_HEADER(_key, _value) \
-		{ sprintf(header_buf, "%u", _value); ADD_HEADER(_key, header_buf); }
+#	define ADD_UNSIGNED_HEADER(_key, _value) { \
+			sprintf(header_buf, "%u", _value); \
+			ADD_HEADER(_key, header_buf); \
+		}
 
 	ADD_TIME_HEADER("X-Timestamp", get_now_real());
 
@@ -471,8 +476,8 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	// по тем же причинам, по которым у нас нет Content-Length.
 
 #	define ADD_ADVANCE_HEADERS \
-		{ assert(evbuffer_add_printf(buf, \
-		"Content-Type: image/jpeg" RN "X-Timestamp: %.06Lf" RN RN, get_now_real())); }
+		assert(evbuffer_add_printf(buf, \
+			"Content-Type: image/jpeg" RN "X-Timestamp: %.06Lf" RN RN, get_now_real()))
 
 	if (client->need_initial) {
 		assert(evbuffer_add_printf(buf,
@@ -652,10 +657,12 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	bool stream_updated = false;
 	bool picture_updated = false;
 
-#	define UNLOCK_STREAM \
-		{ server->run->stream->updated = false; A_MUTEX_UNLOCK(&server->run->stream->mutex); }
+#	define UNLOCK_STREAM { \
+			atomic_store(&server->run->stream->updated, false); \
+			A_MUTEX_UNLOCK(&server->run->stream->mutex); \
+		}
 
-	if (server->run->stream->updated) {
+	if (atomic_load(&server->run->stream->updated)) {
 		LOG_DEBUG("Refreshing HTTP exposed ...");
 		A_MUTEX_LOCK(&server->run->stream->mutex);
 		if (server->run->stream->picture.size > 0) { // If online

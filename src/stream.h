@@ -23,7 +23,7 @@
 #pragma once
 
 #include <stdbool.h>
-#include <signal.h>
+#include <stdatomic.h>
 
 #include <pthread.h>
 
@@ -34,8 +34,8 @@
 struct worker_t {
 	pthread_t			tid;
 	unsigned			number;
-	sig_atomic_t		*volatile proc_stop;
-	bool				*workers_stop;
+	atomic_bool			*proc_stop;
+	atomic_bool			*workers_stop;
 
 	pthread_mutex_t		last_comp_time_mutex;
 	long double			last_comp_time;
@@ -43,7 +43,7 @@ struct worker_t {
 	pthread_mutex_t		has_job_mutex;
 	int					buf_index;
 	struct v4l2_buffer	buf_info;
-	bool				has_job;
+	atomic_bool			has_job;
 	bool				job_failed;
 	long double			job_start_time;
 	pthread_cond_t		has_job_cond;
@@ -61,7 +61,7 @@ struct worker_t {
 
 struct workers_pool_t {
 	struct worker_t		*workers;
-	bool				*workers_stop;
+	atomic_bool			workers_stop;
 
 	pthread_mutex_t		free_workers_mutex;
 	unsigned			free_workers;
@@ -71,8 +71,8 @@ struct workers_pool_t {
 };
 
 struct process_t {
-	sig_atomic_t volatile	stop;
-	bool					slowdown;
+	atomic_bool stop;
+	atomic_bool slowdown;
 };
 
 struct stream_t {
@@ -80,7 +80,7 @@ struct stream_t {
 	unsigned			width;
 	unsigned			height;
 	unsigned			captured_fps;
-	bool				updated;
+	atomic_bool			updated;
 	pthread_mutex_t		mutex;
 
 	struct process_t	*proc;
