@@ -41,7 +41,7 @@
 #include "http.h"
 
 
-static const char _SHORT_OPTS[] = "d:i:x:y:m:a:f:z:tb:w:q:c:s:p:u:ro:e:h";
+static const char _SHORT_OPTS[] = "d:i:x:y:m:a:f:z:ntb:w:q:c:s:p:u:ro:e:h";
 static const struct option _LONG_OPTS[] = {
 	{"device",					required_argument,	NULL,	'd'},
 	{"input",					required_argument,	NULL,	'i'},
@@ -51,14 +51,14 @@ static const struct option _LONG_OPTS[] = {
 	{"tv-standard",				required_argument,	NULL,	'a'},
 	{"desired-fps",				required_argument,	NULL,	'f'},
 	{"min-frame-size",			required_argument,	NULL,	'z'},
+	{"persistent",				no_argument,		NULL,	'n'},
 	{"dv-timings",				no_argument,		NULL,	't'},
 	{"buffers",					required_argument,	NULL,	'b'},
 	{"workers",					required_argument,	NULL,	'w'},
 	{"quality",					required_argument,	NULL,	'q'},
 	{"encoder",					required_argument,	NULL,	'c'},
 	{"device-timeout",			required_argument,	NULL,	1000},
-	{"device-persistent",		no_argument,		NULL,	1001},
-	{"device-error-delay",		required_argument,	NULL,	1002},
+	{"device-error-delay",		required_argument,	NULL,	1001},
 
 	{"brightness",				required_argument,	NULL,	2000},
 	{"brightness-auto",			no_argument,		NULL,	2001},
@@ -113,30 +113,30 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("Copyright (C) 2018 Maxim Devaev <mdevaev@gmail.com>\n\n");
 	printf("Capturing options:\n");
 	printf("------------------\n");
-	printf("    -d|--device </dev/path>          -- Path to V4L2 device. Default: %s.\n\n", dev->path);
-	printf("    -i|--input <N>                   -- Input channel. Default: %u.\n\n", dev->input);
-	printf("    -x|--width <N>                   -- Initial image width. Default: %u.\n\n", dev->width);
-	printf("    -y|--height <N>                  -- Initial image height. Default: %u.\n\n", dev->height);
-	printf("    -m|--format <fmt>                -- Image format.\n");
-	printf("                                        Available: %s; default: YUYV.\n\n", FORMATS_STR);
-	printf("    -a|--tv-standard <std>           -- Force TV standard.\n");
-	printf("                                        Available: %s; default: disabled.\n\n", STANDARDS_STR);
-	printf("    -f|--desired-fps <N>             -- Desired FPS. Default: maximum as possible.\n\n");
-	printf("    -z|--min-frame-size <N>          -- Drop frames smaller then this limit.\n");
-	printf("                                        Useful if the device produces small-sized garbage frames.\n\n");
-	printf("    -t|--dv-timings                  -- Enable DV timings queriyng and events processing.\n");
-	printf("                                        Supports automatic resolution changing. Default: disabled.\n\n");
-	printf("    -b|--buffers <N>                 -- The number of buffers to receive data from the device.\n");
-	printf("                                        Each buffer may processed using an intermediate thread.\n");
-	printf("                                        Default: %u (number of CPU cores + 1)\n\n", dev->n_buffers);
-	printf("    -w|--workers <N>                 -- The number of compressing threads. Default: %u (== --buffers).\n\n", dev->n_workers);
-	printf("    -q|--quality <N>                 -- Set quality of JPEG encoding from 1 to 100 (best). Default: %u.\n\n", encoder->quality);
-	printf("    -c|--encoder <type>              -- Use specified encoder. It may affects to workers number.\n");
-	printf("                                     -- Available: %s; default: CPU.\n\n", ENCODER_TYPES_STR);
-	printf("    --device-timeout <seconds>       -- Timeout for device querying. Default: %u\n\n", dev->timeout);
-	printf("    --device-persistent              -- Don't re-initialize device on timeout. Default: disabled.\n\n");
-	printf("    --device-error-delay <seconds>   -- Delay before trying to connect to the device again\n");
-	printf("                                        after a timeout. Default: %u\n\n", dev->error_delay);
+	printf("    -d|--device </dev/path>        -- Path to V4L2 device. Default: %s.\n\n", dev->path);
+	printf("    -i|--input <N>                 -- Input channel. Default: %u.\n\n", dev->input);
+	printf("    -x|--width <N>                 -- Initial image width. Default: %u.\n\n", dev->width);
+	printf("    -y|--height <N>                -- Initial image height. Default: %u.\n\n", dev->height);
+	printf("    -m|--format <fmt>              -- Image format.\n");
+	printf("                                      Available: %s; default: YUYV.\n\n", FORMATS_STR);
+	printf("    -a|--tv-standard <std>         -- Force TV standard.\n");
+	printf("                                      Available: %s; default: disabled.\n\n", STANDARDS_STR);
+	printf("    -f|--desired-fps <N>           -- Desired FPS. Default: maximum as possible.\n\n");
+	printf("    -z|--min-frame-size <N>        -- Drop frames smaller then this limit.\n");
+	printf("                                      Useful if the device produces small-sized garbage frames.\n\n");
+	printf("    -n|--persistent                -- Don't re-initialize device on timeout. Default: disabled.\n\n");
+	printf("    -t|--dv-timings                -- Enable DV timings queriyng and events processing.\n");
+	printf("                                      Supports automatic resolution changing. Default: disabled.\n\n");
+	printf("    -b|--buffers <N>               -- The number of buffers to receive data from the device.\n");
+	printf("                                      Each buffer may processed using an intermediate thread.\n");
+	printf("                                      Default: %u (number of CPU cores + 1)\n\n", dev->n_buffers);
+	printf("    -w|--workers <N>               -- The number of compressing threads. Default: %u (== --buffers).\n\n", dev->n_workers);
+	printf("    -q|--quality <N>               -- Set quality of JPEG encoding from 1 to 100 (best). Default: %u.\n\n", encoder->quality);
+	printf("    -c|--encoder <type>            -- Use specified encoder. It may affects to workers number.\n");
+	printf("                                   -- Available: %s; default: CPU.\n\n", ENCODER_TYPES_STR);
+	printf("    --device-timeout <seconds>     -- Timeout for device querying. Default: %u\n\n", dev->timeout);
+	printf("    --device-error-delay <seconds> -- Delay before trying to connect to the device again\n");
+	printf("                                      after timeout. Default: %u\n\n", dev->error_delay);
 	printf("Image control options:\n");
 	printf("---------------\n");
 	printf("    --brightness <N>             -- Set brightness. Default: no change.\n\n");
@@ -245,14 +245,14 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 'a':	OPT_PARSE(dev->standard, device_parse_standard, STANDARD_UNKNOWN, "TV standard");
 			case 'f':	OPT_UNSIGNED(dev->desired_fps, "--desired-fps", 0, 30);
 			case 'z':	OPT_UNSIGNED(dev->min_frame_size, "--min-frame-size", 0, 8192);
+			case 'n':	OPT_SET(dev->persistent, true);
 			case 't':	OPT_SET(dev->dv_timings, true);
 			case 'b':	OPT_UNSIGNED(dev->n_buffers, "--buffers", 1, 32);
 			case 'w':	OPT_UNSIGNED(dev->n_workers, "--workers", 1, 32);
 			case 'q':	OPT_UNSIGNED(encoder->quality, "--quality", 1, 100);
 			case 'c':	OPT_PARSE(encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, "encoder type");
 			case 1000:	OPT_UNSIGNED(dev->timeout, "--device-timeout", 1, 60);
-			case 1001:	OPT_SET(dev->persistent, true);
-			case 1002:	OPT_UNSIGNED(dev->error_delay, "--device-error-delay", 1, 60);
+			case 1001:	OPT_UNSIGNED(dev->error_delay, "--device-error-delay", 1, 60);
 
 			case 2000:	OPT_CTL(brightness);
 			case 2001:	OPT_CTL_AUTO(brightness);
