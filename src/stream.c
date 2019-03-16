@@ -49,11 +49,6 @@ static void _stream_init_workers(struct stream_t *stream, struct workers_pool_t 
 static void *_stream_worker_thread(void *v_worker);
 static void _stream_destroy_workers(struct stream_t *stream, struct workers_pool_t *pool);
 
-static int _stream_control(struct device_t *dev, bool enable);
-static int _stream_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_info);
-static int _stream_release_buffer(struct device_t *dev, struct v4l2_buffer *buf_info);
-static int _stream_handle_event(struct device_t *dev);
-
 
 struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
 	struct process_t *proc;
@@ -195,7 +190,7 @@ void stream_loop(struct stream_t *stream) {
 					long double now = get_now_monotonic();
 					long long now_second = floor_ms(now);
 
-					if (_stream_grab_buffer(stream->dev, &buf_info) < 0) {
+					if (device_grab_buffer(stream->dev, &buf_info) < 0) {
 						break;
 					}
 					stream->dev->run->pictures[buf_info.index].grab_time = now;
@@ -269,7 +264,7 @@ void stream_loop(struct stream_t *stream) {
 
 					pass_frame:
 
-					if (_stream_release_buffer(stream->dev, &buf_info) < 0) {
+					if (device_release_buffer(stream->dev, &buf_info) < 0) {
 						break;
 					}
 				}
@@ -283,7 +278,7 @@ void stream_loop(struct stream_t *stream) {
 
 				if (FD_ISSET(stream->dev->run->fd, &error_fds)) {
 					LOG_INFO("Got V4L2 event");
-					if (_stream_handle_event(stream->dev) < 0) {
+					if (device_consume_event(stream->dev) < 0) {
 						break;
 					}
 				}
@@ -300,7 +295,7 @@ void stream_loop(struct stream_t *stream) {
 	}
 
 	_stream_destroy_workers(stream, &pool);
-	_stream_control(stream->dev, false);
+	device_switch_capturing(stream->dev, false);
 	device_close(stream->dev);
 }
 
@@ -384,13 +379,13 @@ static int _stream_init(struct stream_t *stream, struct workers_pool_t *pool) {
 	SEP_INFO('=');
 
 	_stream_destroy_workers(stream, pool);
-	_stream_control(stream->dev, false);
+	device_switch_capturing(stream->dev, false);
 	device_close(stream->dev);
 
 	if (device_open(stream->dev) < 0) {
 		goto error;
 	}
-	if (_stream_control(stream->dev, true) < 0) {
+	if (device_switch_capturing(stream->dev, true) < 0) {
 		goto error;
 	}
 
@@ -462,7 +457,7 @@ static void *_stream_worker_thread(void *v_worker) {
 			}
 			PICTURE(encode_end_time) = get_now_monotonic();
 
-			if (_stream_release_buffer(worker->dev, &worker->buf_info) == 0) {
+			if (device_release_buffer(worker->dev, &worker->buf_info) == 0) {
 				worker->job_start_time = PICTURE(encode_begin_time);
 				atomic_store(&worker->has_job, false);
 
@@ -519,69 +514,4 @@ static void _stream_destroy_workers(struct stream_t *stream, struct workers_pool
 	}
 	pool->free_workers = 0;
 	pool->workers = NULL;
-}
-
-static int _stream_control(struct device_t *dev, bool enable) {
-	if (enable != dev->run->capturing) {
-		enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-
-		LOG_DEBUG("Calling ioctl(%s) ...", (enable ? "VIDIOC_STREAMON" : "VIDIOC_STREAMOFF"));
-		if (xioctl(dev->run->fd, (enable ? VIDIOC_STREAMON : VIDIOC_STREAMOFF), &type) < 0) {
-			LOG_PERROR("Unable to %s capturing", (enable ? "start" : "stop"));
-			if (enable) {
-				return -1;
-			}
-		}
-
-		dev->run->capturing = enable;
-		LOG_INFO("Capturing %s", (enable ? "started" : "stopped"));
-	}
-    return 0;
-}
-
-static int _stream_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_info) {
-	MEMSET_ZERO_PTR(buf_info);
-	buf_info->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	buf_info->memory = V4L2_MEMORY_MMAP;
-
-	LOG_DEBUG("Calling ioctl(VIDIOC_DQBUF) ...");
-	if (xioctl(dev->run->fd, VIDIOC_DQBUF, buf_info) < 0) {
-		LOG_PERROR("Unable to dequeue buffer");
-		return -1;
-	}
-
-	LOG_DEBUG("Got a new frame in buffer index=%u; bytesused=%u", buf_info->index, buf_info->bytesused);
-	if (buf_info->index >= dev->run->n_buffers) {
-		LOG_ERROR("Got invalid buffer index=%u; nbuffers=%u", buf_info->index, dev->run->n_buffers);
-		return -1;
-	}
-	return 0;
-}
-
-static int _stream_release_buffer(struct device_t *dev, struct v4l2_buffer *buf_info) {
-	LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) ...");
-	if (xioctl(dev->run->fd, VIDIOC_QBUF, buf_info) < 0) {
-		LOG_PERROR("Unable to requeue buffer");
-		return -1;
-	}
-	return 0;
-}
-
-static int _stream_handle_event(struct device_t *dev) {
-	struct v4l2_event event;
-
-	LOG_DEBUG("Calling ioctl(VIDIOC_DQEVENT) ...");
-	if (!xioctl(dev->run->fd, VIDIOC_DQEVENT, &event)) {
-		switch (event.type) {
-			case V4L2_EVENT_SOURCE_CHANGE:
-				LOG_INFO("Got V4L2_EVENT_SOURCE_CHANGE: source changed");
-				return -1;
-			case V4L2_EVENT_EOS:
-				LOG_INFO("Got V4L2_EVENT_EOS: end of stream (ignored)");
-				return 0;
-		}
-	} else {
-		LOG_PERROR("Got some V4L2 device event, but where is it? ");
-	}
-	return 0;
 }

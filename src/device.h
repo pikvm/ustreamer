@@ -116,3 +116,8 @@ v4l2_std_id device_parse_standard(const char *str);
 
 int device_open(struct device_t *dev);
 void device_close(struct device_t *dev);
+
+int device_switch_capturing(struct device_t *dev, bool enable);
+int device_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_info);
+int device_release_buffer(struct device_t *dev, struct v4l2_buffer *buf_info);
+int device_consume_event(struct device_t *dev);

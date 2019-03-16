@@ -201,6 +201,71 @@ void device_close(struct device_t *dev) {
 	}
 }
 
+int device_switch_capturing(struct device_t *dev, bool enable) {
+	if (enable != dev->run->capturing) {
+		enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+		LOG_DEBUG("Calling ioctl(%s) ...", (enable ? "VIDIOC_STREAMON" : "VIDIOC_STREAMOFF"));
+		if (xioctl(dev->run->fd, (enable ? VIDIOC_STREAMON : VIDIOC_STREAMOFF), &type) < 0) {
+			LOG_PERROR("Unable to %s capturing", (enable ? "start" : "stop"));
+			if (enable) {
+				return -1;
+			}
+		}
+
+		dev->run->capturing = enable;
+		LOG_INFO("Capturing %s", (enable ? "started" : "stopped"));
+	}
+    return 0;
+}
+
+int device_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_info) {
+	MEMSET_ZERO_PTR(buf_info);
+	buf_info->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	buf_info->memory = V4L2_MEMORY_MMAP;
+
+	LOG_DEBUG("Calling ioctl(VIDIOC_DQBUF) ...");
+	if (xioctl(dev->run->fd, VIDIOC_DQBUF, buf_info) < 0) {
+		LOG_PERROR("Unable to dequeue buffer");
+		return -1;
+	}
+
+	LOG_DEBUG("Got a new frame in buffer index=%u; bytesused=%u", buf_info->index, buf_info->bytesused);
+	if (buf_info->index >= dev->run->n_buffers) {
+		LOG_ERROR("Got invalid buffer index=%u; nbuffers=%u", buf_info->index, dev->run->n_buffers);
+		return -1;
+	}
+	return 0;
+}
+
+int device_release_buffer(struct device_t *dev, struct v4l2_buffer *buf_info) {
+	LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) ...");
+	if (xioctl(dev->run->fd, VIDIOC_QBUF, buf_info) < 0) {
+		LOG_PERROR("Unable to requeue buffer");
+		return -1;
+	}
+	return 0;
+}
+
+int device_consume_event(struct device_t *dev) {
+	struct v4l2_event event;
+
+	LOG_DEBUG("Calling ioctl(VIDIOC_DQEVENT) ...");
+	if (!xioctl(dev->run->fd, VIDIOC_DQEVENT, &event)) {
+		switch (event.type) {
+			case V4L2_EVENT_SOURCE_CHANGE:
+				LOG_INFO("Got V4L2_EVENT_SOURCE_CHANGE: source changed");
+				return -1;
+			case V4L2_EVENT_EOS:
+				LOG_INFO("Got V4L2_EVENT_EOS: end of stream (ignored)");
+				return 0;
+		}
+	} else {
+		LOG_PERROR("Got some V4L2 device event, but where is it? ");
+	}
+	return 0;
+}
+
 static int _device_open_check_cap(struct device_t *dev) {
 	struct v4l2_capability cap;
 	int input = dev->input; // Needs pointer to int for ioctl()
