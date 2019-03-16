@@ -72,7 +72,7 @@ INLINE unsigned max_u(unsigned a, unsigned b) {
 }
 
 INLINE long long floor_ms(long double now) {
-	return (long long) now - (now < (long long) now); // floor()
+	return (long long)now - (now < (long long)now); // floor()
 }
 
 INLINE void get_now(clockid_t clk_id, time_t *sec, long *msec) {
