@@ -95,7 +95,7 @@ struct device_t *device_init() {
 	dev->height = 480;
 	dev->format = V4L2_PIX_FMT_YUYV;
 	dev->standard = V4L2_STD_UNKNOWN;
-	dev->n_buffers = max_u(sysconf(_SC_NPROCESSORS_ONLN), 1) + 1;
+	dev->n_buffers = max_u(min_u(sysconf(_SC_NPROCESSORS_ONLN), 4), 1) + 1;
 	dev->n_workers = dev->n_buffers;
 	dev->timeout = 1;
 	dev->error_delay = 1;

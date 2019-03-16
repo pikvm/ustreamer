@@ -129,8 +129,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                      Supports automatic resolution changing. Default: disabled.\n\n");
 	printf("    -b|--buffers <N>               -- The number of buffers to receive data from the device.\n");
 	printf("                                      Each buffer may processed using an intermediate thread.\n");
-	printf("                                      Default: %u (number of CPU cores + 1)\n\n", dev->n_buffers);
-	printf("    -w|--workers <N>               -- The number of compressing threads. Default: %u (== --buffers).\n\n", dev->n_workers);
+	printf("                                      Default: %u (the number of CPU cores (but not more 4) + 1)\n\n", dev->n_buffers);
+	printf("    -w|--workers <N>               -- The number of worker threads. Default: %u (== --buffers).\n\n", dev->n_workers);
 	printf("    -q|--quality <N>               -- Set quality of JPEG encoding from 1 to 100 (best). Default: %u.\n\n", encoder->quality);
 	printf("    -c|--encoder <type>            -- Use specified encoder. It may affects to workers number.\n");
 	printf("                                   -- Available: %s; default: CPU.\n\n", ENCODER_TYPES_STR);

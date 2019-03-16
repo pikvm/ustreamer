@@ -63,6 +63,10 @@ INLINE char *bool_to_string(bool flag) {
 	return (flag ? "true" : "false");
 }
 
+INLINE unsigned min_u(unsigned a, unsigned b) {
+	return (a < b ? a : b);
+}
+
 INLINE unsigned max_u(unsigned a, unsigned b) {
 	return (a > b ? a : b);
 }
