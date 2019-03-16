@@ -41,7 +41,7 @@
 #include "http.h"
 
 
-static const char _SHORT_OPTS[] = "d:i:x:y:m:a:f:z:ntb:w:q:c:s:p:u:ro:e:h";
+static const char _SHORT_OPTS[] = "d:i:x:y:m:a:f:z:ntb:w:q:c:s:p:u:ro:e:lhv";
 static const struct option _LONG_OPTS[] = {
 	{"device",					required_argument,	NULL,	'd'},
 	{"input",					required_argument,	NULL,	'i'},
@@ -80,7 +80,7 @@ static const struct option _LONG_OPTS[] = {
 	{"unix-rm",					no_argument,		NULL,	'r'},
 	{"unix-mode",				required_argument,	NULL,	'o'},
 	{"drop-same-frames",		required_argument,	NULL,	'e'},
-	{"slowdown",				no_argument,		NULL,	3000},
+	{"slowdown",				no_argument,		NULL,	'l'},
 	{"fake-width",				required_argument,	NULL,	3001},
 	{"fake-height",				required_argument,	NULL,	3002},
 	{"server-timeout",			required_argument,	NULL,	3003},
@@ -90,7 +90,7 @@ static const struct option _LONG_OPTS[] = {
 	{"debug",					no_argument,		NULL,	5002},
 	{"log-level",				required_argument,	NULL,	5010},
 	{"help",					no_argument,		NULL,	'h'},
-	{"version",					no_argument,		NULL,	6000},
+	{"version",					no_argument,		NULL,	'v'},
 	{NULL, 0, NULL, 0},
 };
 
@@ -163,7 +163,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                  It can significantly reduce the outgoing traffic, but will increase\n");
 	printf("                                  the CPU loading. Don't use this option with analog signal sources\n");
 	printf("                                  or webcams, it's useless. Default: disabled.\n\n");
-	printf("    --slowdown                 -- Slowdown capturing to 1 FPS or less when no stream clients connected.\n");
+	printf("    -l|--slowdown              -- Slowdown capturing to 1 FPS or less when no stream clients connected.\n");
 	printf("                                  Useful to reduce CPU cosumption. Default: disabled.\n\n");
 	printf("    --fake-width <N>           -- Override image width for /state. Default: disabled\n\n");
 	printf("    --fake-height <N>          -- Override image height for /state. Default: disabled.\n\n");
@@ -177,7 +177,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --perf          -- Enable performance messages (same as --log-level=1). Default: disabled.\n\n");
 	printf("    --verbose       -- Enable verbose messages and lower (same as --log-level=2). Default: disabled.\n\n");
 	printf("    --debug         -- Enable debug messages and lower (same as --log-level=3). Default: disabled.\n\n");
-	printf("    -h|--help       -- Print this messages and exit.\n\n");
+	printf("    -h|--help       -- Print this text and exit.\n\n");
+	printf("    -v|--version    -- Print version and exit.\n\n");
 }
 
 static int _parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server) {
@@ -284,7 +285,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 5002:	OPT_SET(log_level, LOG_LEVEL_DEBUG);
 			case 5010:	OPT_UNSIGNED(log_level, "--log-level", 0, 3);
 			case 'h':	_help(dev, encoder, server); return 1;
-			case 6000:	_version(true); return 1;
+			case 'v':	_version(true); return 1;
 			case 0:		break;
 			default:	_help(dev, encoder, server); return -1;
 		}
