@@ -43,14 +43,14 @@
 
 struct hw_buffer_t {
 	unsigned char		*data;
-	size_t				size;
+	size_t				used;
 	size_t				allocated;
 	struct v4l2_buffer	buf_info;
 };
 
 struct picture_t {
 	unsigned char	*data;
-	size_t			size;
+	size_t			used;
 	size_t			allocated;
 	long double		grab_time;
 	long double		encode_begin_time;

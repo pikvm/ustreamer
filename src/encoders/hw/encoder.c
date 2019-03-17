@@ -69,8 +69,8 @@ void hw_encoder_compress_buffer(struct device_t *dev, unsigned index) {
 #	define PICTURE(_next)	dev->run->pictures[index]._next
 #	define HW_BUFFER(_next)	dev->run->hw_buffers[index]._next
 
-	assert(PICTURE(allocated) >= HW_BUFFER(size) + sizeof(HUFFMAN_TABLE));
-	PICTURE(size) = _memcpy_with_huffman(PICTURE(data), HW_BUFFER(data), HW_BUFFER(size));
+	assert(PICTURE(allocated) >= HW_BUFFER(used) + sizeof(HUFFMAN_TABLE));
+	PICTURE(used) = _memcpy_with_huffman(PICTURE(data), HW_BUFFER(data), HW_BUFFER(used));
 
 #	undef HW_BUFFER
 #	undef PICTURE

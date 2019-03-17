@@ -238,7 +238,7 @@ int device_grab_buffer(struct device_t *dev) {
 		return -1;
 	}
 
-	dev->run->hw_buffers[buf_info.index].size = buf_info.bytesused;
+	dev->run->hw_buffers[buf_info.index].used = buf_info.bytesused;
 	memcpy(&dev->run->hw_buffers[buf_info.index].buf_info, &buf_info, sizeof(struct v4l2_buffer));
 	return buf_info.index;
 }
@@ -249,7 +249,7 @@ int device_release_buffer(struct device_t *dev, unsigned index) {
 		LOG_PERROR("Unable to requeue buffer");
 		return -1;
 	}
-	dev->run->hw_buffers[index].size = 0;
+	dev->run->hw_buffers[index].used = 0;
 	return 0;
 }
 

@@ -324,7 +324,7 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 #	define EXPOSED(_next) server->run->exposed->_next
 
 	assert((buf = evbuffer_new()));
-	assert(!evbuffer_add(buf, (const void *)EXPOSED(picture.data), EXPOSED(picture.size)));
+	assert(!evbuffer_add(buf, (const void *)EXPOSED(picture.data), EXPOSED(picture.used)));
 
 	ADD_HEADER("Access-Control-Allow-Origin:", "*");
 	ADD_HEADER("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, pre-check=0, post-check=0, max-age=0");
@@ -505,7 +505,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"Content-Length: %zu" RN
 			"X-Timestamp: %.06Lf" RN
 			"%s",
-			EXPOSED(picture.size) * sizeof(*EXPOSED(picture.data)),
+			EXPOSED(picture.used) * sizeof(*EXPOSED(picture.data)),
 			get_now_real(), (client->extra_headers ? "" : RN)
 		));
 		if (client->extra_headers) {
@@ -541,7 +541,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 
 	assert(!evbuffer_add(buf,
 		(void *)EXPOSED(picture.data),
-		EXPOSED(picture.size) * sizeof(*EXPOSED(picture.data))
+		EXPOSED(picture.used) * sizeof(*EXPOSED(picture.data))
 	));
 	assert(evbuffer_add_printf(buf, RN "--" BOUNDARY RN));
 
@@ -660,7 +660,7 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	if (atomic_load(&server->run->stream->updated)) {
 		LOG_DEBUG("Refreshing HTTP exposed ...");
 		A_MUTEX_LOCK(&server->run->stream->mutex);
-		if (server->run->stream->picture.size > 0) { // If online
+		if (server->run->stream->picture.used > 0) { // If online
 			picture_updated = _expose_new_picture(server);
 			UNLOCK_STREAM;
 		} else {
@@ -683,19 +683,19 @@ static bool _expose_new_picture(struct http_server_t *server) {
 #	define STREAM(_next) server->run->stream->_next
 #	define EXPOSED(_next) server->run->exposed->_next
 
-	assert(STREAM(picture.size) > 0);
+	assert(STREAM(picture.used) > 0);
 	EXPOSED(captured_fps) = STREAM(captured_fps);
 	EXPOSED(expose_begin_time) = get_now_monotonic();
 
 #	define MEM_STREAM_TO_EXPOSED \
 		EXPOSED(picture.data), STREAM(picture.data), \
-		STREAM(picture.size) * sizeof(*STREAM(picture.data))
+		STREAM(picture.used) * sizeof(*STREAM(picture.data))
 
 	if (server->drop_same_frames) {
 		if (
 			EXPOSED(online)
 			&& EXPOSED(dropped) < server->drop_same_frames
-			&& EXPOSED(picture.size) == STREAM(picture.size)
+			&& EXPOSED(picture.used) == STREAM(picture.used)
 			&& !memcmp(MEM_STREAM_TO_EXPOSED)
 		) {
 			EXPOSED(expose_cmp_time) = get_now_monotonic();
@@ -720,7 +720,7 @@ static bool _expose_new_picture(struct http_server_t *server) {
 
 #	undef MEM_STREAM_TO_EXPOSED
 
-	EXPOSED(picture.size) = STREAM(picture.size);
+	EXPOSED(picture.used) = STREAM(picture.used);
 
 	EXPOSED(picture.grab_time) = STREAM(picture.grab_time);
 	EXPOSED(picture.encode_begin_time) = STREAM(picture.encode_begin_time);
@@ -748,7 +748,7 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 	EXPOSED(expose_begin_time) = get_now_monotonic();
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
 
-	if (EXPOSED(online) || EXPOSED(picture.size) == 0) {
+	if (EXPOSED(online) || EXPOSED(picture.used) == 0) {
 		if (EXPOSED(picture.allocated) < BLANK_JPEG_LEN) {
 			A_REALLOC(EXPOSED(picture.data), BLANK_JPEG_LEN);
 			EXPOSED(picture.allocated) = BLANK_JPEG_LEN;
@@ -756,7 +756,7 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 
 		memcpy(EXPOSED(picture.data), BLANK_JPEG_DATA, BLANK_JPEG_LEN * sizeof(*EXPOSED(picture.data)));
 
-		EXPOSED(picture.size) = BLANK_JPEG_LEN;
+		EXPOSED(picture.used) = BLANK_JPEG_LEN;
 
 		EXPOSED(picture.grab_time) = 0;
 		EXPOSED(picture.encode_begin_time) = 0;

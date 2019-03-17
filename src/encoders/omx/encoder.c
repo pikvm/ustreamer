@@ -178,7 +178,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 #	define OUT(_next)		omx->output_buffer->_next
 
 	OMX_ERRORTYPE error;
-	size_t slice_size = (IN(nAllocLen) < HW_BUFFER(size) ? IN(nAllocLen) : HW_BUFFER(size));
+	size_t slice_size = (IN(nAllocLen) < HW_BUFFER(used) ? IN(nAllocLen) : HW_BUFFER(used));
 	size_t pos = 0;
 
 	if ((error = OMX_FillThisBuffer(omx->encoder, omx->output_buffer)) != OMX_ErrorNone) {
@@ -186,7 +186,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 		return -1;
 	}
 
-	PICTURE(size) = 0;
+	PICTURE(used) = 0;
 	omx->output_available = false;
 	omx->input_required = true;
 
@@ -198,9 +198,9 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 		if (omx->output_available) {
 			omx->output_available = false;
 
-			assert(PICTURE(size) + OUT(nFilledLen) <= dev->run->max_picture_size);
-			memcpy(PICTURE(data) + PICTURE(size), OUT(pBuffer) + OUT(nOffset), OUT(nFilledLen));
-			PICTURE(size) += OUT(nFilledLen);
+			assert(PICTURE(used) + OUT(nFilledLen) <= dev->run->max_picture_size);
+			memcpy(PICTURE(data) + PICTURE(used), OUT(pBuffer) + OUT(nOffset), OUT(nFilledLen));
+			PICTURE(used) += OUT(nFilledLen);
 
 			if (OUT(nFlags) & OMX_BUFFERFLAG_ENDOFFRAME) {
 				OUT(nFlags) = 0;
@@ -216,7 +216,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 		if (omx->input_required) {
 			omx->input_required = false;
 
-			if (pos == HW_BUFFER(size)) {
+			if (pos == HW_BUFFER(used)) {
 				continue;
 			}
 
@@ -226,8 +226,8 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 
 			pos += slice_size;
 
-			if (pos + slice_size > HW_BUFFER(size)) {
-				slice_size = HW_BUFFER(size) - pos;
+			if (pos + slice_size > HW_BUFFER(used)) {
+				slice_size = HW_BUFFER(used) - pos;
 			}
 
 			if ((error = OMX_EmptyThisBuffer(omx->encoder, omx->input_buffer)) != OMX_ErrorNone) {

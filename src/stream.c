@@ -200,9 +200,9 @@ void stream_loop(struct stream_t *stream) {
 					// The good thing is such frames are quite small compared to the regular pictures.
 					// For example a VGA (640x480) webcam picture is normally >= 8kByte large,
 					// corrupted frames are smaller.
-					if (stream->dev->run->hw_buffers[buf_index].size < stream->dev->min_frame_size) {
+					if (stream->dev->run->hw_buffers[buf_index].used < stream->dev->min_frame_size) {
 						LOG_DEBUG("Dropping too small frame sized %zu bytes, assuming it as broken",
-							stream->dev->run->hw_buffers[buf_index].size);
+							stream->dev->run->hw_buffers[buf_index].used);
 						goto pass_frame;
 					}
 
@@ -286,7 +286,7 @@ void stream_loop(struct stream_t *stream) {
 		}
 
 		A_MUTEX_LOCK(&stream->mutex);
-		stream->picture.size = 0; // On stream offline
+		stream->picture.used = 0; // On stream offline
 		free(stream->picture.data);
 		stream->width = 0;
 		stream->height = 0;
@@ -312,10 +312,10 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) 
 
 	A_MUTEX_LOCK(&stream->mutex);
 
-	stream->picture.size = PICTURE(size);
+	stream->picture.used = PICTURE(used);
 	stream->picture.allocated = PICTURE(allocated);
 
-	memcpy(stream->picture.data, PICTURE(data), stream->picture.size * sizeof(*stream->picture.data));
+	memcpy(stream->picture.data, PICTURE(data), stream->picture.used * sizeof(*stream->picture.data));
 
 	stream->picture.grab_time = PICTURE(grab_time);
 	stream->picture.encode_begin_time = PICTURE(encode_begin_time);
@@ -468,7 +468,7 @@ static void *_stream_worker_thread(void *v_worker) {
 				A_MUTEX_UNLOCK(&worker->last_comp_time_mutex);
 
 				LOG_VERBOSE("Compressed JPEG size=%zu; time=%0.3Lf; worker=%u; buffer=%u",
-					PICTURE(size), last_comp_time, worker->number, worker->buf_index);
+					PICTURE(used), last_comp_time, worker->number, worker->buf_index);
 			} else {
 				worker->job_failed = true;
 				atomic_store(&worker->has_job, false);
