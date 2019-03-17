@@ -177,8 +177,8 @@ void device_close(struct device_t *dev) {
 		for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
 #			define HW_BUFFER(_next) dev->run->hw_buffers[index]._next
 
-			if (HW_BUFFER(size) > 0 && HW_BUFFER(data) != MAP_FAILED) {
-				if (munmap(HW_BUFFER(data), HW_BUFFER(size)) < 0) {
+			if (HW_BUFFER(allocated) > 0 && HW_BUFFER(data) != MAP_FAILED) {
+				if (munmap(HW_BUFFER(data), HW_BUFFER(allocated)) < 0) {
 					LOG_PERROR("Can't unmap device buffer %u", index);
 				}
 			}
@@ -219,31 +219,37 @@ int device_switch_capturing(struct device_t *dev, bool enable) {
     return 0;
 }
 
-int device_grab_buffer(struct device_t *dev, struct v4l2_buffer *buf_info) {
-	MEMSET_ZERO_PTR(buf_info);
-	buf_info->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	buf_info->memory = V4L2_MEMORY_MMAP;
+int device_grab_buffer(struct device_t *dev) {
+	struct v4l2_buffer buf_info;
+
+	MEMSET_ZERO(buf_info);
+	buf_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	buf_info.memory = V4L2_MEMORY_MMAP;
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_DQBUF) ...");
-	if (xioctl(dev->run->fd, VIDIOC_DQBUF, buf_info) < 0) {
+	if (xioctl(dev->run->fd, VIDIOC_DQBUF, &buf_info) < 0) {
 		LOG_PERROR("Unable to dequeue buffer");
 		return -1;
 	}
 
-	LOG_DEBUG("Got a new frame in buffer index=%u; bytesused=%u", buf_info->index, buf_info->bytesused);
-	if (buf_info->index >= dev->run->n_buffers) {
-		LOG_ERROR("Got invalid buffer index=%u; nbuffers=%u", buf_info->index, dev->run->n_buffers);
+	LOG_DEBUG("Got a new frame in buffer index=%u; bytesused=%u", buf_info.index, buf_info.bytesused);
+	if (buf_info.index >= dev->run->n_buffers) {
+		LOG_ERROR("Got invalid buffer index=%u; nbuffers=%u", buf_info.index, dev->run->n_buffers);
 		return -1;
 	}
-	return 0;
+
+	dev->run->hw_buffers[buf_info.index].size = buf_info.bytesused;
+	memcpy(&dev->run->hw_buffers[buf_info.index].buf_info, &buf_info, sizeof(struct v4l2_buffer));
+	return buf_info.index;
 }
 
-int device_release_buffer(struct device_t *dev, struct v4l2_buffer *buf_info) {
+int device_release_buffer(struct device_t *dev, unsigned index) {
 	LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) ...");
-	if (xioctl(dev->run->fd, VIDIOC_QBUF, buf_info) < 0) {
+	if (xioctl(dev->run->fd, VIDIOC_QBUF, &dev->run->hw_buffers[index].buf_info) < 0) {
 		LOG_PERROR("Unable to requeue buffer");
 		return -1;
 	}
+	dev->run->hw_buffers[index].size = 0;
 	return 0;
 }
 
@@ -462,7 +468,7 @@ static int _device_open_mmap(struct device_t *dev) {
 			LOG_PERROR("Can't map device buffer %u", dev->run->n_buffers);
 			return -1;
 		}
-		HW_BUFFER(size) = buf_info.length;
+		HW_BUFFER(allocated) = buf_info.length;
 
 #		undef HW_BUFFER
 	}

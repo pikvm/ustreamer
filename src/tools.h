@@ -51,7 +51,6 @@
 #define A_CALLOC(_dest, _nmemb)		assert((_dest = calloc(_nmemb, sizeof(*(_dest)))))
 #define A_REALLOC(_dest, _nmemb)	assert((_dest = realloc(_dest, _nmemb * sizeof(*(_dest)))))
 #define MEMSET_ZERO(_obj)			memset(&(_obj), 0, sizeof(_obj))
-#define MEMSET_ZERO_PTR(_ptr)		memset(_ptr, 0, sizeof(*(_ptr)))
 
 #define ARRAY_LEN(_array) (sizeof(_array) / sizeof(_array[0]))
 

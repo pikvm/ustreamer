@@ -186,22 +186,23 @@ void stream_loop(struct stream_t *stream) {
 				if (FD_ISSET(stream->dev->run->fd, &read_fds)) {
 					LOG_DEBUG("Frame is ready");
 
-					struct v4l2_buffer buf_info;
+					int buf_index;
 					long double now = get_now_monotonic();
 					long long now_second = floor_ms(now);
 
-					if (device_grab_buffer(stream->dev, &buf_info) < 0) {
+					if ((buf_index = device_grab_buffer(stream->dev)) < 0) {
 						break;
 					}
-					stream->dev->run->pictures[buf_info.index].grab_time = now;
+					stream->dev->run->pictures[buf_index].grab_time = now;
 
 					// Workaround for broken, corrupted frames:
 					// Under low light conditions corrupted frames may get captured.
 					// The good thing is such frames are quite small compared to the regular pictures.
 					// For example a VGA (640x480) webcam picture is normally >= 8kByte large,
 					// corrupted frames are smaller.
-					if (buf_info.bytesused < stream->dev->min_frame_size) {
-						LOG_DEBUG("Dropping too small frame sized %u bytes, assuming it as broken", buf_info.bytesused);
+					if (stream->dev->run->hw_buffers[buf_index].size < stream->dev->min_frame_size) {
+						LOG_DEBUG("Dropping too small frame sized %zu bytes, assuming it as broken",
+							stream->dev->run->hw_buffers[buf_index].size);
 						goto pass_frame;
 					}
 
@@ -229,8 +230,7 @@ void stream_loop(struct stream_t *stream) {
 
 #					define FREE_WORKER(_next) pool.workers[free_worker_number]._next
 
-					LOG_DEBUG("Grabbed a new frame to buffer %u", buf_info.index);
-					FREE_WORKER(buf_info) = buf_info;
+					LOG_DEBUG("Grabbed a new frame to buffer %u", buf_index);
 
 					if (!oldest_worker) {
 						oldest_worker = &pool.workers[free_worker_number];
@@ -249,7 +249,7 @@ void stream_loop(struct stream_t *stream) {
 					last_worker->order_next = NULL;
 
 					A_MUTEX_LOCK(&FREE_WORKER(has_job_mutex));
-					FREE_WORKER(buf_index) = buf_info.index;
+					FREE_WORKER(buf_index) = buf_index;
 					atomic_store(&FREE_WORKER(has_job), true);
 					A_MUTEX_UNLOCK(&FREE_WORKER(has_job_mutex));
 					A_COND_SIGNAL(&FREE_WORKER(has_job_cond));
@@ -264,7 +264,7 @@ void stream_loop(struct stream_t *stream) {
 
 					pass_frame:
 
-					if (device_release_buffer(stream->dev, &buf_info) < 0) {
+					if (device_release_buffer(stream->dev, buf_index) < 0) {
 						break;
 					}
 				}
@@ -457,7 +457,7 @@ static void *_stream_worker_thread(void *v_worker) {
 			}
 			PICTURE(encode_end_time) = get_now_monotonic();
 
-			if (device_release_buffer(worker->dev, &worker->buf_info) == 0) {
+			if (device_release_buffer(worker->dev, worker->buf_index) == 0) {
 				worker->job_start_time = PICTURE(encode_begin_time);
 				atomic_store(&worker->has_job, false);
 

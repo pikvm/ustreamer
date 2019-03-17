@@ -42,7 +42,6 @@ struct worker_t {
 
 	pthread_mutex_t		has_job_mutex;
 	int					buf_index;
-	struct v4l2_buffer	buf_info;
 	atomic_bool			has_job;
 	bool				job_failed;
 	long double			job_start_time;
