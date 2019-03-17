@@ -178,7 +178,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 #	define OUT(_next)		omx->output_buffer->_next
 
 	OMX_ERRORTYPE error;
-	size_t slice_size = IN(nAllocLen);
+	size_t slice_size = (IN(nAllocLen) < HW_BUFFER(size) ? IN(nAllocLen) : HW_BUFFER(size));
 	size_t pos = 0;
 
 	if ((error = OMX_FillThisBuffer(omx->encoder, omx->output_buffer)) != OMX_ErrorNone) {
