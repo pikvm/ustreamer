@@ -30,7 +30,9 @@
 #include "logging.h"
 
 
-#define XIOCTL_RETRIES 4
+#ifndef XIOCTL_RETRIES
+#	define XIOCTL_RETRIES 4
+#endif
 
 
 INLINE int xioctl(int fd, int request, void *arg) {
