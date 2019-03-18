@@ -25,15 +25,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <errno.h>
 #include <time.h>
 #include <assert.h>
 
 #include <pthread.h>
-
-#include <sys/types.h>
-#include <sys/syscall.h>
 
 #include "tools.h"
 
@@ -72,7 +68,7 @@ pthread_mutex_t log_mutex;
 	}
 
 #define LOG_PRINTF_NOLOCK(_label, _msg, ...) { \
-		printf("-- " _label " [%.03Lf tid=%ld] -- " _msg "\n", get_now_monotonic(), syscall(SYS_gettid), ##__VA_ARGS__); \
+		printf("-- " _label " [%.03Lf tid=%d] -- " _msg "\n", get_now_monotonic(), get_thread_id(), ##__VA_ARGS__); \
 		fflush(stdout); \
 	}
 
@@ -86,7 +82,7 @@ pthread_mutex_t log_mutex;
 		char _buf[1024] = ""; \
 		char *_ptr = strerror_r(errno, _buf, 1024); \
 		LOGGING_LOCK; \
-		printf("-- ERROR [%.03Lf tid=%ld] -- " _msg ": %s\n", get_now_monotonic(), syscall(SYS_gettid), ##__VA_ARGS__, _ptr); \
+		printf("-- ERROR [%.03Lf tid=%d] -- " _msg ": %s\n", get_now_monotonic(), get_thread_id(), ##__VA_ARGS__, _ptr); \
 		fflush(stdout); \
 		LOGGING_UNLOCK; \
 	}

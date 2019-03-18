@@ -25,12 +25,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <errno.h>
 #include <math.h>
 #include <pthread.h>
 #include <time.h>
 #include <assert.h>
 
+#include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
 
@@ -101,4 +103,8 @@ INLINE long double get_now_real(void) {
 
 	get_now(CLOCK_REALTIME, &sec, &msec);
 	return (long double)sec + ((long double)msec) / 1000;
+}
+
+INLINE pid_t get_thread_id(void) {
+	return syscall(SYS_gettid);
 }
