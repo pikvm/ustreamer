@@ -80,7 +80,7 @@ pthread_mutex_t log_mutex;
 
 #define LOG_PERROR(_msg, ...) { \
 		char _buf[1024] = ""; \
-		char *_ptr = strerror_r(errno, _buf, 1024); \
+		char *_ptr = errno_to_string(_buf, 1024); \
 		LOGGING_LOCK; \
 		printf("-- ERROR [%.03Lf tid=%d] -- " _msg ": %s\n", get_now_monotonic(), get_thread_id(), ##__VA_ARGS__, _ptr); \
 		fflush(stdout); \
@@ -120,3 +120,13 @@ pthread_mutex_t log_mutex;
 			LOGGING_UNLOCK; \
 		} \
 	}
+
+
+INLINE char *errno_to_string(char *buf, size_t size) {
+#if defined(__GLIBC__) && defined(_GNU_SOURCE)
+	return strerror_r(errno, buf, size);
+#else
+	strerror_r(errno, buf, size);
+	return buf;
+#endif
+}
