@@ -46,12 +46,13 @@
 #	error Required libevent-pthreads support
 #endif
 
-#include "tools.h"
-#include "logging.h"
-#include "encoder.h"
-#include "stream.h"
+#include "../tools.h"
+#include "../logging.h"
+#include "../encoder.h"
+#include "../stream.h"
+
 #include "base64.h"
-#include "http.h"
+#include "server.h"
 
 #include "data/index_html.h"
 #include "data/blank_jpeg.h"
@@ -92,6 +93,7 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	A_CALLOC(server, 1);
 	server->host = "127.0.0.1";
 	server->port = 8080;
+	server->unix_path = "";
 	server->user = "";
 	server->passwd = "";
 	server->static_path = "";
@@ -188,7 +190,7 @@ int http_server_listen(struct http_server_t *server) {
 		LOG_INFO("Using HTTP basic auth");
 	}
 
-	if (server->unix_path) {
+	if (server->unix_path[0] != '\0') {
 		struct sockaddr_un unix_addr;
 		int unix_fd_flags;
 
@@ -255,7 +257,12 @@ static bool _http_get_param_true(struct evkeyvalq *params, const char *key) {
 	const char *value_str;
 
 	if ((value_str = evhttp_find_header(params, key)) != NULL) {
-		if (!strcasecmp(value_str, "true") || !strcasecmp(value_str, "yes") || value_str[0] == '1') {
+		if (
+			value_str[0] == '1'
+			|| value_str[0] == 'y'
+			|| !evutil_ascii_strcasecmp(value_str, "true")
+			|| !evutil_ascii_strcasecmp(value_str, "yes")
+		) {
 			return true;
 		}
 	}

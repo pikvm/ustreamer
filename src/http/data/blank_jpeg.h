@@ -20,6 +20,9 @@
 *****************************************************************************/
 
 
+#pragma once
+
+
 const unsigned BLANK_JPEG_WIDTH = 640;
 const unsigned BLANK_JPEG_HEIGHT = 480;
 

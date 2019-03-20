@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-#============================================================================#
+/*****************************************************************************
 #                                                                            #
 #    uStreamer - Lightweight and fast MJPG-HTTP streamer.                    #
 #                                                                            #
@@ -18,42 +17,12 @@
 #    You should have received a copy of the GNU General Public License       #
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.  #
 #                                                                            #
-#============================================================================#
+*****************************************************************************/
 
 
-import sys
-import os
-import textwrap
+#pragma once
+
+#include <stdlib.h>
 
 
-# =====
-def main():
-    assert len(sys.argv) == 4, "%s <file.html> <file.h> <name>" % (sys.argv[0])
-    html_path = sys.argv[1]
-    header_path = sys.argv[2]
-    name = sys.argv[3]
-
-    with open(html_path, "r") as html_file:
-        text = html_file.read()
-
-    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "prepend.h")) as prepend_file:
-        prepend = prepend_file.read()
-
-    text = text.strip()
-    text = text.replace("\"", "\\\"")
-    text = text.replace("%VERSION%", "\" VERSION \"")
-    text = textwrap.indent(text, "\t", (lambda line: True))
-    text = "\n".join(
-        ("%s \\" if line.strip() else "%s\\") % (line)
-        for line in text.split("\n")
-    )
-    text = "const char HTML_%s_PAGE[] = \" \\\n%s\n\";\n" % (name, text)
-    text = prepend + "\n#include \"../../config.h\"\n\n\n" + text
-
-    with open(header_path, "w") as header_file:
-        header_file.write(text)
-
-
-# =====
-if __name__ == "__main__":
-    main()
+char *base64_encode(const unsigned char *str);

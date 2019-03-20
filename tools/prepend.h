@@ -20,7 +20,4 @@
 *****************************************************************************/
 
 
-#include <stdlib.h>
-
-
-char *base64_encode(const unsigned char *str);
+#pragma once

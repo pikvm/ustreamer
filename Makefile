@@ -8,7 +8,7 @@ CC ?= gcc
 # =====
 LIBS = -lm -ljpeg -pthread -levent -levent_pthreads -luuid
 override CFLAGS += -c -std=c11 -Wall -Wextra -D_GNU_SOURCE
-SOURCES = $(shell ls src/*.c src/encoders/cpu/*.c src/encoders/hw/*.c)
+SOURCES = $(shell ls src/*.c src/http/*.c src/encoders/cpu/*.c src/encoders/hw/*.c)
 PROG = ustreamer
 
 ifeq ($(shell ls -d /opt/vc/include 2>/dev/null), /opt/vc/include)
@@ -29,8 +29,8 @@ install: $(PROG)
 
 
 regen:
-	tools/make-jpeg-h.py src/data/blank.jpeg src/data/blank_jpeg.h BLANK 640 480
-	tools/make-html-h.py src/data/index.html src/data/index_html.h HTML_INDEX_PAGE
+	tools/make-jpeg-h.py src/http/data/blank.jpeg src/http/data/blank_jpeg.h BLANK
+	tools/make-html-h.py src/http/data/index.html src/http/data/index_html.h INDEX
 
 
 $(PROG): $(OBJECTS)
@@ -59,5 +59,6 @@ push:
 
 clean-all: clean
 clean:
-	rm -f src/*.o src/encoders/*/*.o vgcore.* *.sock $(PROG)
+	find src -name '*.o' -exec rm '{}' \;
+	rm -f vgcore.* *.sock $(PROG)
 	rm -rf pkg src/$(PROG)-* src/v*.tar.gz v*.tar.gz $(PROG)-*.pkg.tar.xz

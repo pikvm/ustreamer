@@ -38,7 +38,7 @@
 #include "device.h"
 #include "encoder.h"
 #include "stream.h"
-#include "http.h"
+#include "http/server.h"
 
 
 static const char _SHORT_OPTS[] = "d:i:x:y:m:a:f:z:ntb:w:q:c:s:p:u:ro:e:lhv";

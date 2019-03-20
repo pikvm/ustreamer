@@ -20,6 +20,8 @@
 *****************************************************************************/
 
 
+#pragma once
+
 #include <stdbool.h>
 
 #include <sys/stat.h>
@@ -28,8 +30,8 @@
 #include <event2/http.h>
 #include <event2/util.h>
 
-#include "tools.h"
-#include "stream.h"
+#include "../tools.h"
+#include "../stream.h"
 
 
 struct stream_client_t {
