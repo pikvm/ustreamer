@@ -61,7 +61,8 @@ static bool _http_get_param_true(struct evkeyvalq *params, const char *key);
 static char *_http_get_param_uri(struct evkeyvalq *params, const char *key);
 static int _http_preprocess_request(struct evhttp_request *request, struct http_server_t *server);
 
-static void _http_callback_root(struct evhttp_request *request, void *arg);
+static void _http_callback_root(struct evhttp_request *request, void *v_server);
+static void _http_callback_static(struct evhttp_request *request, void *v_server);
 static void _http_callback_state(struct evhttp_request *request, void *v_server);
 static void _http_callback_snapshot(struct evhttp_request *request, void *v_server);
 
@@ -91,6 +92,9 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	A_CALLOC(server, 1);
 	server->host = "127.0.0.1";
 	server->port = 8080;
+	server->user = "";
+	server->passwd = "";
+	server->static_path = "";
 	server->timeout = 10;
 	server->run = run;
 
@@ -100,12 +104,6 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	assert((run->base = event_base_new()));
 	assert((run->http = evhttp_new(run->base)));
 	evhttp_set_allowed_methods(run->http, EVHTTP_REQ_GET|EVHTTP_REQ_HEAD);
-
-	assert(!evhttp_set_cb(run->http, "/", _http_callback_root, (void *)server));
-	assert(!evhttp_set_cb(run->http, "/state", _http_callback_state, (void *)server));
-	assert(!evhttp_set_cb(run->http, "/snapshot", _http_callback_snapshot, (void *)server));
-	assert(!evhttp_set_cb(run->http, "/stream", _http_callback_stream, (void *)server));
-
 	return server;
 }
 
@@ -142,6 +140,17 @@ void http_server_destroy(struct http_server_t *server) {
 
 int http_server_listen(struct http_server_t *server) {
 	{
+		if (server->static_path[0] != '\0') {
+			evhttp_set_gencb(server->run->http, _http_callback_static, (void *)server);
+		} else {
+			assert(!evhttp_set_cb(server->run->http, "/", _http_callback_root, (void *)server));
+		}
+		assert(!evhttp_set_cb(server->run->http, "/state", _http_callback_state, (void *)server));
+		assert(!evhttp_set_cb(server->run->http, "/snapshot", _http_callback_snapshot, (void *)server));
+		assert(!evhttp_set_cb(server->run->http, "/stream", _http_callback_stream, (void *)server));
+	}
+
+	{
 		struct timeval refresh_interval;
 
 		refresh_interval.tv_sec = 0;
@@ -150,6 +159,7 @@ int http_server_listen(struct http_server_t *server) {
 		} else {
 			refresh_interval.tv_usec = 16000; // ~60fps
 		}
+
 		assert((server->run->refresh = event_new(server->run->base, -1, EV_PERSIST, _http_exposed_refresh, server)));
 		assert(!event_add(server->run->refresh, &refresh_interval));
 	}
@@ -162,13 +172,12 @@ int http_server_listen(struct http_server_t *server) {
 
 	evhttp_set_timeout(server->run->http, server->timeout);
 
-	if (server->user != NULL && strlen(server->user) > 0) {
-		char *passwd = (server->passwd != NULL ? server->passwd : "");
+	if (server->user[0] != '\0') {
 		char *raw_token;
 		char *encoded_token;
 
-		A_CALLOC(raw_token, strlen(server->user) + strlen(passwd) + 2);
-		sprintf(raw_token, "%s:%s", server->user, passwd);
+		A_CALLOC(raw_token, strlen(server->user) + strlen(server->passwd) + 2);
+		sprintf(raw_token, "%s:%s", server->user, server->passwd);
 		encoded_token = base64_encode((unsigned char *)raw_token);
 		free(raw_token);
 
@@ -290,7 +299,7 @@ static int _http_preprocess_request(struct evhttp_request *request, struct http_
 		} \
 	}
 
-static void _http_callback_root(struct evhttp_request *request, UNUSED void *v_server) {
+static void _http_callback_root(struct evhttp_request *request, void *v_server) {
 	struct http_server_t *server = (struct http_server_t *)v_server;
 	struct evbuffer *buf;
 
@@ -301,6 +310,47 @@ static void _http_callback_root(struct evhttp_request *request, UNUSED void *v_s
 	ADD_HEADER("Content-Type", "text/html");
 	evhttp_send_reply(request, HTTP_OK, "OK", buf);
 	evbuffer_free(buf);
+}
+
+static void _http_callback_static(struct evhttp_request *request, void *v_server) {
+	struct http_server_t *server = (struct http_server_t *)v_server;
+	struct evbuffer *buf = NULL;
+	struct evhttp_uri *uri = NULL;
+	char *uri_path;
+	char *decoded_path = NULL;
+
+	PREPROCESS_REQUEST;
+
+	if ((uri = evhttp_uri_parse(evhttp_request_get_uri(request))) == NULL) {
+		goto bad_request;
+	}
+	if ((uri_path = (char *)evhttp_uri_get_path(uri)) == NULL) {
+		uri_path = "/";
+	}
+
+	if ((decoded_path = evhttp_uridecode(uri_path, 0, NULL)) == NULL) {
+		goto bad_request;
+	}
+
+	assert((buf = evbuffer_new()));
+	assert(evbuffer_add_printf(buf, "|%s|", decoded_path)); // TODO
+	evhttp_send_reply(request, HTTP_OK, "OK", buf);
+	goto cleanup;
+
+	bad_request:
+		evhttp_send_error(request, HTTP_BADREQUEST, NULL);
+		goto cleanup;
+
+	cleanup:
+		if (buf) {
+			evbuffer_free(buf);
+		}
+		if (decoded_path) {
+			free(decoded_path);
+		}
+		if (uri) {
+			evhttp_uri_free(uri);
+		}
 }
 
 static void _http_callback_state(struct evhttp_request *request, void *v_server) {

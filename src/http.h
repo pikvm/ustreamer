@@ -87,6 +87,7 @@ struct http_server_t {
 	mode_t		unix_mode;
 	char		*user;
 	char		*passwd;
+	char		*static_path;
 	unsigned	drop_same_frames;
 	bool		slowdown;
 	unsigned	fake_width;
