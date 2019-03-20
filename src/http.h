@@ -70,6 +70,7 @@ struct http_server_runtime_t {
 	struct event_base		*base;
 	struct evhttp			*http;
 	evutil_socket_t			unix_fd;
+	char					*auth_token;
 	struct event			*refresh;
 	struct stream_t			*stream;
 	struct exposed_t		*exposed;
@@ -84,6 +85,8 @@ struct http_server_t {
 	char		*unix_path;
 	bool		unix_rm;
 	mode_t		unix_mode;
+	char		*user;
+	char		*passwd;
 	unsigned	drop_same_frames;
 	bool		slowdown;
 	unsigned	fake_width;

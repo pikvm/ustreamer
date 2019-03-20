@@ -79,11 +79,13 @@ static const struct option _LONG_OPTS[] = {
 	{"unix",					required_argument,	NULL,	'u'},
 	{"unix-rm",					no_argument,		NULL,	'r'},
 	{"unix-mode",				required_argument,	NULL,	'o'},
+	{"user",					required_argument,	NULL,	3000},
+	{"passwd",					required_argument,	NULL,	3001},
 	{"drop-same-frames",		required_argument,	NULL,	'e'},
 	{"slowdown",				no_argument,		NULL,	'l'},
-	{"fake-width",				required_argument,	NULL,	3001},
-	{"fake-height",				required_argument,	NULL,	3002},
-	{"server-timeout",			required_argument,	NULL,	3003},
+	{"fake-width",				required_argument,	NULL,	3002},
+	{"fake-height",				required_argument,	NULL,	3003},
+	{"server-timeout",			required_argument,	NULL,	3004},
 
 	{"perf",					no_argument,		NULL,	5000},
 	{"verbose",					no_argument,		NULL,	5001},
@@ -159,6 +161,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    -u|--unix <path>  ─────────── Bind to UNIX domain socket. Default: disabled\n\n");
 	printf("    -r|--unix-rm  ─────────────── Try to remove old UNIX socket file before binding. Default: disabled\n\n");
 	printf("    -o|--unix-mode <mode>  ────── Set UNIX socket file permissions (like 777). Default: disabled\n\n");
+	printf("    --user <name>  ────────────── HTTP basic auth user. Default: disabled\n\n");
+	printf("    --passwd <str>  ───────────── HTTP basic auth passwd. Default: empty\n\n");
 	printf("    -e|--drop-same-frames <N>  ── Don't send same frames to clients, but no more than specified number.\n");
 	printf("                                  It can significantly reduce the outgoing traffic, but will increase\n");
 	printf("                                  the CPU loading. Don't use this option with analog signal sources\n");
@@ -274,11 +278,13 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 'u':	OPT_SET(server->unix_path, optarg);
 			case 'r':	OPT_SET(server->unix_rm, true);
 			case 'o':	OPT_CHMOD(server->unix_mode, "--unix-mode");
+			case 3000:	OPT_SET(server->user, optarg);
+			case 3001:	OPT_SET(server->passwd, optarg);
 			case 'e':	OPT_UNSIGNED(server->drop_same_frames, "--drop-same-frames", 0, 30);
 			case 'l':	OPT_SET(server->slowdown, true);
-			case 3001:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
-			case 3002:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
-			case 3003:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
+			case 3002:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
+			case 3003:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
+			case 3004:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
 
 			case 5000:	OPT_SET(log_level, LOG_LEVEL_PERF);
 			case 5001:	OPT_SET(log_level, LOG_LEVEL_VERBOSE);

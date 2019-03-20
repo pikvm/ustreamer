@@ -50,6 +50,7 @@
 #include "logging.h"
 #include "encoder.h"
 #include "stream.h"
+#include "base64.h"
 #include "http.h"
 
 #include "data/index_html.h"
@@ -58,6 +59,7 @@
 
 static bool _http_get_param_true(struct evkeyvalq *params, const char *key);
 static char *_http_get_param_uri(struct evkeyvalq *params, const char *key);
+static int _http_preprocess_request(struct evhttp_request *request, struct http_server_t *server);
 
 static void _http_callback_root(struct evhttp_request *request, void *arg);
 static void _http_callback_state(struct evhttp_request *request, void *v_server);
@@ -99,7 +101,7 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	assert((run->http = evhttp_new(run->base)));
 	evhttp_set_allowed_methods(run->http, EVHTTP_REQ_GET|EVHTTP_REQ_HEAD);
 
-	assert(!evhttp_set_cb(run->http, "/", _http_callback_root, NULL));
+	assert(!evhttp_set_cb(run->http, "/", _http_callback_root, (void *)server));
 	assert(!evhttp_set_cb(run->http, "/state", _http_callback_state, (void *)server));
 	assert(!evhttp_set_cb(run->http, "/snapshot", _http_callback_snapshot, (void *)server));
 	assert(!evhttp_set_cb(run->http, "/stream", _http_callback_stream, (void *)server));
@@ -128,6 +130,10 @@ void http_server_destroy(struct http_server_t *server) {
 		client = next;
 	}
 
+	if (server->run->auth_token) {
+		free(server->run->auth_token);
+	}
+
 	free(server->run->exposed->picture.data);
 	free(server->run->exposed);
 	free(server->run);
@@ -135,16 +141,18 @@ void http_server_destroy(struct http_server_t *server) {
 }
 
 int http_server_listen(struct http_server_t *server) {
-	struct timeval refresh_interval;
+	{
+		struct timeval refresh_interval;
 
-	refresh_interval.tv_sec = 0;
-	if (server->run->stream->dev->desired_fps > 0) {
-		refresh_interval.tv_usec = 1000000 / (server->run->stream->dev->desired_fps * 2);
-	} else {
-		refresh_interval.tv_usec = 16000; // ~60fps
+		refresh_interval.tv_sec = 0;
+		if (server->run->stream->dev->desired_fps > 0) {
+			refresh_interval.tv_usec = 1000000 / (server->run->stream->dev->desired_fps * 2);
+		} else {
+			refresh_interval.tv_usec = 16000; // ~60fps
+		}
+		assert((server->run->refresh = event_new(server->run->base, -1, EV_PERSIST, _http_exposed_refresh, server)));
+		assert(!event_add(server->run->refresh, &refresh_interval));
 	}
-	assert((server->run->refresh = event_new(server->run->base, -1, EV_PERSIST, _http_exposed_refresh, server)));
-	assert(!event_add(server->run->refresh, &refresh_interval));
 
 	server->run->drop_same_frames_blank = max_u(server->drop_same_frames, server->run->drop_same_frames_blank);
 
@@ -153,6 +161,23 @@ int http_server_listen(struct http_server_t *server) {
 	}
 
 	evhttp_set_timeout(server->run->http, server->timeout);
+
+	if (server->user != NULL && strlen(server->user) > 0) {
+		char *passwd = (server->passwd != NULL ? server->passwd : "");
+		char *raw_token;
+		char *encoded_token;
+
+		A_CALLOC(raw_token, strlen(server->user) + strlen(passwd) + 2);
+		sprintf(raw_token, "%s:%s", server->user, passwd);
+		encoded_token = base64_encode((unsigned char *)raw_token);
+		free(raw_token);
+
+		A_CALLOC(server->run->auth_token, strlen(encoded_token) + 16);
+		sprintf(server->run->auth_token, "Basic %s", encoded_token);
+		free(encoded_token);
+
+		LOG_INFO("Using HTTP basic auth");
+	}
 
 	if (server->unix_path) {
 		struct sockaddr_un unix_addr;
@@ -240,17 +265,36 @@ static char *_http_get_param_uri(struct evkeyvalq *params, const char *key) {
 #define ADD_HEADER(_key, _value) \
 	assert(!evhttp_add_header(evhttp_request_get_output_headers(request), _key, _value))
 
-#define PROCESS_HEAD_REQUEST { \
-		if (evhttp_request_get_command(request) == EVHTTP_REQ_HEAD) { \
-			evhttp_send_reply(request, HTTP_OK, "OK", NULL); \
+static int _http_preprocess_request(struct evhttp_request *request, struct http_server_t *server) {
+	if (server->run->auth_token) {
+		const char *token = evhttp_find_header(evhttp_request_get_input_headers(request), "Authorization");
+
+		if (token == NULL || strcmp(token, server->run->auth_token) != 0) {
+			ADD_HEADER("WWW-Authenticate", "Basic realm=\"Restricted area\"");
+			evhttp_send_reply(request, 401, "Unauthorized", NULL);
+			return -1;
+		}
+	}
+
+	if (evhttp_request_get_command(request) == EVHTTP_REQ_HEAD) { \
+		evhttp_send_reply(request, HTTP_OK, "OK", NULL); \
+		return -1;
+	}
+
+	return 0;
+}
+
+#define PREPROCESS_REQUEST { \
+		if (_http_preprocess_request(request, server) < 0) { \
 			return; \
 		} \
 	}
 
-static void _http_callback_root(struct evhttp_request *request, UNUSED void *arg) {
+static void _http_callback_root(struct evhttp_request *request, UNUSED void *v_server) {
+	struct http_server_t *server = (struct http_server_t *)v_server;
 	struct evbuffer *buf;
 
-	PROCESS_HEAD_REQUEST;
+	PREPROCESS_REQUEST;
 
 	assert((buf = evbuffer_new()));
 	assert(evbuffer_add_printf(buf, "%s", HTML_INDEX_PAGE));
@@ -265,7 +309,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 	enum encoder_type_t encoder_run_type;
 	unsigned encoder_run_quality;
 
-	PROCESS_HEAD_REQUEST;
+	PREPROCESS_REQUEST;
 
 #	define ENCODER(_next) server->run->stream->encoder->_next
 
@@ -319,7 +363,7 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	struct evbuffer *buf;
 	char header_buf[64];
 
-	PROCESS_HEAD_REQUEST;
+	PREPROCESS_REQUEST;
 
 #	define EXPOSED(_next) server->run->exposed->_next
 
@@ -384,7 +428,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 	unsigned short client_port;
 	uuid_t uuid;
 
-	PROCESS_HEAD_REQUEST;
+	PREPROCESS_REQUEST;
 
 	conn = evhttp_request_get_connection(request);
 	if (conn != NULL) {
@@ -431,7 +475,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 	}
 }
 
-#undef PROCESS_HEAD_REQUEST
+#undef PREPROCESS_REQUEST
 
 static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_client) {
 #	define BOUNDARY "boundarydonotcross"
