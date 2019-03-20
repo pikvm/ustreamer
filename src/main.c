@@ -275,7 +275,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 'r':	OPT_SET(server->unix_rm, true);
 			case 'o':	OPT_CHMOD(server->unix_mode, "--unix-mode");
 			case 'e':	OPT_UNSIGNED(server->drop_same_frames, "--drop-same-frames", 0, 30);
-			case 3000:	OPT_SET(server->slowdown, true);
+			case 'l':	OPT_SET(server->slowdown, true);
 			case 3001:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
 			case 3002:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
 			case 3003:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
