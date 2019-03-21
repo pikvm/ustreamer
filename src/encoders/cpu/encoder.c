@@ -40,14 +40,14 @@
 
 
 struct _jpeg_dest_manager_t {
-	struct			jpeg_destination_mgr mgr; // Default manager
-	JOCTET			*buffer; // Start of buffer
-	unsigned char	*outbuffer_cursor;
-	size_t			*written;
+	struct				jpeg_destination_mgr mgr; // Default manager
+	JOCTET				*buffer; // Start of buffer
+	struct picture_t	*picture;
+	unsigned char		*picture_data_cursor;
 };
 
 
-static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, size_t *written);
+static void _jpeg_set_picture(j_compress_ptr jpeg, struct picture_t *picture);
 
 static void _jpeg_write_scanlines_yuyv(
 	struct jpeg_compress_struct *jpeg, const unsigned char *data,
@@ -79,10 +79,7 @@ void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned 
 	jpeg.err = jpeg_std_error(&jpeg_error);
 	jpeg_create_compress(&jpeg);
 
-#	define PICTURE(_next) dev->run->pictures[index]._next
-
-	PICTURE(used) = 0;
-	_jpeg_set_dest_picture(&jpeg, PICTURE(data), &PICTURE(used));
+	_jpeg_set_picture(&jpeg, &dev->run->pictures[index]);
 
 	jpeg.image_width = dev->run->width;
 	jpeg.image_height = dev->run->height;
@@ -112,11 +109,11 @@ void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned 
 	// https://stackoverflow.com/questions/19857766/error-handling-in-libjpeg
 	jpeg_finish_compress(&jpeg);
 	jpeg_destroy_compress(&jpeg);
-	assert(PICTURE(used) > 0);
-	assert(PICTURE(used) <= dev->run->max_picture_size);
+
+	assert(dev->run->pictures[index].used > 0);
 }
 
-static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, size_t *written) {
+static void _jpeg_set_picture(j_compress_ptr jpeg, struct picture_t *picture) {
 	struct _jpeg_dest_manager_t *dest;
 
 	if (jpeg->dest == NULL) {
@@ -129,8 +126,10 @@ static void _jpeg_set_dest_picture(j_compress_ptr jpeg, unsigned char *picture, 
 	dest->mgr.init_destination = _jpeg_init_destination;
 	dest->mgr.empty_output_buffer = _jpeg_empty_output_buffer;
 	dest->mgr.term_destination = _jpeg_term_destination;
-	dest->outbuffer_cursor = picture;
-	dest->written = written;
+	dest->picture = picture;
+	dest->picture_data_cursor = picture->data;
+
+	picture->used = 0;
 }
 
 #define YUV_R(_y, _, _v)	(((_y) + (359 * (_v))) >> 8)
@@ -262,7 +261,7 @@ static void _jpeg_write_scanlines_rgb24(
 	}
 }
 
-#define JPEG_OUTPUT_BUFFER_SIZE  4096
+#define JPEG_OUTPUT_BUFFER_SIZE 4096
 
 static void _jpeg_init_destination(j_compress_ptr jpeg) {
 	struct _jpeg_dest_manager_t *dest = (struct _jpeg_dest_manager_t *)jpeg->dest;
@@ -280,10 +279,13 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg) {
 	// Called whenever local jpeg buffer fills up
 
 	struct _jpeg_dest_manager_t *dest = (struct _jpeg_dest_manager_t *)jpeg->dest;
+	size_t new_used = dest->picture->used + JPEG_OUTPUT_BUFFER_SIZE;
 
-	memcpy(dest->outbuffer_cursor, dest->buffer, JPEG_OUTPUT_BUFFER_SIZE);
-	dest->outbuffer_cursor += JPEG_OUTPUT_BUFFER_SIZE;
-	*dest->written += JPEG_OUTPUT_BUFFER_SIZE;
+	assert(new_used <= dest->picture->allocated);
+
+	memcpy(dest->picture_data_cursor, dest->buffer, JPEG_OUTPUT_BUFFER_SIZE);
+	dest->picture_data_cursor += JPEG_OUTPUT_BUFFER_SIZE;
+	dest->picture->used = new_used;
 
 	dest->mgr.next_output_byte = dest->buffer;
 	dest->mgr.free_in_buffer = JPEG_OUTPUT_BUFFER_SIZE;
@@ -296,12 +298,15 @@ static void _jpeg_term_destination(j_compress_ptr jpeg) {
 	// Usually needs to flush buffer
 
 	struct _jpeg_dest_manager_t *dest = (struct _jpeg_dest_manager_t *)jpeg->dest;
-	size_t data_count = JPEG_OUTPUT_BUFFER_SIZE - dest->mgr.free_in_buffer;
+	size_t final = JPEG_OUTPUT_BUFFER_SIZE - dest->mgr.free_in_buffer;
+	size_t new_used = dest->picture->used + final;
+
+	assert(new_used <= dest->picture->allocated);
 
 	// Write any data remaining in the buffer
-	memcpy(dest->outbuffer_cursor, dest->buffer, data_count);
-	dest->outbuffer_cursor += data_count;
-	*dest->written += data_count;
+	memcpy(dest->picture_data_cursor, dest->buffer, final);
+	dest->picture_data_cursor += final;
+	dest->picture->used = new_used;
 }
 
 #undef JPEG_OUTPUT_BUFFER_SIZE

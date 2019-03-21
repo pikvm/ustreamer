@@ -66,7 +66,7 @@ struct device_runtime_t {
 //	unsigned			n_workers; // FIXME
 	struct hw_buffer_t	*hw_buffers;
 	struct picture_t	*pictures;
-	size_t				max_picture_size;
+	size_t				max_raw_image_size;
 	bool				capturing;
 };
 

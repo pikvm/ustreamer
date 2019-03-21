@@ -78,6 +78,7 @@ struct omx_encoder_t *omx_encoder_init() {
 	//   - https://github.com/gagle/raspberrypi-openmax-jpeg/blob/master/jpeg.c
 	//   - https://www.raspberrypi.org/forums/viewtopic.php?t=154790
 	//   - https://bitbucket.org/bensch128/omxjpegencode/src/master/jpeg_encoder.cpp
+	//   - http://home.nouwen.name/RaspberryPi/documentation/ilcomponents/image_encode.html
 
 	struct omx_encoder_t *omx;
 	OMX_ERRORTYPE error;
@@ -198,7 +199,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 		if (omx->output_available) {
 			omx->output_available = false;
 
-			assert(PICTURE(used) + OUT(nFilledLen) <= dev->run->max_picture_size);
+			assert(PICTURE(used) + OUT(nFilledLen) <= PICTURE(allocated));
 			memcpy(PICTURE(data) + PICTURE(used), OUT(pBuffer) + OUT(nOffset), OUT(nFilledLen));
 			PICTURE(used) += OUT(nFilledLen);
 
@@ -247,8 +248,6 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 }
 
 static int _omx_init_component(struct omx_encoder_t *omx) {
-	// http://home.nouwen.name/RaspberryPi/documentation/ilcomponents/image_encode.html
-
 	OMX_ERRORTYPE error;
 
 	OMX_CALLBACKTYPE callbacks;
@@ -313,7 +312,7 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 #	undef ALIGN_HEIGHT
 	portdef.format.image.bFlagErrorConcealment = OMX_FALSE;
 	portdef.format.image.eCompressionFormat = OMX_IMAGE_CodingUnused;
-	portdef.nBufferSize = dev->run->max_picture_size;
+	portdef.nBufferSize = dev->run->max_raw_image_size;
 
 #	define MAP_FORMAT(_v4l2_format, _omx_format) \
 		case _v4l2_format: { portdef.format.image.eColorFormat = _omx_format; break; }

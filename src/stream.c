@@ -93,7 +93,7 @@ void stream_loop(struct stream_t *stream) {
 		bool persistent_timeout_reported = false;
 
 		LOG_DEBUG("Allocation memory for stream picture ...");
-		A_CALLOC(stream->picture.data, stream->dev->run->max_picture_size);
+		A_CALLOC(stream->picture.data, stream->dev->run->max_raw_image_size);
 
 		LOG_INFO("Capturing ...");
 
