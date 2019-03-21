@@ -16,14 +16,11 @@
 | Streaming via UNIX domain socket | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Debug logs without recompiling,<br>performance statistics log,<br>access to HTTP broadcast parameters | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Access to webcam controls (focus, servos)<br>and settings such as brightness via HTTP | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes |
-| Option to serve files<br>with a built-in HTTP server | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No <sup>3</sup> | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes |
 
 Footnotes:
   * ```1``` Long before µStreamer, I made a [patch](https://github.com/jacksonliam/mjpg-streamer/pull/164) to add DV-timings support to mjpg-streamer and to keep it from hanging up no device disconnection. Alas, the patch is far from perfect and I can't guarantee it will work every time - mjpg-streamer's source code is very complicated and its structure is hard to understand. With this in mind, along with needing multithreading and JPEG hardware acceleration in the future, I decided to make my own stream server from scratch instead of supporting legacy code.
   
   * ```2``` This feature allows to cut down outgoing traffic several-fold when broadcasting HDMI, but it increases CPU usage a little bit. The idea is that HDMI is a fully digital interface and each captured frame can be identical to the previous one byte-wise. There's no need to broadcast the same image over the net several times a second. With the `--drop-same-frames=20` option enabled, µStreamer will drop all the matching frames (with a limit of 20 in a row). Each new frame is matched with the previous one first by length, then using ```memcmp()```.
-
-  * ```3``` ...and there'll never be. µStreamer is designed UNIX-way, so if you need a small website with your broadcast, install NGINX.
 
 -----
 # TL;DR

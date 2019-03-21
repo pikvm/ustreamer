@@ -29,6 +29,7 @@
 #include <fcntl.h>
 #include <assert.h>
 
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/stat.h>
@@ -52,6 +53,8 @@
 #include "../stream.h"
 
 #include "base64.h"
+#include "mime.h"
+#include "static.h"
 #include "server.h"
 
 #include "data/index_html.h"
@@ -325,6 +328,9 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 	struct evhttp_uri *uri = NULL;
 	char *uri_path;
 	char *decoded_path = NULL;
+	char *static_path = NULL;
+	int fd = -1;
+	struct stat st;
 
 	PREPROCESS_REQUEST;
 
@@ -340,7 +346,26 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 	}
 
 	assert((buf = evbuffer_new()));
-	assert(evbuffer_add_printf(buf, "|%s|", decoded_path)); // TODO
+
+	if ((static_path = find_static_file_path(server->static_path, decoded_path)) == NULL) {
+		goto not_found;
+	}
+
+	if ((fd = open(static_path, O_RDONLY)) < 0) {
+		LOG_PERROR("HTTP: Can't open found static file %s", static_path);
+		goto not_found;
+	}
+
+	if (fstat(fd, &st) < 0) {
+		LOG_PERROR("HTTP: Can't stat() found static file %s", static_path);
+		goto not_found;
+	}
+
+	if (evbuffer_add_file(buf, fd, 0, st.st_size) < 0) {
+		LOG_ERROR("HTTP: Can't serve static file %s", static_path);
+		goto not_found;
+	}
+	ADD_HEADER("Content-Type", guess_mime_type(static_path));
 	evhttp_send_reply(request, HTTP_OK, "OK", buf);
 	goto cleanup;
 
@@ -348,7 +373,17 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 		evhttp_send_error(request, HTTP_BADREQUEST, NULL);
 		goto cleanup;
 
+	not_found:
+		evhttp_send_error(request, HTTP_NOTFOUND, NULL);
+		goto cleanup;
+
 	cleanup:
+		if (fd >= 0) {
+			close(fd);
+		}
+		if (static_path) {
+			free(static_path);
+		}
 		if (buf) {
 			evbuffer_free(buf);
 		}

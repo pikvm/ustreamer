@@ -164,8 +164,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    -o|--unix-mode <mode>  ────── Set UNIX socket file permissions (like 777). Default: disabled\n\n");
 	printf("    --user <name>  ────────────── HTTP basic auth user. Default: disabled\n\n");
 	printf("    --passwd <str>  ───────────── HTTP basic auth passwd. Default: empty\n\n");
-	printf("    --static <path> ───────────── Serve static files instead of embedded root index page.\n");
-	printf("                                  Default: disabled.\n\n");
+	printf("    --static <path> ───────────── Path to dir with static files instead of embedded root index page.\n");
+	printf("                                  Symlinks are not supported for security reasons. Default: disabled.\n\n");
 	printf("    -e|--drop-same-frames <N>  ── Don't send same frames to clients, but no more than specified number.\n");
 	printf("                                  It can significantly reduce the outgoing traffic, but will increase\n");
 	printf("                                  the CPU loading. Don't use this option with analog signal sources\n");
