@@ -15,6 +15,7 @@
 | Option to skip frames when streaming<br>static images by HTTP to save traffic | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes <sup>2</sup> | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Streaming via UNIX domain socket | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Debug logs without recompiling,<br>performance statistics log,<br>access to HTTP broadcast parameters | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
+| Option to serve files<br>with a built-in HTTP server | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#ffaa00](https://placehold.it/15/ffaa00/000000?text=+) Regular files only |
 | Access to webcam controls (focus, servos)<br>and settings such as brightness via HTTP | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes |
 
 Footnotes:
