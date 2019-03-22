@@ -139,7 +139,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                      Available: %s; default: CPU.\n\n", ENCODER_TYPES_STR);
 	printf("    --device-timeout <seconds>  ───── Timeout for device querying. Default: %u\n\n", dev->timeout);
 	printf("    --device-error-delay <seconds>  ─ Delay before trying to connect to the device again\n");
-	printf("                                      after timeout. Default: %u\n\n", dev->error_delay);
+	printf("                                      after an error (timeout for example). Default: %u\n\n", dev->error_delay);
 	printf("Image control options:\n");
 	printf("══════════════════════\n");
 	printf("    --brightness <N>  ───────────── Set brightness. Default: no change.\n\n");
