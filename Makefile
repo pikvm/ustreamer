@@ -60,5 +60,5 @@ push:
 clean-all: clean
 clean:
 	find src -name '*.o' -exec rm '{}' \;
+	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.xz
 	rm -f vgcore.* *.sock $(PROG)
-	rm -rf pkg src/$(PROG)-* src/v*.tar.gz v*.tar.gz $(PROG)-*.pkg.tar.xz
