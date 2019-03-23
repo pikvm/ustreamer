@@ -259,7 +259,7 @@ int device_consume_event(struct device_t *dev) {
 	struct v4l2_event event;
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_DQEVENT) ...");
-	if (!xioctl(dev->run->fd, VIDIOC_DQEVENT, &event)) {
+	if (xioctl(dev->run->fd, VIDIOC_DQEVENT, &event) == 0) {
 		switch (event.type) {
 			case V4L2_EVENT_SOURCE_CHANGE:
 				LOG_INFO("Got V4L2_EVENT_SOURCE_CHANGE: source changed");
@@ -432,7 +432,7 @@ static void _device_open_hw_fps(struct device_t *dev) {
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_G_PARM) ...");
 	if (xioctl(dev->run->fd, VIDIOC_G_PARM, &setfps) < 0) {
-		LOG_PERROR("Unable to query that the HW FPS change is not supported");
+		LOG_PERROR("Unable to query HW FPS changing");
 		return;
 	}
 
@@ -471,7 +471,7 @@ static int _device_open_mmap(struct device_t *dev) {
 	req.memory = V4L2_MEMORY_MMAP;
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_REQBUFS) ...");
-	if (xioctl(dev->run->fd, VIDIOC_REQBUFS, &req)) {
+	if (xioctl(dev->run->fd, VIDIOC_REQBUFS, &req) < 0) {
 		LOG_PERROR("Device '%s' doesn't support memory mapping", dev->path);
 		return -1;
 	}
