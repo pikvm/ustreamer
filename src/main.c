@@ -171,7 +171,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                  the CPU loading. Don't use this option with analog signal sources\n");
 	printf("                                  or webcams, it's useless. Default: disabled.\n\n");
 	printf("    -l|--slowdown  ────────────── Slowdown capturing to 1 FPS or less when no stream clients connected.\n");
-	printf("                                  Useful to reduce CPU cosumption. Default: disabled.\n\n");
+	printf("                                  Useful to reduce CPU consumption. Default: disabled.\n\n");
 	printf("    --fake-width <N>  ─────────── Override image width for /state. Default: disabled.\n\n");
 	printf("    --fake-height <N>  ────────── Override image height for /state. Default: disabled.\n\n");
 	printf("    --server-timeout <seconds>  ─ Timeout for client connections. Default: %u.\n\n", server->timeout);
