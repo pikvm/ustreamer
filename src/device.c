@@ -65,6 +65,7 @@ static int _device_open_check_cap(struct device_t *dev);
 static int _device_open_dv_timings(struct device_t *dev);
 static int _device_apply_dv_timings(struct device_t *dev);
 static int _device_open_format(struct device_t *dev);
+static void _device_open_hw_fps(struct device_t *dev);
 static int _device_open_mmap(struct device_t *dev);
 static int _device_open_queue_buffers(struct device_t *dev);
 static void _device_open_alloc_picbufs(struct device_t *dev);
@@ -144,6 +145,7 @@ int device_open(struct device_t *dev) {
 	if (_device_open_format(dev) < 0) {
 		goto error;
 	}
+	_device_open_hw_fps(dev);
 	if (_device_open_mmap(dev) < 0) {
 		goto error;
 	}
@@ -285,7 +287,7 @@ static int _device_open_check_cap(struct device_t *dev) {
 	}
 
 	if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
-		LOG_ERROR("Video capture not supported by our device");
+		LOG_ERROR("Video capture not supported by the device");
 		return -1;
 	}
 
@@ -420,6 +422,44 @@ static int _device_open_format(struct device_t *dev) {
 	dev->run->format = fmt.fmt.pix.pixelformat;
 	LOG_INFO("Using pixelformat: %s", _format_to_string_supported(dev->run->format));
 	return 0;
+}
+
+static void _device_open_hw_fps(struct device_t *dev) {
+	struct v4l2_streamparm setfps;
+
+	MEMSET_ZERO(setfps);
+	setfps.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+	LOG_DEBUG("Calling ioctl(VIDIOC_G_PARM) ...");
+	if (xioctl(dev->run->fd, VIDIOC_G_PARM, &setfps) < 0) {
+		LOG_PERROR("Unable to query that the HW FPS change is not supported");
+		return;
+	}
+
+	if (!(setfps.parm.capture.capability & V4L2_CAP_TIMEPERFRAME)) {
+		LOG_INFO("Changing HW FPS is not supported");
+		return;
+	}
+
+#	define SETFPS_TPF(_next) setfps.parm.capture.timeperframe._next
+
+	MEMSET_ZERO(setfps);
+	setfps.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	SETFPS_TPF(numerator) = 1;
+	SETFPS_TPF(denominator) = (dev->desired_fps == 0 ? 255 : dev->desired_fps);
+
+	if (xioctl(dev->run->fd, VIDIOC_S_PARM, &setfps) < 0) {
+		LOG_PERROR("Unable to set HW FPS");
+		return;
+	}
+
+	if (dev->desired_fps != SETFPS_TPF(denominator)) {
+		LOG_INFO("Using HW FPS (coerced): %u -> %u", dev->desired_fps, SETFPS_TPF(denominator));
+	} else {
+		LOG_INFO("Using HW FPS: %u", dev->desired_fps);
+	}
+
+#	undef SETFPS_TPF
 }
 
 static int _device_open_mmap(struct device_t *dev) {
