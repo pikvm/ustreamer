@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S python3 -B
 #============================================================================#
 #                                                                            #
 #    uStreamer - Lightweight and fast MJPG-HTTP streamer.                    #
@@ -22,12 +22,13 @@
 
 
 import sys
-import os
 import textwrap
+
+import common
 
 
 # =====
-def main():
+def main() -> None:
     assert len(sys.argv) == 4, "%s <file.html> <file.h> <name>" % (sys.argv[0])
     html_path = sys.argv[1]
     header_path = sys.argv[2]
@@ -35,9 +36,6 @@ def main():
 
     with open(html_path, "r") as html_file:
         text = html_file.read()
-
-    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "prepend.h")) as prepend_file:
-        prepend = prepend_file.read()
 
     text = text.strip()
     text = text.replace("\"", "\\\"")
@@ -48,7 +46,7 @@ def main():
         for line in text.split("\n")
     )
     text = "const char HTML_%s_PAGE[] = \" \\\n%s\n\";\n" % (name, text)
-    text = prepend + "\n#include \"../../config.h\"\n\n\n" + text
+    text = common.get_prepend() + "\n#include \"../../config.h\"\n\n\n" + text
 
     with open(header_path, "w") as header_file:
         header_file.write(text)

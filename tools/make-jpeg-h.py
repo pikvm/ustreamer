@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S python3 -B
 #============================================================================#
 #                                                                            #
 #    uStreamer - Lightweight and fast MJPG-HTTP streamer.                    #
@@ -22,13 +22,17 @@
 
 
 import sys
-import os
 import io
 import struct
 
+from typing import Tuple
+from typing import List
+
+import common
+
 
 # =====
-def _get_jpeg_size(data):
+def _get_jpeg_size(data: bytes) -> Tuple[int, int]:
     # https://sheep.horse/2013/9/finding_the_dimensions_of_a_jpeg_file_in_python.html
 
     stream = io.BytesIO(data)
@@ -55,7 +59,7 @@ def _get_jpeg_size(data):
 
 
 # =====
-def main():
+def main() -> None:
     assert len(sys.argv) == 4, "%s <file.jpeg> <file.h> <name>" % (sys.argv[0])
     jpeg_path = sys.argv[1]
     header_path = sys.argv[2]
@@ -66,10 +70,7 @@ def main():
 
     (width, height) = _get_jpeg_size(jpeg_data)
 
-    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "prepend.h")) as prepend_file:
-        prepend = prepend_file.read()
-
-    rows = [[]]
+    rows: List[List[str]] = [[]]
     for ch in jpeg_data:
         if len(rows[-1]) > 20:
             rows.append([])
@@ -79,7 +80,7 @@ def main():
     text = "const unsigned char %s_JPEG_DATA[] = {\n\t%s\n};\n" % (name, text)
     text = "const unsigned %s_JPEG_HEIGHT = %d;\n\n" % (name, height) + text
     text = "const unsigned %s_JPEG_WIDTH = %d;\n" % (name, width) + text
-    text = prepend + "\n\n" + text
+    text = common.get_prepend() + "\n\n" + text
 
     with open(header_path, "w") as header_file:
         header_file.write(text)
