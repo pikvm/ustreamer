@@ -27,6 +27,7 @@
 #include <strings.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <assert.h>
 
 #include <sys/mman.h>
@@ -432,7 +433,11 @@ static void _device_open_hw_fps(struct device_t *dev) {
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_G_PARM) ...");
 	if (xioctl(dev->run->fd, VIDIOC_G_PARM, &setfps) < 0) {
-		LOG_PERROR("Unable to query HW FPS changing");
+		if (errno == ENOTTY) { // Quiet message for Auvidea B101
+			LOG_INFO("Quierying HW FPS changing is not supported");
+		} else {
+			LOG_PERROR("Unable to query HW FPS changing");
+		}
 		return;
 	}
 
@@ -454,7 +459,7 @@ static void _device_open_hw_fps(struct device_t *dev) {
 	}
 
 	if (dev->desired_fps != SETFPS_TPF(denominator)) {
-		LOG_INFO("Using HW FPS (coerced): %u -> %u", dev->desired_fps, SETFPS_TPF(denominator));
+		LOG_INFO("Using HW FPS: %u -> %u (coerced)", dev->desired_fps, SETFPS_TPF(denominator));
 	} else {
 		LOG_INFO("Using HW FPS: %u", dev->desired_fps);
 	}
