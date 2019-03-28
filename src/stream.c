@@ -376,11 +376,11 @@ static int _stream_init_loop(struct stream_t *stream, struct workers_pool_t *poo
 }
 
 static int _stream_init(struct stream_t *stream, struct workers_pool_t *pool) {
-	SEP_INFO('=');
-
 	_stream_destroy_workers(stream, pool);
 	device_switch_capturing(stream->dev, false);
 	device_close(stream->dev);
+
+	SEP_INFO('=');
 
 	if (device_open(stream->dev) < 0) {
 		goto error;
