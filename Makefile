@@ -50,7 +50,7 @@ release:
 
 
 bump:
-	bumpversion minor
+	bumpversion $(if $(V), $(V), minor)
 
 
 push:
