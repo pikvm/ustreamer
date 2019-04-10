@@ -1,0 +1,55 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2009-2019 OpenWrt.org
+
+START=90
+STOP=10
+
+USE_PROCD=1
+PROG=/usr/bin/ustreamer
+
+getcfg() {
+	config_get value ustreamer $1 $2
+	return "$value"
+}
+
+start_instance() {
+	config_get_bool enabled ustreamer enabled 0
+	[ "$enabled" -eq 0 ] && return
+
+	local options=""
+
+	options="$options --device='`getcfg device /dev/video0`'"
+	options="$options --device-timeout='`getcfg device_timeout 5`'"
+	options="$options --input='`getcfg input 0`'"
+
+	options="$options --width='`getcfg width 640`'"
+	options="$options --height='`getcfg height 480`'"
+	options="$options --format='`getcfg format YUYV`'"
+	options="$options --quality='`getcfg quality 80`'"
+	options="$options --desired-fps='`getcfg desired_fps 0`'"
+	options="$options --encoder='`getcfg encoder CPU`'"
+
+	options="$options --host='`getcfg host '::'`'"
+	local port=`getcfg port 8080`
+	options="$options --port='$port'"
+	options="$options --static='`getcfg static ''`'"
+	options="$options --user='`getcfg user ''`'"
+	options="$options --passwd='`getcfg password ''`'"
+
+	config-get-bool opt_slowdown ustreamer slowdown 1
+	[ "$slowdown" -eq 1 ] && options="$options --slowdown"
+
+	procd_open_instance
+	procd_set_param command "$PROG" $options
+	procd_add_mdns http tcp "$port" daemon=ustreamer
+	procd_close_instance
+}
+
+start_service() {
+	config_load ustreamer
+	config_foreach start_instance ustreamer
+}
+
+service_triggers() {
+	procd_add_reload_trigger ustreamer
+}
