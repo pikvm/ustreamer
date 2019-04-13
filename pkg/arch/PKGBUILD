@@ -19,7 +19,7 @@ md5sums=(SKIP)
 build() {
 	cd $srcdir
 	rm -rf $pkgname-build
-	cp -r ustreamer-$pkgver $pkgname-build
+	cp -r $pkgname-$pkgver $pkgname-build
 	cd $pkgname-build
 	make CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" $MAKEFLAGS
 }
