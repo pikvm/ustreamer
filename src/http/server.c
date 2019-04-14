@@ -527,7 +527,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 	PREPROCESS_REQUEST;
 
 	conn = evhttp_request_get_connection(request);
-	if (conn != NULL) {
+	if (conn) {
 		A_CALLOC(client, 1);
 		client->server = server;
 		client->request = request;
@@ -713,12 +713,12 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	}
 
 	conn = evhttp_request_get_connection(client->request);
-	if (conn != NULL) {
+	if (conn) {
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
 	}
 	LOG_INFO("HTTP: Disconnected the stream client: [%s]:%u; clients now: %u",
 		client_addr, client_port, RUN(stream_clients_count));
-	if (conn != NULL) {
+	if (conn) {
 		evhttp_connection_free(conn);
 	}
 
@@ -746,7 +746,7 @@ static void _http_queue_send_stream(struct http_server_t *server, bool stream_up
 
 	for (struct stream_client_t *client = server->run->stream_clients; client != NULL; client = client->next) {
 		conn = evhttp_request_get_connection(client->request);
-		if (conn != NULL) {
+		if (conn) {
 			// Фикс для бага WebKit. При включенной опции дропа одинаковых фреймов,
 			// WebKit отрисовывает последний фрейм в серии с некоторой задержкой,
 			// и нужно послать два фрейма, чтобы серия была вовремя завершена.

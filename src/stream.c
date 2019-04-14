@@ -232,7 +232,7 @@ void stream_loop(struct stream_t *stream) {
 
 					LOG_DEBUG("Grabbed a new frame to buffer %u", buf_index);
 
-					if (!oldest_worker) {
+					if (oldest_worker == NULL) {
 						oldest_worker = &pool.workers[free_worker_number];
 						last_worker = oldest_worker;
 					} else {
