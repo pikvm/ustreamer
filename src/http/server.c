@@ -52,13 +52,13 @@
 #include "../encoder.h"
 #include "../stream.h"
 
+#include "blank.h"
 #include "base64.h"
 #include "mime.h"
 #include "static.h"
 #include "server.h"
 
 #include "data/index_html.h"
-#include "data/blank_jpeg.h"
 
 
 static bool _http_get_param_true(struct evkeyvalq *params, const char *key);
@@ -103,8 +103,6 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	server->timeout = 10;
 	server->run = run;
 
-	_expose_blank_picture(server);
-
 	assert(!evthread_use_pthreads());
 	assert((run->base = event_base_new()));
 	assert((run->http = evhttp_new(run->base)));
@@ -137,6 +135,10 @@ void http_server_destroy(struct http_server_t *server) {
 		free(server->run->auth_token);
 	}
 
+	if (server->run->blank) {
+		blank_destroy(server->run->blank);
+	}
+
 	free(server->run->exposed->picture.data);
 	free(server->run->exposed);
 	free(server->run);
@@ -155,6 +157,10 @@ int http_server_listen(struct http_server_t *server) {
 		assert(!evhttp_set_cb(server->run->http, "/stream", _http_callback_stream, (void *)server));
 	}
 
+	server->run->drop_same_frames_blank = max_u(server->drop_same_frames, server->run->drop_same_frames_blank);
+	server->run->blank = blank_init(server->blank_path);
+	_expose_blank_picture(server);
+
 	{
 		struct timeval refresh_interval;
 
@@ -168,8 +174,6 @@ int http_server_listen(struct http_server_t *server) {
 		assert((server->run->refresh = event_new(server->run->base, -1, EV_PERSIST, _http_exposed_refresh, server)));
 		assert(!event_add(server->run->refresh, &refresh_interval));
 	}
-
-	server->run->drop_same_frames_blank = max_u(server->drop_same_frames, server->run->drop_same_frames_blank);
 
 	if (server->slowdown) {
 		stream_switch_slowdown(server->run->stream, true);
@@ -878,28 +882,28 @@ static bool _expose_new_picture(struct http_server_t *server) {
 }
 
 static bool _expose_blank_picture(struct http_server_t *server) {
+#	define BLANK(_next)		server->run->blank->_next
 #	define EXPOSED(_next)	server->run->exposed->_next
-#	define BLANK_JPEG_LEN	ARRAY_LEN(BLANK_JPEG_DATA)
 
 	EXPOSED(expose_begin_time) = get_now_monotonic();
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
 
 	if (EXPOSED(online) || EXPOSED(picture.used) == 0) {
-		if (EXPOSED(picture.allocated) < BLANK_JPEG_LEN) {
-			A_REALLOC(EXPOSED(picture.data), BLANK_JPEG_LEN);
-			EXPOSED(picture.allocated) = BLANK_JPEG_LEN;
+		if (EXPOSED(picture.allocated) < BLANK(picture.used)) {
+			A_REALLOC(EXPOSED(picture.data), BLANK(picture.used));
+			EXPOSED(picture.allocated) = BLANK(picture.used);
 		}
 
-		memcpy(EXPOSED(picture.data), BLANK_JPEG_DATA, BLANK_JPEG_LEN * sizeof(*EXPOSED(picture.data)));
+		memcpy(EXPOSED(picture.data), BLANK(picture.data), BLANK(picture.used) * sizeof(*EXPOSED(picture.data)));
 
-		EXPOSED(picture.used) = BLANK_JPEG_LEN;
+		EXPOSED(picture.used) = BLANK(picture.used);
 
 		EXPOSED(picture.grab_time) = 0;
 		EXPOSED(picture.encode_begin_time) = 0;
 		EXPOSED(picture.encode_end_time) = 0;
 
-		EXPOSED(width) = BLANK_JPEG_WIDTH;
-		EXPOSED(height) = BLANK_JPEG_HEIGHT;
+		EXPOSED(width) = BLANK(width);
+		EXPOSED(height) = BLANK(height);
 		EXPOSED(captured_fps) = 0;
 		EXPOSED(online) = false;
 		goto updated;
@@ -917,6 +921,6 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 		EXPOSED(expose_end_time) = get_now_monotonic();
 		return true; // Updated
 
-#	undef BLANK_JPEG_LEN
 #	undef EXPOSED
+#	undef BLANK
 }

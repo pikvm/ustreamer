@@ -33,6 +33,8 @@
 #include "../tools.h"
 #include "../stream.h"
 
+#include "blank.h"
+
 
 struct stream_client_t {
 	struct http_server_t	*server;
@@ -78,6 +80,7 @@ struct http_server_runtime_t {
 	struct exposed_t		*exposed;
 	struct stream_client_t	*stream_clients;
 	unsigned				stream_clients_count;
+	struct blank_t			*blank;
 	unsigned				drop_same_frames_blank;
 };
 
@@ -87,14 +90,17 @@ struct http_server_t {
 	char		*unix_path;
 	bool		unix_rm;
 	mode_t		unix_mode;
+	unsigned	timeout;
+
 	char		*user;
 	char		*passwd;
 	char		*static_path;
+
+	char		*blank_path;
 	unsigned	drop_same_frames;
 	bool		slowdown;
 	unsigned	fake_width;
 	unsigned	fake_height;
-	unsigned	timeout;
 
 	struct http_server_runtime_t *run;
 };

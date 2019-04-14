@@ -41,7 +41,7 @@
 #include "http/server.h"
 
 
-static const char _SHORT_OPTS[] = "d:i:x:y:m:a:f:z:ntb:w:q:c:s:p:u:ro:e:lhv";
+static const char _SHORT_OPTS[] = "d:i:x:y:m:a:f:z:ntb:w:q:c:s:p:u:ro:k:e:lhv";
 static const struct option _LONG_OPTS[] = {
 	{"device",					required_argument,	NULL,	'd'},
 	{"input",					required_argument,	NULL,	'i'},
@@ -82,6 +82,7 @@ static const struct option _LONG_OPTS[] = {
 	{"user",					required_argument,	NULL,	3000},
 	{"passwd",					required_argument,	NULL,	3001},
 	{"static",					required_argument,	NULL,	3002},
+	{"blank",					required_argument,	NULL,	'k'},
 	{"drop-same-frames",		required_argument,	NULL,	'e'},
 	{"slowdown",				no_argument,		NULL,	'l'},
 	{"fake-width",				required_argument,	NULL,	3003},
@@ -166,6 +167,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --passwd <str>  ───────────── HTTP basic auth passwd. Default: empty.\n\n");
 	printf("    --static <path> ───────────── Path to dir with static files instead of embedded root index page.\n");
 	printf("                                  Symlinks are not supported for security reasons. Default: disabled.\n\n");
+	printf("    -k|--blank <path> ─────────── Path to JPEG file that will be shown when the device is disconnected\n");
+	printf("                                  during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.\n\n");
 	printf("    -e|--drop-same-frames <N>  ── Don't send same frames to clients, but no more than specified number.\n");
 	printf("                                  It can significantly reduce the outgoing traffic, but will increase\n");
 	printf("                                  the CPU loading. Don't use this option with analog signal sources\n");
@@ -284,6 +287,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 3000:	OPT_SET(server->user, optarg);
 			case 3001:	OPT_SET(server->passwd, optarg);
 			case 3002:	OPT_SET(server->static_path, optarg);
+			case 'k':	OPT_SET(server->blank_path, optarg);
 			case 'e':	OPT_UNSIGNED(server->drop_same_frames, "--drop-same-frames", 0, 30);
 			case 'l':	OPT_SET(server->slowdown, true);
 			case 3003:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
