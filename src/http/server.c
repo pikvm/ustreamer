@@ -645,8 +645,9 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"Content-Length: %zu" RN
 			"X-Timestamp: %.06Lf" RN
 			"%s",
-			EXPOSED(picture.used) * sizeof(*EXPOSED(picture.data)),
-			get_now_real(), (client->extra_headers ? "" : RN)
+			EXPOSED(picture.used),
+			get_now_real(),
+			(client->extra_headers ? "" : RN)
 		));
 		if (client->extra_headers) {
 			assert(evbuffer_add_printf(buf,
@@ -679,10 +680,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 		}
 	}
 
-	assert(!evbuffer_add(buf,
-		(void *)EXPOSED(picture.data),
-		EXPOSED(picture.used) * sizeof(*EXPOSED(picture.data))
-	));
+	assert(!evbuffer_add(buf, (void *)EXPOSED(picture.data), EXPOSED(picture.used)));
 	assert(evbuffer_add_printf(buf, RN "--" BOUNDARY RN));
 
 	if (client->advance_headers) {
@@ -828,8 +826,7 @@ static bool _expose_new_picture(struct http_server_t *server) {
 	EXPOSED(expose_begin_time) = get_now_monotonic();
 
 #	define MEM_STREAM_TO_EXPOSED \
-		EXPOSED(picture.data), STREAM(picture.data), \
-		STREAM(picture.used) * sizeof(*STREAM(picture.data))
+		EXPOSED(picture.data), STREAM(picture.data), STREAM(picture.used)
 
 	if (server->drop_same_frames) {
 		if (
@@ -894,7 +891,7 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 			EXPOSED(picture.allocated) = BLANK(picture.used);
 		}
 
-		memcpy(EXPOSED(picture.data), BLANK(picture.data), BLANK(picture.used) * sizeof(*EXPOSED(picture.data)));
+		memcpy(EXPOSED(picture.data), BLANK(picture.data), BLANK(picture.used));
 
 		EXPOSED(picture.used) = BLANK(picture.used);
 

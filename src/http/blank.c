@@ -65,7 +65,7 @@ static struct blank_t *_blank_init_internal() {
 	A_CALLOC(blank, 1);
 
 	A_CALLOC(blank->picture.data, ARRAY_LEN(BLANK_JPEG_DATA));
-	memcpy(blank->picture.data, BLANK_JPEG_DATA, ARRAY_LEN(BLANK_JPEG_DATA) * sizeof(*blank->picture.data));
+	memcpy(blank->picture.data, BLANK_JPEG_DATA, ARRAY_LEN(BLANK_JPEG_DATA));
 
 	blank->picture.used = ARRAY_LEN(BLANK_JPEG_DATA);
 	blank->picture.allocated = ARRAY_LEN(BLANK_JPEG_DATA);
@@ -112,7 +112,7 @@ static struct blank_t *_blank_init_external(const char *path) {
 			A_REALLOC(blank->picture.data, blank->picture.allocated);
 		}
 
-		size_t readed = fread(blank->picture.data + blank->picture.used, sizeof(*blank->picture.data), CHUNK_SIZE, fp);
+		size_t readed = fread(blank->picture.data + blank->picture.used, 1, CHUNK_SIZE, fp);
 		blank->picture.used += readed;
 
 		if (readed < CHUNK_SIZE) {

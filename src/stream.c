@@ -315,7 +315,7 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) 
 	stream->picture.used = PICTURE(used);
 	stream->picture.allocated = PICTURE(allocated);
 
-	memcpy(stream->picture.data, PICTURE(data), stream->picture.used * sizeof(*stream->picture.data));
+	memcpy(stream->picture.data, PICTURE(data), stream->picture.used);
 
 	stream->picture.grab_time = PICTURE(grab_time);
 	stream->picture.encode_begin_time = PICTURE(encode_begin_time);
