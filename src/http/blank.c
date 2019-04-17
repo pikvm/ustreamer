@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <setjmp.h>
 
 #include <jpeglib.h>
 
@@ -34,8 +35,16 @@
 #include "blank.h"
 
 
+struct _jpeg_error_manager_t {
+	struct jpeg_error_mgr	mgr; // Default manager
+	jmp_buf					jmp;
+};
+
+
 static struct blank_t *_blank_init_internal();
 static struct blank_t *_blank_init_external(const char *path);
+static int _jpeg_read_geometry(FILE *fp, unsigned *width, unsigned *height);
+static void _jpeg_error_handler(j_common_ptr jpeg);
 
 
 struct blank_t *blank_init(const char *path) {
@@ -78,8 +87,6 @@ static struct blank_t *_blank_init_internal() {
 
 static struct blank_t *_blank_init_external(const char *path) {
 	FILE *fp = NULL;
-	struct jpeg_error_mgr jpeg_error;
-	struct jpeg_decompress_struct jpeg;
 	struct blank_t *blank;
 
 	A_CALLOC(blank, 1);
@@ -89,16 +96,9 @@ static struct blank_t *_blank_init_external(const char *path) {
 		goto error;
 	}
 
-	jpeg_create_decompress(&jpeg);
-	jpeg.err = jpeg_std_error(&jpeg_error);
-	jpeg_stdio_src(&jpeg, fp);
-	jpeg_read_header(&jpeg, TRUE);
-	jpeg_start_decompress(&jpeg);
-
-	blank->width = jpeg.output_width;
-	blank->height = jpeg.output_height;
-
-	jpeg_destroy_decompress(&jpeg);
+	if (_jpeg_read_geometry(fp, &blank->width, &blank->height) < 0) {
+		goto error;
+	}
 
 	if (fseek(fp, 0, SEEK_SET) < 0) {
 		LOG_PERROR("Can't seek to begin of the blank placeholder");
@@ -137,4 +137,37 @@ static struct blank_t *_blank_init_external(const char *path) {
 		}
 
 	return blank;
+}
+
+static int _jpeg_read_geometry(FILE *fp, unsigned *width, unsigned *height) {
+	struct jpeg_decompress_struct jpeg;
+	struct _jpeg_error_manager_t jpeg_error;
+
+	jpeg_create_decompress(&jpeg);
+
+	jpeg.err = jpeg_std_error((struct jpeg_error_mgr *)&jpeg_error);
+	jpeg_error.mgr.error_exit = _jpeg_error_handler;
+	if (setjmp(jpeg_error.jmp) < 0) {
+		jpeg_destroy_decompress(&jpeg);
+		return -1;
+	}
+
+	jpeg_stdio_src(&jpeg, fp);
+	jpeg_read_header(&jpeg, TRUE);
+	jpeg_start_decompress(&jpeg);
+
+	*width = jpeg.output_width;
+	*height = jpeg.output_height;
+
+	jpeg_destroy_decompress(&jpeg);
+	return 0;
+}
+
+static void _jpeg_error_handler(j_common_ptr jpeg) {
+	struct _jpeg_error_manager_t *jpeg_error = (struct _jpeg_error_manager_t *)jpeg->err;
+	char msg[JMSG_LENGTH_MAX];
+
+	(*jpeg_error->mgr.format_message)(jpeg, msg);
+	LOG_ERROR("Invalid blank placeholder: %s", msg);
+	longjmp(jpeg_error->jmp, -1);
 }
