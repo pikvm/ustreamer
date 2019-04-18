@@ -20,6 +20,7 @@
 *****************************************************************************/
 
 
+#include <stdbool.h>
 #include <strings.h>
 #include <assert.h>
 
@@ -66,48 +67,6 @@ struct encoder_t *encoder_init() {
 	return encoder;
 }
 
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic push
-void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
-#pragma GCC diagnostic pop
-
-	assert(encoder->type != ENCODER_TYPE_UNKNOWN);
-	// XXX: Тут нет гонки, потому что encoder_prepare() запускается еще до существования других потоков
-	encoder->run->type = encoder->type;
-	encoder->run->quality = encoder->quality;
-
-	LOG_INFO("Using JPEG quality: %u%%", encoder->quality);
-
-#	ifdef WITH_OMX_ENCODER
-	if (encoder->run->type == ENCODER_TYPE_OMX) {
-		LOG_DEBUG("Preparing OMX JPEG encoder ...");
-
-		if (dev->n_workers > OMX_MAX_ENCODERS) {
-			LOG_INFO("OMX JPEG encoder sets limit for worker threads: %u", OMX_MAX_ENCODERS);
-			dev->n_workers = OMX_MAX_ENCODERS;
-		}
-		encoder->run->n_omxs = dev->n_workers;
-
-		A_CALLOC(encoder->run->omxs, encoder->run->n_omxs);
-		for (unsigned index = 0; index < encoder->run->n_omxs; ++index) {
-			if ((encoder->run->omxs[index] = omx_encoder_init()) == NULL) {
-				goto use_fallback;
-			}
-		}
-	}
-#	endif
-
-	return;
-
-#	pragma GCC diagnostic ignored "-Wunused-label"
-#	pragma GCC diagnostic push
-	use_fallback:
-		LOG_ERROR("Can't initialize selected encoder, using CPU instead it");
-		encoder->run->type = ENCODER_TYPE_CPU;
-		encoder->run->quality = encoder->quality;
-#	pragma GCC diagnostic pop
-}
-
 void encoder_destroy(struct encoder_t *encoder) {
 #	ifdef WITH_OMX_ENCODER
 	if (encoder->run->omxs) {
@@ -142,52 +101,87 @@ const char *encoder_type_to_string(enum encoder_type_t type) {
 	return _ENCODER_TYPES[0].name;
 }
 
-void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev) {
-	assert(encoder->run->type != ENCODER_TYPE_UNKNOWN);
+void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
+	enum encoder_type_t type = (encoder->run->cpu_forced ? ENCODER_TYPE_CPU : encoder->type);
+	unsigned quality = encoder->quality;
+	bool cpu_forced = false;
 
-	if (
-		(dev->run->format == V4L2_PIX_FMT_MJPEG || dev->run->format == V4L2_PIX_FMT_JPEG)
-		&& encoder->run->type != ENCODER_TYPE_HW
-	) {
+	if ((dev->run->format == V4L2_PIX_FMT_MJPEG || dev->run->format == V4L2_PIX_FMT_JPEG) && type != ENCODER_TYPE_HW) {
 		LOG_INFO("Switching to HW JPEG encoder because the input format is (M)JPEG");
-		A_MUTEX_LOCK(&encoder->run->mutex);
-		encoder->run->type = ENCODER_TYPE_HW;
-		A_MUTEX_UNLOCK(&encoder->run->mutex);
+		type = ENCODER_TYPE_HW;
 	}
 
-	if (encoder->run->type == ENCODER_TYPE_HW) {
+	if (type == ENCODER_TYPE_HW) {
 		if (dev->run->format != V4L2_PIX_FMT_MJPEG && dev->run->format != V4L2_PIX_FMT_JPEG) {
 			LOG_INFO("Switching to CPU JPEG encoder because the input format is not (M)JPEG");
-			goto use_fallback;
+			goto use_cpu;
 		}
-		if (hw_encoder_prepare_live(dev, encoder->quality) < 0) {
-			A_MUTEX_LOCK(&encoder->run->mutex);
-			encoder->run->quality = 0;
-			A_MUTEX_UNLOCK(&encoder->run->mutex);
-			LOG_INFO("Using JPEG quality: HW-default");
+
+		if (hw_encoder_prepare(dev, quality) < 0) {
+			quality = 0;
 		}
+
+		dev->run->n_workers = 1;
 	}
 #	ifdef WITH_OMX_ENCODER
-	else if (encoder->run->type == ENCODER_TYPE_OMX) {
+	else if (type == ENCODER_TYPE_OMX) {
+		LOG_DEBUG("Preparing OMX JPEG encoder ...");
+
+		if (dev->run->n_workers > OMX_MAX_ENCODERS) {
+			LOG_INFO("OMX JPEG encoder sets limit for worker threads: %u", OMX_MAX_ENCODERS);
+			dev->run->n_workers = OMX_MAX_ENCODERS;
+		}
+
+		if (encoder->run->omxs == NULL) {
+			A_CALLOC(encoder->run->omxs, OMX_MAX_ENCODERS);
+		}
+
+		// Начинаем с нуля и доинициализируем на следующих заходах при необходимости
+		for (; encoder->run->n_omxs < dev->run->n_workers; ++encoder->run->n_omxs) {
+			if ((encoder->run->omxs[encoder->run->n_omxs] = omx_encoder_init()) == NULL) {
+				LOG_ERROR("Can't initialize OMX JPEG encoder, falling back to CPU");
+				goto force_cpu;
+			}
+		}
+
 		for (unsigned index = 0; index < encoder->run->n_omxs; ++index) {
-			if (omx_encoder_prepare_live(encoder->run->omxs[index], dev, encoder->quality) < 0) {
+			if (omx_encoder_prepare(encoder->run->omxs[index], dev, quality) < 0) {
 				LOG_ERROR("Can't prepare OMX JPEG encoder, falling back to CPU");
-				goto use_fallback;
+				goto force_cpu;
 			}
 		}
 	}
 #	endif
 
-	return;
+	goto ok;
 
-	use_fallback:
+#	pragma GCC diagnostic ignored "-Wunused-label"
+#	pragma GCC diagnostic push
+	force_cpu:
+		cpu_forced = true;
+#	pragma GCC diagnostic pop
+
+	use_cpu:
+		type = ENCODER_TYPE_CPU;
+		quality = encoder->quality;
+
+	ok:
+		if (quality == 0) {
+			LOG_INFO("Using JPEG quality: encoder default");
+		} else {
+			LOG_INFO("Using JPEG quality: %u%%", quality);
+		}
+
 		A_MUTEX_LOCK(&encoder->run->mutex);
-		encoder->run->type = ENCODER_TYPE_CPU;
-		encoder->run->quality = encoder->quality;
+		encoder->run->type = type;
+		encoder->run->quality = quality;
+		if (cpu_forced) {
+			encoder->run->cpu_forced = true;
+		}
 		A_MUTEX_UNLOCK(&encoder->run->mutex);
 }
 
-#pragma GCC diagnostic ignored "-Wunused-label"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic push
 int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, unsigned worker_number, unsigned buf_index) {
 #pragma GCC diagnostic pop
@@ -195,14 +189,14 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, uns
 	assert(encoder->run->type != ENCODER_TYPE_UNKNOWN);
 
 	if (encoder->run->type == ENCODER_TYPE_CPU) {
-		cpu_encoder_compress_buffer(dev, buf_index, encoder->quality);
+		cpu_encoder_compress_buffer(dev, buf_index, encoder->run->quality);
 	} else if (encoder->run->type == ENCODER_TYPE_HW) {
 		hw_encoder_compress_buffer(dev, buf_index);
 	}
 #	ifdef WITH_OMX_ENCODER
 	else if (encoder->run->type == ENCODER_TYPE_OMX) {
 		if (omx_encoder_compress_buffer(encoder->run->omxs[worker_number], dev, buf_index) < 0) {
-			goto use_fallback;
+			goto error;
 		}
 	}
 #	endif
@@ -211,11 +205,10 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, uns
 
 #	pragma GCC diagnostic ignored "-Wunused-label"
 #	pragma GCC diagnostic push
-	use_fallback:
-		LOG_INFO("Error while compressing, falling back to CPU");
+	error:
+		LOG_INFO("Error while compressing buffer, falling back to CPU");
 		A_MUTEX_LOCK(&encoder->run->mutex);
-		encoder->run->type = ENCODER_TYPE_CPU;
-		encoder->run->quality = encoder->quality;
+		encoder->run->cpu_forced = true;
 		A_MUTEX_UNLOCK(&encoder->run->mutex);
 		return -1;
 #	pragma GCC diagnostic pop

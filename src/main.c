@@ -134,7 +134,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    -b|--buffers <N>  ─────────────── The number of buffers to receive data from the device.\n");
 	printf("                                      Each buffer may processed using an intermediate thread.\n");
 	printf("                                      Default: %u (the number of CPU cores (but not more 4) + 1).\n\n", dev->n_buffers);
-	printf("    -w|--workers <N>  ─────────────── The number of worker threads. Default: %u (== --buffers).\n\n", dev->n_workers);
+	printf("    -w|--workers <N>  ─────────────── The number of worker threads but not more than buffers.\n");
+	printf("                                      Default: %u (== --buffers).\n\n", dev->n_workers);
 	printf("    -q|--quality <N>  ─────────────── Set quality of JPEG encoding from 1 to 100 (best). Default: %u.\n\n", encoder->quality);
 	printf("    -c|--encoder <type>  ──────────── Use specified encoder. It may affects to workers number.\n");
 	printf("                                      Available: %s; default: CPU.\n\n", ENCODER_TYPES_STR);
@@ -383,7 +384,6 @@ int main(int argc, char *argv[]) {
 
 	if ((exit_code = _parse_options(argc, argv, dev, encoder, server)) == 0) {
 		_install_signal_handlers();
-		encoder_prepare(encoder, dev);
 
 		pthread_t stream_loop_tid;
 		pthread_t server_loop_tid;

@@ -119,7 +119,7 @@ void stream_loop(struct stream_t *stream) {
 
 				LOG_PERF("##### Raw frame accepted; worker = %u", free_worker_number);
 			} else {
-				for (unsigned number = 0; number < stream->dev->n_workers; ++number) {
+				for (unsigned number = 0; number < stream->dev->run->n_workers; ++number) {
 					if (
 						!atomic_load(&pool.workers[number].has_job) && (
 							free_worker_number == -1
@@ -336,7 +336,7 @@ static long double _stream_get_fluency_delay(struct device_t *dev, struct worker
 	long double min_delay;
 	long double soft_delay;
 
-	for (unsigned number = 0; number < dev->n_workers; ++number) {
+	for (unsigned number = 0; number < dev->run->n_workers; ++number) {
 #		define WORKER(_next) pool->workers[number]._next
 
 		A_MUTEX_LOCK(&WORKER(last_comp_time_mutex));
@@ -347,9 +347,9 @@ static long double _stream_get_fluency_delay(struct device_t *dev, struct worker
 
 #		undef WORKER
 	}
-	avg_comp_time = sum_comp_time / dev->n_workers; // Среднее время работы воркеров
+	avg_comp_time = sum_comp_time / dev->run->n_workers; // Среднее время работы воркеров
 
-	min_delay = avg_comp_time / dev->n_workers; // Среднее время работы размазывается на N воркеров
+	min_delay = avg_comp_time / dev->run->n_workers; // Среднее время работы размазывается на N воркеров
 
 	if (dev->desired_fps > 0 && min_delay > 0) {
 		// Искусственное время задержки на основе желаемого FPS, если включен --desired-fps
@@ -389,7 +389,7 @@ static int _stream_init(struct stream_t *stream, struct workers_pool_t *pool) {
 		goto error;
 	}
 
-	encoder_prepare_live(pool->encoder, stream->dev);
+	encoder_prepare(pool->encoder, stream->dev);
 
 	_stream_init_workers(stream, pool);
 
@@ -401,15 +401,15 @@ static int _stream_init(struct stream_t *stream, struct workers_pool_t *pool) {
 }
 
 static void _stream_init_workers(struct stream_t *stream, struct workers_pool_t *pool) {
-	LOG_INFO("Spawning %u workers ...", stream->dev->n_workers);
+	LOG_INFO("Spawning %u workers ...", stream->dev->run->n_workers);
 
 	atomic_store(&pool->workers_stop, false);
-	A_CALLOC(pool->workers, stream->dev->n_workers);
+	A_CALLOC(pool->workers, stream->dev->run->n_workers);
 
 	A_MUTEX_INIT(&pool->free_workers_mutex);
 	A_COND_INIT(&pool->free_workers_cond);
 
-	for (unsigned number = 0; number < stream->dev->n_workers; ++number) {
+	for (unsigned number = 0; number < stream->dev->run->n_workers; ++number) {
 #		define WORKER(_next)	pool->workers[number]._next
 
 		pool->free_workers += 1;
@@ -492,7 +492,7 @@ static void _stream_destroy_workers(struct stream_t *stream, struct workers_pool
 		LOG_INFO("Destroying workers ...");
 
 		atomic_store(&pool->workers_stop, true);
-		for (unsigned number = 0; number < stream->dev->n_workers; ++number) {
+		for (unsigned number = 0; number < stream->dev->run->n_workers; ++number) {
 #			define WORKER(_next) pool->workers[number]._next
 
 			A_MUTEX_LOCK(&WORKER(has_job_mutex));

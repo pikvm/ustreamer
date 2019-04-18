@@ -25,5 +25,5 @@
 #include "../../device.h"
 
 
-int hw_encoder_prepare_live(struct device_t *dev, unsigned quality);
+int hw_encoder_prepare(struct device_t *dev, unsigned quality);
 void hw_encoder_compress_buffer(struct device_t *dev, unsigned index);

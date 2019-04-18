@@ -63,7 +63,7 @@ struct device_runtime_t {
 	unsigned			height;
 	unsigned			format;
 	unsigned			n_buffers;
-//	unsigned			n_workers; // FIXME
+	unsigned			n_workers;
 	struct hw_buffer_t	*hw_buffers;
 	struct picture_t	*pictures;
 	size_t				max_raw_image_size;

@@ -44,7 +44,7 @@ static bool _is_huffman(const unsigned char *data);
 static size_t _memcpy_with_huffman(unsigned char *dest, const unsigned char *src, size_t size);
 
 
-int hw_encoder_prepare_live(struct device_t *dev, unsigned quality) {
+int hw_encoder_prepare(struct device_t *dev, unsigned quality) {
 	struct v4l2_jpegcompression comp;
 
 	MEMSET_ZERO(comp);

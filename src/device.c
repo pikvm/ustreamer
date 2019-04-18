@@ -156,6 +156,8 @@ int device_open(struct device_t *dev) {
 	_device_open_alloc_picbufs(dev);
 	_device_apply_controls(dev);
 
+	dev->run->n_workers = min_u(dev->run->n_buffers, dev->n_workers);
+
 	LOG_DEBUG("Device fd=%d initialized", dev->run->fd);
 	return 0;
 
@@ -165,6 +167,8 @@ int device_open(struct device_t *dev) {
 }
 
 void device_close(struct device_t *dev) {
+	dev->run->n_workers = 0;
+
 	if (dev->run->pictures) {
 		LOG_DEBUG("Releasing picture buffers ...");
 		for (unsigned index = 0; index < dev->run->n_buffers && dev->run->pictures[index].data; ++index) {

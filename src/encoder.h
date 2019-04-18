@@ -22,6 +22,8 @@
 
 #pragma once
 
+#include <stdbool.h>
+
 #include "pthread.h"
 
 #include "tools.h"
@@ -51,6 +53,7 @@ enum encoder_type_t {
 struct encoder_runtime_t {
 	enum encoder_type_t	type;
 	unsigned			quality;
+	bool				cpu_forced;
 	pthread_mutex_t		mutex;
 
 #	ifdef WITH_OMX_ENCODER
@@ -74,6 +77,4 @@ enum encoder_type_t encoder_parse_type(const char *str);
 const char *encoder_type_to_string(enum encoder_type_t type);
 
 void encoder_prepare(struct encoder_t *encoder, struct device_t *dev);
-void encoder_prepare_live(struct encoder_t *encoder, struct device_t *dev);
-
 int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, unsigned worker_number, unsigned buf_index);
