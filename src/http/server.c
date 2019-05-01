@@ -266,7 +266,6 @@ static bool _http_get_param_true(struct evkeyvalq *params, const char *key) {
 	if ((value_str = evhttp_find_header(params, key)) != NULL) {
 		if (
 			value_str[0] == '1'
-			|| value_str[0] == 'y'
 			|| !evutil_ascii_strcasecmp(value_str, "true")
 			|| !evutil_ascii_strcasecmp(value_str, "yes")
 		) {
