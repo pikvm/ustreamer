@@ -6,7 +6,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=ustreamer
-PKG_VERSION:=0.71
+PKG_VERSION:=0.72
 PKG_RELEASE:=1
 PKG_MAINTAINER:=Maxim Devaev <mdevaev@gmail.com>
 
