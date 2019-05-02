@@ -199,18 +199,24 @@ int http_server_listen(struct http_server_t *server) {
 
 	if (server->unix_path[0] != '\0') {
 		struct sockaddr_un unix_addr;
-		int unix_fd_flags;
 
 		LOG_DEBUG("Binding HTTP to UNIX socket '%s' ...", server->unix_path);
 
-		assert((server->run->unix_fd = socket(AF_UNIX, SOCK_STREAM, 0)));
-		assert((unix_fd_flags = fcntl(server->run->unix_fd, F_GETFL)) >= 0);
-		unix_fd_flags |= O_NONBLOCK;
-		assert(fcntl(server->run->unix_fd, F_SETFL, unix_fd_flags) >= 0);
+#		define MAX_SUN_PATH (sizeof(unix_addr.sun_path) - 1)
 
-		strncpy(unix_addr.sun_path, server->unix_path, 107);
-		unix_addr.sun_path[107] = '\0';
+		if (strlen(server->unix_path) > MAX_SUN_PATH) {
+			LOG_ERROR("UNIX socket path is too long, max=%zu", MAX_SUN_PATH);
+			return -1;
+		}
+
+		MEMSET_ZERO(unix_addr);
+		strncpy(unix_addr.sun_path, server->unix_path, MAX_SUN_PATH);
 		unix_addr.sun_family = AF_UNIX;
+
+#		undef MAX_SUN_PATH
+
+		assert((server->run->unix_fd = socket(AF_UNIX, SOCK_STREAM, 0)) >= 0);
+		assert(!evutil_make_socket_nonblocking(server->run->unix_fd));
 
 		if (server->unix_rm && unlink(server->unix_path) < 0) {
 			if (errno != ENOENT) {
