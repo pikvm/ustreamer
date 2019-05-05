@@ -322,7 +322,7 @@ static int _device_open_check_cap(struct device_t *dev) {
 static int _device_open_dv_timings(struct device_t *dev) {
 	_device_apply_resolution(dev, dev->width, dev->height);
 	if (dev->dv_timings) {
-		LOG_DEBUG("Using DV-timings");
+		LOG_DEBUG("Using DV timings");
 
 		if (_device_apply_dv_timings(dev) < 0) {
 			return -1;
