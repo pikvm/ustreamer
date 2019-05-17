@@ -121,7 +121,10 @@ void http_server_destroy(struct http_server_t *server) {
 		close(server->run->unix_fd);
 	}
 	event_base_free(server->run->base);
+
+#	if LIBEVENT_VERSION_NUMBER >= 0x02010100
 	libevent_global_shutdown();
+#	endif
 
 	for (struct stream_client_t *client = server->run->stream_clients; client != NULL;) {
 		struct stream_client_t *next = client->next;
