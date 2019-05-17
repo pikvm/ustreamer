@@ -145,6 +145,7 @@ static int _jpeg_read_geometry(FILE *fp, unsigned *width, unsigned *height) {
 
 	jpeg_create_decompress(&jpeg);
 
+	// https://stackoverflow.com/questions/19857766/error-handling-in-libjpeg
 	jpeg.err = jpeg_std_error((struct jpeg_error_mgr *)&jpeg_error);
 	jpeg_error.mgr.error_exit = _jpeg_error_handler;
 	if (setjmp(jpeg_error.jmp) < 0) {

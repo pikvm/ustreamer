@@ -105,8 +105,6 @@ void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned 
 
 #	undef WRITE_SCANLINES
 
-	// TODO: process jpeg errors:
-	// https://stackoverflow.com/questions/19857766/error-handling-in-libjpeg
 	jpeg_finish_compress(&jpeg);
 	jpeg_destroy_compress(&jpeg);
 
