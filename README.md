@@ -40,7 +40,8 @@ $ make
 $ ./ustreamer --help
 ```
 
-AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer
+AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer  
+FreeBSD port: https://www.freshports.org/multimedia/ustreamer
 
 -----
 # Usage
