@@ -129,8 +129,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    -z|--min-frame-size <N>  ──────── Drop frames smaller then this limit. Useful if the device\n");
 	printf("                                      produces small-sized garbage frames. Default: disabled.\n\n");
 	printf("    -n|--persistent  ──────────────── Don't re-initialize device on timeout. Default: disabled.\n\n");
-	printf("    -t|--dv-timings  ──────────────── Enable DV timings queriyng and events processing.\n");
-	printf("                                      Supports automatic resolution changing. Default: disabled.\n\n");
+	printf("    -t|--dv-timings  ──────────────── Enable DV timings queriyng and events processing\n");
+	printf("                                      to automatic resolution change. Default: disabled.\n\n");
 	printf("    -b|--buffers <N>  ─────────────── The number of buffers to receive data from the device.\n");
 	printf("                                      Each buffer may processed using an intermediate thread.\n");
 	printf("                                      Default: %u (the number of CPU cores (but not more 4) + 1).\n\n", dev->n_buffers);
@@ -139,9 +139,9 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    -q|--quality <N>  ─────────────── Set quality of JPEG encoding from 1 to 100 (best). Default: %u.\n\n", encoder->quality);
 	printf("    -c|--encoder <type>  ──────────── Use specified encoder. It may affects to workers number.\n");
 	printf("                                      Available: %s; default: CPU.\n\n", ENCODER_TYPES_STR);
-	printf("    --device-timeout <seconds>  ───── Timeout for device querying. Default: %u\n\n", dev->timeout);
+	printf("    --device-timeout <seconds>  ───── Timeout for device querying. Default: %u.\n\n", dev->timeout);
 	printf("    --device-error-delay <seconds>  ─ Delay before trying to connect to the device again\n");
-	printf("                                      after an error (timeout for example). Default: %u\n\n", dev->error_delay);
+	printf("                                      after an error (timeout for example). Default: %u.\n\n", dev->error_delay);
 	printf("Image control options:\n");
 	printf("══════════════════════\n");
 	printf("    --brightness <N>  ───────────── Set brightness. Default: no change.\n\n");
