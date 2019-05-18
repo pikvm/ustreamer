@@ -28,6 +28,14 @@ install: $(PROG)
 	install -Dm755 $(PROG) $(DESTDIR)$(PREFIX)/bin/$(PROG)
 
 
+install-strip: install
+	strip $(DESTDIR)$(PREFIX)/bin/$(PROG)
+
+
+uninstall:
+	rm $(DESTDIR)$(PREFIX)/bin/$(PROG)
+
+
 regen:
 	tools/make-jpeg-h.py src/http/data/blank.jpeg src/http/data/blank_jpeg.h BLANK
 	tools/make-html-h.py src/http/data/index.html src/http/data/index_html.h INDEX
