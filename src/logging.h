@@ -123,10 +123,10 @@ pthread_mutex_t log_mutex;
 
 
 INLINE char *errno_to_string(char *buf, size_t size) {
-#if defined(__GLIBC__) && defined(_GNU_SOURCE)
+#	if defined(__GLIBC__) && defined(_GNU_SOURCE)
 	return strerror_r(errno, buf, size);
-#else
+#	else
 	strerror_r(errno, buf, size);
 	return buf;
-#endif
+#	endif
 }
