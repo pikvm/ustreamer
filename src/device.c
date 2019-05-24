@@ -85,6 +85,12 @@ struct device_t *device_init() {
 	struct controls_t *ctl;
 	struct device_runtime_t *run;
 	struct device_t *dev;
+	long cores_sysconf;
+	unsigned cores_available;
+
+	cores_sysconf = sysconf(_SC_NPROCESSORS_ONLN);
+	cores_sysconf = (cores_sysconf < 0 ? 0 : cores_sysconf);
+	cores_available = max_u(min_u(cores_sysconf, 4), 1);
 
 	A_CALLOC(ctl, 1);
 
@@ -97,8 +103,8 @@ struct device_t *device_init() {
 	dev->height = 480;
 	dev->format = V4L2_PIX_FMT_YUYV;
 	dev->standard = V4L2_STD_UNKNOWN;
-	dev->n_buffers = max_u(min_u(sysconf(_SC_NPROCESSORS_ONLN), 4), 1) + 1;
-	dev->n_workers = dev->n_buffers;
+	dev->n_buffers = cores_available + 1;
+	dev->n_workers = min_u(cores_available, dev->n_buffers);
 	dev->timeout = 1;
 	dev->error_delay = 1;
 	dev->ctl = ctl;
