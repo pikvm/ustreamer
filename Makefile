@@ -15,8 +15,13 @@ LIBS = -lm -ljpeg -pthread -levent -levent_pthreads -luuid
 override CFLAGS += -c -std=c11 -Wall -Wextra -D_GNU_SOURCE
 SOURCES = $(shell ls src/*.c src/http/*.c src/encoders/cpu/*.c src/encoders/hw/*.c)
 
-ifeq ($(WITH_OMX_ENCODER),)
-else
+
+define optbool
+$(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
+endef
+
+
+ifneq ($(call optbool,$(WITH_OMX_ENCODER)),)
 	LIBS += -lbcm_host -lvcos -lopenmaxil -L$(RPI_VC_LIBS)
 	override CFLAGS += -DWITH_OMX_ENCODER -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
 	SOURCES += $(shell ls src/encoders/omx/*.c)
