@@ -6,16 +6,20 @@ CC ?= gcc
 CFLAGS ?= -O3
 LDFLAGS ?=
 
+RPI_VC_HEADERS ?= /opt/vc/include
+RPI_VC_LIBS ?= /opt/vc/lib
+
 
 # =====
 LIBS = -lm -ljpeg -pthread -levent -levent_pthreads -luuid
 override CFLAGS += -c -std=c11 -Wall -Wextra -D_GNU_SOURCE
 SOURCES = $(shell ls src/*.c src/http/*.c src/encoders/cpu/*.c src/encoders/hw/*.c)
 
-ifeq ($(shell ls -d /opt/vc/include 2>/dev/null), /opt/vc/include)
-SOURCES += $(shell ls src/encoders/omx/*.c)
-LIBS += -lbcm_host -lvcos -lopenmaxil -L/opt/vc/lib
-override CFLAGS += -DWITH_OMX_ENCODER -DOMX_SKIP64BIT -I/opt/vc/include
+ifeq ($(WITH_OMX_ENCODER),)
+else
+	LIBS += -lbcm_host -lvcos -lopenmaxil -L$(RPI_VC_LIBS)
+	override CFLAGS += -DWITH_OMX_ENCODER -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
+	SOURCES += $(shell ls src/encoders/omx/*.c)
 endif
 
 
@@ -41,11 +45,18 @@ regen:
 
 
 $(PROG): $(SOURCES:.c=.o)
-	$(CC) $(SOURCES:.c=.o) -o $@ $(LDFLAGS) $(LIBS)
+	$(info -- LINKING $@)
+	@ $(CC) $(SOURCES:.c=.o) -o $@ $(LDFLAGS) $(LIBS)
+	$(info ===== Build complete =====)
+	$(info == CC      = $(CC))
+	$(info == LIBS    = $(LIBS))
+	$(info == CFLAGS  = $(CFLAGS))
+	$(info == LDFLAGS = $(LDFLAGS))
 
 
 .c.o:
-	$(CC) $< -o $@ $(CFLAGS) $(LIBS)
+	$(info -- CC $<)
+	@ $(CC) $< -o $@ $(CFLAGS) $(LIBS)
 
 
 release:
@@ -57,7 +68,7 @@ release:
 
 
 bump:
-	bumpversion $(if $(V), $(V), minor)
+	bumpversion $(if $(V),$(V),minor)
 
 
 push:

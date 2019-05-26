@@ -31,7 +31,7 @@ If you're going to live-stream from your backyard webcam and need to control it,
 # Building
 You'll need  ```make```, ```gcc```, ```libevent``` with ```pthreads``` support, ```libjpeg8```/```libjpeg-turbo``` and ```libuuid```.
 
-It should compile automatically with OpenMAX IL on Raspberry Pi, if the corresponding headers are present in ```/opt/vc/include```.
+On Raspberry Pi you can build the program with OpenMAX IL. To do this pass option ```WITH_OMX_ENCODER=1``` to ```make```.
 
 ```
 $ git clone --depth=1 https://github.com/pi-kvm/ustreamer
@@ -40,8 +40,8 @@ $ make
 $ ./ustreamer --help
 ```
 
-AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer  
-FreeBSD port: https://www.freshports.org/multimedia/ustreamer
+AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer. It should compile automatically with OpenMAX IL on Raspberry Pi, if the corresponding headers are present in ```/opt/vc/include```.  
+FreeBSD port: https://www.freshports.org/multimedia/ustreamer.
 
 -----
 # Usage

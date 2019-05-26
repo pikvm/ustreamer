@@ -12,19 +12,23 @@ arch=(i686 x86_64 armv6h armv7h)
 depends=(libjpeg libevent libutil-linux)
 # optional: raspberrypi-firmware for OMX JPEG encoder
 makedepends=(gcc make)
-source=("$url/archive/v$pkgver.tar.gz")
+source=(${pkgname}::"git+https://github.com/pi-kvm/ustreamer#commit=${pkgver}")
 md5sums=(SKIP)
 
 
 build() {
-	cd $srcdir
+	cd "$srcdir"
 	rm -rf $pkgname-build
-	cp -r $pkgname-$pkgver $pkgname-build
+	cp -r $pkgname $pkgname-build
 	cd $pkgname-build
-	make CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" $MAKEFLAGS
+
+	local _options=""
+	[ -d /opt/vc/include ] && _options="$_options WITH_OMX_ENCODER=1"
+
+	make $_options CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" $MAKEFLAGS
 }
 
 package() {
-	cd $srcdir/$pkgname-build
+	cd "$srcdir/$pkgname-build"
 	make DESTDIR="$pkgdir" PREFIX=/usr install
 }

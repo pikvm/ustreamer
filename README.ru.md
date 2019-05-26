@@ -31,7 +31,7 @@
 # Сборка
 Для сборки вам понадобятся ```make```, ```gcc```, ```libevent``` с поддержкой ```pthreads```, ```libjpeg8```/```libjpeg-turbo``` и ```libuuid```.
 
-На Raspberry Pi програма автоматически собирается с поддержкой OpenMAX IL, если обнаружит нужные хедеры в ```/opt/vc/include```.
+На Raspberry Pi программу можно собрать с поддержкой OpenMAX IL. Для этого передайте ```make``` параметр ```WITH_OMX_ENCODER=1```.
 
 ```
 $ git clone --depth=1 https://github.com/pi-kvm/ustreamer
@@ -40,8 +40,8 @@ $ make
 $ ./ustreamer --help
 ```
 
-Для Arch Linux в AUR есть готовый пакет: https://aur.archlinux.org/packages/ustreamer  
-Порт для FreeBSD: https://www.freshports.org/multimedia/ustreamer
+Для Arch Linux в AUR есть готовый пакет: https://aur.archlinux.org/packages/ustreamer. На Raspberry Pi програма автоматически собирается с поддержкой OpenMAX IL, если обнаружит нужные хедеры в ```/opt/vc/include```.  
+Порт для FreeBSD: https://www.freshports.org/multimedia/ustreamer.
 
 -----
 # Использование
