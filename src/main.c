@@ -32,6 +32,10 @@
 
 #include <pthread.h>
 
+#ifdef WITH_WORKERS_GPIO_DEBUG
+#	include <wiringPi.h>
+#endif
+
 #include "config.h"
 #include "tools.h"
 #include "logging.h"
@@ -376,6 +380,15 @@ int main(int argc, char *argv[]) {
 	int exit_code = 0;
 
 	LOGGING_INIT;
+
+#	ifdef WITH_WORKERS_GPIO_DEBUG
+	if (wiringPiSetupGpio() < 0) {
+		LOG_PERROR("Can't initialize wiringPi GPIO");
+		return 1;
+	} else {
+		LOG_INFO("Using wiringPi to debug using GPIO");
+	}
+#	endif
 
 	dev = device_init();
 	encoder = encoder_init();

@@ -38,6 +38,13 @@
 #include "encoder.h"
 #include "stream.h"
 
+#ifdef WITH_WORKERS_GPIO_DEBUG
+#	include <wiringPi.h>
+#	ifndef WORKERS_GPIO_DEBUG_START_PIN
+#		define WORKERS_GPIO_DEBUG_START_PIN 5
+#	endif
+#endif
+
 
 static long double _stream_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool);
 static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index);
@@ -440,8 +447,21 @@ static void *_stream_worker_thread(void *v_worker) {
 
 	LOG_DEBUG("Hello! I am a worker #%u ^_^", worker->number);
 
+#	ifdef WITH_WORKERS_GPIO_DEBUG
+#		define WORKER_GPIO_DEBUG_BUSY digitalWrite(WORKERS_GPIO_DEBUG_START_PIN + worker->number, HIGH)
+#		define WORKER_GPIO_DEBUG_FREE digitalWrite(WORKERS_GPIO_DEBUG_START_PIN + worker->number, LOW)
+	pinMode(WORKERS_GPIO_DEBUG_START_PIN + worker->number, OUTPUT);
+	WORKER_GPIO_DEBUG_FREE;
+#	else
+#		define WORKER_GPIO_DEBUG_BUSY
+#		define WORKER_GPIO_DEBUG_FREE
+#	endif
+
 	while (!atomic_load(worker->proc_stop) && !atomic_load(worker->workers_stop)) {
 		LOG_DEBUG("Worker %u waiting for a new job ...", worker->number);
+
+		WORKER_GPIO_DEBUG_FREE;
+
 		A_MUTEX_LOCK(&worker->has_job_mutex);
 		A_COND_WAIT_TRUE(atomic_load(&worker->has_job), &worker->has_job_cond, &worker->has_job_mutex);
 		A_MUTEX_UNLOCK(&worker->has_job_mutex);
@@ -450,6 +470,8 @@ static void *_stream_worker_thread(void *v_worker) {
 #			define PICTURE(_next) worker->dev->run->pictures[worker->buf_index]._next
 
 			LOG_DEBUG("Worker %u compressing JPEG from buffer %u ...", worker->number, worker->buf_index);
+
+			WORKER_GPIO_DEBUG_BUSY;
 
 			PICTURE(encode_begin_time) = get_now_monotonic();
 			if (encoder_compress_buffer(worker->encoder, worker->dev, worker->number, worker->buf_index) < 0) {
@@ -484,6 +506,7 @@ static void *_stream_worker_thread(void *v_worker) {
 	}
 
 	LOG_DEBUG("Bye-bye (worker %u)", worker->number);
+	WORKER_GPIO_DEBUG_FREE;
 	return NULL;
 }
 

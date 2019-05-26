@@ -28,6 +28,12 @@ ifneq ($(call optbool,$(WITH_OMX_ENCODER)),)
 endif
 
 
+ifneq ($(call optbool,$(WITH_WORKERS_GPIO_DEBUG)),)
+	LIBS += -lwiringPi
+	override CFLAGS += -DWITH_WORKERS_GPIO_DEBUG
+endif
+
+
 # =====
 all: $(SOURCES) $(PROG)
 
