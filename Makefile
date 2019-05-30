@@ -1,3 +1,5 @@
+-include config.mk
+
 PROG ?= ustreamer
 DESTDIR ?=
 PREFIX ?= /usr/local
