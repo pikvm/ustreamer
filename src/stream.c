@@ -118,7 +118,7 @@ void stream_loop(struct stream_t *stream) {
 			}
 
 			if (ready_worker == NULL) {
-				break;
+				break; // Если произошел сбой сжатия
 			}
 
 			if (atomic_load(&stream->proc->stop)) {
@@ -165,7 +165,6 @@ void stream_loop(struct stream_t *stream) {
 					if ((buf_index = device_grab_buffer(stream->dev)) < 0) {
 						break;
 					}
-					stream->dev->run->pictures[buf_index].grab_time = now;
 
 					// Workaround for broken, corrupted frames:
 					// Under low light conditions corrupted frames may get captured.
@@ -173,7 +172,7 @@ void stream_loop(struct stream_t *stream) {
 					// For example a VGA (640x480) webcam picture is normally >= 8kByte large,
 					// corrupted frames are smaller.
 					if (stream->dev->run->hw_buffers[buf_index].used < stream->dev->min_frame_size) {
-						LOG_DEBUG("Dropping too small frame sized %zu bytes, assuming it as broken",
+						LOG_DEBUG("Dropped too small frame sized %zu bytes, assuming it was broken",
 							stream->dev->run->hw_buffers[buf_index].used);
 						goto pass_frame;
 					}
@@ -355,6 +354,7 @@ static long double _stream_get_fluency_delay(struct device_t *dev, struct worker
 
 #		undef WORKER
 	}
+
 	avg_comp_time = sum_comp_time / dev->run->n_workers; // Среднее время работы воркеров
 
 	min_delay = avg_comp_time / dev->run->n_workers; // Среднее время работы размазывается на N воркеров
@@ -418,7 +418,7 @@ static void _stream_init_workers(struct stream_t *stream, struct workers_pool_t 
 	A_COND_INIT(&pool->free_workers_cond);
 
 	for (unsigned number = 0; number < stream->dev->run->n_workers; ++number) {
-#		define WORKER(_next)	pool->workers[number]._next
+#		define WORKER(_next) pool->workers[number]._next
 
 		pool->free_workers += 1;
 
@@ -474,11 +474,9 @@ static void *_stream_worker_thread(void *v_worker) {
 
 			WORKER_GPIO_DEBUG_BUSY;
 
-			PICTURE(encode_begin_time) = get_now_monotonic();
 			if (encoder_compress_buffer(worker->encoder, worker->dev, worker->number, worker->buf_index) < 0) {
 				worker->job_failed = false;
 			}
-			PICTURE(encode_end_time) = get_now_monotonic();
 
 			if (device_release_buffer(worker->dev, worker->buf_index) == 0) {
 				worker->job_start_time = PICTURE(encode_begin_time);

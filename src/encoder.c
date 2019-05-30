@@ -188,6 +188,8 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, uns
 
 	assert(encoder->run->type != ENCODER_TYPE_UNKNOWN);
 
+	dev->run->pictures[buf_index].encode_begin_time = get_now_monotonic();
+
 	if (encoder->run->type == ENCODER_TYPE_CPU) {
 		cpu_encoder_compress_buffer(dev, buf_index, encoder->run->quality);
 	} else if (encoder->run->type == ENCODER_TYPE_HW) {
@@ -200,6 +202,8 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, uns
 		}
 	}
 #	endif
+
+	dev->run->pictures[buf_index].encode_end_time = get_now_monotonic();
 
 	return 0;
 
