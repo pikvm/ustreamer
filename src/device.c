@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <assert.h>
 
+#include <sys/select.h>
 #include <sys/mman.h>
 #include <linux/videodev2.h>
 
@@ -230,6 +231,39 @@ int device_switch_capturing(struct device_t *dev, bool enable) {
 		LOG_INFO("Capturing %s", (enable ? "started" : "stopped"));
 	}
     return 0;
+}
+
+int device_select(struct device_t *dev, bool *has_read, bool *has_write, bool *has_error) {
+	struct timeval timeout;
+	int retval;
+
+#	define INIT_FD_SET(_set) \
+		fd_set _set; FD_ZERO(&_set); FD_SET(dev->run->fd, &_set);
+
+	INIT_FD_SET(read_fds);
+	INIT_FD_SET(write_fds);
+	INIT_FD_SET(error_fds);
+
+#	undef INIT_FD_SET
+
+	timeout.tv_sec = dev->timeout;
+	timeout.tv_usec = 0;
+
+	LOG_DEBUG("Calling select() on video device ...");
+
+	retval = select(dev->run->fd + 1, &read_fds, &write_fds, &error_fds, &timeout);
+	if (retval > 0) {
+		*has_read = FD_ISSET(dev->run->fd, &read_fds);
+		*has_write = FD_ISSET(dev->run->fd, &write_fds);
+		*has_error = FD_ISSET(dev->run->fd, &error_fds);
+	} else {
+		has_read = false;
+		has_write = false;
+		has_error = false;
+	}
+
+	LOG_DEBUG("Device select() --> %d", retval);
+	return retval;
 }
 
 int device_grab_buffer(struct device_t *dev) {

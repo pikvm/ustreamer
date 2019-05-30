@@ -77,7 +77,7 @@ static void _http_callback_stream_error(struct bufferevent *buf_event, short wha
 static void _http_exposed_refresh(int fd, short event, void *v_server);
 static void _http_queue_send_stream(struct http_server_t *server, bool stream_updated, bool picture_updated);
 
-static bool _expose_new_picture(struct http_server_t *server);
+static bool _expose_new_picture_unsafe(struct http_server_t *server);
 static bool _expose_blank_picture(struct http_server_t *server);
 
 
@@ -807,7 +807,7 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 		LOG_DEBUG("Refreshing HTTP exposed ...");
 		A_MUTEX_LOCK(&server->run->stream->mutex);
 		if (server->run->stream->picture.used > 0) { // If online
-			picture_updated = _expose_new_picture(server);
+			picture_updated = _expose_new_picture_unsafe(server);
 			UNLOCK_STREAM;
 		} else {
 			UNLOCK_STREAM;
@@ -825,7 +825,7 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	_http_queue_send_stream(server, stream_updated, picture_updated);
 }
 
-static bool _expose_new_picture(struct http_server_t *server) {
+static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 #	define STREAM(_next) server->run->stream->_next
 #	define EXPOSED(_next) server->run->exposed->_next
 

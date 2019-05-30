@@ -60,11 +60,14 @@ struct worker_t {
 
 struct workers_pool_t {
 	struct worker_t		*workers;
-	atomic_bool			workers_stop;
+	struct worker_t		*oldest_worker;
+	struct worker_t		*latest_worker;
 
 	pthread_mutex_t		free_workers_mutex;
 	unsigned			free_workers;
 	pthread_cond_t		free_workers_cond;
+
+	atomic_bool			workers_stop;
 
 	struct encoder_t	*encoder;
 };

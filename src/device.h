@@ -120,6 +120,7 @@ int device_open(struct device_t *dev);
 void device_close(struct device_t *dev);
 
 int device_switch_capturing(struct device_t *dev, bool enable);
+int device_select(struct device_t *dev, bool *has_read, bool *has_write, bool *has_error);
 int device_grab_buffer(struct device_t *dev);
 int device_release_buffer(struct device_t *dev, unsigned index);
 int device_consume_event(struct device_t *dev);
