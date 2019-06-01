@@ -536,4 +536,6 @@ static void _stream_destroy_workers(struct stream_t *stream, struct workers_pool
 	}
 	pool->free_workers = 0;
 	pool->workers = NULL;
+	pool->oldest_worker = NULL;
+	pool->latest_worker = NULL;
 }
