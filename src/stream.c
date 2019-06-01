@@ -48,7 +48,7 @@
 
 static bool _stream_wait_worker(struct stream_t *stream, struct workers_pool_t *pool, struct worker_t **ready_worker);
 static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index);
-static void _stream_give_buf_to_worker(struct workers_pool_t *pool, struct worker_t *free_worker, unsigned buf_index);
+static void _stream_give_buf_to_worker(struct workers_pool_t *pool, struct worker_t *ready_worker, unsigned buf_index);
 static long double _stream_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool);
 
 static int _stream_init_loop(struct stream_t *stream, struct workers_pool_t *pool);
@@ -199,8 +199,6 @@ void stream_loop(struct stream_t *stream) {
 						LOG_VERBOSE("Fluency: delay=%.03Lf; grab_after=%.03Lf", fluency_delay, grab_after);
 					}
 
-					LOG_DEBUG("Grabbed a new frame to buffer %u", buf_index);
-
 					_stream_give_buf_to_worker(&pool, ready_worker, buf_index);
 
 					goto next_handlers; // Поток сам освободит буфер
@@ -309,32 +307,34 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) 
 #	undef PICTURE
 }
 
-static void _stream_give_buf_to_worker(struct workers_pool_t *pool, struct worker_t *free_worker, unsigned buf_index) {
+static void _stream_give_buf_to_worker(struct workers_pool_t *pool, struct worker_t *ready_worker, unsigned buf_index) {
 	if (pool->oldest_worker == NULL) {
-		pool->oldest_worker = free_worker;
+		pool->oldest_worker = ready_worker;
 		pool->latest_worker = pool->oldest_worker;
 	} else {
-		if (free_worker->order_next) {
-			free_worker->order_next->order_prev = free_worker->order_prev;
+		if (ready_worker->order_next) {
+			ready_worker->order_next->order_prev = ready_worker->order_prev;
 		}
-		if (free_worker->order_prev) {
-			free_worker->order_prev->order_next = free_worker->order_next;
+		if (ready_worker->order_prev) {
+			ready_worker->order_prev->order_next = ready_worker->order_next;
 		}
-		free_worker->order_prev = pool->latest_worker;
-		pool->latest_worker->order_next = free_worker;
-		pool->latest_worker = free_worker;
+		ready_worker->order_prev = pool->latest_worker;
+		pool->latest_worker->order_next = ready_worker;
+		pool->latest_worker = ready_worker;
 	}
 	pool->latest_worker->order_next = NULL;
 
-	A_MUTEX_LOCK(&free_worker->has_job_mutex);
-	free_worker->buf_index = buf_index;
-	atomic_store(&free_worker->has_job, true);
-	A_MUTEX_UNLOCK(&free_worker->has_job_mutex);
-	A_COND_SIGNAL(&free_worker->has_job_cond);
+	A_MUTEX_LOCK(&ready_worker->has_job_mutex);
+	ready_worker->buf_index = buf_index;
+	atomic_store(&ready_worker->has_job, true);
+	A_MUTEX_UNLOCK(&ready_worker->has_job_mutex);
+	A_COND_SIGNAL(&ready_worker->has_job_cond);
 
 	A_MUTEX_LOCK(&pool->free_workers_mutex);
 	pool->free_workers -= 1;
 	A_MUTEX_UNLOCK(&pool->free_workers_mutex);
+
+	LOG_DEBUG("Assigned new frame in buffer %u to worker %u", buf_index, ready_worker->number);
 }
 
 static long double _stream_get_fluency_delay(struct device_t *dev, struct workers_pool_t *pool) {
