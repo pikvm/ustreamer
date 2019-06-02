@@ -70,6 +70,8 @@ struct workers_pool_t {
 	pthread_cond_t		free_workers_cond;
 
 	atomic_bool			workers_stop;
+
+	long double			desired_frames_interval;
 };
 
 struct process_t {
