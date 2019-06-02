@@ -22,57 +22,11 @@
 
 #pragma once
 
-#include <stdbool.h>
 #include <stdatomic.h>
-
-#include <pthread.h>
 
 #include "device.h"
 #include "encoder.h"
 
-
-struct worker_t {
-	pthread_t			tid;
-	unsigned			number;
-	atomic_bool			*proc_stop;
-	atomic_bool			*workers_stop;
-
-	pthread_mutex_t		last_comp_time_mutex;
-	long double			last_comp_time;
-
-	pthread_mutex_t		has_job_mutex;
-	int					buf_index;
-	atomic_bool			has_job;
-	bool				job_timely;
-	bool				job_failed;
-	long double			job_start_time;
-	pthread_cond_t		has_job_cond;
-
-	pthread_mutex_t		*free_workers_mutex;
-	unsigned			*free_workers;
-	pthread_cond_t		*free_workers_cond;
-
-	struct worker_t		*order_prev;
-	struct worker_t		*order_next;
-
-	struct device_t		*dev;
-	struct encoder_t	*encoder;
-};
-
-struct workers_pool_t {
-	unsigned			n_workers;
-	struct worker_t		*workers;
-	struct worker_t		*oldest_worker;
-	struct worker_t		*latest_worker;
-
-	pthread_mutex_t		free_workers_mutex;
-	unsigned			free_workers;
-	pthread_cond_t		free_workers_cond;
-
-	atomic_bool			workers_stop;
-
-	long double			desired_frames_interval;
-};
 
 struct process_t {
 	atomic_bool stop;
