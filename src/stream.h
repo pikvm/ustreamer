@@ -43,6 +43,7 @@ struct worker_t {
 	pthread_mutex_t		has_job_mutex;
 	int					buf_index;
 	atomic_bool			has_job;
+	bool				job_timely;
 	bool				job_failed;
 	long double			job_start_time;
 	pthread_cond_t		has_job_cond;
@@ -59,6 +60,7 @@ struct worker_t {
 };
 
 struct workers_pool_t {
+	unsigned			n_workers;
 	struct worker_t		*workers;
 	struct worker_t		*oldest_worker;
 	struct worker_t		*latest_worker;
@@ -68,8 +70,6 @@ struct workers_pool_t {
 	pthread_cond_t		free_workers_cond;
 
 	atomic_bool			workers_stop;
-
-	struct encoder_t	*encoder;
 };
 
 struct process_t {
