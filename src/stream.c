@@ -75,6 +75,8 @@ struct _worker_t {
 };
 
 struct _workers_pool_t {
+	atomic_bool			workers_stop;
+
 	unsigned			n_workers;
 	struct _worker_t	*workers;
 	struct _worker_t	*oldest_worker;
@@ -84,9 +86,11 @@ struct _workers_pool_t {
 	unsigned			free_workers;
 	pthread_cond_t		free_workers_cond;
 
-	atomic_bool			workers_stop;
-
 	long double			desired_frames_interval;
+
+	unsigned			involved_workers;
+	unsigned			involved_workers_max_number;
+	long long			involved_workers_second;
 };
 
 
@@ -357,17 +361,19 @@ static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
 
 	A_CALLOC(pool, 1);
 
+	atomic_init(&pool->workers_stop, false);
+
 	pool->n_workers = stream->dev->run->n_workers;
 	A_CALLOC(pool->workers, pool->n_workers);
 
 	A_MUTEX_INIT(&pool->free_workers_mutex);
 	A_COND_INIT(&pool->free_workers_cond);
 
-	atomic_init(&pool->workers_stop, false);
-
 	if (stream->dev->desired_fps > 0) {
 		pool->desired_frames_interval = (long double)1 / stream->dev->desired_fps;
 	}
+
+	pool->involved_workers = 1;
 
 	for (unsigned number = 0; number < pool->n_workers; ++number) {
 #		define WORKER(_next) pool->workers[number]._next
@@ -518,6 +524,8 @@ static struct _worker_t *_workers_pool_wait(struct _workers_pool_t *pool) {
 }
 
 static void _workers_pool_assign(struct _workers_pool_t *pool, struct _worker_t *ready_worker, unsigned buf_index) {
+	long long now_second = floor_ms(get_now_monotonic());
+
 	if (pool->oldest_worker == NULL) {
 		pool->oldest_worker = ready_worker;
 		pool->latest_worker = pool->oldest_worker;
@@ -544,6 +552,21 @@ static void _workers_pool_assign(struct _workers_pool_t *pool, struct _worker_t 
 	pool->free_workers -= 1;
 	A_MUTEX_UNLOCK(&pool->free_workers_mutex);
 
+	// involved_workers - это количество задействованных воркеров. Оно может быть меньше n_workers,
+	// если требуемый fps может быть обеспечен таковым числом. Например, на новом Core i7 с четырьмя
+	// ядрами, это число будет равняться двум, поскольку два воркера вполне успевают обрабатывать
+	// 30fps со встроенной камеры. Это числоиспользуется для рассчета задержки межву воркерами
+	// в функции _workers_pool_get_fluency_delay(). Поскольку алгоритм распределения воркеров работет
+	// так, что всегда ищет самый первый незанятый форвер по номеру, можно считать, что максимальное
+	// количество занятых воркеров равно максимальному задействованному номеру.
+	if (now_second != pool->involved_workers_second) {
+		pool->involved_workers = pool->involved_workers_max_number + 1;
+		pool->involved_workers_max_number = 0;
+		pool->involved_workers_second = now_second;
+		LOG_PERF("Involved workers = %u", pool->involved_workers);
+	}
+	pool->involved_workers_max_number = max_u(pool->involved_workers_max_number, ready_worker->number);
+
 	LOG_DEBUG("Assigned new frame in buffer %u to worker %u", buf_index, ready_worker->number);
 }
 
@@ -565,9 +588,9 @@ static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool)
 #		undef WORKER
 	}
 
-	avg_comp_time = sum_comp_time / pool->n_workers; // Среднее время работы воркеров
+	avg_comp_time = sum_comp_time / pool->involved_workers; // Среднее время работы воркеров
 
-	min_delay = avg_comp_time / pool->n_workers; // Среднее время работы размазывается на N воркеров
+	min_delay = avg_comp_time / pool->involved_workers; // Среднее время работы размазывается на N воркеров
 
 	if (pool->desired_frames_interval > 0 && min_delay > 0) {
 		// Искусственное время задержки на основе желаемого FPS, если включен --desired-fps
