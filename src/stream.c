@@ -92,7 +92,7 @@ struct _workers_pool_t {
 
 static struct _workers_pool_t *_stream_init_loop(struct stream_t *stream);
 static struct _workers_pool_t *_stream_init(struct stream_t *stream);
-static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index);
+static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index, unsigned captured_fps);
 
 static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream);
 static void _workers_pool_destroy(struct _workers_pool_t *pool);
@@ -136,6 +136,7 @@ void stream_loop(struct stream_t *stream) {
 	while ((pool = _stream_init_loop(stream)) != NULL) {
 		long double grab_after = 0;
 		unsigned fluency_passed = 0;
+		unsigned captured_fps = 0;
 		unsigned captured_fps_accum = 0;
 		long long captured_fps_second = 0;
 		bool persistent_timeout_reported = false;
@@ -155,7 +156,7 @@ void stream_loop(struct stream_t *stream) {
 
 			if (!ready_worker->job_failed) {
 				if (ready_worker->job_timely) {
-					_stream_expose_picture(stream, ready_worker->buf_index);
+					_stream_expose_picture(stream, ready_worker->buf_index, captured_fps);
 					LOG_PERF("##### Encoded picture exposed; worker = %u", ready_worker->number);
 				} else {
 					LOG_PERF("----- Encoded picture dropped; worker = %u", ready_worker->number);
@@ -229,10 +230,10 @@ void stream_loop(struct stream_t *stream) {
 						fluency_passed = 0;
 
 						if (now_second != captured_fps_second) {
-							stream->captured_fps = captured_fps_accum;
+							captured_fps = captured_fps_accum;
 							captured_fps_accum = 0;
 							captured_fps_second = now_second;
-							LOG_PERF("A new second has come, Captured-FPS = %u", stream->captured_fps);
+							LOG_PERF("A new second has come, Captured-FPS = %u", captured_fps);
 						}
 						captured_fps_accum += 1;
 
@@ -325,7 +326,7 @@ static struct _workers_pool_t *_stream_init(struct stream_t *stream) {
 		return NULL;
 }
 
-static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) {
+static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index, unsigned captured_fps) {
 #	define PICTURE(_next) stream->dev->run->pictures[buf_index]._next
 
 	A_MUTEX_LOCK(&stream->mutex);
@@ -341,6 +342,7 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index) 
 
 	stream->width = stream->dev->run->width;
 	stream->height = stream->dev->run->height;
+	stream->captured_fps = captured_fps;
 	atomic_store(&stream->updated, true);
 
 	A_MUTEX_UNLOCK(&stream->mutex);
