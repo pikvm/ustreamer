@@ -157,9 +157,9 @@ void stream_loop(struct stream_t *stream) {
 			if (!ready_worker->job_failed) {
 				if (ready_worker->job_timely) {
 					_stream_expose_picture(stream, ready_worker->buf_index, captured_fps);
-					LOG_PERF("##### Encoded picture exposed; worker = %u", ready_worker->number);
+					LOG_PERF("##### Encoded picture exposed; worker=%u", ready_worker->number);
 				} else {
-					LOG_PERF("----- Encoded picture dropped; worker = %u", ready_worker->number);
+					LOG_PERF("----- Encoded picture dropped; worker=%u", ready_worker->number);
 				}
 			} else {
 				break;
@@ -224,7 +224,7 @@ void stream_loop(struct stream_t *stream) {
 					{
 						if (now < grab_after) {
 							fluency_passed += 1;
-							LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf; grab_after=%.03Lf", fluency_passed, now, grab_after);
+							LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf", fluency_passed, now, grab_after);
 							goto pass_frame;
 						}
 						fluency_passed = 0;
@@ -233,14 +233,14 @@ void stream_loop(struct stream_t *stream) {
 							captured_fps = captured_fps_accum;
 							captured_fps_accum = 0;
 							captured_fps_second = now_second;
-							LOG_PERF("A new second has come, Captured-FPS = %u", captured_fps);
+							LOG_PERF("A new second has come; captured_fps=%u", captured_fps);
 						}
 						captured_fps_accum += 1;
 
 						long double fluency_delay = _workers_pool_get_fluency_delay(pool);
 
 						grab_after = now + fluency_delay;
-						LOG_VERBOSE("Fluency: delay=%.03Lf; grab_after=%.03Lf", fluency_delay, grab_after);
+						LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
 					}
 
 					_workers_pool_assign(pool, ready_worker, buf_index);
@@ -295,7 +295,7 @@ void stream_switch_slowdown(struct stream_t *stream, bool slowdown) {
 static struct _workers_pool_t *_stream_init_loop(struct stream_t *stream) {
 	struct _workers_pool_t *pool = NULL;
 
-	LOG_DEBUG("%s: stream->proc->stop = %d", __FUNCTION__, atomic_load(&stream->proc->stop));
+	LOG_DEBUG("%s: stream->proc->stop=%d", __FUNCTION__, atomic_load(&stream->proc->stop));
 
 	while (!atomic_load(&stream->proc->stop)) {
 		SEP_INFO('=');
@@ -467,7 +467,7 @@ static void *__worker_thread(void *v_worker) {
 				worker->last_comp_time = last_comp_time;
 				A_MUTEX_UNLOCK(&worker->last_comp_time_mutex);
 
-				LOG_VERBOSE("Compressed JPEG size=%zu; time=%0.3Lf; worker=%u; buffer=%u",
+				LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%u, buffer=%u",
 					PICTURE(used), last_comp_time, worker->number, worker->buf_index);
 			} else {
 				worker->job_failed = true;

@@ -279,9 +279,9 @@ int device_grab_buffer(struct device_t *dev) {
 		return -1;
 	}
 
-	LOG_DEBUG("Got a new frame in buffer index=%u; bytesused=%u", buf_info.index, buf_info.bytesused);
+	LOG_DEBUG("Got a new frame in buffer: index=%u, bytesused=%u", buf_info.index, buf_info.bytesused);
 	if (buf_info.index >= dev->run->n_buffers) {
-		LOG_ERROR("Got invalid buffer index=%u; nbuffers=%u", buf_info.index, dev->run->n_buffers);
+		LOG_ERROR("Got invalid buffer: index=%u, nbuffers=%u", buf_info.index, dev->run->n_buffers);
 		return -1;
 	}
 
@@ -390,7 +390,7 @@ static int _device_apply_dv_timings(struct device_t *dev) {
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_QUERY_DV_TIMINGS) ...");
 	if (xioctl(dev->run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv_timings) == 0) {
-		LOG_INFO("Got new DV timings: resolution=%ux%u; pixclk=%llu",
+		LOG_INFO("Got new DV timings: resolution=%ux%u, pixclk=%llu",
 			dv_timings.bt.width,
 			dv_timings.bt.height,
 			dv_timings.bt.pixelclock);
@@ -431,7 +431,7 @@ static int _device_open_format(struct device_t *dev) {
 	// Set format
 	LOG_DEBUG("Calling ioctl(VIDIOC_S_FMT) ...");
 	if (xioctl(dev->run->fd, VIDIOC_S_FMT, &fmt) < 0) {
-		LOG_PERROR("Unable to set pixelformat=%s; resolution=%ux%u",
+		LOG_PERROR("Unable to set pixelformat=%s, resolution=%ux%u",
 			_format_to_string_supported(dev->format),
 			dev->run->width,
 			dev->run->height);
@@ -602,7 +602,7 @@ static int _device_apply_resolution(struct device_t *dev, unsigned width, unsign
 		width == 0 || width > VIDEO_MAX_WIDTH
 		|| height == 0 || height > VIDEO_MAX_HEIGHT
 	) {
-		LOG_ERROR("Requested forbidden resolution=%ux%u: min=1x1; max=%ux%u",
+		LOG_ERROR("Requested forbidden resolution=%ux%u: min=1x1, max=%ux%u",
 			width, height, VIDEO_MAX_WIDTH, VIDEO_MAX_HEIGHT);
 		return -1;
 	}

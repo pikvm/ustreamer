@@ -208,7 +208,7 @@ int http_server_listen(struct http_server_t *server) {
 #		define MAX_SUN_PATH (sizeof(unix_addr.sun_path) - 1)
 
 		if (strlen(server->unix_path) > MAX_SUN_PATH) {
-			LOG_ERROR("UNIX socket path is too long, max=%zu", MAX_SUN_PATH);
+			LOG_ERROR("UNIX socket path is too long; max=%zu", MAX_SUN_PATH);
 			return -1;
 		}
 
@@ -568,7 +568,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		}
 
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
-		LOG_INFO("HTTP: Registered the new stream client: [%s]:%u; id=%s; clients now: %u",
+		LOG_INFO("HTTP: Registered the new stream client: [%s]:%u, id=%s; clients now: %u",
 			client_addr, client_port, client->id, server->run->stream_clients_count);
 
 		buf_event = evhttp_connection_get_bufferevent(conn);
@@ -845,13 +845,13 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 		) {
 			EXPOSED(expose_cmp_time) = get_now_monotonic();
 			EXPOSED(expose_end_time) = EXPOSED(expose_cmp_time);
-			LOG_VERBOSE("HTTP: dropped same frame number %u; comparsion time = %.06Lf",
+			LOG_VERBOSE("HTTP: dropped same frame number %u; cmp_time=%.06Lf",
 				EXPOSED(dropped), EXPOSED(expose_cmp_time) - EXPOSED(expose_begin_time));
 			EXPOSED(dropped) += 1;
 			return false; // Not updated
 		} else {
 			EXPOSED(expose_cmp_time) = get_now_monotonic();
-			LOG_VERBOSE("HTTP: passed same frame check (frames are differ); comparsion time = %.06Lf",
+			LOG_VERBOSE("HTTP: passed same frame check (frames are differ); cmp_time=%.06Lf",
 				EXPOSED(expose_cmp_time) - EXPOSED(expose_begin_time));
 		}
 	}
