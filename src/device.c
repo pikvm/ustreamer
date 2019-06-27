@@ -384,24 +384,22 @@ static int _device_open_dv_timings(struct device_t *dev) {
 }
 
 static int _device_apply_dv_timings(struct device_t *dev) {
-	struct v4l2_dv_timings dv_timings;
+	struct v4l2_dv_timings dv;
 
-	MEMSET_ZERO(dv_timings);
+	MEMSET_ZERO(dv);
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_QUERY_DV_TIMINGS) ...");
-	if (xioctl(dev->run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv_timings) == 0) {
+	if (xioctl(dev->run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv) == 0) {
 		LOG_INFO("Got new DV timings: resolution=%ux%u, pixclk=%llu",
-			dv_timings.bt.width,
-			dv_timings.bt.height,
-			dv_timings.bt.pixelclock);
+			dv.bt.width, dv.bt.height, dv.bt.pixelclock);
 
 		LOG_DEBUG("Calling ioctl(VIDIOC_S_DV_TIMINGS) ...");
-		if (xioctl(dev->run->fd, VIDIOC_S_DV_TIMINGS, &dv_timings) < 0) {
+		if (xioctl(dev->run->fd, VIDIOC_S_DV_TIMINGS, &dv) < 0) {
 			LOG_PERROR("Failed to set DV timings");
 			return -1;
 		}
 
-		if (_device_apply_resolution(dev, dv_timings.bt.width, dv_timings.bt.height) < 0) {
+		if (_device_apply_resolution(dev, dv.bt.width, dv.bt.height) < 0) {
 			return -1;
 		}
 
