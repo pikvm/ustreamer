@@ -29,7 +29,7 @@ import common
 
 # =====
 def main() -> None:
-    assert len(sys.argv) == 4, "%s <file.html> <file.h> <name>" % (sys.argv[0])
+    assert len(sys.argv) == 4, f"{sys.argv[0]} <file.html> <file.h> <name>"
     html_path = sys.argv[1]
     header_path = sys.argv[2]
     name = sys.argv[3]
@@ -42,11 +42,11 @@ def main() -> None:
     text = text.replace("%VERSION%", "\" VERSION \"")
     text = textwrap.indent(text, "\t", (lambda line: True))
     text = "\n".join(
-        ("%s \\" if line.strip() else "%s\\") % (line)
+        (f"{line} \\" if line.strip() else f"{line}\\")
         for line in text.split("\n")
     )
-    text = "const char HTML_%s_PAGE[] = \" \\\n%s\n\";\n" % (name, text)
-    text = common.get_prepend() + "\n#include \"../../config.h\"\n\n\n" + text
+    text = f"const char HTML_{name}_PAGE[] = \" \\\n{text}\n\";\n"
+    text = f"{common.C_PREPEND}\n#include \"../../config.h\"\n\n\n{text}"
 
     with open(header_path, "w") as header_file:
         header_file.write(text)

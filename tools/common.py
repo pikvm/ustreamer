@@ -25,8 +25,7 @@ import textwrap
 
 
 # =====
-def get_prepend() -> str:
-    return textwrap.dedent("""
+C_PREPEND = textwrap.dedent("""
         /*****************************************************************************
         #                                                                            #
         #    uStreamer - Lightweight and fast MJPG-HTTP streamer.                    #

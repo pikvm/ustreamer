@@ -60,7 +60,7 @@ def _get_jpeg_size(data: bytes) -> Tuple[int, int]:
 
 # =====
 def main() -> None:
-    assert len(sys.argv) == 4, "%s <file.jpeg> <file.h> <name>" % (sys.argv[0])
+    assert len(sys.argv) == 4, f"{sys.argv[0]} <file.jpeg> <file.h> <name>"
     jpeg_path = sys.argv[1]
     header_path = sys.argv[2]
     name = sys.argv[3]
@@ -74,13 +74,13 @@ def main() -> None:
     for ch in jpeg_data:
         if len(rows[-1]) > 20:
             rows.append([])
-        rows[-1].append("0x%.2X" % (ch))
+        rows[-1].append(f"0x{ch:02X}")
 
     text = ",\n\t".join(", ".join(row) for row in rows)
-    text = "const unsigned char %s_JPEG_DATA[] = {\n\t%s\n};\n" % (name, text)
-    text = "const unsigned %s_JPEG_HEIGHT = %d;\n\n" % (name, height) + text
-    text = "const unsigned %s_JPEG_WIDTH = %d;\n" % (name, width) + text
-    text = common.get_prepend() + "\n\n" + text
+    text = f"const unsigned char {name}_JPEG_DATA[] = {{\n\t{text}\n}};\n"
+    text = f"const unsigned {name}_JPEG_HEIGHT = {height};\n\n{text}"
+    text = f"const unsigned {name}_JPEG_WIDTH = {width};\n{text}"
+    text = f"{common.C_PREPEND}\n\n{text}"
 
     with open(header_path, "w") as header_file:
         header_file.write(text)
