@@ -20,12 +20,13 @@
 *****************************************************************************/
 
 
+#include "base64.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
 #include "../tools.h"
-#include "base64.h"
 
 
 static const char ENCODING_TABLE[] = {

@@ -25,6 +25,8 @@
 *****************************************************************************/
 
 
+#include "encoder.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,8 +37,6 @@
 
 #include "../../tools.h"
 #include "../../device.h"
-
-#include "encoder.h"
 
 
 struct _jpeg_dest_manager_t {

@@ -20,6 +20,8 @@
 *****************************************************************************/
 
 
+#include "stream.h"
+
 #include <stdbool.h>
 #include <stdatomic.h>
 #include <unistd.h>
@@ -36,7 +38,6 @@
 #include "xioctl.h"
 #include "device.h"
 #include "encoder.h"
-#include "stream.h"
 
 #ifdef WITH_WORKERS_GPIO_DEBUG
 #	include <wiringPi.h>

@@ -25,6 +25,8 @@
 *****************************************************************************/
 
 
+#include "encoder.h"
+
 #include <stdbool.h>
 #include <string.h>
 #include <assert.h>
@@ -37,7 +39,6 @@
 #include "../../device.h"
 
 #include "huffman.h"
-#include "encoder.h"
 
 
 static bool _is_huffman(const unsigned char *data);

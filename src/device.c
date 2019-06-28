@@ -20,6 +20,8 @@
 *****************************************************************************/
 
 
+#include "device.h"
+
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -37,7 +39,6 @@
 #include "tools.h"
 #include "logging.h"
 #include "xioctl.h"
-#include "device.h"
 
 
 static const struct {

@@ -20,6 +20,8 @@
 *****************************************************************************/
 
 
+#include "server.h"
+
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdatomic.h>
@@ -56,7 +58,6 @@
 #include "base64.h"
 #include "mime.h"
 #include "static.h"
-#include "server.h"
 
 #include "data/index_html.h"
 

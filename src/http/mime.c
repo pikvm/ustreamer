@@ -20,13 +20,13 @@
 *****************************************************************************/
 
 
+#include "mime.h"
+
 #include <string.h>
 
 #include <event2/util.h>
 
 #include "../tools.h"
-
-#include "mime.h"
 
 
 static const struct {

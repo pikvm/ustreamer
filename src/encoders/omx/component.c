@@ -20,6 +20,8 @@
 *****************************************************************************/
 
 
+#include "component.h"
+
 #include <unistd.h>
 
 #include <IL/OMX_Core.h>
@@ -28,7 +30,6 @@
 #include "../../logging.h"
 
 #include "formatters.h"
-#include "component.h"
 
 
 static int _component_wait_port_changed(OMX_HANDLETYPE *component, OMX_U32 port, OMX_BOOL enabled);

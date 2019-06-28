@@ -20,6 +20,8 @@
 *****************************************************************************/
 
 
+#include "formatters.h"
+
 #include <stdio.h>
 #include <assert.h>
 
@@ -27,7 +29,6 @@
 #include <IL/OMX_Core.h>
 
 #include "../../tools.h"
-#include "formatters.h"
 
 
 #define CASE_TO_STRING(_value) \

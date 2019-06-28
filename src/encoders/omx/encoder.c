@@ -20,6 +20,8 @@
 *****************************************************************************/
 
 
+#include "encoder.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -39,7 +41,6 @@
 
 #include "formatters.h"
 #include "component.h"
-#include "encoder.h"
 
 
 static const OMX_U32 _INPUT_PORT = 340;

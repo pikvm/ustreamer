@@ -20,6 +20,8 @@
 *****************************************************************************/
 
 
+#include "encoder.h"
+
 #include <stdbool.h>
 #include <strings.h>
 #include <assert.h>
@@ -29,7 +31,6 @@
 #include "tools.h"
 #include "logging.h"
 #include "device.h"
-#include "encoder.h"
 
 #include "encoders/cpu/encoder.h"
 #include "encoders/hw/encoder.h"

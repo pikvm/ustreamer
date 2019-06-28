@@ -20,6 +20,8 @@
 *****************************************************************************/
 
 
+#include "static.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,7 +34,6 @@
 #include "../logging.h"
 
 #include "path.h"
-#include "static.h"
 
 
 char *find_static_file_path(const char *root_path, const char *request_path) {

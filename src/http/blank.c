@@ -20,6 +20,8 @@
 *****************************************************************************/
 
 
+#include "blank.h"
+
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
@@ -31,8 +33,6 @@
 #include "../logging.h"
 
 #include "data/blank_jpeg.h"
-
-#include "blank.h"
 
 
 struct _jpeg_error_manager_t {

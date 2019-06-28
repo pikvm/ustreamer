@@ -20,14 +20,14 @@
 *****************************************************************************/
 
 
+#include "path.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
 #include "../tools.h"
-
-#include "path.h"
 
 
 char *simplify_request_path(const char *str) {
