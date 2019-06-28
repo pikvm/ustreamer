@@ -70,7 +70,7 @@ static OMX_ERRORTYPE _omx_output_available_handler(
 	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buffer);
 
 
-struct omx_encoder_t *omx_encoder_init() {
+struct omx_encoder_t *omx_encoder_init(void) {
 	// Some theory:
 	//   - http://www.fourcc.org/yuv.php
 	//   - https://kwasi-ich.de/blog/2017/11/26/omx/

@@ -83,7 +83,7 @@ static const char *_format_to_string_supported(unsigned format);
 static const char *_standard_to_string(v4l2_std_id standard);
 
 
-struct device_t *device_init() {
+struct device_t *device_init(void) {
 	struct controls_t *ctl;
 	struct device_runtime_t *run;
 	struct device_t *dev;

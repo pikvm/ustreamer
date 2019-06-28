@@ -110,7 +110,7 @@ struct device_t {
 };
 
 
-struct device_t *device_init();
+struct device_t *device_init(void);
 void device_destroy(struct device_t *dev);
 
 int device_parse_format(const char *str);

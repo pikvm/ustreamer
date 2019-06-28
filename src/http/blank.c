@@ -41,7 +41,7 @@ struct _jpeg_error_manager_t {
 };
 
 
-static struct blank_t *_blank_init_internal();
+static struct blank_t *_blank_init_internal(void);
 static struct blank_t *_blank_init_external(const char *path);
 static int _jpeg_read_geometry(FILE *fp, unsigned *width, unsigned *height);
 static void _jpeg_error_handler(j_common_ptr jpeg);
@@ -68,7 +68,7 @@ void blank_destroy(struct blank_t *blank) {
 	free(blank);
 }
 
-static struct blank_t *_blank_init_internal() {
+static struct blank_t *_blank_init_internal(void) {
 	struct blank_t *blank;
 
 	A_CALLOC(blank, 1);

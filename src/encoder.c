@@ -52,7 +52,7 @@ static const struct {
 };
 
 
-struct encoder_t *encoder_init() {
+struct encoder_t *encoder_init(void) {
 	struct encoder_runtime_t *run;
 	struct encoder_t *encoder;
 

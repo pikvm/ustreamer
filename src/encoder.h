@@ -70,7 +70,7 @@ struct encoder_t {
 };
 
 
-struct encoder_t *encoder_init();
+struct encoder_t *encoder_init(void);
 void encoder_destroy(struct encoder_t *encoder);
 
 enum encoder_type_t encoder_parse_type(const char *str);

@@ -327,7 +327,7 @@ struct main_context_t {
 
 static struct main_context_t *_ctx;
 
-static void _block_thread_signals() {
+static void _block_thread_signals(void) {
 	sigset_t mask;
 	assert(!sigemptyset(&mask));
 	assert(!sigaddset(&mask, SIGINT));
@@ -353,7 +353,7 @@ static void _signal_handler(int signum) {
 	http_server_loop_break(_ctx->server);
 }
 
-static void _install_signal_handlers() {
+static void _install_signal_handlers(void) {
 	struct sigaction sig_act;
 
 	MEMSET_ZERO(sig_act);
