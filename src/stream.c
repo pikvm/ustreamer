@@ -381,6 +381,8 @@ static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
 		WORKER(proc_stop) = &stream->proc->stop;
 		WORKER(workers_stop) = &pool->workers_stop;
 
+		A_MUTEX_INIT(&WORKER(last_comp_time_mutex));
+
 		WORKER(free_workers_mutex) = &pool->free_workers_mutex;
 		WORKER(free_workers) = &pool->free_workers;
 		WORKER(free_workers_cond) = &pool->free_workers_cond;
@@ -412,6 +414,8 @@ static void _workers_pool_destroy(struct _workers_pool_t *pool) {
 		A_THREAD_JOIN(WORKER(tid));
 		A_MUTEX_DESTROY(&WORKER(has_job_mutex));
 		A_COND_DESTROY(&WORKER(has_job_cond));
+
+		A_MUTEX_DESTROY(&WORKER(last_comp_time_mutex));
 
 #		undef WORKER
 	}
