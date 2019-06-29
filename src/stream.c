@@ -556,15 +556,12 @@ static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool)
 	long double sum_comp_time = 0;
 	long double avg_comp_time;
 	long double min_delay;
-	long double soft_delay;
 
 	for (unsigned number = 0; number < pool->n_workers; ++number) {
 #		define WORKER(_next) pool->workers[number]._next
 
 		A_MUTEX_LOCK(&WORKER(last_comp_time_mutex));
-		if (WORKER(last_comp_time) > 0) {
-			sum_comp_time += WORKER(last_comp_time);
-		}
+		sum_comp_time += WORKER(last_comp_time);
 		A_MUTEX_UNLOCK(&WORKER(last_comp_time_mutex));
 
 #		undef WORKER
@@ -574,10 +571,9 @@ static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool)
 
 	min_delay = avg_comp_time / pool->n_workers; // Среднее время работы размазывается на N воркеров
 
-	if (pool->desired_frames_interval > 0 && min_delay > 0) {
+	if (pool->desired_frames_interval > 0 && min_delay > 0 && pool->desired_frames_interval > min_delay) {
 		// Искусственное время задержки на основе желаемого FPS, если включен --desired-fps
-		soft_delay = pool->desired_frames_interval - sum_comp_time;
-		return (min_delay > soft_delay ? min_delay : soft_delay);
+		return pool->desired_frames_interval;
 	}
 
 	return min_delay;
