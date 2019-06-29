@@ -102,7 +102,7 @@ static void *__worker_thread(void *v_worker);
 
 static struct _worker_t *_workers_pool_wait(struct _workers_pool_t *pool);
 static void _workers_pool_assign(struct _workers_pool_t *pool, struct _worker_t *ready_worker, unsigned buf_index);
-static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool);
+static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool, unsigned captured_fps);
 
 
 struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
@@ -238,7 +238,7 @@ void stream_loop(struct stream_t *stream) {
 						}
 						captured_fps_accum += 1;
 
-						long double fluency_delay = _workers_pool_get_fluency_delay(pool);
+						long double fluency_delay = _workers_pool_get_fluency_delay(pool, captured_fps);
 
 						grab_after = now + fluency_delay;
 						LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
@@ -552,7 +552,8 @@ static void _workers_pool_assign(struct _workers_pool_t *pool, struct _worker_t 
 	LOG_DEBUG("Assigned new frame in buffer %u to worker %u", buf_index, ready_worker->number);
 }
 
-static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool) {
+static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool, unsigned captured_fps) {
+	long double captured_frames_interval = 0;
 	long double sum_comp_time = 0;
 	long double avg_comp_time;
 	long double min_delay;
@@ -573,7 +574,13 @@ static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool)
 
 	if (pool->desired_frames_interval > 0 && min_delay > 0 && pool->desired_frames_interval > min_delay) {
 		// Искусственное время задержки на основе желаемого FPS, если включен --desired-fps
-		return pool->desired_frames_interval;
+		captured_frames_interval = (long double)1 / captured_fps;
+		if (captured_frames_interval > pool->desired_frames_interval - min_delay) {
+			return pool->desired_frames_interval;
+		} else {
+			LOG_PERF("Performing fluency synchronization: captured_fi=%.3Lf, desired_fi=%.3Lf, min_delay=%.3Lf",
+				captured_frames_interval, pool->desired_frames_interval, min_delay);
+		}
 	}
 
 	return min_delay;
