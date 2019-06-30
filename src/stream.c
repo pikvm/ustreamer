@@ -53,7 +53,6 @@ struct _worker_t {
 	atomic_bool			*proc_stop;
 	atomic_bool			*workers_stop;
 
-	pthread_mutex_t		last_comp_time_mutex;
 	long double			last_comp_time;
 
 	pthread_mutex_t		has_job_mutex;
@@ -81,6 +80,8 @@ struct _workers_pool_t {
 	struct _worker_t	*oldest_worker;
 	struct _worker_t	*latest_worker;
 
+	long double			approx_comp_time;
+
 	pthread_mutex_t		free_workers_mutex;
 	unsigned			free_workers;
 	pthread_cond_t		free_workers_cond;
@@ -102,7 +103,7 @@ static void *__worker_thread(void *v_worker);
 
 static struct _worker_t *_workers_pool_wait(struct _workers_pool_t *pool);
 static void _workers_pool_assign(struct _workers_pool_t *pool, struct _worker_t *ready_worker, unsigned buf_index);
-static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool);
+static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool, struct _worker_t *ready_worker);
 
 
 struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
@@ -238,7 +239,7 @@ void stream_loop(struct stream_t *stream) {
 						}
 						captured_fps_accum += 1;
 
-						long double fluency_delay = _workers_pool_get_fluency_delay(pool);
+						long double fluency_delay = _workers_pool_get_fluency_delay(pool, ready_worker);
 
 						grab_after = now + fluency_delay;
 						LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
@@ -381,8 +382,6 @@ static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
 		WORKER(proc_stop) = &stream->proc->stop;
 		WORKER(workers_stop) = &pool->workers_stop;
 
-		A_MUTEX_INIT(&WORKER(last_comp_time_mutex));
-
 		WORKER(free_workers_mutex) = &pool->free_workers_mutex;
 		WORKER(free_workers) = &pool->free_workers;
 		WORKER(free_workers_cond) = &pool->free_workers_cond;
@@ -414,8 +413,6 @@ static void _workers_pool_destroy(struct _workers_pool_t *pool) {
 		A_THREAD_JOIN(WORKER(tid));
 		A_MUTEX_DESTROY(&WORKER(has_job_mutex));
 		A_COND_DESTROY(&WORKER(has_job_cond));
-
-		A_MUTEX_DESTROY(&WORKER(last_comp_time_mutex));
 
 #		undef WORKER
 	}
@@ -466,14 +463,10 @@ static void *__worker_thread(void *v_worker) {
 				worker->job_start_time = PICTURE(encode_begin_time);
 				atomic_store(&worker->has_job, false);
 
-				long double last_comp_time = PICTURE(encode_end_time) - worker->job_start_time;
-
-				A_MUTEX_LOCK(&worker->last_comp_time_mutex);
-				worker->last_comp_time = last_comp_time;
-				A_MUTEX_UNLOCK(&worker->last_comp_time_mutex);
+				worker->last_comp_time = PICTURE(encode_end_time) - worker->job_start_time;
 
 				LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%u, buffer=%u",
-					PICTURE(used), last_comp_time, worker->number, worker->buf_index);
+					PICTURE(used), worker->last_comp_time, worker->number, worker->buf_index);
 			} else {
 				worker->job_failed = true;
 				atomic_store(&worker->has_job, false);
@@ -552,29 +545,22 @@ static void _workers_pool_assign(struct _workers_pool_t *pool, struct _worker_t 
 	LOG_DEBUG("Assigned new frame in buffer %u to worker %u", buf_index, ready_worker->number);
 }
 
-static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool) {
-	long double sum_comp_time = 0;
-	long double avg_comp_time;
+static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool, struct _worker_t *ready_worker) {
+	long double approx_comp_time;
 	long double min_delay;
 
-	for (unsigned number = 0; number < pool->n_workers; ++number) {
-#		define WORKER(_next) pool->workers[number]._next
+	approx_comp_time = pool->approx_comp_time * 0.9 + ready_worker->last_comp_time * 0.1;
 
-		A_MUTEX_LOCK(&WORKER(last_comp_time_mutex));
-		sum_comp_time += WORKER(last_comp_time);
-		A_MUTEX_UNLOCK(&WORKER(last_comp_time_mutex));
+	LOG_VERBOSE("Correcting approx_comp_time: %.3Lf -> %.3Lf (last_comp_time=%.3Lf)",
+		pool->approx_comp_time, approx_comp_time, ready_worker->last_comp_time);
 
-#		undef WORKER
-	}
+	pool->approx_comp_time = approx_comp_time;
 
-	avg_comp_time = sum_comp_time / pool->n_workers; // Среднее время работы воркеров
-
-	min_delay = avg_comp_time / pool->n_workers; // Среднее время работы размазывается на N воркеров
+	min_delay = pool->approx_comp_time / pool->n_workers; // Среднее время работы размазывается на N воркеров
 
 	if (pool->desired_frames_interval > 0 && min_delay > 0 && pool->desired_frames_interval > min_delay) {
 		// Искусственное время задержки на основе желаемого FPS, если включен --desired-fps
 		return pool->desired_frames_interval;
 	}
-
 	return min_delay;
 }
