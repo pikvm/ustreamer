@@ -23,5 +23,5 @@
 #pragma once
 
 #ifndef VERSION
-#	define VERSION "0.78"
+#	define VERSION "0.79"
 #endif
