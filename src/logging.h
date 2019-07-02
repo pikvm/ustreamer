@@ -44,8 +44,12 @@ pthread_mutex_t log_mutex;
 #define LOG_LEVEL_DEBUG		3
 
 
-#define LOGGING_INIT	assert(!pthread_mutex_init(&log_mutex, NULL))
-#define LOGGING_DESTROY	assert(!pthread_mutex_destroy(&log_mutex))
+#define LOGGING_INIT { \
+		log_level = LOG_LEVEL_INFO; \
+		assert(!pthread_mutex_init(&log_mutex, NULL)); \
+	}
+
+#define LOGGING_DESTROY assert(!pthread_mutex_destroy(&log_mutex))
 
 #define LOGGING_LOCK	assert(!pthread_mutex_lock(&log_mutex))
 #define LOGGING_UNLOCK	assert(!pthread_mutex_unlock(&log_mutex))
