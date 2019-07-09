@@ -24,7 +24,7 @@ build() {
 	cd $pkgname-build
 
 	local _options=""
-	[ -e /opt/vc/include/IL/OMX_Core.h ] && _options="$_options WITH_OMX_ENCODER=1"
+	[ -e /opt/vc/include/IL/OMX_Core.h ] && _options="$_options WITH_OMX=1"
 	[ -e /usr/include/wiringPi.h ] && _options="$_options WITH_GPIO=1"
 
 	make $_options CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" $MAKEFLAGS

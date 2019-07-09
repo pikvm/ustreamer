@@ -110,7 +110,7 @@ static const struct option _LONG_OPTS[] = {
 
 static void _version(bool nl) {
 	printf(VERSION);
-#	ifdef WITH_OMX_ENCODER
+#	ifdef WITH_OMX
 	printf(" + OMX");
 #	endif
 	if (nl) {

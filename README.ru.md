@@ -32,7 +32,7 @@
 # Сборка
 Для сборки вам понадобятся ```make```, ```gcc```, ```libevent``` с поддержкой ```pthreads```, ```libjpeg8```/```libjpeg-turbo``` и ```libuuid```.
 
-На Raspberry Pi программу можно собрать с поддержкой OpenMAX IL. Для этого передайте ```make``` параметр ```WITH_OMX_ENCODER=1```. Для включения сборки с поддержкой GPIO установите [wiringPi](http://wiringpi.com) и добавьте параметр ```WITH_GPIO=1```.
+На Raspberry Pi программу можно собрать с поддержкой OpenMAX IL. Для этого передайте ```make``` параметр ```WITH_OMX=1```. Для включения сборки с поддержкой GPIO установите [wiringPi](http://wiringpi.com) и добавьте параметр ```WITH_GPIO=1```.
 
 ```
 $ git clone --depth=1 https://github.com/pi-kvm/ustreamer

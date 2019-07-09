@@ -29,7 +29,7 @@
 #include "tools.h"
 #include "device.h"
 
-#ifdef WITH_OMX_ENCODER
+#ifdef WITH_OMX
 #	include "encoders/omx/encoder.h"
 #	define ENCODER_TYPES_OMX_HINT ", OMX"
 #else
@@ -45,7 +45,7 @@ enum encoder_type_t {
 	ENCODER_TYPE_UNKNOWN, // Only for encoder_parse_type() and main()
 	ENCODER_TYPE_CPU,
 	ENCODER_TYPE_HW,
-#	ifdef WITH_OMX_ENCODER
+#	ifdef WITH_OMX
 	ENCODER_TYPE_OMX,
 #	endif
 };
@@ -56,7 +56,7 @@ struct encoder_runtime_t {
 	bool				cpu_forced;
 	pthread_mutex_t		mutex;
 
-#	ifdef WITH_OMX_ENCODER
+#	ifdef WITH_OMX
 	unsigned				n_omxs;
 	struct omx_encoder_t	**omxs;
 #	endif

@@ -32,7 +32,7 @@ If you're going to live-stream from your backyard webcam and need to control it,
 # Building
 You'll need  ```make```, ```gcc```, ```libevent``` with ```pthreads``` support, ```libjpeg8```/```libjpeg-turbo``` and ```libuuid```.
 
-On Raspberry Pi you can build the program with OpenMAX IL. To do this pass option ```WITH_OMX_ENCODER=1``` to ```make```. To enable GPIO support install [wiringPi](http://wiringpi.com) and pass option ```WITH_GPIO=1```.
+On Raspberry Pi you can build the program with OpenMAX IL. To do this pass option ```WITH_OMX=1``` to ```make```. To enable GPIO support install [wiringPi](http://wiringpi.com) and pass option ```WITH_GPIO=1```.
 
 ```
 $ git clone --depth=1 https://github.com/pi-kvm/ustreamer

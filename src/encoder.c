@@ -35,7 +35,7 @@
 #include "encoders/cpu/encoder.h"
 #include "encoders/hw/encoder.h"
 
-#ifdef WITH_OMX_ENCODER
+#ifdef WITH_OMX
 #	include "encoders/omx/encoder.h"
 #endif
 
@@ -46,7 +46,7 @@ static const struct {
 } _ENCODER_TYPES[] = {
 	{"CPU",	ENCODER_TYPE_CPU},
 	{"HW",	ENCODER_TYPE_HW},
-#	ifdef WITH_OMX_ENCODER
+#	ifdef WITH_OMX
 	{"OMX",	ENCODER_TYPE_OMX},
 #	endif
 };
@@ -69,7 +69,7 @@ struct encoder_t *encoder_init(void) {
 }
 
 void encoder_destroy(struct encoder_t *encoder) {
-#	ifdef WITH_OMX_ENCODER
+#	ifdef WITH_OMX
 	if (encoder->run->omxs) {
 		for (unsigned index = 0; index < encoder->run->n_omxs; ++index) {
 			if (encoder->run->omxs[index]) {
@@ -124,7 +124,7 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 
 		dev->run->n_workers = 1;
 	}
-#	ifdef WITH_OMX_ENCODER
+#	ifdef WITH_OMX
 	else if (type == ENCODER_TYPE_OMX) {
 		LOG_DEBUG("Preparing OMX JPEG encoder ...");
 
@@ -196,7 +196,7 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, uns
 	} else if (encoder->run->type == ENCODER_TYPE_HW) {
 		hw_encoder_compress_buffer(dev, buf_index);
 	}
-#	ifdef WITH_OMX_ENCODER
+#	ifdef WITH_OMX
 	else if (encoder->run->type == ENCODER_TYPE_OMX) {
 		if (omx_encoder_compress_buffer(encoder->run->omxs[worker_number], dev, buf_index) < 0) {
 			goto error;
