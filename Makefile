@@ -30,9 +30,9 @@ ifneq ($(call optbool,$(WITH_OMX_ENCODER)),)
 endif
 
 
-ifneq ($(call optbool,$(WITH_WORKERS_GPIO_DEBUG)),)
+ifneq ($(call optbool,$(WITH_GPIO)),)
 	LIBS += -lwiringPi
-	override CFLAGS += -DWITH_WORKERS_GPIO_DEBUG
+	override CFLAGS += -DWITH_GPIO
 endif
 
 

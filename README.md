@@ -16,6 +16,7 @@
 | Streaming via UNIX domain socket | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Debug logs without recompiling,<br>performance statistics log,<br>access to HTTP broadcast parameters | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Option to serve files<br>with a built-in HTTP server | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#ffaa00](https://placehold.it/15/ffaa00/000000?text=+) Regular files only |
+| Signaling about the stream state to GPIO<br>on Raspberry Pi using [wiringPi](http://wiringpi.com) | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Access to webcam controls (focus, servos)<br>and settings such as brightness via HTTP | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes |
 
 Footnotes:
@@ -31,7 +32,7 @@ If you're going to live-stream from your backyard webcam and need to control it,
 # Building
 You'll need  ```make```, ```gcc```, ```libevent``` with ```pthreads``` support, ```libjpeg8```/```libjpeg-turbo``` and ```libuuid```.
 
-On Raspberry Pi you can build the program with OpenMAX IL. To do this pass option ```WITH_OMX_ENCODER=1``` to ```make```.
+On Raspberry Pi you can build the program with OpenMAX IL. To do this pass option ```WITH_OMX_ENCODER=1``` to ```make```. To enable GPIO support install [wiringPi](http://wiringpi.com) and pass option ```WITH_GPIO=1```.
 
 ```
 $ git clone --depth=1 https://github.com/pi-kvm/ustreamer
@@ -40,7 +41,7 @@ $ make
 $ ./ustreamer --help
 ```
 
-AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer. It should compile automatically with OpenMAX IL on Raspberry Pi, if the corresponding headers are present in ```/opt/vc/include```.  
+AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer. It should compile automatically with OpenMAX IL on Raspberry Pi, if the corresponding headers are present in ```/opt/vc/include```. Same with GPIO.  
 FreeBSD port: https://www.freshports.org/multimedia/ustreamer.
 
 -----

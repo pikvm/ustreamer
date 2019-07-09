@@ -32,10 +32,6 @@
 
 #include <pthread.h>
 
-#ifdef WITH_WORKERS_GPIO_DEBUG
-#	include <wiringPi.h>
-#endif
-
 #include "config.h"
 #include "tools.h"
 #include "logging.h"
@@ -43,6 +39,9 @@
 #include "encoder.h"
 #include "stream.h"
 #include "http/server.h"
+#ifdef WITH_GPIO
+#	include "gpio.h"
+#endif
 
 
 static const char _SHORT_OPTS[] = "d:i:x:y:m:a:f:z:ntb:w:q:c:s:p:u:ro:k:e:lhv";
@@ -92,6 +91,13 @@ static const struct option _LONG_OPTS[] = {
 	{"fake-width",				required_argument,	NULL,	3003},
 	{"fake-height",				required_argument,	NULL,	3004},
 	{"server-timeout",			required_argument,	NULL,	3005},
+
+#ifdef WITH_GPIO
+	{"gpio-prog-running",		required_argument,	NULL,	4000},
+	{"gpio-stream-online",		required_argument,	NULL,	4001},
+	{"gpio-has-http-clients",	required_argument,	NULL,	4002},
+	{"gpio-workers-busy-at",	required_argument,	NULL,	4003},
+#endif
 
 	{"perf",					no_argument,		NULL,	5000},
 	{"verbose",					no_argument,		NULL,	5001},
@@ -183,6 +189,15 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --fake-width <N>  ─────────── Override image width for /state. Default: disabled.\n\n");
 	printf("    --fake-height <N>  ────────── Override image height for /state. Default: disabled.\n\n");
 	printf("    --server-timeout <seconds>  ─ Timeout for client connections. Default: %u.\n\n", server->timeout);
+#ifdef WITH_GPIO
+	printf("GPIO options:\n");
+	printf("═════════════\n");
+	printf("    --gpio-prog-running <pin>  ───── Set 1 on GPIO pin while uStreamer is running. Default: disabled.\n\n");
+	printf("    --gpio-stream-online <pin>  ──── Set 1 while streaming. Default: disabled\n\n");
+	printf("    --gpio-has-http-clients <pin>  ─ Set 1 while stream has at least one client. Default: disabled.\n\n");
+	printf("    --gpio-workers-busy-at <pin>  ── Set 1 on (pin + N) while worker with number N has a job.\n");
+	printf("                                     The workers numbering starts from zero. Default: disabled\n\n");
+#endif
 	printf("Misc options:\n");
 	printf("═════════════\n");
 	printf("    --log-level <N>  ─ Verbosity level of messages from 0 (info) to 3 (debug).\n");
@@ -299,6 +314,13 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 3004:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
 			case 3005:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
 
+#			ifdef WITH_GPIO
+			case 4000:	OPT_UNSIGNED(gpio_pin_prog_running, "--gpio-prog-running", 0, 256);
+			case 4001:	OPT_UNSIGNED(gpio_pin_stream_online, "--gpio-stream-online", 0, 256);
+			case 4002:	OPT_UNSIGNED(gpio_pin_has_http_clients, "--gpio-has-http-clients", 0, 256);
+			case 4003:	OPT_UNSIGNED(gpio_pin_workers_busy_at, "--gpio-workers-busy-at", 0, 256);
+#			endif
+
 			case 5000:	OPT_SET(log_level, LOG_LEVEL_PERF);
 			case 5001:	OPT_SET(log_level, LOG_LEVEL_VERBOSE);
 			case 5002:	OPT_SET(log_level, LOG_LEVEL_DEBUG);
@@ -381,13 +403,8 @@ int main(int argc, char *argv[]) {
 
 	LOGGING_INIT;
 
-#	ifdef WITH_WORKERS_GPIO_DEBUG
-	if (wiringPiSetupGpio() < 0) {
-		LOG_PERROR("Can't initialize wiringPi GPIO");
-		return 1;
-	} else {
-		LOG_INFO("Using wiringPi to debug using GPIO");
-	}
+#	ifdef WITH_GPIO
+	GPIO_INIT;
 #	endif
 
 	dev = device_init();
@@ -396,6 +413,10 @@ int main(int argc, char *argv[]) {
 	server = http_server_init(stream);
 
 	if ((exit_code = _parse_options(argc, argv, dev, encoder, server)) == 0) {
+#		ifdef WITH_GPIO
+		GPIO_INIT_PINOUT;
+#		endif
+
 		_install_signal_handlers();
 
 		pthread_t stream_loop_tid;
@@ -407,6 +428,10 @@ int main(int argc, char *argv[]) {
 		_ctx = &ctx;
 
 		if ((exit_code = http_server_listen(server)) == 0) {
+#			ifdef WITH_GPIO
+			GPIO_SET_HIGH(prog_running);
+#			endif
+
 			A_THREAD_CREATE(&stream_loop_tid, _stream_loop_thread, NULL);
 			A_THREAD_CREATE(&server_loop_tid, _server_loop_thread, NULL);
 			A_THREAD_JOIN(server_loop_tid);
@@ -418,6 +443,10 @@ int main(int argc, char *argv[]) {
 	stream_destroy(stream);
 	encoder_destroy(encoder);
 	device_destroy(dev);
+
+#	ifdef WITH_GPIO
+	GPIO_SET_LOW(prog_running);
+#	endif
 
 	LOGGING_DESTROY;
 	return (exit_code < 0 ? 1 : 0);

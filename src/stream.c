@@ -38,12 +38,8 @@
 #include "xioctl.h"
 #include "device.h"
 #include "encoder.h"
-
-#ifdef WITH_WORKERS_GPIO_DEBUG
-#	include <wiringPi.h>
-#	ifndef WORKERS_GPIO_DEBUG_START_PIN
-#		define WORKERS_GPIO_DEBUG_START_PIN 5
-#	endif
+#ifdef WITH_GPIO
+#	include "gpio.h"
 #endif
 
 
@@ -99,7 +95,7 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index, 
 static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream);
 static void _workers_pool_destroy(struct _workers_pool_t *pool);
 
-static void *__worker_thread(void *v_worker);
+static void *_worker_thread(void *v_worker);
 
 static struct _worker_t *_workers_pool_wait(struct _workers_pool_t *pool);
 static void _workers_pool_assign(struct _workers_pool_t *pool, struct _worker_t *ready_worker, unsigned buf_index);
@@ -187,11 +183,16 @@ void stream_loop(struct stream_t *stream) {
 				}
 
 			} else if (selected == 0) {
+#				ifdef WITH_GPIO
+				GPIO_SET_LOW(stream_online);
+#				endif
+
 				if (stream->dev->persistent) {
 					if (!persistent_timeout_reported) {
 						LOG_ERROR("Mainloop select() timeout, polling ...")
 						persistent_timeout_reported = true;
 					}
+
 					continue;
 				} else {
 					LOG_ERROR("Mainloop select() timeout");
@@ -203,6 +204,10 @@ void stream_loop(struct stream_t *stream) {
 
 				if (has_read) {
 					LOG_DEBUG("Frame is ready");
+
+#					ifdef WITH_GPIO
+					GPIO_SET_HIGH(stream_online);
+#					endif
 
 					int buf_index;
 					long double now = get_now_monotonic();
@@ -283,6 +288,10 @@ void stream_loop(struct stream_t *stream) {
 		_workers_pool_destroy(pool);
 		device_switch_capturing(stream->dev, false);
 		device_close(stream->dev);
+
+#		ifdef WITH_GPIO
+		GPIO_SET_LOW(stream_online);
+#		endif
 	}
 }
 
@@ -389,7 +398,7 @@ static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
 		WORKER(dev) = stream->dev;
 		WORKER(encoder) = stream->encoder;
 
-		A_THREAD_CREATE(&WORKER(tid), __worker_thread, (void *)&(pool->workers[number]));
+		A_THREAD_CREATE(&WORKER(tid), _worker_thread, (void *)&(pool->workers[number]));
 
 		pool->free_workers += 1;
 
@@ -424,25 +433,21 @@ static void _workers_pool_destroy(struct _workers_pool_t *pool) {
 	free(pool);
 }
 
-static void *__worker_thread(void *v_worker) {
+static void *_worker_thread(void *v_worker) {
 	struct _worker_t *worker = (struct _worker_t *)v_worker;
 
 	LOG_DEBUG("Hello! I am a worker #%u ^_^", worker->number);
 
-#	ifdef WITH_WORKERS_GPIO_DEBUG
-#		define WORKER_GPIO_DEBUG_BUSY digitalWrite(WORKERS_GPIO_DEBUG_START_PIN + worker->number, HIGH)
-#		define WORKER_GPIO_DEBUG_FREE digitalWrite(WORKERS_GPIO_DEBUG_START_PIN + worker->number, LOW)
-	pinMode(WORKERS_GPIO_DEBUG_START_PIN + worker->number, OUTPUT);
-	WORKER_GPIO_DEBUG_FREE;
-#	else
-#		define WORKER_GPIO_DEBUG_BUSY
-#		define WORKER_GPIO_DEBUG_FREE
+#	ifdef WITH_GPIO
+	GPIO_INIT_PIN(workers_busy_at, worker->number);
 #	endif
 
 	while (!atomic_load(worker->proc_stop) && !atomic_load(worker->workers_stop)) {
 		LOG_DEBUG("Worker %u waiting for a new job ...", worker->number);
 
-		WORKER_GPIO_DEBUG_FREE;
+#		ifdef WITH_GPIO
+		GPIO_SET_LOW_AT(workers_busy_at, worker->number);
+#		endif
 
 		A_MUTEX_LOCK(&worker->has_job_mutex);
 		A_COND_WAIT_TRUE(atomic_load(&worker->has_job), &worker->has_job_cond, &worker->has_job_mutex);
@@ -453,7 +458,9 @@ static void *__worker_thread(void *v_worker) {
 
 			LOG_DEBUG("Worker %u compressing JPEG from buffer %u ...", worker->number, worker->buf_index);
 
-			WORKER_GPIO_DEBUG_BUSY;
+#			ifdef WITH_GPIO
+			GPIO_SET_HIGH_AT(workers_busy_at, worker->number);
+#			endif
 
 			if (encoder_compress_buffer(worker->encoder, worker->dev, worker->number, worker->buf_index) < 0) {
 				worker->job_failed = false;
@@ -482,7 +489,9 @@ static void *__worker_thread(void *v_worker) {
 	}
 
 	LOG_DEBUG("Bye-bye (worker %u)", worker->number);
-	WORKER_GPIO_DEBUG_FREE;
+#	ifdef WITH_GPIO
+	GPIO_SET_LOW_AT(workers_busy_at, worker->number);
+#	endif
 	return NULL;
 }
 

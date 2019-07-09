@@ -16,6 +16,7 @@
 | Стрим через UNIX domain socket | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Есть | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) Нет |
 | Дебаг-логи без перекомпиляции,<br>логгирование статистики производительности,<br>возможность получения параметров<br>трансляции по HTTP | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Есть | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) Нет |
 | Возможность сервить файлы встроенным<br>HTTP-сервером  | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Есть | ![#ffaa00](https://placehold.it/15/ffaa00/000000?text=+) Нет каталогов |
+| Вывод сигналов о состоянии стрима на GPIO<br>на Raspberry Pi с помощью [wiringPi](http://wiringpi.com) | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Есть | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) Нет |
 | Поддержка контролов веб-камер (фокус,<br> движение сервами) и всяких настроек,<br> типа яркости, через HTTP | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) Нет | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Есть |
 
 Сносочки:
@@ -31,7 +32,7 @@
 # Сборка
 Для сборки вам понадобятся ```make```, ```gcc```, ```libevent``` с поддержкой ```pthreads```, ```libjpeg8```/```libjpeg-turbo``` и ```libuuid```.
 
-На Raspberry Pi программу можно собрать с поддержкой OpenMAX IL. Для этого передайте ```make``` параметр ```WITH_OMX_ENCODER=1```.
+На Raspberry Pi программу можно собрать с поддержкой OpenMAX IL. Для этого передайте ```make``` параметр ```WITH_OMX_ENCODER=1```. Для включения сборки с поддержкой GPIO установите [wiringPi](http://wiringpi.com) и добавьте параметр ```WITH_GPIO=1```.
 
 ```
 $ git clone --depth=1 https://github.com/pi-kvm/ustreamer
@@ -40,7 +41,7 @@ $ make
 $ ./ustreamer --help
 ```
 
-Для Arch Linux в AUR есть готовый пакет: https://aur.archlinux.org/packages/ustreamer. На Raspberry Pi програма автоматически собирается с поддержкой OpenMAX IL, если обнаружит нужные хедеры в ```/opt/vc/include```.  
+Для Arch Linux в AUR есть готовый пакет: https://aur.archlinux.org/packages/ustreamer. На Raspberry Pi програма автоматически собирается с поддержкой OpenMAX IL, если обнаружит нужные хедеры в ```/opt/vc/include```. То же самое и с GPIO.  
 Порт для FreeBSD: https://www.freshports.org/multimedia/ustreamer.
 
 -----

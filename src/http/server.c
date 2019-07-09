@@ -53,6 +53,9 @@
 #include "../logging.h"
 #include "../encoder.h"
 #include "../stream.h"
+#ifdef WITH_GPIO
+#	include "../gpio.h"
+#endif
 
 #include "blank.h"
 #include "base64.h"
@@ -564,8 +567,14 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		}
 		server->run->stream_clients_count += 1;
 
-		if (server->slowdown && server->run->stream_clients_count == 1) {
-			stream_switch_slowdown(server->run->stream, false);
+		if (server->run->stream_clients_count == 1) {
+			if (server->slowdown) {
+				stream_switch_slowdown(server->run->stream, false);
+			}
+
+#			ifdef WITH_GPIO
+			GPIO_SET_HIGH(has_http_clients);
+#			endif
 		}
 
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
@@ -717,8 +726,15 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 #	define RUN(_next) client->server->run->_next
 
 	RUN(stream_clients_count) -= 1;
-	if (client->server->slowdown && RUN(stream_clients_count) <= 0) {
-		stream_switch_slowdown(RUN(stream), true);
+
+	if (RUN(stream_clients_count) <= 0) {
+		if (client->server->slowdown) {
+			stream_switch_slowdown(RUN(stream), true);
+		}
+
+#		ifdef WITH_GPIO
+		GPIO_SET_LOW(has_http_clients);
+#		endif
 	}
 
 	conn = evhttp_request_get_connection(client->request);

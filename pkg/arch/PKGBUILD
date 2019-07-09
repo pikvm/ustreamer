@@ -11,6 +11,7 @@ license=(GPL)
 arch=(i686 x86_64 armv6h armv7h)
 depends=(libjpeg libevent libutil-linux)
 # optional: raspberrypi-firmware for OMX JPEG encoder
+# optional: wiringpi for GPIO support
 makedepends=(gcc make)
 source=(${pkgname}::"git+https://github.com/pi-kvm/ustreamer#commit=v${pkgver}")
 md5sums=(SKIP)
@@ -23,7 +24,8 @@ build() {
 	cd $pkgname-build
 
 	local _options=""
-	[ -d /opt/vc/include ] && _options="$_options WITH_OMX_ENCODER=1"
+	[ -e /opt/vc/include/IL/OMX_Core.h ] && _options="$_options WITH_OMX_ENCODER=1"
+	[ -e /usr/include/wiringPi.h ] && _options="$_options WITH_GPIO=1"
 
 	make $_options CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" $MAKEFLAGS
 }
