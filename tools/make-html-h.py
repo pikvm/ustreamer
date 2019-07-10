@@ -35,18 +35,19 @@ def main() -> None:
     name = sys.argv[3]
 
     with open(html_path, "r") as html_file:
-        text = html_file.read()
+        html = html_file.read()
 
-    text = text.strip()
-    text = text.replace("\"", "\\\"")
-    text = text.replace("%VERSION%", "\" VERSION \"")
-    text = textwrap.indent(text, "\t", (lambda line: True))
-    text = "\n".join(
+    html = html.strip()
+    html = html.replace("\"", "\\\"")
+    html = html.replace("%VERSION%", "\" VERSION \"")
+    html = textwrap.indent(html, "\t", (lambda line: True))
+    html = "\n".join(
         (f"{line} \\" if line.strip() else f"{line}\\")
-        for line in text.split("\n")
+        for line in html.split("\n")
     )
-    text = f"const char HTML_{name}_PAGE[] = \" \\\n{text}\n\";\n"
-    text = f"{common.C_PREPEND}\n#include \"../../config.h\"\n\n\n{text}"
+
+    text = f"{common.C_PREPEND}\n#include \"../../config.h\"\n\n\n"
+    text += f"const char HTML_{name}_PAGE[] = \" \\\n{html}\n\";\n"
 
     with open(header_path, "w") as header_file:
         header_file.write(text)

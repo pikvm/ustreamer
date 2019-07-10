@@ -70,17 +70,18 @@ def main() -> None:
 
     (width, height) = _get_jpeg_size(jpeg_data)
 
-    rows: List[List[str]] = [[]]
-    for ch in jpeg_data:
-        if len(rows[-1]) > 20:
-            rows.append([])
-        rows[-1].append(f"0x{ch:02X}")
+    jpeg_data_text = "{\n\t" + ",\n\t".join(
+        ", ".join(
+            f"0x{ch:02X}"
+            for ch in jpeg_data[index:index + 20]
+        )
+        for index in range(0, len(jpeg_data), 20)
+    ) + ",\n}"
 
-    text = ",\n\t".join(", ".join(row) for row in rows)
-    text = f"const unsigned char {name}_JPEG_DATA[] = {{\n\t{text}\n}};\n"
-    text = f"const unsigned {name}_JPEG_HEIGHT = {height};\n\n{text}"
-    text = f"const unsigned {name}_JPEG_WIDTH = {width};\n{text}"
-    text = f"{common.C_PREPEND}\n\n{text}"
+    text = f"{common.C_PREPEND}\n\n"
+    text += f"const unsigned {name}_JPEG_WIDTH = {width};\n"
+    text += f"const unsigned {name}_JPEG_HEIGHT = {height};\n\n"
+    text += f"const unsigned char {name}_JPEG_DATA[] = {jpeg_data_text};\n"
 
     with open(header_path, "w") as header_file:
         header_file.write(text)
