@@ -22,8 +22,7 @@ start_instance() {
 	options="$options --device-timeout='`getcfg device_timeout 5`'"
 	options="$options --input='`getcfg input 0`'"
 
-	options="$options --width='`getcfg width 640`'"
-	options="$options --height='`getcfg height 480`'"
+	options="$options --resolution='`getcfg resolution 640x480`'"
 	options="$options --format='`getcfg format YUYV`'"
 	options="$options --quality='`getcfg quality 80`'"
 	options="$options --desired-fps='`getcfg desired_fps 0`'"

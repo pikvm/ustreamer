@@ -44,10 +44,11 @@
 #endif
 
 
-static const char _SHORT_OPTS[] = "d:i:x:y:m:a:f:z:ntb:w:q:c:s:p:u:ro:k:e:lhv";
+static const char _SHORT_OPTS[] = "d:i:r:x:y:m:a:f:z:ntb:w:q:c:s:p:U:DM:k:e:lR:hv";
 static const struct option _LONG_OPTS[] = {
 	{"device",					required_argument,	NULL,	'd'},
 	{"input",					required_argument,	NULL,	'i'},
+	{"resolution",				required_argument,	NULL,	'r'},
 	{"width",					required_argument,	NULL,	'x'},
 	{"height",					required_argument,	NULL,	'y'},
 	{"format",					required_argument,	NULL,	'm'},
@@ -79,15 +80,16 @@ static const struct option _LONG_OPTS[] = {
 
 	{"host",					required_argument,	NULL,	's'},
 	{"port",					required_argument,	NULL,	'p'},
-	{"unix",					required_argument,	NULL,	'u'},
-	{"unix-rm",					no_argument,		NULL,	'r'},
-	{"unix-mode",				required_argument,	NULL,	'o'},
+	{"unix",					required_argument,	NULL,	'U'},
+	{"unix-rm",					no_argument,		NULL,	'D'},
+	{"unix-mode",				required_argument,	NULL,	'M'},
 	{"user",					required_argument,	NULL,	3000},
 	{"passwd",					required_argument,	NULL,	3001},
 	{"static",					required_argument,	NULL,	3002},
 	{"blank",					required_argument,	NULL,	'k'},
 	{"drop-same-frames",		required_argument,	NULL,	'e'},
 	{"slowdown",				no_argument,		NULL,	'l'},
+	{"fake-resolution",			required_argument,	NULL,	'R'},
 	{"fake-width",				required_argument,	NULL,	3003},
 	{"fake-height",				required_argument,	NULL,	3004},
 	{"server-timeout",			required_argument,	NULL,	3005},
@@ -129,25 +131,24 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("══════════════════\n");
 	printf("    -d|--device </dev/path>  ──────── Path to V4L2 device. Default: %s.\n\n", dev->path);
 	printf("    -i|--input <N>  ───────────────── Input channel. Default: %u.\n\n", dev->input);
-	printf("    -x|--width <N>  ───────────────── Initial image width. Default: %u.\n\n", dev->width);
-	printf("    -y|--height <N>  ──────────────── Initial image height. Default: %u.\n\n", dev->height);
+	printf("    -r|--resolution <WxH>  ────────── Initial image resolution. Default: %ux%u.\n\n", dev->width, dev->height);
 	printf("    -m|--format <fmt>  ────────────── Image format.\n");
 	printf("                                      Available: %s; default: YUYV.\n\n", FORMATS_STR);
 	printf("    -a|--tv-standard <std>  ───────── Force TV standard.\n");
 	printf("                                      Available: %s; default: disabled.\n\n", STANDARDS_STR);
-	printf("    -f|--desired-fps <N>  ─────────── Desired FPS. Default: maximum as possible.\n\n");
+	printf("    -f|--desired-fps <N>  ─────────── Desired FPS. Default: maximum possible.\n\n");
 	printf("    -z|--min-frame-size <N>  ──────── Drop frames smaller then this limit. Useful if the device\n");
 	printf("                                      produces small-sized garbage frames. Default: disabled.\n\n");
 	printf("    -n|--persistent  ──────────────── Don't re-initialize device on timeout. Default: disabled.\n\n");
-	printf("    -t|--dv-timings  ──────────────── Enable DV timings queriyng and events processing\n");
+	printf("    -t|--dv-timings  ──────────────── Enable DV timings querying and events processing\n");
 	printf("                                      to automatic resolution change. Default: disabled.\n\n");
 	printf("    -b|--buffers <N>  ─────────────── The number of buffers to receive data from the device.\n");
-	printf("                                      Each buffer may processed using an intermediate thread.\n");
+	printf("                                      Each buffer may processed using an independent thread.\n");
 	printf("                                      Default: %u (the number of CPU cores (but not more than 4) + 1).\n\n", dev->n_buffers);
 	printf("    -w|--workers <N>  ─────────────── The number of worker threads but not more than buffers.\n");
 	printf("                                      Default: %u (the number of CPU cores (but not more than 4)).\n\n", dev->n_workers);
 	printf("    -q|--quality <N>  ─────────────── Set quality of JPEG encoding from 1 to 100 (best). Default: %u.\n\n", encoder->quality);
-	printf("    -c|--encoder <type>  ──────────── Use specified encoder. It may affects to workers number.\n");
+	printf("    -c|--encoder <type>  ──────────── Use specified encoder. It may affect the number of workers.\n");
 	printf("                                      Available: %s; default: CPU.\n\n", ENCODER_TYPES_STR);
 	printf("    --device-timeout <seconds>  ───── Timeout for device querying. Default: %u.\n\n", dev->timeout);
 	printf("    --device-error-delay <seconds>  ─ Delay before trying to connect to the device again\n");
@@ -171,23 +172,22 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("════════════════════\n");
 	printf("    -s|--host <address>  ──────── Listen on Hostname or IP. Default: %s.\n\n", server->host);
 	printf("    -p|--port <N>  ────────────── Bind to this TCP port. Default: %u.\n\n", server->port);
-	printf("    -u|--unix <path>  ─────────── Bind to UNIX domain socket. Default: disabled.\n\n");
-	printf("    -r|--unix-rm  ─────────────── Try to remove old UNIX socket file before binding. Default: disabled.\n\n");
-	printf("    -o|--unix-mode <mode>  ────── Set UNIX socket file permissions (like 777). Default: disabled.\n\n");
+	printf("    -U|--unix <path>  ─────────── Bind to UNIX domain socket. Default: disabled.\n\n");
+	printf("    -D|--unix-rm  ─────────────── Try to remove old UNIX socket file before binding. Default: disabled.\n\n");
+	printf("    -M|--unix-mode <mode>  ────── Set UNIX socket file permissions (like 777). Default: disabled.\n\n");
 	printf("    --user <name>  ────────────── HTTP basic auth user. Default: disabled.\n\n");
 	printf("    --passwd <str>  ───────────── HTTP basic auth passwd. Default: empty.\n\n");
 	printf("    --static <path> ───────────── Path to dir with static files instead of embedded root index page.\n");
 	printf("                                  Symlinks are not supported for security reasons. Default: disabled.\n\n");
 	printf("    -k|--blank <path> ─────────── Path to JPEG file that will be shown when the device is disconnected\n");
 	printf("                                  during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.\n\n");
-	printf("    -e|--drop-same-frames <N>  ── Don't send same frames to clients, but no more than specified number.\n");
+	printf("    -e|--drop-same-frames <N>  ── Don't send identical frames to clients, but no more than specified number.\n");
 	printf("                                  It can significantly reduce the outgoing traffic, but will increase\n");
 	printf("                                  the CPU loading. Don't use this option with analog signal sources\n");
 	printf("                                  or webcams, it's useless. Default: disabled.\n\n");
-	printf("    -l|--slowdown  ────────────── Slowdown capturing to 1 FPS or less when no stream clients connected.\n");
+	printf("    -l|--slowdown  ────────────── Slowdown capturing to 1 FPS or less when no stream clients are connected.\n");
 	printf("                                  Useful to reduce CPU consumption. Default: disabled.\n\n");
-	printf("    --fake-width <N>  ─────────── Override image width for /state. Default: disabled.\n\n");
-	printf("    --fake-height <N>  ────────── Override image height for /state. Default: disabled.\n\n");
+	printf("    -R|--fake-resolution <WxH>  ─ Override image resolution for state. Default: disabled.\n\n");
 	printf("    --server-timeout <seconds>  ─ Timeout for client connections. Default: %u.\n\n", server->timeout);
 #ifdef WITH_GPIO
 	printf("GPIO options:\n");
@@ -196,13 +196,13 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --gpio-stream-online <pin>  ──── Set 1 while streaming. Default: disabled\n\n");
 	printf("    --gpio-has-http-clients <pin>  ─ Set 1 while stream has at least one client. Default: disabled.\n\n");
 	printf("    --gpio-workers-busy-at <pin>  ── Set 1 on (pin + N) while worker with number N has a job.\n");
-	printf("                                     The workers numbering starts from zero. Default: disabled\n\n");
+	printf("                                     The worker's numbering starts from 0. Default: disabled\n\n");
 #endif
 	printf("Misc options:\n");
 	printf("═════════════\n");
 	printf("    --log-level <N>  ─ Verbosity level of messages from 0 (info) to 3 (debug).\n");
 	printf("                       Enabling debugging messages can slow down the program.\n");
-	printf("                       Available levels: 0=info, 1=performance, 2=verbose, 3=debug.\n");
+	printf("                       Available levels: 0 (info), 1 (performance), 2 (verbose), 3 (debug).\n");
 	printf("                       Default: %u.\n\n", log_level);
 	printf("    --perf  ────────── Enable performance messages (same as --log-level=1). Default: disabled.\n\n");
 	printf("    --verbose  ─────── Enable verbose messages and lower (same as --log-level=2). Default: disabled.\n\n");
@@ -222,6 +222,30 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 				return -1; \
 			} \
 			_dest = _tmp; \
+			break; \
+		}
+
+#	define OPT_RESOLUTION_OBSOLETE(_dest, _name, _replace, _min, _max) { \
+			printf("\n=== WARNING! The option '%s' is obsolete; use '%s' instead it ===\n\n", _name, _replace); \
+			OPT_UNSIGNED(_dest, _name, _min, _max); \
+		}
+
+#	define OPT_RESOLUTION(_dest_width, _dest_height, _name, _min_width, _min_height) { \
+			int _tmp_width, _tmp_height; \
+			if (sscanf(optarg, "%dx%d", &_tmp_width, &_tmp_height) != 2) { \
+				printf("Invalid value for '%s=%s'\n", _name, optarg); \
+				return -1; \
+			} \
+			if (_tmp_width < _min_width || _tmp_width > VIDEO_MAX_WIDTH) { \
+				printf("Invalid width of '%s=%s': min=%u, max=%u\n", _name, optarg, _min_width, VIDEO_MAX_WIDTH); \
+				return -1; \
+			} \
+			if (_tmp_height < _min_height || _tmp_height > VIDEO_MAX_HEIGHT) { \
+				printf("Invalid height of '%s=%s': min=%u, max=%u\n", _name, optarg, _min_height, VIDEO_MAX_HEIGHT); \
+				return -1; \
+			} \
+			_dest_width = _tmp_width; \
+			_dest_height = _tmp_height; \
 			break; \
 		}
 
@@ -267,8 +291,9 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 		switch (ch) {
 			case 'd':	OPT_SET(dev->path, optarg);
 			case 'i':	OPT_UNSIGNED(dev->input, "--input", 0, 128);
-			case 'x':	OPT_UNSIGNED(dev->width, "--width", VIDEO_MIN_WIDTH, VIDEO_MAX_WIDTH);
-			case 'y':	OPT_UNSIGNED(dev->height, "--height", VIDEO_MIN_HEIGHT, VIDEO_MAX_HEIGHT);
+			case 'r':	OPT_RESOLUTION(dev->width, dev->height, "--resolution", VIDEO_MIN_WIDTH, VIDEO_MIN_HEIGHT);
+			case 'x':	OPT_RESOLUTION_OBSOLETE(dev->width, "--width", "--resolution", VIDEO_MIN_WIDTH, VIDEO_MAX_WIDTH);
+			case 'y':	OPT_RESOLUTION_OBSOLETE(dev->height, "--height", "--resolution", VIDEO_MIN_HEIGHT, VIDEO_MAX_HEIGHT);
 #			pragma GCC diagnostic ignored "-Wsign-compare"
 #			pragma GCC diagnostic push
 			case 'm':	OPT_PARSE(dev->format, device_parse_format, FORMAT_UNKNOWN, "pixel format");
@@ -301,17 +326,18 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 
 			case 's':	OPT_SET(server->host, optarg);
 			case 'p':	OPT_UNSIGNED(server->port, "--port", 1, 65535);
-			case 'u':	OPT_SET(server->unix_path, optarg);
-			case 'r':	OPT_SET(server->unix_rm, true);
-			case 'o':	OPT_CHMOD(server->unix_mode, "--unix-mode");
+			case 'U':	OPT_SET(server->unix_path, optarg);
+			case 'D':	OPT_SET(server->unix_rm, true);
+			case 'M':	OPT_CHMOD(server->unix_mode, "--unix-mode");
 			case 3000:	OPT_SET(server->user, optarg);
 			case 3001:	OPT_SET(server->passwd, optarg);
 			case 3002:	OPT_SET(server->static_path, optarg);
 			case 'k':	OPT_SET(server->blank_path, optarg);
 			case 'e':	OPT_UNSIGNED(server->drop_same_frames, "--drop-same-frames", 0, 30);
 			case 'l':	OPT_SET(server->slowdown, true);
-			case 3003:	OPT_UNSIGNED(server->fake_width, "--fake-width", 0, 1920);
-			case 3004:	OPT_UNSIGNED(server->fake_height, "--fake-height", 0, 1200);
+			case 'R':	OPT_RESOLUTION(server->fake_width, server->fake_height, "--fake-resolution", 0, 0);
+			case 3003:	OPT_RESOLUTION_OBSOLETE(server->fake_width, "--fake-width", "--fake-resolution", 0, VIDEO_MAX_WIDTH);
+			case 3004:	OPT_RESOLUTION_OBSOLETE(server->fake_height, "--fake-height", "--fake-resolution", 0, VIDEO_MAX_HEIGHT);
 			case 3005:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
 
 #			ifdef WITH_GPIO
@@ -337,6 +363,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 #	undef OPT_CHMOD
 #	undef OPT_INT
 #	undef OPT_PARSE
+#	undef OPT_RESOLUTION
 #	undef OPT_UNSIGNED
 #	undef OPT_SET
 	return 0;
