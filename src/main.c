@@ -27,6 +27,7 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <limits.h>
 #include <signal.h>
 #include <getopt.h>
 
@@ -212,11 +213,13 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 }
 
 static int _parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server) {
-#	define OPT_SET(_dest, _value) \
-		{ _dest = _value; break; }
+#	define OPT_SET(_dest, _value) { \
+			_dest = _value; \
+			break; \
+		}
 
-#	define OPT_UNSIGNED(_dest, _name, _min, _max) { \
-			errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, 0); \
+#	define OPT_NUMBER(_name, _dest, _min, _max, _base) { \
+			errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, _base); \
 			if (errno || *_end || _tmp < _min || _tmp > _max) { \
 				printf("Invalid value for '%s=%s': min=%u, max=%u\n", _name, optarg, _min, _max); \
 				return -1; \
@@ -225,12 +228,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			break; \
 		}
 
-#	define OPT_RESOLUTION_OBSOLETE(_dest, _name, _replace, _min, _max) { \
-			printf("\n=== WARNING! The option '%s' is obsolete; use '%s' instead it ===\n\n", _name, _replace); \
-			OPT_UNSIGNED(_dest, _name, _min, _max); \
-		}
-
-#	define OPT_RESOLUTION(_dest_width, _dest_height, _name, _min_width, _min_height) { \
+#	define OPT_RESOLUTION(_name, _dest_width, _dest_height, _min_width, _min_height) { \
 			int _tmp_width, _tmp_height; \
 			if (sscanf(optarg, "%dx%d", &_tmp_width, &_tmp_height) != 2) { \
 				printf("Invalid value for '%s=%s'\n", _name, optarg); \
@@ -249,7 +247,12 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			break; \
 		}
 
-#	define OPT_PARSE(_dest, _func, _invalid, _name) { \
+#	define OPT_RESOLUTION_OBSOLETE(_name, _replace, _dest, _min, _max) { \
+			printf("\n=== WARNING! The option '%s' is obsolete; use '%s' instead it ===\n\n", _name, _replace); \
+			OPT_NUMBER(_name, _dest, _min, _max, 0); \
+		}
+
+#	define OPT_PARSE(_name, _dest, _func, _invalid) { \
 			if ((_dest = _func(optarg)) == _invalid) { \
 				printf("Unknown " _name ": %s\n", optarg); \
 				return -1; \
@@ -257,23 +260,10 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			break; \
 		}
 
-#	define OPT_INT(_dest, _name, _base) { \
-			errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, _base); \
-			if (errno || *_end) { \
-				printf("Invalid value for '%s=%s'\n", _name, optarg); \
-				return -1; \
-			} \
-			_dest = _tmp; \
-			break; \
-		}
-
-#	define OPT_CHMOD(_dest, _name) \
-		OPT_INT(_dest, _name, 8)
-
 #	define OPT_CTL(_dest) { \
 			dev->ctl->_dest.value_set = true; \
 			dev->ctl->_dest.auto_set = false; \
-			OPT_INT(dev->ctl->_dest.value, "--"#_dest, 10); \
+			OPT_NUMBER("--"#_dest, dev->ctl->_dest.value, INT_MIN, INT_MAX, 0); \
 			break; \
 		}
 
@@ -290,25 +280,25 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 	while ((ch = getopt_long(argc, argv, _SHORT_OPTS, _LONG_OPTS, &index)) >= 0) {
 		switch (ch) {
 			case 'd':	OPT_SET(dev->path, optarg);
-			case 'i':	OPT_UNSIGNED(dev->input, "--input", 0, 128);
-			case 'r':	OPT_RESOLUTION(dev->width, dev->height, "--resolution", VIDEO_MIN_WIDTH, VIDEO_MIN_HEIGHT);
-			case 'x':	OPT_RESOLUTION_OBSOLETE(dev->width, "--width", "--resolution", VIDEO_MIN_WIDTH, VIDEO_MAX_WIDTH);
-			case 'y':	OPT_RESOLUTION_OBSOLETE(dev->height, "--height", "--resolution", VIDEO_MIN_HEIGHT, VIDEO_MAX_HEIGHT);
+			case 'i':	OPT_NUMBER("--input", dev->input, 0, 128, 0);
+			case 'r':	OPT_RESOLUTION("--resolution", dev->width, dev->height, VIDEO_MIN_WIDTH, VIDEO_MIN_HEIGHT);
+			case 'x':	OPT_RESOLUTION_OBSOLETE("--width", "--resolution", dev->width, VIDEO_MIN_WIDTH, VIDEO_MAX_WIDTH);
+			case 'y':	OPT_RESOLUTION_OBSOLETE("--height", "--resolution", dev->height, VIDEO_MIN_HEIGHT, VIDEO_MAX_HEIGHT);
 #			pragma GCC diagnostic ignored "-Wsign-compare"
 #			pragma GCC diagnostic push
-			case 'm':	OPT_PARSE(dev->format, device_parse_format, FORMAT_UNKNOWN, "pixel format");
+			case 'm':	OPT_PARSE("pixel format", dev->format, device_parse_format, FORMAT_UNKNOWN);
 #			pragma GCC diagnostic pop
-			case 'a':	OPT_PARSE(dev->standard, device_parse_standard, STANDARD_UNKNOWN, "TV standard");
-			case 'f':	OPT_UNSIGNED(dev->desired_fps, "--desired-fps", 0, 30);
-			case 'z':	OPT_UNSIGNED(dev->min_frame_size, "--min-frame-size", 0, 8192);
+			case 'a':	OPT_PARSE("TV standard", dev->standard, device_parse_standard, STANDARD_UNKNOWN);
+			case 'f':	OPT_NUMBER("--desired-fps", dev->desired_fps, 0, 30, 0);
+			case 'z':	OPT_NUMBER("--min-frame-size", dev->min_frame_size, 0, 8192, 0);
 			case 'n':	OPT_SET(dev->persistent, true);
 			case 't':	OPT_SET(dev->dv_timings, true);
-			case 'b':	OPT_UNSIGNED(dev->n_buffers, "--buffers", 1, 32);
-			case 'w':	OPT_UNSIGNED(dev->n_workers, "--workers", 1, 32);
-			case 'q':	OPT_UNSIGNED(encoder->quality, "--quality", 1, 100);
-			case 'c':	OPT_PARSE(encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, "encoder type");
-			case 1000:	OPT_UNSIGNED(dev->timeout, "--device-timeout", 1, 60);
-			case 1001:	OPT_UNSIGNED(dev->error_delay, "--device-error-delay", 1, 60);
+			case 'b':	OPT_NUMBER("--buffers", dev->n_buffers, 1, 32, 0);
+			case 'w':	OPT_NUMBER("--workers", dev->n_workers, 1, 32, 0);
+			case 'q':	OPT_NUMBER("--quality", encoder->quality, 1, 100, 0);
+			case 'c':	OPT_PARSE("encoder type", encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN);
+			case 1000:	OPT_NUMBER("--device-timeout", dev->timeout, 1, 60, 0);
+			case 1001:	OPT_NUMBER("--device-error-delay", dev->error_delay, 1, 60, 0);
 
 			case 2000:	OPT_CTL(brightness);
 			case 2001:	OPT_CTL_AUTO(brightness);
@@ -325,32 +315,32 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 2012:	OPT_CTL_AUTO(gain);
 
 			case 's':	OPT_SET(server->host, optarg);
-			case 'p':	OPT_UNSIGNED(server->port, "--port", 1, 65535);
+			case 'p':	OPT_NUMBER("--port", server->port, 1, 65535, 0);
 			case 'U':	OPT_SET(server->unix_path, optarg);
 			case 'D':	OPT_SET(server->unix_rm, true);
-			case 'M':	OPT_CHMOD(server->unix_mode, "--unix-mode");
+			case 'M':	OPT_NUMBER("--unix-mode", server->unix_mode, INT_MIN, INT_MAX, 8);
 			case 3000:	OPT_SET(server->user, optarg);
 			case 3001:	OPT_SET(server->passwd, optarg);
 			case 3002:	OPT_SET(server->static_path, optarg);
 			case 'k':	OPT_SET(server->blank_path, optarg);
-			case 'e':	OPT_UNSIGNED(server->drop_same_frames, "--drop-same-frames", 0, 30);
+			case 'e':	OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, 30, 0);
 			case 'l':	OPT_SET(server->slowdown, true);
-			case 'R':	OPT_RESOLUTION(server->fake_width, server->fake_height, "--fake-resolution", 0, 0);
-			case 3003:	OPT_RESOLUTION_OBSOLETE(server->fake_width, "--fake-width", "--fake-resolution", 0, VIDEO_MAX_WIDTH);
-			case 3004:	OPT_RESOLUTION_OBSOLETE(server->fake_height, "--fake-height", "--fake-resolution", 0, VIDEO_MAX_HEIGHT);
-			case 3005:	OPT_UNSIGNED(server->timeout, "--server-timeout", 1, 60);
+			case 'R':	OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, 0, 0);
+			case 3003:	OPT_RESOLUTION_OBSOLETE("--fake-width", "--fake-resolution", server->fake_width, 0, VIDEO_MAX_WIDTH);
+			case 3004:	OPT_RESOLUTION_OBSOLETE("--fake-height", "--fake-resolution", server->fake_height, 0, VIDEO_MAX_HEIGHT);
+			case 3005:	OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
 #			ifdef WITH_GPIO
-			case 4000:	OPT_UNSIGNED(gpio_pin_prog_running, "--gpio-prog-running", 0, 256);
-			case 4001:	OPT_UNSIGNED(gpio_pin_stream_online, "--gpio-stream-online", 0, 256);
-			case 4002:	OPT_UNSIGNED(gpio_pin_has_http_clients, "--gpio-has-http-clients", 0, 256);
-			case 4003:	OPT_UNSIGNED(gpio_pin_workers_busy_at, "--gpio-workers-busy-at", 0, 256);
+			case 4000:	OPT_NUMBER("--gpio-prog-running", gpio_pin_prog_running, 0, 256, 0);
+			case 4001:	OPT_NUMBER("--gpio-stream-online", gpio_pin_stream_online, 0, 256, 0);
+			case 4002:	OPT_NUMBER("--gpio-has-http-clients", gpio_pin_has_http_clients, 0, 256, 0);
+			case 4003:	OPT_NUMBER("--gpio-workers-busy-at", gpio_pin_workers_busy_at, 0, 256, 0);
 #			endif
 
 			case 5000:	OPT_SET(log_level, LOG_LEVEL_PERF);
 			case 5001:	OPT_SET(log_level, LOG_LEVEL_VERBOSE);
 			case 5002:	OPT_SET(log_level, LOG_LEVEL_DEBUG);
-			case 5010:	OPT_UNSIGNED(log_level, "--log-level", 0, 3);
+			case 5010:	OPT_NUMBER("--log-level", log_level, 0, 3, 0);
 			case 'h':	_help(dev, encoder, server); return 1;
 			case 'v':	_version(true); return 1;
 			case 0:		break;
@@ -360,11 +350,10 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 
 #	undef OPT_CTL_AUTO
 #	undef OPT_CTL
-#	undef OPT_CHMOD
-#	undef OPT_INT
 #	undef OPT_PARSE
+#	undef OPT_RESOLUTION_OBSOLETE
 #	undef OPT_RESOLUTION
-#	undef OPT_UNSIGNED
+#	undef OPT_NUMBER
 #	undef OPT_SET
 	return 0;
 }
