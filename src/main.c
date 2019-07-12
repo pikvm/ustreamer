@@ -27,6 +27,7 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include <limits.h>
 #include <signal.h>
 #include <getopt.h>
@@ -45,7 +46,11 @@
 #endif
 
 
-static const char _SHORT_OPTS[] = "d:i:r:x:y:m:a:f:z:ntb:w:q:c:s:p:U:DM:k:e:lR:hv";
+static const char _SHORT_OPTS[] = "d:i:r:x:y:m:a:f:z:ntb:w:q:c:s:p:U:DM:k:e:lR:hv"
+#ifdef WITH_OMX
+	"g:"
+#endif
+;
 static const struct option _LONG_OPTS[] = {
 	{"device",					required_argument,	NULL,	'd'},
 	{"input",					required_argument,	NULL,	'i'},
@@ -62,6 +67,9 @@ static const struct option _LONG_OPTS[] = {
 	{"workers",					required_argument,	NULL,	'w'},
 	{"quality",					required_argument,	NULL,	'q'},
 	{"encoder",					required_argument,	NULL,	'c'},
+#	ifdef WITH_OMX
+	{"glitched-resolutions",	required_argument,	NULL,	'g'},
+#	endif
 	{"device-timeout",			required_argument,	NULL,	1000},
 	{"device-error-delay",		required_argument,	NULL,	1001},
 
@@ -133,30 +141,34 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("Copyright (C) 2018 Maxim Devaev <mdevaev@gmail.com>\n\n");
 	printf("Capturing options:\n");
 	printf("══════════════════\n");
-	printf("    -d|--device </dev/path>  ──────── Path to V4L2 device. Default: %s.\n\n", dev->path);
-	printf("    -i|--input <N>  ───────────────── Input channel. Default: %u.\n\n", dev->input);
-	printf("    -r|--resolution <WxH>  ────────── Initial image resolution. Default: %ux%u.\n\n", dev->width, dev->height);
-	printf("    -m|--format <fmt>  ────────────── Image format.\n");
-	printf("                                      Available: %s; default: YUYV.\n\n", FORMATS_STR);
-	printf("    -a|--tv-standard <std>  ───────── Force TV standard.\n");
-	printf("                                      Available: %s; default: disabled.\n\n", STANDARDS_STR);
-	printf("    -f|--desired-fps <N>  ─────────── Desired FPS. Default: maximum possible.\n\n");
-	printf("    -z|--min-frame-size <N>  ──────── Drop frames smaller then this limit. Useful if the device\n");
-	printf("                                      produces small-sized garbage frames. Default: disabled.\n\n");
-	printf("    -n|--persistent  ──────────────── Don't re-initialize device on timeout. Default: disabled.\n\n");
-	printf("    -t|--dv-timings  ──────────────── Enable DV timings querying and events processing\n");
-	printf("                                      to automatic resolution change. Default: disabled.\n\n");
-	printf("    -b|--buffers <N>  ─────────────── The number of buffers to receive data from the device.\n");
-	printf("                                      Each buffer may processed using an independent thread.\n");
-	printf("                                      Default: %u (the number of CPU cores (but not more than 4) + 1).\n\n", dev->n_buffers);
-	printf("    -w|--workers <N>  ─────────────── The number of worker threads but not more than buffers.\n");
-	printf("                                      Default: %u (the number of CPU cores (but not more than 4)).\n\n", dev->n_workers);
-	printf("    -q|--quality <N>  ─────────────── Set quality of JPEG encoding from 1 to 100 (best). Default: %u.\n\n", encoder->quality);
-	printf("    -c|--encoder <type>  ──────────── Use specified encoder. It may affect the number of workers.\n");
-	printf("                                      Available: %s; default: CPU.\n\n", ENCODER_TYPES_STR);
-	printf("    --device-timeout <seconds>  ───── Timeout for device querying. Default: %u.\n\n", dev->timeout);
-	printf("    --device-error-delay <seconds>  ─ Delay before trying to connect to the device again\n");
-	printf("                                      after an error (timeout for example). Default: %u.\n\n", dev->error_delay);
+	printf("    -d|--device </dev/path>  ───────────── Path to V4L2 device. Default: %s.\n\n", dev->path);
+	printf("    -i|--input <N>  ────────────────────── Input channel. Default: %u.\n\n", dev->input);
+	printf("    -r|--resolution <WxH>  ─────────────── Initial image resolution. Default: %ux%u.\n\n", dev->width, dev->height);
+	printf("    -m|--format <fmt>  ─────────────────── Image format.\n");
+	printf("                                           Available: %s; default: YUYV.\n\n", FORMATS_STR);
+	printf("    -a|--tv-standard <std>  ────────────── Force TV standard.\n");
+	printf("                                           Available: %s; default: disabled.\n\n", STANDARDS_STR);
+	printf("    -f|--desired-fps <N>  ──────────────── Desired FPS. Default: maximum possible.\n\n");
+	printf("    -z|--min-frame-size <N>  ───────────── Drop frames smaller then this limit. Useful if the device\n");
+	printf("                                           produces small-sized garbage frames. Default: disabled.\n\n");
+	printf("    -n|--persistent  ───────────────────── Don't re-initialize device on timeout. Default: disabled.\n\n");
+	printf("    -t|--dv-timings  ───────────────────── Enable DV timings querying and events processing\n");
+	printf("                                           to automatic resolution change. Default: disabled.\n\n");
+	printf("    -b|--buffers <N>  ──────────────────── The number of buffers to receive data from the device.\n");
+	printf("                                           Each buffer may processed using an independent thread.\n");
+	printf("                                           Default: %u (the number of CPU cores (but not more than 4) + 1).\n\n", dev->n_buffers);
+	printf("    -w|--workers <N>  ──────────────────── The number of worker threads but not more than buffers.\n");
+	printf("                                           Default: %u (the number of CPU cores (but not more than 4)).\n\n", dev->n_workers);
+	printf("    -q|--quality <N>  ──────────────────── Set quality of JPEG encoding from 1 to 100 (best). Default: %u.\n\n", encoder->quality);
+	printf("    -c|--encoder <type>  ───────────────── Use specified encoder. It may affect the number of workers.\n\n");
+#	ifdef WITH_OMX
+	printf("    -g|--glitched-resolutions <WxH,...>  ─ Comma-separated list of resolutions that require forced\n");
+#	endif
+	printf("                                           encoding on CPU instead of OMX. Default: disabled.\n");
+	printf("                                           Available: %s; default: CPU.\n\n", ENCODER_TYPES_STR);
+	printf("    --device-timeout <seconds>  ────────── Timeout for device querying. Default: %u.\n\n", dev->timeout);
+	printf("    --device-error-delay <seconds>  ────── Delay before trying to connect to the device again\n");
+	printf("                                           after an error (timeout for example). Default: %u.\n\n", dev->error_delay);
 	printf("Image control options:\n");
 	printf("══════════════════════\n");
 	printf("    --brightness <N>  ───────────── Set brightness. Default: no change.\n\n");
@@ -215,6 +227,76 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    -v|--version  ──── Print version and exit.\n\n");
 }
 
+static int _parse_resolution(const char *str, unsigned *width, unsigned *height, bool limited) {
+	unsigned tmp_width;
+	unsigned tmp_height;
+
+	if (sscanf(str, "%ux%u", &tmp_width, &tmp_height) != 2) {
+		return -1;
+	}
+	if (limited) {
+		if (tmp_width < VIDEO_MIN_WIDTH || tmp_width > VIDEO_MAX_WIDTH) {
+			return -2;
+		}
+		if (tmp_height < VIDEO_MIN_HEIGHT || tmp_height > VIDEO_MAX_HEIGHT) {
+			return -3;
+		}
+	}
+	*width = tmp_width;
+	*height = tmp_height;
+	return 0;
+}
+
+#ifdef WITH_OMX
+static int _parse_glitched_resolutions(const char *str, struct encoder_t *encoder) {
+	char *str_copy;
+	char *ptr;
+	unsigned count = 0;
+	unsigned width;
+	unsigned height;
+
+	assert((str_copy = strdup(str)) != NULL);
+
+	ptr = strtok(str_copy, ",;:\n\t ");
+	while (ptr != NULL) {
+		if (count >= MAX_GLITCHED_RESOLUTIONS) {
+			printf("Too big '--glitched-resolutions' list: maxlen=%u\n", MAX_GLITCHED_RESOLUTIONS);
+			goto error;
+		}
+
+		switch (_parse_resolution(ptr, &width, &height, true)) {
+			case -1:
+				printf("Invalid resolution format of '%s' in '--glitched-resolutions=%s\n", ptr, str_copy);
+				goto error;
+			case -2:
+				printf("Invalid width of '%s' in '--glitched-resolutions=%s: min=%u, max=%u\n",
+					ptr, str_copy, VIDEO_MIN_WIDTH, VIDEO_MIN_HEIGHT);
+				goto error;
+			case -3:
+				printf("Invalid width of '%s' in '--glitched-resolutions=%s: min=%u, max=%u\n",
+					ptr, str_copy, VIDEO_MIN_WIDTH, VIDEO_MIN_HEIGHT);
+				goto error;
+			case 0: break;
+			default: assert(0 && "Unknown error");
+		}
+
+		encoder->glitched_resolutions[count][0] = width;
+		encoder->glitched_resolutions[count][1] = height;
+		count += 1;
+
+		ptr = strtok(NULL, ",;:\n\t ");
+	}
+
+	encoder->n_glitched_resolutions = count;
+	free(str_copy);
+	return 0;
+
+	error:
+		free(str_copy);
+		return -1;
+}
+#endif
+
 static int _parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server) {
 #	define OPT_SET(_dest, _value) { \
 			_dest = _value; \
@@ -222,7 +304,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 		}
 
 #	define OPT_NUMBER(_name, _dest, _min, _max, _base) { \
-			errno = 0; char *_end = NULL; int _tmp = strtol(optarg, &_end, _base); \
+			errno = 0; char *_end = NULL; long long _tmp = strtoll(optarg, &_end, _base); \
 			if (errno || *_end || _tmp < _min || _tmp > _max) { \
 				printf("Invalid value for '%s=%s': min=%u, max=%u\n", _name, optarg, _min, _max); \
 				return -1; \
@@ -231,22 +313,20 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			break; \
 		}
 
-#	define OPT_RESOLUTION(_name, _dest_width, _dest_height, _min_width, _min_height) { \
-			int _tmp_width, _tmp_height; \
-			if (sscanf(optarg, "%dx%d", &_tmp_width, &_tmp_height) != 2) { \
-				printf("Invalid value for '%s=%s'\n", _name, optarg); \
-				return -1; \
+#	define OPT_RESOLUTION(_name, _dest_width, _dest_height, _limited) { \
+			switch (_parse_resolution(optarg, &_dest_width, &_dest_height, _limited)) { \
+				case -1: \
+					printf("Invalid resolution format for '%s=%s'\n", _name, optarg); \
+					return -1; \
+				case -2: \
+					printf("Invalid width of '%s=%s': min=%u, max=%u\n", _name, optarg, VIDEO_MIN_WIDTH, VIDEO_MAX_WIDTH); \
+					return -1; \
+				case -3: \
+					printf("Invalid height of '%s=%s': min=%u, max=%u\n", _name, optarg, VIDEO_MIN_HEIGHT, VIDEO_MAX_HEIGHT); \
+					return -1; \
+				case 0: break; \
+				default: assert(0 && "Unknown error"); \
 			} \
-			if (_tmp_width < _min_width || _tmp_width > VIDEO_MAX_WIDTH) { \
-				printf("Invalid width of '%s=%s': min=%u, max=%u\n", _name, optarg, _min_width, VIDEO_MAX_WIDTH); \
-				return -1; \
-			} \
-			if (_tmp_height < _min_height || _tmp_height > VIDEO_MAX_HEIGHT) { \
-				printf("Invalid height of '%s=%s': min=%u, max=%u\n", _name, optarg, _min_height, VIDEO_MAX_HEIGHT); \
-				return -1; \
-			} \
-			_dest_width = _tmp_width; \
-			_dest_height = _tmp_height; \
 			break; \
 		}
 
@@ -254,6 +334,15 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			printf("\n=== WARNING! The option '%s' is obsolete; use '%s' instead it ===\n\n", _name, _replace); \
 			OPT_NUMBER(_name, _dest, _min, _max, 0); \
 		}
+
+#	ifdef WITH_OMX
+#		define OPT_GLITCHED_RESOLUTIONS { \
+				if (_parse_glitched_resolutions(optarg, encoder) < 0) { \
+					return -1; \
+				} \
+				break; \
+			}
+#	endif
 
 #	define OPT_PARSE(_name, _dest, _func, _invalid) { \
 			if ((_dest = _func(optarg)) == _invalid) { \
@@ -284,7 +373,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 		switch (ch) {
 			case 'd':	OPT_SET(dev->path, optarg);
 			case 'i':	OPT_NUMBER("--input", dev->input, 0, 128, 0);
-			case 'r':	OPT_RESOLUTION("--resolution", dev->width, dev->height, VIDEO_MIN_WIDTH, VIDEO_MIN_HEIGHT);
+			case 'r':	OPT_RESOLUTION("--resolution", dev->width, dev->height, true);
 			case 'x':	OPT_RESOLUTION_OBSOLETE("--width", "--resolution", dev->width, VIDEO_MIN_WIDTH, VIDEO_MAX_WIDTH);
 			case 'y':	OPT_RESOLUTION_OBSOLETE("--height", "--resolution", dev->height, VIDEO_MIN_HEIGHT, VIDEO_MAX_HEIGHT);
 #			pragma GCC diagnostic ignored "-Wsign-compare"
@@ -300,6 +389,9 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 'w':	OPT_NUMBER("--workers", dev->n_workers, 1, 32, 0);
 			case 'q':	OPT_NUMBER("--quality", encoder->quality, 1, 100, 0);
 			case 'c':	OPT_PARSE("encoder type", encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN);
+#			ifdef WITH_OMX
+			case 'g':	OPT_GLITCHED_RESOLUTIONS;
+#			endif
 			case 1000:	OPT_NUMBER("--device-timeout", dev->timeout, 1, 60, 0);
 			case 1001:	OPT_NUMBER("--device-error-delay", dev->error_delay, 1, 60, 0);
 
@@ -328,9 +420,9 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 'k':	OPT_SET(server->blank_path, optarg);
 			case 'e':	OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, 30, 0);
 			case 'l':	OPT_SET(server->slowdown, true);
-			case 'R':	OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, 0, 0);
-			case 3003:	OPT_RESOLUTION_OBSOLETE("--fake-width", "--fake-resolution", server->fake_width, 0, VIDEO_MAX_WIDTH);
-			case 3004:	OPT_RESOLUTION_OBSOLETE("--fake-height", "--fake-resolution", server->fake_height, 0, VIDEO_MAX_HEIGHT);
+			case 'R':	OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, false);
+			case 3003:	OPT_RESOLUTION_OBSOLETE("--fake-width", "--fake-resolution", server->fake_width, 0, UINT_MAX);
+			case 3004:	OPT_RESOLUTION_OBSOLETE("--fake-height", "--fake-resolution", server->fake_height, 0, UINT_MAX);
 			case 3005:	OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
 #			ifdef WITH_GPIO
@@ -354,6 +446,9 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 #	undef OPT_CTL_AUTO
 #	undef OPT_CTL
 #	undef OPT_PARSE
+#	ifdef WITH_OMX
+#		undef OPT_GLITCHED_RESOLUTIONS
+#	endif
 #	undef OPT_RESOLUTION_OBSOLETE
 #	undef OPT_RESOLUTION
 #	undef OPT_NUMBER

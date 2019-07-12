@@ -126,6 +126,17 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 	}
 #	ifdef WITH_OMX
 	else if (type == ENCODER_TYPE_OMX) {
+		for (unsigned index = 0; index < encoder->n_glitched_resolutions; ++index) {
+			if (
+				encoder->glitched_resolutions[index][0] == dev->run->width
+				&& encoder->glitched_resolutions[index][1] == dev->run->height
+			) {
+				LOG_INFO("Switching to CPU JPEG encoder the resolution %ux%u marked as glitchy for OMX",
+					dev->run->width, dev->run->height);
+				goto use_cpu;
+			}
+		}
+
 		LOG_DEBUG("Preparing OMX JPEG encoder ...");
 
 		if (dev->run->n_workers > OMX_MAX_ENCODERS) {

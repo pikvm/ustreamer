@@ -31,7 +31,12 @@
 
 #ifdef WITH_OMX
 #	include "encoders/omx/encoder.h"
+
 #	define ENCODER_TYPES_OMX_HINT ", OMX"
+
+#	ifndef MAX_GLITCHED_RESOLUTIONS
+#		define MAX_GLITCHED_RESOLUTIONS 1024
+#	endif
 #else
 #	define ENCODER_TYPES_OMX_HINT ""
 #endif
@@ -65,6 +70,10 @@ struct encoder_runtime_t {
 struct encoder_t {
 	enum encoder_type_t	type;
 	unsigned			quality;
+#	ifdef WITH_OMX
+	unsigned	n_glitched_resolutions;
+	unsigned	glitched_resolutions[2][MAX_GLITCHED_RESOLUTIONS];
+#	endif
 
 	struct encoder_runtime_t *run;
 };
