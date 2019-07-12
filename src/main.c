@@ -264,15 +264,15 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 		}
 
 #	define OPT_CTL(_dest) { \
-			dev->ctl->_dest.value_set = true; \
-			dev->ctl->_dest.auto_set = false; \
-			OPT_NUMBER("--"#_dest, dev->ctl->_dest.value, INT_MIN, INT_MAX, 0); \
+			dev->ctl._dest.value_set = true; \
+			dev->ctl._dest.auto_set = false; \
+			OPT_NUMBER("--"#_dest, dev->ctl._dest.value, INT_MIN, INT_MAX, 0); \
 			break; \
 		}
 
 #	define OPT_CTL_AUTO(_dest) { \
-			dev->ctl->_dest.value_set = false; \
-			dev->ctl->_dest.auto_set = true; \
+			dev->ctl._dest.value_set = false; \
+			dev->ctl._dest.auto_set = true; \
 			break; \
 		}
 

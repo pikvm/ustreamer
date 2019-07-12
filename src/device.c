@@ -84,7 +84,6 @@ static const char *_standard_to_string(v4l2_std_id standard);
 
 
 struct device_t *device_init(void) {
-	struct controls_t *ctl;
 	struct device_runtime_t *run;
 	struct device_t *dev;
 	long cores_sysconf;
@@ -93,8 +92,6 @@ struct device_t *device_init(void) {
 	cores_sysconf = sysconf(_SC_NPROCESSORS_ONLN);
 	cores_sysconf = (cores_sysconf < 0 ? 0 : cores_sysconf);
 	cores_available = max_u(min_u(cores_sysconf, 4), 1);
-
-	A_CALLOC(ctl, 1);
 
 	A_CALLOC(run, 1);
 	run->fd = -1;
@@ -109,14 +106,12 @@ struct device_t *device_init(void) {
 	dev->n_workers = min_u(cores_available, dev->n_buffers);
 	dev->timeout = 1;
 	dev->error_delay = 1;
-	dev->ctl = ctl;
 	dev->run = run;
 	return dev;
 }
 
 void device_destroy(struct device_t *dev) {
 	free(dev->run);
-	free(dev->ctl);
 	free(dev);
 }
 
@@ -618,14 +613,14 @@ static void _device_apply_controls(struct device_t *dev) {
 		}
 
 #	define SET_CID_MANUAL(_cid, _dest) { \
-			if (dev->ctl->_dest.value_set) { \
-				SET_CID(_cid, _dest, dev->ctl->_dest.value, false); \
+			if (dev->ctl._dest.value_set) { \
+				SET_CID(_cid, _dest, dev->ctl._dest.value, false); \
 			} \
 		}
 
 #	define SET_CID_AUTO(_cid_auto, _cid_manual, _dest) { \
-			if (dev->ctl->_dest.value_set || dev->ctl->_dest.auto_set) { \
-				SET_CID(_cid_auto, _dest##_auto, dev->ctl->_dest.auto_set, dev->ctl->_dest.value_set); \
+			if (dev->ctl._dest.value_set || dev->ctl._dest.auto_set) { \
+				SET_CID(_cid_auto, _dest##_auto, dev->ctl._dest.auto_set, dev->ctl._dest.value_set); \
 				SET_CID_MANUAL(_cid_manual, _dest); \
 			} \
 		}

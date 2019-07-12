@@ -104,7 +104,7 @@ struct device_t {
 	unsigned		timeout;
 	unsigned		error_delay;
 
-	struct controls_t *ctl;
+	struct controls_t ctl;
 
 	struct device_runtime_t *run;
 };
