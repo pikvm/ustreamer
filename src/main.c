@@ -381,7 +381,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 'm':	OPT_PARSE("pixel format", dev->format, device_parse_format, FORMAT_UNKNOWN);
 #			pragma GCC diagnostic pop
 			case 'a':	OPT_PARSE("TV standard", dev->standard, device_parse_standard, STANDARD_UNKNOWN);
-			case 'f':	OPT_NUMBER("--desired-fps", dev->desired_fps, 0, 30, 0);
+			case 'f':	OPT_NUMBER("--desired-fps", dev->desired_fps, 0, VIDEO_MAX_FPS, 0);
 			case 'z':	OPT_NUMBER("--min-frame-size", dev->min_frame_size, 0, 8192, 0);
 			case 'n':	OPT_SET(dev->persistent, true);
 			case 't':	OPT_SET(dev->dv_timings, true);
@@ -418,7 +418,7 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			case 3001:	OPT_SET(server->passwd, optarg);
 			case 3002:	OPT_SET(server->static_path, optarg);
 			case 'k':	OPT_SET(server->blank_path, optarg);
-			case 'e':	OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, 30, 0);
+			case 'e':	OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, VIDEO_MAX_FPS, 0);
 			case 'l':	OPT_SET(server->slowdown, true);
 			case 'R':	OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, false);
 			case 3003:	OPT_RESOLUTION_OBSOLETE("--fake-width", "--fake-resolution", server->fake_width, 0, UINT_MAX);
