@@ -116,6 +116,9 @@ static void _version(bool nl) {
 #	ifdef WITH_OMX
 	printf(" + OMX");
 #	endif
+#	ifdef WITH_GPIO
+	printf(" + GPIO");
+#	endif
 	if (nl) {
 		putchar('\n');
 	}
