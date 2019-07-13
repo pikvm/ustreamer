@@ -99,7 +99,7 @@ struct omx_encoder_t *omx_encoder_init(void) {
 	}
 	_i_omx += 1;
 
-	LOG_INFO("Initializing OMX JPEG encoder ...");
+	LOG_INFO("Initializing OMX encoder ...");
 
 	if (vcos_semaphore_create(&omx->handler_lock, "handler_lock", 0) != VCOS_SUCCESS) {
 		LOG_ERROR("Can't create VCOS semaphore");
@@ -125,7 +125,7 @@ struct omx_encoder_t *omx_encoder_init(void) {
 void omx_encoder_destroy(struct omx_encoder_t *omx) {
 	OMX_ERRORTYPE error;
 
-	LOG_INFO("Destroying OMX JPEG encoder ...");
+	LOG_INFO("Destroying OMX encoder ...");
 
 	component_set_state(&omx->encoder, OMX_StateIdle);
 	_omx_encoder_clear_ports(omx);
@@ -329,7 +329,7 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 		// FIXME: RGB24 не работает нормально, нижняя половина экрана зеленая.
 		// FIXME: Китайский EasyCap тоже не работает, мусор на экране.
 		// Вероятно обе проблемы вызваны некорректной реализацией OMX на пае.
-		default: assert(0 && "Unsupported input format for OMX JPEG encoder");
+		default: assert(0 && "Unsupported input format for OMX encoder");
 	}
 
 #	undef MAP_FORMAT

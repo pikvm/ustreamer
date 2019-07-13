@@ -108,13 +108,13 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 	bool cpu_forced = false;
 
 	if ((dev->run->format == V4L2_PIX_FMT_MJPEG || dev->run->format == V4L2_PIX_FMT_JPEG) && type != ENCODER_TYPE_HW) {
-		LOG_INFO("Switching to HW JPEG encoder because the input format is (M)JPEG");
+		LOG_INFO("Switching to HW encoder because the input format is (M)JPEG");
 		type = ENCODER_TYPE_HW;
 	}
 
 	if (type == ENCODER_TYPE_HW) {
 		if (dev->run->format != V4L2_PIX_FMT_MJPEG && dev->run->format != V4L2_PIX_FMT_JPEG) {
-			LOG_INFO("Switching to CPU JPEG encoder because the input format is not (M)JPEG");
+			LOG_INFO("Switching to CPU encoder because the input format is not (M)JPEG");
 			goto use_cpu;
 		}
 
@@ -131,16 +131,16 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 				encoder->glitched_resolutions[index][0] == dev->run->width
 				&& encoder->glitched_resolutions[index][1] == dev->run->height
 			) {
-				LOG_INFO("Switching to CPU JPEG encoder the resolution %ux%u marked as glitchy for OMX",
+				LOG_INFO("Switching to CPU encoder the resolution %ux%u marked as glitchy for OMX",
 					dev->run->width, dev->run->height);
 				goto use_cpu;
 			}
 		}
 
-		LOG_DEBUG("Preparing OMX JPEG encoder ...");
+		LOG_DEBUG("Preparing OMX encoder ...");
 
 		if (dev->run->n_workers > OMX_MAX_ENCODERS) {
-			LOG_INFO("OMX JPEG encoder sets limit for worker threads: %u", OMX_MAX_ENCODERS);
+			LOG_INFO("OMX encoder sets limit for worker threads: %u", OMX_MAX_ENCODERS);
 			dev->run->n_workers = OMX_MAX_ENCODERS;
 		}
 
@@ -151,14 +151,14 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 		// Начинаем с нуля и доинициализируем на следующих заходах при необходимости
 		for (; encoder->run->n_omxs < dev->run->n_workers; ++encoder->run->n_omxs) {
 			if ((encoder->run->omxs[encoder->run->n_omxs] = omx_encoder_init()) == NULL) {
-				LOG_ERROR("Can't initialize OMX JPEG encoder, falling back to CPU");
+				LOG_ERROR("Can't initialize OMX encoder, falling back to CPU");
 				goto force_cpu;
 			}
 		}
 
 		for (unsigned index = 0; index < encoder->run->n_omxs; ++index) {
 			if (omx_encoder_prepare(encoder->run->omxs[index], dev, quality) < 0) {
-				LOG_ERROR("Can't prepare OMX JPEG encoder, falling back to CPU");
+				LOG_ERROR("Can't prepare OMX encoder, falling back to CPU");
 				goto force_cpu;
 			}
 		}

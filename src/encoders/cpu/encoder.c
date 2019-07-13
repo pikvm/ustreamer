@@ -100,7 +100,7 @@ void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned 
 		WRITE_SCANLINES(V4L2_PIX_FMT_UYVY, _jpeg_write_scanlines_uyvy);
 		WRITE_SCANLINES(V4L2_PIX_FMT_RGB565, _jpeg_write_scanlines_rgb565);
 		WRITE_SCANLINES(V4L2_PIX_FMT_RGB24, _jpeg_write_scanlines_rgb24);
-		default: assert(0 && "Unsupported input format for CPU JPEG encoder");
+		default: assert(0 && "Unsupported input format for CPU encoder");
 	}
 
 #	undef WRITE_SCANLINES

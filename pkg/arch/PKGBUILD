@@ -10,7 +10,7 @@ url="https://github.com/pi-kvm/ustreamer"
 license=(GPL)
 arch=(i686 x86_64 armv6h armv7h)
 depends=(libjpeg libevent libutil-linux)
-# optional: raspberrypi-firmware for OMX JPEG encoder
+# optional: raspberrypi-firmware for OMX encoder
 # optional: wiringpi for GPIO support
 makedepends=(gcc make)
 source=(${pkgname}::"git+https://github.com/pi-kvm/ustreamer#commit=v${pkgver}")

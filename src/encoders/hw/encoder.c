@@ -51,12 +51,12 @@ int hw_encoder_prepare(struct device_t *dev, unsigned quality) {
 	MEMSET_ZERO(comp);
 
 	if (xioctl(dev->run->fd, VIDIOC_G_JPEGCOMP, &comp) < 0) {
-		LOG_ERROR("Can't query HW JPEG encoder params and set quality (unsupported)");
+		LOG_ERROR("Can't query HW encoder params and set quality (unsupported)");
 		return -1;
 	}
 	comp.quality = quality;
 	if (xioctl(dev->run->fd, VIDIOC_S_JPEGCOMP, &comp) < 0) {
-		LOG_ERROR("Can't set HW JPEG encoder quality (unsopported)");
+		LOG_ERROR("Can't set HW encoder quality (unsupported)");
 		return -1;
 	}
 	return 0;
@@ -64,7 +64,7 @@ int hw_encoder_prepare(struct device_t *dev, unsigned quality) {
 
 void hw_encoder_compress_buffer(struct device_t *dev, unsigned index) {
 	if (dev->run->format != V4L2_PIX_FMT_MJPEG && dev->run->format != V4L2_PIX_FMT_JPEG) {
-		assert(0 && "Unsupported input format for HW JPEG encoder");
+		assert(0 && "Unsupported input format for HW encoder");
 	}
 
 #	define PICTURE(_next)	dev->run->pictures[index]._next
