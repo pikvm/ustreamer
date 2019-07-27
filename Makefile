@@ -24,15 +24,15 @@ endef
 
 
 ifneq ($(call optbool,$(WITH_OMX)),)
-	LIBS += -lbcm_host -lvcos -lopenmaxil -L$(RPI_VC_LIBS)
-	override CFLAGS += -DWITH_OMX -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
-	SOURCES += $(shell ls src/encoders/omx/*.c)
+LIBS += -lbcm_host -lvcos -lopenmaxil -L$(RPI_VC_LIBS)
+override CFLAGS += -DWITH_OMX -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
+SOURCES += $(shell ls src/encoders/omx/*.c)
 endif
 
 
 ifneq ($(call optbool,$(WITH_GPIO)),)
-	LIBS += -lwiringPi
-	override CFLAGS += -DWITH_GPIO
+LIBS += -lwiringPi
+override CFLAGS += -DWITH_GPIO
 endif
 
 
