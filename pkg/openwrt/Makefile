@@ -11,7 +11,7 @@ PKG_RELEASE:=1
 PKG_MAINTAINER:=Maxim Devaev <mdevaev@gmail.com>
 
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=https://github.com/pi-kvm/ustreamer.git
+PKG_SOURCE_URL:=https://github.com/pikvm/ustreamer.git
 PKG_SOURCE_VERSION:=v$(PKG_VERSION)
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.xz
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
@@ -26,7 +26,7 @@ define Package/ustreamer
   CATEGORY:=Multimedia
   TITLE:=uStreamer
   DEPENDS:=+libpthread +libjpeg +libv4l +libuuid +libevent2 +libevent2-core +libevent2-extra +libevent2-pthreads
-  URL:=https://github.com/pi-kvm/ustreamer
+  URL:=https://github.com/pikvm/ustreamer
 endef
 
 define Package/ustreamer/description

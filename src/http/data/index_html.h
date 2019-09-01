@@ -82,7 +82,7 @@ const char HTML_INDEX_PAGE[] = " \
 		</ul> \
 		<br> \
 		<hr> \
-		<a href=\"https://github.com/pi-kvm/ustreamer\">Sources &amp; docs</a> \
+		<a href=\"https://github.com/pikvm/ustreamer\">Sources &amp; docs</a> \
 	</body> \
 	</html> \
 ";
