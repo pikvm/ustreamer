@@ -344,7 +344,7 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			case _O_PERF:		OPT_SET(log_level, LOG_LEVEL_PERF);
 			case _O_VERBOSE:	OPT_SET(log_level, LOG_LEVEL_VERBOSE);
 			case _O_DEBUG:		OPT_SET(log_level, LOG_LEVEL_DEBUG);
-			case _O_LOG_LEVEL:	OPT_NUMBER("--log-level", log_level, 0, 3, 0);
+			case _O_LOG_LEVEL:	OPT_NUMBER("--log-level", log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
 
 			case _O_HELP:		_help(dev, encoder, server); return 1;
 			case _O_VERSION:	_version(true); return 1;

@@ -34,14 +34,14 @@
 #include "tools.h"
 
 
-unsigned log_level;
+enum {
+	LOG_LEVEL_INFO,
+	LOG_LEVEL_PERF,
+	LOG_LEVEL_VERBOSE,
+	LOG_LEVEL_DEBUG,
+} log_level;
+
 pthread_mutex_t log_mutex;
-
-
-#define LOG_LEVEL_INFO		0
-#define LOG_LEVEL_PERF		1
-#define LOG_LEVEL_VERBOSE	2
-#define LOG_LEVEL_DEBUG		3
 
 
 #define LOGGING_INIT { \
