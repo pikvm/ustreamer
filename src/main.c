@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
 #include <limits.h>
 #include <signal.h>
 #include <getopt.h>
@@ -46,11 +47,43 @@
 #endif
 
 
-static const char _SHORT_OPTS[] = "d:i:r:x:y:m:a:f:z:ntb:w:q:c:s:p:U:DM:k:e:lR:hv"
-#ifdef WITH_OMX
-	"g:"
+enum _LONG_OPTS_VALUES {
+	_O_DEVICE_TIMEOUT = 10000,
+	_O_DEVICE_ERROR_DELAY,
+
+	_O_BRIGHTNESS,
+	_O_BRIGHTNESS_AUTO,
+	_O_CONTRAST,
+	_O_SATURATION,
+	_O_HUE,
+	_O_HUE_AUTO,
+	_O_GAMMA,
+	_O_SHARPNESS,
+	_O_BACKLIGHT_COMPENSATION,
+	_O_WHITE_BALANCE,
+	_O_WHITE_BALANCE_AUTO,
+	_O_GAIN,
+	_O_GAIN_AUTO,
+
+	_O_USER,
+	_O_PASSWD,
+	_O_STATIC,
+	_O_FAKE_WIDTH,
+	_O_FAKE_HEIGHT,
+	_O_SERVER_TIMEOUT,
+
+#ifdef WITH_GPIO
+	_O_GPIO_PROG_RUNNING,
+	_O_GPIO_STREAM_ONLINE,
+	_O_GPIO_HAS_HTTP_CLIENTS,
+	_O_GPIO_WORKERS_BUSY_AT,
 #endif
-;
+
+	_O_PERF,
+	_O_VERBOSE,
+	_O_DEBUG,
+	_O_LOG_LEVEL
+};
 static const struct option _LONG_OPTS[] = {
 	{"device",					required_argument,	NULL,	'd'},
 	{"input",					required_argument,	NULL,	'i'},
@@ -70,50 +103,50 @@ static const struct option _LONG_OPTS[] = {
 #	ifdef WITH_OMX
 	{"glitched-resolutions",	required_argument,	NULL,	'g'},
 #	endif
-	{"device-timeout",			required_argument,	NULL,	1000},
-	{"device-error-delay",		required_argument,	NULL,	1001},
+	{"device-timeout",			required_argument,	NULL,	_O_DEVICE_TIMEOUT},
+	{"device-error-delay",		required_argument,	NULL,	_O_DEVICE_ERROR_DELAY},
 
-	{"brightness",				required_argument,	NULL,	2000},
-	{"brightness-auto",			no_argument,		NULL,	2001},
-	{"contrast",				required_argument,	NULL,	2002},
-	{"saturation",				required_argument,	NULL,	2003},
-	{"hue",						required_argument,	NULL,	2004},
-	{"hue-auto",				no_argument,		NULL,	2005},
-	{"gamma",					required_argument,	NULL,	2006},
-	{"sharpness",				required_argument,	NULL,	2007},
-	{"backlight-compensation",	required_argument,	NULL,	2008},
-	{"white-balance",			required_argument,	NULL,	2009},
-	{"white-balance-auto",		no_argument,		NULL,	2010},
-	{"gain",					required_argument,	NULL,	2011},
-	{"gain-auto",				no_argument,		NULL,	2012},
+	{"brightness",				required_argument,	NULL,	_O_BRIGHTNESS},
+	{"brightness-auto",			no_argument,		NULL,	_O_BRIGHTNESS_AUTO},
+	{"contrast",				required_argument,	NULL,	_O_CONTRAST},
+	{"saturation",				required_argument,	NULL,	_O_SATURATION},
+	{"hue",						required_argument,	NULL,	_O_HUE},
+	{"hue-auto",				no_argument,		NULL,	_O_HUE_AUTO},
+	{"gamma",					required_argument,	NULL,	_O_GAMMA},
+	{"sharpness",				required_argument,	NULL,	_O_SHARPNESS},
+	{"backlight-compensation",	required_argument,	NULL,	_O_BACKLIGHT_COMPENSATION},
+	{"white-balance",			required_argument,	NULL,	_O_WHITE_BALANCE},
+	{"white-balance-auto",		no_argument,		NULL,	_O_WHITE_BALANCE_AUTO},
+	{"gain",					required_argument,	NULL,	_O_GAIN},
+	{"gain-auto",				no_argument,		NULL,	_O_GAIN_AUTO},
 
 	{"host",					required_argument,	NULL,	's'},
 	{"port",					required_argument,	NULL,	'p'},
 	{"unix",					required_argument,	NULL,	'U'},
 	{"unix-rm",					no_argument,		NULL,	'D'},
 	{"unix-mode",				required_argument,	NULL,	'M'},
-	{"user",					required_argument,	NULL,	3000},
-	{"passwd",					required_argument,	NULL,	3001},
-	{"static",					required_argument,	NULL,	3002},
+	{"user",					required_argument,	NULL,	_O_USER},
+	{"passwd",					required_argument,	NULL,	_O_PASSWD},
+	{"static",					required_argument,	NULL,	_O_STATIC},
 	{"blank",					required_argument,	NULL,	'k'},
 	{"drop-same-frames",		required_argument,	NULL,	'e'},
 	{"slowdown",				no_argument,		NULL,	'l'},
 	{"fake-resolution",			required_argument,	NULL,	'R'},
-	{"fake-width",				required_argument,	NULL,	3003},
-	{"fake-height",				required_argument,	NULL,	3004},
-	{"server-timeout",			required_argument,	NULL,	3005},
+	{"fake-width",				required_argument,	NULL,	_O_FAKE_WIDTH},
+	{"fake-height",				required_argument,	NULL,	_O_FAKE_HEIGHT},
+	{"server-timeout",			required_argument,	NULL,	_O_SERVER_TIMEOUT},
 
 #ifdef WITH_GPIO
-	{"gpio-prog-running",		required_argument,	NULL,	4000},
-	{"gpio-stream-online",		required_argument,	NULL,	4001},
-	{"gpio-has-http-clients",	required_argument,	NULL,	4002},
-	{"gpio-workers-busy-at",	required_argument,	NULL,	4003},
+	{"gpio-prog-running",		required_argument,	NULL,	_O_GPIO_PROG_RUNNING},
+	{"gpio-stream-online",		required_argument,	NULL,	_O_GPIO_STREAM_ONLINE},
+	{"gpio-has-http-clients",	required_argument,	NULL,	_O_GPIO_HAS_HTTP_CLIENTS},
+	{"gpio-workers-busy-at",	required_argument,	NULL,	_O_GPIO_WORKERS_BUSY_AT},
 #endif
 
-	{"perf",					no_argument,		NULL,	5000},
-	{"verbose",					no_argument,		NULL,	5001},
-	{"debug",					no_argument,		NULL,	5002},
-	{"log-level",				required_argument,	NULL,	5010},
+	{"perf",					no_argument,		NULL,	_O_PERF},
+	{"verbose",					no_argument,		NULL,	_O_VERBOSE},
+	{"debug",					no_argument,		NULL,	_O_DEBUG},
+	{"log-level",				required_argument,	NULL,	_O_LOG_LEVEL},
 	{"help",					no_argument,		NULL,	'h'},
 	{"version",					no_argument,		NULL,	'v'},
 	{NULL, 0, NULL, 0},
@@ -214,8 +247,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --gpio-workers-busy-at <pin>  ── Set 1 on (pin + N) while worker with number N has a job.\n");
 	printf("                                     The worker's numbering starts from 0. Default: disabled\n\n");
 #endif
-	printf("Misc options:\n");
-	printf("═════════════\n");
+	printf("Logging options:\n");
+	printf("════════════════\n");
 	printf("    --log-level <N>  ─ Verbosity level of messages from 0 (info) to 3 (debug).\n");
 	printf("                       Enabling debugging messages can slow down the program.\n");
 	printf("                       Available levels: 0 (info), 1 (performance), 2 (verbose), 3 (debug).\n");
@@ -223,6 +256,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --perf  ────────── Enable performance messages (same as --log-level=1). Default: disabled.\n\n");
 	printf("    --verbose  ─────── Enable verbose messages and lower (same as --log-level=2). Default: disabled.\n\n");
 	printf("    --debug  ───────── Enable debug messages and lower (same as --log-level=3). Default: disabled.\n\n");
+	printf("Help options:\n");
+	printf("═════════════\n");
 	printf("    -h|--help  ─────── Print this text and exit.\n\n");
 	printf("    -v|--version  ──── Print version and exit.\n\n");
 }
@@ -365,11 +400,24 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 			break; \
 		}
 
-	int index;
 	int ch;
+	int short_index;
+	int opt_index;
+	char short_opts[1024];
 
-	log_level = LOG_LEVEL_INFO;
-	while ((ch = getopt_long(argc, argv, _SHORT_OPTS, _LONG_OPTS, &index)) >= 0) {
+	memset(short_opts, 1024, 1);
+	for (short_index = 0, opt_index = 0; _LONG_OPTS[opt_index].name != NULL; ++opt_index) {
+		if (isalpha(_LONG_OPTS[opt_index].val)) {
+			short_opts[short_index] = _LONG_OPTS[opt_index].val;
+			++short_index;
+		}
+		if (_LONG_OPTS[opt_index].has_arg == required_argument) {
+			short_opts[short_index] = ':';
+			++short_index;
+		}
+	}
+
+	while ((ch = getopt_long(argc, argv, short_opts, _LONG_OPTS, NULL)) >= 0) {
 		switch (ch) {
 			case 'd':	OPT_SET(dev->path, optarg);
 			case 'i':	OPT_NUMBER("--input", dev->input, 0, 128, 0);
@@ -392,50 +440,51 @@ static int _parse_options(int argc, char *argv[], struct device_t *dev, struct e
 #			ifdef WITH_OMX
 			case 'g':	OPT_GLITCHED_RESOLUTIONS;
 #			endif
-			case 1000:	OPT_NUMBER("--device-timeout", dev->timeout, 1, 60, 0);
-			case 1001:	OPT_NUMBER("--device-error-delay", dev->error_delay, 1, 60, 0);
+			case _O_DEVICE_TIMEOUT:		OPT_NUMBER("--device-timeout", dev->timeout, 1, 60, 0);
+			case _O_DEVICE_ERROR_DELAY:	OPT_NUMBER("--device-error-delay", dev->error_delay, 1, 60, 0);
 
-			case 2000:	OPT_CTL(brightness);
-			case 2001:	OPT_CTL_AUTO(brightness);
-			case 2002:	OPT_CTL(contrast);
-			case 2003:	OPT_CTL(saturation);
-			case 2004:	OPT_CTL(hue);
-			case 2005:	OPT_CTL_AUTO(hue);
-			case 2006:	OPT_CTL(gamma);
-			case 2007:	OPT_CTL(sharpness);
-			case 2008:	OPT_CTL(backlight_compensation);
-			case 2009:	OPT_CTL(white_balance);
-			case 2010:	OPT_CTL_AUTO(white_balance);
-			case 2011:	OPT_CTL(gain);
-			case 2012:	OPT_CTL_AUTO(gain);
+			case _O_BRIGHTNESS:				OPT_CTL(brightness);
+			case _O_BRIGHTNESS_AUTO:		OPT_CTL_AUTO(brightness);
+			case _O_CONTRAST:				OPT_CTL(contrast);
+			case _O_SATURATION:				OPT_CTL(saturation);
+			case _O_HUE:					OPT_CTL(hue);
+			case _O_HUE_AUTO:				OPT_CTL_AUTO(hue);
+			case _O_GAMMA:					OPT_CTL(gamma);
+			case _O_SHARPNESS:				OPT_CTL(sharpness);
+			case _O_BACKLIGHT_COMPENSATION:	OPT_CTL(backlight_compensation);
+			case _O_WHITE_BALANCE:			OPT_CTL(white_balance);
+			case _O_WHITE_BALANCE_AUTO:		OPT_CTL_AUTO(white_balance);
+			case _O_GAIN:					OPT_CTL(gain);
+			case _O_GAIN_AUTO:				OPT_CTL_AUTO(gain);
 
-			case 's':	OPT_SET(server->host, optarg);
-			case 'p':	OPT_NUMBER("--port", server->port, 1, 65535, 0);
-			case 'U':	OPT_SET(server->unix_path, optarg);
-			case 'D':	OPT_SET(server->unix_rm, true);
-			case 'M':	OPT_NUMBER("--unix-mode", server->unix_mode, INT_MIN, INT_MAX, 8);
-			case 3000:	OPT_SET(server->user, optarg);
-			case 3001:	OPT_SET(server->passwd, optarg);
-			case 3002:	OPT_SET(server->static_path, optarg);
-			case 'k':	OPT_SET(server->blank_path, optarg);
-			case 'e':	OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, VIDEO_MAX_FPS, 0);
-			case 'l':	OPT_SET(server->slowdown, true);
-			case 'R':	OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, false);
-			case 3003:	OPT_RESOLUTION_OBSOLETE("--fake-width", "--fake-resolution", server->fake_width, 0, UINT_MAX);
-			case 3004:	OPT_RESOLUTION_OBSOLETE("--fake-height", "--fake-resolution", server->fake_height, 0, UINT_MAX);
-			case 3005:	OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
+			case 's':				OPT_SET(server->host, optarg);
+			case 'p':				OPT_NUMBER("--port", server->port, 1, 65535, 0);
+			case 'U':				OPT_SET(server->unix_path, optarg);
+			case 'D':				OPT_SET(server->unix_rm, true);
+			case 'M':				OPT_NUMBER("--unix-mode", server->unix_mode, INT_MIN, INT_MAX, 8);
+			case _O_USER:			OPT_SET(server->user, optarg);
+			case _O_PASSWD:			OPT_SET(server->passwd, optarg);
+			case _O_STATIC:			OPT_SET(server->static_path, optarg);
+			case 'k':				OPT_SET(server->blank_path, optarg);
+			case 'e':				OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, VIDEO_MAX_FPS, 0);
+			case 'l':				OPT_SET(server->slowdown, true);
+			case 'R':				OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, false);
+			case _O_FAKE_WIDTH:		OPT_RESOLUTION_OBSOLETE("--fake-width", "--fake-resolution", server->fake_width, 0, UINT_MAX);
+			case _O_FAKE_HEIGHT:	OPT_RESOLUTION_OBSOLETE("--fake-height", "--fake-resolution", server->fake_height, 0, UINT_MAX);
+			case _O_SERVER_TIMEOUT:	OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
 #			ifdef WITH_GPIO
-			case 4000:	OPT_NUMBER("--gpio-prog-running", gpio_pin_prog_running, 0, 256, 0);
-			case 4001:	OPT_NUMBER("--gpio-stream-online", gpio_pin_stream_online, 0, 256, 0);
-			case 4002:	OPT_NUMBER("--gpio-has-http-clients", gpio_pin_has_http_clients, 0, 256, 0);
-			case 4003:	OPT_NUMBER("--gpio-workers-busy-at", gpio_pin_workers_busy_at, 0, 256, 0);
+			case _O_GPIO_PROG_RUNNING:		OPT_NUMBER("--gpio-prog-running", gpio_pin_prog_running, 0, 256, 0);
+			case _O_GPIO_STREAM_ONLINE:		OPT_NUMBER("--gpio-stream-online", gpio_pin_stream_online, 0, 256, 0);
+			case _O_GPIO_HAS_HTTP_CLIENTS:	OPT_NUMBER("--gpio-has-http-clients", gpio_pin_has_http_clients, 0, 256, 0);
+			case _O_GPIO_WORKERS_BUSY_AT:	OPT_NUMBER("--gpio-workers-busy-at", gpio_pin_workers_busy_at, 0, 256, 0);
 #			endif
 
-			case 5000:	OPT_SET(log_level, LOG_LEVEL_PERF);
-			case 5001:	OPT_SET(log_level, LOG_LEVEL_VERBOSE);
-			case 5002:	OPT_SET(log_level, LOG_LEVEL_DEBUG);
-			case 5010:	OPT_NUMBER("--log-level", log_level, 0, 3, 0);
+			case _O_PERF:		OPT_SET(log_level, LOG_LEVEL_PERF);
+			case _O_VERBOSE:	OPT_SET(log_level, LOG_LEVEL_VERBOSE);
+			case _O_DEBUG:		OPT_SET(log_level, LOG_LEVEL_DEBUG);
+			case _O_LOG_LEVEL:	OPT_NUMBER("--log-level", log_level, 0, 3, 0);
+
 			case 'h':	_help(dev, encoder, server); return 1;
 			case 'v':	_version(true); return 1;
 			case 0:		break;
