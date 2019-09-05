@@ -58,7 +58,7 @@ regen:
 
 
 $(PROG): $(SOURCES:.c=.o)
-	$(info -- LINKING $@)
+	$(info -- LD $@)
 	@ $(CC) $(SOURCES:.c=.o) -o $@ $(LDFLAGS) $(LIBS)
 	$(info ===== Build complete =====)
 	$(info == CC      = $(CC))

@@ -44,12 +44,12 @@
 #endif
 
 
-struct main_context_t {
+struct _main_context_t {
 	struct stream_t			*stream;
 	struct http_server_t	*server;
 };
 
-static struct main_context_t *_ctx;
+static struct _main_context_t *_ctx;
 
 static void _block_thread_signals(void) {
 	sigset_t mask;
@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
 
 		pthread_t stream_loop_tid;
 		pthread_t server_loop_tid;
-		struct main_context_t ctx;
+		struct _main_context_t ctx;
 
 		ctx.stream = stream;
 		ctx.server = server;

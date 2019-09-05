@@ -264,9 +264,8 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 	int ch;
 	int short_index;
 	int opt_index;
-	char short_opts[1024];
+	char short_opts[1024] = {0};
 
-	memset(short_opts, 1024, 1);
 	for (short_index = 0, opt_index = 0; _LONG_OPTS[opt_index].name != NULL; ++opt_index) {
 		if (isalpha(_LONG_OPTS[opt_index].val)) {
 			short_opts[short_index] = _LONG_OPTS[opt_index].val;
