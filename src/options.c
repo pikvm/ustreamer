@@ -43,7 +43,41 @@
 #endif
 
 
-enum _LONG_OPTS_VALUES {
+enum _OPT_VALUES {
+	_O_DEVICE = 'd',
+	_O_INPUT = 'i',
+	_O_RESOLUTION = 'r',
+	_O_WIDTH = 'x',
+	_O_HEIGHT = 'y',
+	_O_FORMAT = 'm',
+	_O_TV_STANDARD = 'a',
+	_O_DESIRED_FPS = 'f',
+	_O_MIN_FRAME_SIZE = 'z',
+	_O_PERSISTENT = 'n',
+	_O_DV_TIMINGS = 't',
+	_O_BUFFERS = 'b',
+	_O_WORKERS = 'w',
+	_O_QUALITY = 'q',
+	_O_ENCODER = 'c',
+#ifdef WITH_OMX
+	_O_GLITCHED_RESOLUTIONS = 'g',
+#endif
+
+	_O_HOST = 's',
+	_O_PORT = 'p',
+	_O_UNIX = 'U',
+	_O_UNIX_RM = 'D',
+	_O_UNIX_MODE = 'M',
+	_O_BLANK = 'k',
+	_O_DROP_SAME_FRAMES = 'e',
+	_O_SLOWDOWN = 'l',
+	_O_FAKE_RESOLUTION = 'R',
+
+	_O_HELP = 'h',
+	_O_VERSION = 'v',
+
+	// Longs only
+
 	_O_DEVICE_TIMEOUT = 10000,
 	_O_DEVICE_ERROR_DELAY,
 
@@ -80,24 +114,25 @@ enum _LONG_OPTS_VALUES {
 	_O_DEBUG,
 	_O_LOG_LEVEL
 };
+
 static const struct option _LONG_OPTS[] = {
-	{"device",					required_argument,	NULL,	'd'},
-	{"input",					required_argument,	NULL,	'i'},
-	{"resolution",				required_argument,	NULL,	'r'},
-	{"width",					required_argument,	NULL,	'x'},
-	{"height",					required_argument,	NULL,	'y'},
-	{"format",					required_argument,	NULL,	'm'},
-	{"tv-standard",				required_argument,	NULL,	'a'},
-	{"desired-fps",				required_argument,	NULL,	'f'},
-	{"min-frame-size",			required_argument,	NULL,	'z'},
-	{"persistent",				no_argument,		NULL,	'n'},
-	{"dv-timings",				no_argument,		NULL,	't'},
-	{"buffers",					required_argument,	NULL,	'b'},
-	{"workers",					required_argument,	NULL,	'w'},
-	{"quality",					required_argument,	NULL,	'q'},
-	{"encoder",					required_argument,	NULL,	'c'},
+	{"device",					required_argument,	NULL,	_O_DEVICE},
+	{"input",					required_argument,	NULL,	_O_INPUT},
+	{"resolution",				required_argument,	NULL,	_O_RESOLUTION},
+	{"width",					required_argument,	NULL,	_O_WIDTH},
+	{"height",					required_argument,	NULL,	_O_HEIGHT},
+	{"format",					required_argument,	NULL,	_O_FORMAT},
+	{"tv-standard",				required_argument,	NULL,	_O_TV_STANDARD},
+	{"desired-fps",				required_argument,	NULL,	_O_DESIRED_FPS},
+	{"min-frame-size",			required_argument,	NULL,	_O_MIN_FRAME_SIZE},
+	{"persistent",				no_argument,		NULL,	_O_PERSISTENT},
+	{"dv-timings",				no_argument,		NULL,	_O_DV_TIMINGS},
+	{"buffers",					required_argument,	NULL,	_O_BUFFERS},
+	{"workers",					required_argument,	NULL,	_O_WORKERS},
+	{"quality",					required_argument,	NULL,	_O_QUALITY},
+	{"encoder",					required_argument,	NULL,	_O_ENCODER},
 #	ifdef WITH_OMX
-	{"glitched-resolutions",	required_argument,	NULL,	'g'},
+	{"glitched-resolutions",	required_argument,	NULL,	_O_GLITCHED_RESOLUTIONS},
 #	endif
 	{"device-timeout",			required_argument,	NULL,	_O_DEVICE_TIMEOUT},
 	{"device-error-delay",		required_argument,	NULL,	_O_DEVICE_ERROR_DELAY},
@@ -116,18 +151,18 @@ static const struct option _LONG_OPTS[] = {
 	{"gain",					required_argument,	NULL,	_O_GAIN},
 	{"gain-auto",				no_argument,		NULL,	_O_GAIN_AUTO},
 
-	{"host",					required_argument,	NULL,	's'},
-	{"port",					required_argument,	NULL,	'p'},
-	{"unix",					required_argument,	NULL,	'U'},
-	{"unix-rm",					no_argument,		NULL,	'D'},
-	{"unix-mode",				required_argument,	NULL,	'M'},
+	{"host",					required_argument,	NULL,	_O_HOST},
+	{"port",					required_argument,	NULL,	_O_PORT},
+	{"unix",					required_argument,	NULL,	_O_UNIX},
+	{"unix-rm",					no_argument,		NULL,	_O_UNIX_RM},
+	{"unix-mode",				required_argument,	NULL,	_O_UNIX_MODE},
 	{"user",					required_argument,	NULL,	_O_USER},
 	{"passwd",					required_argument,	NULL,	_O_PASSWD},
 	{"static",					required_argument,	NULL,	_O_STATIC},
-	{"blank",					required_argument,	NULL,	'k'},
-	{"drop-same-frames",		required_argument,	NULL,	'e'},
-	{"slowdown",				no_argument,		NULL,	'l'},
-	{"fake-resolution",			required_argument,	NULL,	'R'},
+	{"blank",					required_argument,	NULL,	_O_BLANK},
+	{"drop-same-frames",		required_argument,	NULL,	_O_DROP_SAME_FRAMES},
+	{"slowdown",				no_argument,		NULL,	_O_SLOWDOWN},
+	{"fake-resolution",			required_argument,	NULL,	_O_FAKE_RESOLUTION},
 	{"fake-width",				required_argument,	NULL,	_O_FAKE_WIDTH},
 	{"fake-height",				required_argument,	NULL,	_O_FAKE_HEIGHT},
 	{"server-timeout",			required_argument,	NULL,	_O_SERVER_TIMEOUT},
@@ -143,8 +178,8 @@ static const struct option _LONG_OPTS[] = {
 	{"verbose",					no_argument,		NULL,	_O_VERBOSE},
 	{"debug",					no_argument,		NULL,	_O_DEBUG},
 	{"log-level",				required_argument,	NULL,	_O_LOG_LEVEL},
-	{"help",					no_argument,		NULL,	'h'},
-	{"version",					no_argument,		NULL,	'v'},
+	{"help",					no_argument,		NULL,	_O_HELP},
+	{"version",					no_argument,		NULL,	_O_VERSION},
 	{NULL, 0, NULL, 0},
 };
 
@@ -245,26 +280,26 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 
 	while ((ch = getopt_long(argc, argv, short_opts, _LONG_OPTS, NULL)) >= 0) {
 		switch (ch) {
-			case 'd':	OPT_SET(dev->path, optarg);
-			case 'i':	OPT_NUMBER("--input", dev->input, 0, 128, 0);
-			case 'r':	OPT_RESOLUTION("--resolution", dev->width, dev->height, true);
-			case 'x':	OPT_RESOLUTION_OBSOLETE("--width", "--resolution", dev->width, VIDEO_MIN_WIDTH, VIDEO_MAX_WIDTH);
-			case 'y':	OPT_RESOLUTION_OBSOLETE("--height", "--resolution", dev->height, VIDEO_MIN_HEIGHT, VIDEO_MAX_HEIGHT);
+			case _O_DEVICE:			OPT_SET(dev->path, optarg);
+			case _O_INPUT:			OPT_NUMBER("--input", dev->input, 0, 128, 0);
+			case _O_RESOLUTION:		OPT_RESOLUTION("--resolution", dev->width, dev->height, true);
+			case _O_WIDTH:			OPT_RESOLUTION_OBSOLETE("--width", "--resolution", dev->width, VIDEO_MIN_WIDTH, VIDEO_MAX_WIDTH);
+			case _O_HEIGHT:			OPT_RESOLUTION_OBSOLETE("--height", "--resolution", dev->height, VIDEO_MIN_HEIGHT, VIDEO_MAX_HEIGHT);
 #			pragma GCC diagnostic ignored "-Wsign-compare"
 #			pragma GCC diagnostic push
-			case 'm':	OPT_PARSE("pixel format", dev->format, device_parse_format, FORMAT_UNKNOWN);
+			case _O_FORMAT:			OPT_PARSE("pixel format", dev->format, device_parse_format, FORMAT_UNKNOWN);
 #			pragma GCC diagnostic pop
-			case 'a':	OPT_PARSE("TV standard", dev->standard, device_parse_standard, STANDARD_UNKNOWN);
-			case 'f':	OPT_NUMBER("--desired-fps", dev->desired_fps, 0, VIDEO_MAX_FPS, 0);
-			case 'z':	OPT_NUMBER("--min-frame-size", dev->min_frame_size, 0, 8192, 0);
-			case 'n':	OPT_SET(dev->persistent, true);
-			case 't':	OPT_SET(dev->dv_timings, true);
-			case 'b':	OPT_NUMBER("--buffers", dev->n_buffers, 1, 32, 0);
-			case 'w':	OPT_NUMBER("--workers", dev->n_workers, 1, 32, 0);
-			case 'q':	OPT_NUMBER("--quality", encoder->quality, 1, 100, 0);
-			case 'c':	OPT_PARSE("encoder type", encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN);
+			case _O_TV_STANDARD:	OPT_PARSE("TV standard", dev->standard, device_parse_standard, STANDARD_UNKNOWN);
+			case _O_DESIRED_FPS:	OPT_NUMBER("--desired-fps", dev->desired_fps, 0, VIDEO_MAX_FPS, 0);
+			case _O_MIN_FRAME_SIZE:	OPT_NUMBER("--min-frame-size", dev->min_frame_size, 0, 8192, 0);
+			case _O_PERSISTENT:		OPT_SET(dev->persistent, true);
+			case _O_DV_TIMINGS:		OPT_SET(dev->dv_timings, true);
+			case _O_BUFFERS:		OPT_NUMBER("--buffers", dev->n_buffers, 1, 32, 0);
+			case _O_WORKERS:		OPT_NUMBER("--workers", dev->n_workers, 1, 32, 0);
+			case _O_QUALITY:		OPT_NUMBER("--quality", encoder->quality, 1, 100, 0);
+			case _O_ENCODER:		OPT_PARSE("encoder type", encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN);
 #			ifdef WITH_OMX
-			case 'g':	OPT_GLITCHED_RESOLUTIONS;
+			case _O_GLITCHED_RESOLUTIONS:	OPT_GLITCHED_RESOLUTIONS;
 #			endif
 			case _O_DEVICE_TIMEOUT:		OPT_NUMBER("--device-timeout", dev->timeout, 1, 60, 0);
 			case _O_DEVICE_ERROR_DELAY:	OPT_NUMBER("--device-error-delay", dev->error_delay, 1, 60, 0);
@@ -283,21 +318,21 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			case _O_GAIN:					OPT_CTL(gain);
 			case _O_GAIN_AUTO:				OPT_CTL_AUTO(gain);
 
-			case 's':				OPT_SET(server->host, optarg);
-			case 'p':				OPT_NUMBER("--port", server->port, 1, 65535, 0);
-			case 'U':				OPT_SET(server->unix_path, optarg);
-			case 'D':				OPT_SET(server->unix_rm, true);
-			case 'M':				OPT_NUMBER("--unix-mode", server->unix_mode, INT_MIN, INT_MAX, 8);
-			case _O_USER:			OPT_SET(server->user, optarg);
-			case _O_PASSWD:			OPT_SET(server->passwd, optarg);
-			case _O_STATIC:			OPT_SET(server->static_path, optarg);
-			case 'k':				OPT_SET(server->blank_path, optarg);
-			case 'e':				OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, VIDEO_MAX_FPS, 0);
-			case 'l':				OPT_SET(server->slowdown, true);
-			case 'R':				OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, false);
-			case _O_FAKE_WIDTH:		OPT_RESOLUTION_OBSOLETE("--fake-width", "--fake-resolution", server->fake_width, 0, UINT_MAX);
-			case _O_FAKE_HEIGHT:	OPT_RESOLUTION_OBSOLETE("--fake-height", "--fake-resolution", server->fake_height, 0, UINT_MAX);
-			case _O_SERVER_TIMEOUT:	OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
+			case _O_HOST:				OPT_SET(server->host, optarg);
+			case _O_PORT:				OPT_NUMBER("--port", server->port, 1, 65535, 0);
+			case _O_UNIX:				OPT_SET(server->unix_path, optarg);
+			case _O_UNIX_RM:			OPT_SET(server->unix_rm, true);
+			case _O_UNIX_MODE:			OPT_NUMBER("--unix-mode", server->unix_mode, INT_MIN, INT_MAX, 8);
+			case _O_USER:				OPT_SET(server->user, optarg);
+			case _O_PASSWD:				OPT_SET(server->passwd, optarg);
+			case _O_STATIC:				OPT_SET(server->static_path, optarg);
+			case _O_BLANK:				OPT_SET(server->blank_path, optarg);
+			case _O_DROP_SAME_FRAMES:	OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, VIDEO_MAX_FPS, 0);
+			case _O_SLOWDOWN:			OPT_SET(server->slowdown, true);
+			case _O_FAKE_RESOLUTION:	OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, false);
+			case _O_FAKE_WIDTH:			OPT_RESOLUTION_OBSOLETE("--fake-width", "--fake-resolution", server->fake_width, 0, UINT_MAX);
+			case _O_FAKE_HEIGHT:		OPT_RESOLUTION_OBSOLETE("--fake-height", "--fake-resolution", server->fake_height, 0, UINT_MAX);
+			case _O_SERVER_TIMEOUT:		OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
 #			ifdef WITH_GPIO
 			case _O_GPIO_PROG_RUNNING:		OPT_NUMBER("--gpio-prog-running", gpio_pin_prog_running, 0, 256, 0);
@@ -311,10 +346,10 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			case _O_DEBUG:		OPT_SET(log_level, LOG_LEVEL_DEBUG);
 			case _O_LOG_LEVEL:	OPT_NUMBER("--log-level", log_level, 0, 3, 0);
 
-			case 'h':	_help(dev, encoder, server); return 1;
-			case 'v':	_version(true); return 1;
-			case 0:		break;
-			default:	_help(dev, encoder, server); return -1;
+			case _O_HELP:		_help(dev, encoder, server); return 1;
+			case _O_VERSION:	_version(true); return 1;
+			case 0:				break;
+			default:			_help(dev, encoder, server); return -1;
 		}
 	}
 
