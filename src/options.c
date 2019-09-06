@@ -47,8 +47,6 @@ enum _OPT_VALUES {
 	_O_DEVICE = 'd',
 	_O_INPUT = 'i',
 	_O_RESOLUTION = 'r',
-	_O_WIDTH = 'x',
-	_O_HEIGHT = 'y',
 	_O_FORMAT = 'm',
 	_O_TV_STANDARD = 'a',
 	_O_DESIRED_FPS = 'f',
@@ -98,8 +96,6 @@ enum _OPT_VALUES {
 	_O_USER,
 	_O_PASSWD,
 	_O_STATIC,
-	_O_FAKE_WIDTH,
-	_O_FAKE_HEIGHT,
 	_O_SERVER_TIMEOUT,
 
 #ifdef WITH_GPIO
@@ -121,8 +117,6 @@ static const struct option _LONG_OPTS[] = {
 	{"device",					required_argument,	NULL,	_O_DEVICE},
 	{"input",					required_argument,	NULL,	_O_INPUT},
 	{"resolution",				required_argument,	NULL,	_O_RESOLUTION},
-	{"width",					required_argument,	NULL,	_O_WIDTH},
-	{"height",					required_argument,	NULL,	_O_HEIGHT},
 	{"format",					required_argument,	NULL,	_O_FORMAT},
 	{"tv-standard",				required_argument,	NULL,	_O_TV_STANDARD},
 	{"desired-fps",				required_argument,	NULL,	_O_DESIRED_FPS},
@@ -165,8 +159,6 @@ static const struct option _LONG_OPTS[] = {
 	{"drop-same-frames",		required_argument,	NULL,	_O_DROP_SAME_FRAMES},
 	{"slowdown",				no_argument,		NULL,	_O_SLOWDOWN},
 	{"fake-resolution",			required_argument,	NULL,	_O_FAKE_RESOLUTION},
-	{"fake-width",				required_argument,	NULL,	_O_FAKE_WIDTH},
-	{"fake-height",				required_argument,	NULL,	_O_FAKE_HEIGHT},
 	{"server-timeout",			required_argument,	NULL,	_O_SERVER_TIMEOUT},
 
 #ifdef WITH_GPIO
@@ -232,11 +224,6 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			break; \
 		}
 
-#	define OPT_RESOLUTION_OBSOLETE(_name, _replace, _dest, _min, _max) { \
-			printf("\n=== WARNING! The option '%s' is obsolete; use '%s' instead it ===\n\n", _name, _replace); \
-			OPT_NUMBER(_name, _dest, _min, _max, 0); \
-		}
-
 #	ifdef WITH_OMX
 #		define OPT_GLITCHED_RESOLUTIONS { \
 				if (_parse_glitched_resolutions(optarg, encoder) < 0) { \
@@ -288,8 +275,6 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			case _O_DEVICE:			OPT_SET(dev->path, optarg);
 			case _O_INPUT:			OPT_NUMBER("--input", dev->input, 0, 128, 0);
 			case _O_RESOLUTION:		OPT_RESOLUTION("--resolution", dev->width, dev->height, true);
-			case _O_WIDTH:			OPT_RESOLUTION_OBSOLETE("--width", "--resolution", dev->width, VIDEO_MIN_WIDTH, VIDEO_MAX_WIDTH);
-			case _O_HEIGHT:			OPT_RESOLUTION_OBSOLETE("--height", "--resolution", dev->height, VIDEO_MIN_HEIGHT, VIDEO_MAX_HEIGHT);
 #			pragma GCC diagnostic ignored "-Wsign-compare"
 #			pragma GCC diagnostic push
 			case _O_FORMAT:			OPT_PARSE("pixel format", dev->format, device_parse_format, FORMAT_UNKNOWN);
@@ -335,8 +320,6 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			case _O_DROP_SAME_FRAMES:	OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, VIDEO_MAX_FPS, 0);
 			case _O_SLOWDOWN:			OPT_SET(server->slowdown, true);
 			case _O_FAKE_RESOLUTION:	OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, false);
-			case _O_FAKE_WIDTH:			OPT_RESOLUTION_OBSOLETE("--fake-width", "--fake-resolution", server->fake_width, 0, UINT_MAX);
-			case _O_FAKE_HEIGHT:		OPT_RESOLUTION_OBSOLETE("--fake-height", "--fake-resolution", server->fake_height, 0, UINT_MAX);
 			case _O_SERVER_TIMEOUT:		OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
 #			ifdef WITH_GPIO
@@ -367,7 +350,6 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 #	ifdef WITH_OMX
 #		undef OPT_GLITCHED_RESOLUTIONS
 #	endif
-#	undef OPT_RESOLUTION_OBSOLETE
 #	undef OPT_RESOLUTION
 #	undef OPT_NUMBER
 #	undef OPT_SET
