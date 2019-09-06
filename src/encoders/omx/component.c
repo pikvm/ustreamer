@@ -41,7 +41,7 @@ int component_enable_port(OMX_HANDLETYPE *component, OMX_U32 port) {
 
 	LOG_DEBUG("Enabling OMX port %u ...", port);
 	if ((error = OMX_SendCommand(*component, OMX_CommandPortEnable, port, NULL)) != OMX_ErrorNone) {
-		LOG_OMX_ERROR(error, "Can't enable OMX port %u", port);
+		LOG_ERROR_OMX(error, "Can't enable OMX port %u", port);
 		return -1;
 	}
 	return _component_wait_port_changed(component, port, OMX_TRUE);
@@ -52,7 +52,7 @@ int component_disable_port(OMX_HANDLETYPE *component, OMX_U32 port) {
 
 	LOG_DEBUG("Disabling OMX port %u ...", port);
 	if ((error = OMX_SendCommand(*component, OMX_CommandPortDisable, port, NULL)) != OMX_ErrorNone) {
-		LOG_OMX_ERROR(error, "Can't disable OMX port %u", port);
+		LOG_ERROR_OMX(error, "Can't disable OMX port %u", port);
 		return -1;
 	}
 	return _component_wait_port_changed(component, port, OMX_FALSE);
@@ -66,7 +66,7 @@ int component_get_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYP
 
 	LOG_DEBUG("Fetching OMX port %u definition ...", port);
 	if ((error = OMX_GetParameter(*component, OMX_IndexParamPortDefinition, portdef)) != OMX_ErrorNone) {
-		LOG_OMX_ERROR(error, "Can't get OMX port %u definition", port);
+		LOG_ERROR_OMX(error, "Can't get OMX port %u definition", port);
 		return -1;
 	}
 	return 0;
@@ -77,7 +77,7 @@ int component_set_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYP
 
 	LOG_DEBUG("Writing OMX port %u definition ...", portdef->nPortIndex);
 	if ((error = OMX_SetParameter(*component, OMX_IndexParamPortDefinition, portdef)) != OMX_ErrorNone) {
-		LOG_OMX_ERROR(error, "Can't set OMX port %u definition", portdef->nPortIndex);
+		LOG_ERROR_OMX(error, "Can't set OMX port %u definition", portdef->nPortIndex);
 		return -1;
 	}
 	return 0;
@@ -96,7 +96,7 @@ int component_set_state(OMX_HANDLETYPE *component, OMX_STATETYPE state) {
 			return _component_wait_state_changed(component, state);
 		} else if (error == OMX_ErrorInsufficientResources && retries) {
 			// Иногда железо не инициализируется, хз почему, просто ретраим, со второй попытки сработает
-			LOG_OMX_ERROR(error, "Can't switch OMX component state to %s, need to retry", state_str);
+			LOG_ERROR_OMX(error, "Can't switch OMX component state to %s, need to retry", state_str);
 			retries -= 1;
 			usleep(8000);
 		} else {
@@ -104,7 +104,7 @@ int component_set_state(OMX_HANDLETYPE *component, OMX_STATETYPE state) {
 		}
 	} while (retries);
 
-	LOG_OMX_ERROR(error, "Can't switch OMX component state to %s", state_str);
+	LOG_ERROR_OMX(error, "Can't switch OMX component state to %s", state_str);
 	return -1;
 }
 
@@ -119,7 +119,7 @@ static int _component_wait_port_changed(OMX_HANDLETYPE *component, OMX_U32 port,
 
 	do {
 		if ((error = OMX_GetParameter(*component, OMX_IndexParamPortDefinition, &portdef)) != OMX_ErrorNone) {
-			LOG_OMX_ERROR(error, "Can't get OMX port %u definition for waiting", port);
+			LOG_ERROR_OMX(error, "Can't get OMX port %u definition for waiting", port);
 			return -1;
 		}
 
@@ -141,7 +141,7 @@ static int _component_wait_state_changed(OMX_HANDLETYPE *component, OMX_STATETYP
 
 	do {
 		if ((error = OMX_GetState(*component, &state)) != OMX_ErrorNone) {
-			LOG_OMX_ERROR(error, "Failed to get OMX component state");
+			LOG_ERROR_OMX(error, "Failed to get OMX component state");
 			return -1;
 		}
 

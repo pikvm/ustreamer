@@ -29,7 +29,7 @@
 #include "../../logging.h"
 
 
-#define LOG_OMX_ERROR(_error, _msg, ...) { \
+#define LOG_ERROR_OMX(_error, _msg, ...) { \
 		LOG_ERROR(_msg ": %s", ##__VA_ARGS__, omx_error_to_string(_error)); \
 	}
 

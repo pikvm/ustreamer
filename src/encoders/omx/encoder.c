@@ -93,7 +93,7 @@ struct omx_encoder_t *omx_encoder_init(void) {
 
 		LOG_INFO("Initializing OMX ...");
 		if ((error = OMX_Init()) != OMX_ErrorNone) {
-			LOG_OMX_ERROR(error, "Can't initialize OMX");
+			LOG_ERROR_OMX(error, "Can't initialize OMX");
 			goto error;
 		}
 	}
@@ -137,7 +137,7 @@ void omx_encoder_destroy(struct omx_encoder_t *omx) {
 
 	if (omx->i_encoder) {
 		if ((error = OMX_FreeHandle(omx->encoder)) != OMX_ErrorNone) {
-			LOG_OMX_ERROR(error, "Can't free OMX.broadcom.image_encode");
+			LOG_ERROR_OMX(error, "Can't free OMX.broadcom.image_encode");
 		}
 	}
 
@@ -184,7 +184,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 	size_t pos = 0;
 
 	if ((error = OMX_FillThisBuffer(omx->encoder, omx->output_buffer)) != OMX_ErrorNone) {
-		LOG_OMX_ERROR(error, "Failed to request filling of the output buffer on encoder");
+		LOG_ERROR_OMX(error, "Failed to request filling of the output buffer on encoder");
 		return -1;
 	}
 
@@ -210,7 +210,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 			}
 
 			if ((error = OMX_FillThisBuffer(omx->encoder, omx->output_buffer)) != OMX_ErrorNone) {
-				LOG_OMX_ERROR(error, "Failed to request filling of the output buffer on encoder");
+				LOG_ERROR_OMX(error, "Failed to request filling of the output buffer on encoder");
 				return -1;
 			}
 		}
@@ -233,7 +233,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 			}
 
 			if ((error = OMX_EmptyThisBuffer(omx->encoder, omx->input_buffer)) != OMX_ErrorNone) {
-				LOG_OMX_ERROR(error, "Failed to request emptying of the input buffer on encoder");
+				LOG_ERROR_OMX(error, "Failed to request emptying of the input buffer on encoder");
 				return -1;
 			}
 		}
@@ -259,7 +259,7 @@ static int _omx_init_component(struct omx_encoder_t *omx) {
 
 	LOG_DEBUG("Initializing OMX.broadcom.image_encode ...");
 	if ((error = OMX_GetHandle(&omx->encoder, "OMX.broadcom.image_encode", omx, &callbacks)) != OMX_ErrorNone) {
-		LOG_OMX_ERROR(error, "Can't initialize OMX.broadcom.image_encode");
+		LOG_ERROR_OMX(error, "Can't initialize OMX.broadcom.image_encode");
 		return -1;
 	}
 	omx->i_encoder = true;
@@ -276,13 +276,13 @@ static int _omx_init_disable_ports(struct omx_encoder_t *omx) {
 
 	OMX_INIT_STRUCTURE(ports);
 	if ((error = OMX_GetParameter(omx->encoder, OMX_IndexParamImageInit, &ports)) != OMX_ErrorNone) {
-		LOG_OMX_ERROR(error, "Can't OMX_GetParameter(OMX_IndexParamImageInit)");
+		LOG_ERROR_OMX(error, "Can't OMX_GetParameter(OMX_IndexParamImageInit)");
 		return -1;
 	}
 
 	for (unsigned index = 0; index < 4; ++index) {
 		if ((error = OMX_GetParameter(omx->encoder, types[index], &ports)) != OMX_ErrorNone) {
-			LOG_OMX_ERROR(error, "Can't OMX_GetParameter(types[%u])", index);
+			LOG_ERROR_OMX(error, "Can't OMX_GetParameter(types[%u])", index);
 			return -1;
 		}
 		for (OMX_U32 port = ports.nStartPortNumber; port < ports.nStartPortNumber + ports.nPorts; ++port) {
@@ -349,7 +349,7 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 	omx->i_input_port_enabled = true;
 
 	if ((error = OMX_AllocateBuffer(omx->encoder, &omx->input_buffer, _INPUT_PORT, NULL, portdef.nBufferSize)) != OMX_ErrorNone) {
-		LOG_OMX_ERROR(error, "Can't allocate OMX JPEG input buffer");
+		LOG_ERROR_OMX(error, "Can't allocate OMX JPEG input buffer");
 		return -1;
 	}
 	return 0;
@@ -386,7 +386,7 @@ static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality) {
 		exif.bEnabled = OMX_FALSE;
 
 		if ((error = OMX_SetParameter(omx->encoder, OMX_IndexParamBrcmDisableEXIF, &exif)) != OMX_ErrorNone) {
-			LOG_OMX_ERROR(error, "Can't disable EXIF on OMX JPEG");
+			LOG_ERROR_OMX(error, "Can't disable EXIF on OMX JPEG");
 			return -1;
 		}
 	}
@@ -399,7 +399,7 @@ static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality) {
 		ijg.bEnabled = OMX_TRUE;
 
 		if ((error = OMX_SetParameter(omx->encoder, OMX_IndexParamBrcmEnableIJGTableScaling, &ijg)) != OMX_ErrorNone) {
-			LOG_OMX_ERROR(error, "Can't set OMX JPEG IJG settings");
+			LOG_ERROR_OMX(error, "Can't set OMX JPEG IJG settings");
 			return -1;
 		}
 	}
@@ -412,7 +412,7 @@ static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality) {
 		qfactor.nQFactor = quality;
 
 		if ((error = OMX_SetParameter(omx->encoder, OMX_IndexParamQFactor, &qfactor)) != OMX_ErrorNone) {
-			LOG_OMX_ERROR(error, "Can't set OMX JPEG quality");
+			LOG_ERROR_OMX(error, "Can't set OMX JPEG quality");
 			return -1;
 		}
 	}
@@ -423,7 +423,7 @@ static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality) {
 	omx->i_output_port_enabled = true;
 
 	if ((error = OMX_AllocateBuffer(omx->encoder, &omx->output_buffer, _OUTPUT_PORT, NULL, portdef.nBufferSize)) != OMX_ErrorNone) {
-		LOG_OMX_ERROR(error, "Can't allocate OMX JPEG output buffer");
+		LOG_ERROR_OMX(error, "Can't allocate OMX JPEG output buffer");
 		return -1;
 	}
 	return 0;
@@ -444,14 +444,14 @@ static int _omx_encoder_clear_ports(struct omx_encoder_t *omx) {
 
 	if (omx->input_buffer) {
 		if ((error = OMX_FreeBuffer(omx->encoder, _INPUT_PORT, omx->input_buffer)) != OMX_ErrorNone) {
-			LOG_OMX_ERROR(error, "Can't free OMX JPEG input buffer");
+			LOG_ERROR_OMX(error, "Can't free OMX JPEG input buffer");
 			// retcode -= 1;
 		}
 		omx->input_buffer = NULL;
 	}
 	if (omx->output_buffer) {
 		if ((error = OMX_FreeBuffer(omx->encoder, _OUTPUT_PORT, omx->output_buffer)) != OMX_ErrorNone) {
-			LOG_OMX_ERROR(error, "Can't free OMX JPEG output buffer");
+			LOG_ERROR_OMX(error, "Can't free OMX JPEG output buffer");
 			// retcode -= 1;
 		}
 		omx->output_buffer = NULL;
@@ -469,7 +469,7 @@ static OMX_ERRORTYPE _omx_event_handler(
 	struct omx_encoder_t *omx = (struct omx_encoder_t *)v_omx;
 
 	if (event == OMX_EventError) {
-		LOG_OMX_ERROR((OMX_ERRORTYPE)data1, "OMX error event received");
+		LOG_ERROR_OMX((OMX_ERRORTYPE)data1, "OMX error event received");
 		omx->failed = true;
 		vcos_semaphore_post(&omx->handler_lock);
 	}
