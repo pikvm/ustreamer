@@ -895,7 +895,7 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
 	EXPOSED(expose_end_time) = get_now_monotonic();
 
-	LOG_VERBOSE("HTTP: exposed new frame; full exposition time =  %.06Lf",
+	LOG_VERBOSE("HTTP: exposed new frame; full exposition time = %.06Lf",
 		 EXPOSED(expose_end_time) - EXPOSED(expose_begin_time));
 
 #	undef EXPOSED

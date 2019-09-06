@@ -240,7 +240,7 @@ void stream_loop(struct stream_t *stream) {
 							captured_fps = captured_fps_accum;
 							captured_fps_accum = 0;
 							captured_fps_second = now_second;
-							LOG_PERF("A new second has come; captured_fps=%u", captured_fps);
+							LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps);
 						}
 						captured_fps_accum += 1;
 
