@@ -109,8 +109,8 @@ enum _OPT_VALUES {
 	_O_PERF,
 	_O_VERBOSE,
 	_O_DEBUG,
-	_O_FORCE_COLORS,
-	_O_NO_COLORS,
+	_O_FORCE_LOG_COLORS,
+	_O_NO_LOG_COLORS,
 };
 
 static const struct option _LONG_OPTS[] = {
@@ -172,8 +172,8 @@ static const struct option _LONG_OPTS[] = {
 	{"perf",					no_argument,		NULL,	_O_PERF},
 	{"verbose",					no_argument,		NULL,	_O_VERBOSE},
 	{"debug",					no_argument,		NULL,	_O_DEBUG},
-	{"force-colors",			no_argument,		NULL,	_O_FORCE_COLORS},
-	{"no-colors",				no_argument,		NULL,	_O_NO_COLORS},
+	{"force-log-colors",		no_argument,		NULL,	_O_FORCE_LOG_COLORS},
+	{"no-log-colors",			no_argument,		NULL,	_O_NO_LOG_COLORS},
 
 	{"help",					no_argument,		NULL,	_O_HELP},
 	{"version",					no_argument,		NULL,	_O_VERSION},
@@ -329,12 +329,12 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			case _O_GPIO_WORKERS_BUSY_AT:	OPT_NUMBER("--gpio-workers-busy-at", gpio_pin_workers_busy_at, 0, 256, 0);
 #			endif
 
-			case _O_LOG_LEVEL:		OPT_NUMBER("--log-level", log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
-			case _O_PERF:			OPT_SET(log_level, LOG_LEVEL_PERF);
-			case _O_VERBOSE:		OPT_SET(log_level, LOG_LEVEL_VERBOSE);
-			case _O_DEBUG:			OPT_SET(log_level, LOG_LEVEL_DEBUG);
-			case _O_FORCE_COLORS:	OPT_SET(log_colored, true);
-			case _O_NO_COLORS:		OPT_SET(log_colored, false);
+			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
+			case _O_PERF:				OPT_SET(log_level, LOG_LEVEL_PERF);
+			case _O_VERBOSE:			OPT_SET(log_level, LOG_LEVEL_VERBOSE);
+			case _O_DEBUG:				OPT_SET(log_level, LOG_LEVEL_DEBUG);
+			case _O_FORCE_LOG_COLORS:	OPT_SET(log_colored, true);
+			case _O_NO_LOG_COLORS:		OPT_SET(log_colored, false);
 
 			case _O_HELP:		_help(dev, encoder, server); return 1;
 			case _O_VERSION:	_version(true); return 1;
@@ -523,15 +523,15 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 #endif
 	printf("Logging options:\n");
 	printf("════════════════\n");
-	printf("    --log-level <N>  ─ Verbosity level of messages from 0 (info) to 3 (debug).\n");
-	printf("                       Enabling debugging messages can slow down the program.\n");
-	printf("                       Available levels: 0 (info), 1 (performance), 2 (verbose), 3 (debug).\n");
-	printf("                       Default: %u.\n\n", log_level);
-	printf("    --perf  ────────── Enable performance messages (same as --log-level=1). Default: disabled.\n\n");
-	printf("    --verbose  ─────── Enable verbose messages and lower (same as --log-level=2). Default: disabled.\n\n");
-	printf("    --debug  ───────── Enable debug messages and lower (same as --log-level=3). Default: disabled.\n\n");
-	printf("    --force-colors  ── Force color logging. Default: colored if stdout is a TTY.\n\n");
-	printf("    --no-colors  ───── Disable color logging. Default: ditto.\n\n");
+	printf("    --log-level <N>  ──── Verbosity level of messages from 0 (info) to 3 (debug).\n");
+	printf("                          Enabling debugging messages can slow down the program.\n");
+	printf("                          Available levels: 0 (info), 1 (performance), 2 (verbose), 3 (debug).\n");
+	printf("                          Default: %u.\n\n", log_level);
+	printf("    --perf  ───────────── Enable performance messages (same as --log-level=1). Default: disabled.\n\n");
+	printf("    --verbose  ────────── Enable verbose messages and lower (same as --log-level=2). Default: disabled.\n\n");
+	printf("    --debug  ──────────── Enable debug messages and lower (same as --log-level=3). Default: disabled.\n\n");
+	printf("    --force-log-colors  ─ Force color logging. Default: colored if stdout is a TTY.\n\n");
+	printf("    --no-log-colors  ──── Disable color logging. Default: ditto.\n\n");
 	printf("Help options:\n");
 	printf("═════════════\n");
 	printf("    -h|--help  ─────── Print this text and exit.\n\n");
