@@ -51,12 +51,12 @@ int hw_encoder_prepare(struct device_t *dev, unsigned quality) {
 	MEMSET_ZERO(comp);
 
 	if (xioctl(dev->run->fd, VIDIOC_G_JPEGCOMP, &comp) < 0) {
-		LOG_ERROR("Can't query HW encoder params and set quality (unsupported)");
+		LOG_ERROR("Device does not support setting of HW encoding quality parameters");
 		return -1;
 	}
 	comp.quality = quality;
 	if (xioctl(dev->run->fd, VIDIOC_S_JPEGCOMP, &comp) < 0) {
-		LOG_ERROR("Can't set HW encoder quality (unsupported)");
+		LOG_ERROR("Unable to change MJPG quality for JPEG source with HW pass-through encoder");
 		return -1;
 	}
 	return 0;

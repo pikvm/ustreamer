@@ -466,13 +466,23 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                           Default: %u (the number of CPU cores (but not more than 4) + 1).\n\n", dev->n_buffers);
 	printf("    -w|--workers <N>  ──────────────────── The number of worker threads but not more than buffers.\n");
 	printf("                                           Default: %u (the number of CPU cores (but not more than 4)).\n\n", dev->n_workers);
-	printf("    -q|--quality <N>  ──────────────────── Set quality of JPEG encoding from 1 to 100 (best). Default: %u.\n\n", encoder->quality);
-	printf("    -c|--encoder <type>  ───────────────── Use specified encoder. It may affect the number of workers.\n\n");
+	printf("    -q|--quality <N>  ──────────────────── Set quality of JPEG encoding from 1 to 100 (best). Default: %u.\n", encoder->quality);
+	printf("                                           Note: If HW encoding is used (JPEG source format selected),\n");
+	printf("                                           this parameter attempts to configure the camera\n");
+	printf("                                           or capture device hardware's internal encoder.\n");
+	printf("                                           It does not re-encode MJPG to MJPG to change the quality level\n");
+	printf("                                           for sources that already output MJPG.\n\n");
+	printf("    -c|--encoder <type>  ───────────────── Use specified encoder. It may affect the number of workers.\n");
+	printf("                                           Available:\n");
+	printf("                                             * CPU  ─ Software MJPG encoding (default);\n");
+#	ifdef WITH_OMX
+	printf("                                             * OMX  ─ GPU hardware accelerated MJPG encoding with OpenMax;\n");
+#	endif
+	printf("                                             * HW  ── Use pre-encoded MJPG frames directly from camera hardware.\n\n");
 #	ifdef WITH_OMX
 	printf("    -g|--glitched-resolutions <WxH,...>  ─ Comma-separated list of resolutions that require forced\n");
+	printf("                                           encoding on CPU instead of OMX. Default: disabled.\n\n");
 #	endif
-	printf("                                           encoding on CPU instead of OMX. Default: disabled.\n");
-	printf("                                           Available: %s; default: CPU.\n\n", ENCODER_TYPES_STR);
 	printf("    --device-timeout <seconds>  ────────── Timeout for device querying. Default: %u.\n\n", dev->timeout);
 	printf("    --device-error-delay <seconds>  ────── Delay before trying to connect to the device again\n");
 	printf("                                           after an error (timeout for example). Default: %u.\n\n", dev->error_delay);
