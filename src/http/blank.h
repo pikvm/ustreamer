@@ -27,12 +27,5 @@
 #include "../device.h"
 
 
-struct blank_t {
-	struct picture_t	picture;
-	unsigned			width;
-	unsigned			height;
-};
-
-
-struct blank_t *blank_init(const char *path);
-void blank_destroy(struct blank_t *blank);
+struct picture_t *blank_init(const char *path);
+void blank_destroy(struct picture_t *blank);

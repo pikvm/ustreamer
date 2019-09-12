@@ -35,8 +35,7 @@ struct process_t {
 
 struct stream_t {
 	struct picture_t	picture;
-	unsigned			width;
-	unsigned			height;
+	bool				online;
 	unsigned			captured_fps;
 	atomic_bool			updated;
 	pthread_mutex_t		mutex;

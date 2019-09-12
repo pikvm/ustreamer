@@ -54,6 +54,8 @@ struct picture_t {
 	unsigned char	*data;
 	size_t			used;
 	size_t			allocated;
+	unsigned		width;
+	unsigned		height;
 	long double		grab_time;
 	long double		encode_begin_time;
 	long double		encode_end_time;
@@ -117,6 +119,8 @@ void device_destroy(struct device_t *dev);
 
 int device_parse_format(const char *str);
 v4l2_std_id device_parse_standard(const char *str);
+
+void device_copy_picture(const struct picture_t *src, struct picture_t *dest);
 
 int device_open(struct device_t *dev);
 void device_close(struct device_t *dev);

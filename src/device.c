@@ -133,6 +133,28 @@ v4l2_std_id device_parse_standard(const char *str) {
 	return STANDARD_UNKNOWN;
 }
 
+void device_copy_picture(const struct picture_t *src, struct picture_t *dest) {
+#	define COPY(_field) dest->_field = src->_field
+
+	if (dest->allocated < src->allocated) {
+		A_REALLOC(dest->data, src->allocated);
+		COPY(allocated);
+	}
+
+	memcpy(dest->data, src->data, src->used);
+
+	COPY(used);
+
+	COPY(width);
+	COPY(height);
+
+	COPY(grab_time);
+	COPY(encode_begin_time);
+	COPY(encode_end_time);
+
+#	undef COPY
+}
+
 int device_open(struct device_t *dev) {
 	if ((dev->run->fd = open(dev->path, O_RDWR|O_NONBLOCK)) < 0) {
 		LOG_PERROR("Can't open device");

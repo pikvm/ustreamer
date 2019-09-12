@@ -436,8 +436,8 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
 		encoder_type_to_string(encoder_run_type),
 		encoder_run_quality,
-		(server->fake_width ? server->fake_width : server->run->exposed->width),
-		(server->fake_height ? server->fake_height : server->run->exposed->height),
+		(server->fake_width ? server->fake_width : server->run->exposed->picture.width),
+		(server->fake_height ? server->fake_height : server->run->exposed->picture.height),
 		bool_to_string(server->run->exposed->online),
 		server->run->stream->dev->desired_fps,
 		server->run->exposed->captured_fps,
@@ -497,8 +497,8 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 
 	ADD_HEADER("X-UStreamer-Online",					bool_to_string(EXPOSED(online)));
 	ADD_UNSIGNED_HEADER("X-UStreamer-Dropped",			EXPOSED(dropped));
-	ADD_UNSIGNED_HEADER("X-UStreamer-Width",			EXPOSED(width));
-	ADD_UNSIGNED_HEADER("X-UStreamer-Height",			EXPOSED(height));
+	ADD_UNSIGNED_HEADER("X-UStreamer-Width",			EXPOSED(picture.width));
+	ADD_UNSIGNED_HEADER("X-UStreamer-Height",			EXPOSED(picture.height));
 	ADD_TIME_HEADER("X-UStreamer-Grab-Time",			EXPOSED(picture.grab_time));
 	ADD_TIME_HEADER("X-UStreamer-Encode-Begin-Time",	EXPOSED(picture.encode_begin_time));
 	ADD_TIME_HEADER("X-UStreamer-Encode-End-Time",		EXPOSED(picture.encode_end_time));
@@ -684,8 +684,8 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				RN,
 				bool_to_string(EXPOSED(online)),
 				EXPOSED(dropped),
-				EXPOSED(width),
-				EXPOSED(height),
+				EXPOSED(picture.width),
+				EXPOSED(picture.height),
 				client->fps,
 				EXPOSED(picture.grab_time),
 				EXPOSED(picture.encode_begin_time),
@@ -823,7 +823,7 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	if (atomic_load(&server->run->stream->updated)) {
 		LOG_DEBUG("Refreshing HTTP exposed ...");
 		A_MUTEX_LOCK(&server->run->stream->mutex);
-		if (server->run->stream->picture.used > 0) { // If online
+		if (server->run->stream->online) {
 			picture_updated = _expose_new_picture_unsafe(server);
 			UNLOCK_STREAM;
 		} else {
@@ -846,19 +846,15 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 #	define STREAM(_next) server->run->stream->_next
 #	define EXPOSED(_next) server->run->exposed->_next
 
-	assert(STREAM(picture.used) > 0);
 	EXPOSED(captured_fps) = STREAM(captured_fps);
 	EXPOSED(expose_begin_time) = get_now_monotonic();
-
-#	define MEM_STREAM_TO_EXPOSED \
-		EXPOSED(picture.data), STREAM(picture.data), STREAM(picture.used)
 
 	if (server->drop_same_frames) {
 		if (
 			EXPOSED(online)
 			&& EXPOSED(dropped) < server->drop_same_frames
 			&& EXPOSED(picture.used) == STREAM(picture.used)
-			&& !memcmp(MEM_STREAM_TO_EXPOSED)
+			&& !memcmp(EXPOSED(picture.data), STREAM(picture.data), STREAM(picture.used))
 		) {
 			EXPOSED(expose_cmp_time) = get_now_monotonic();
 			EXPOSED(expose_end_time) = EXPOSED(expose_cmp_time);
@@ -873,23 +869,8 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 		}
 	}
 
-	if (EXPOSED(picture.allocated) < STREAM(picture.allocated)) {
-		A_REALLOC(EXPOSED(picture.data), STREAM(picture.allocated));
-		EXPOSED(picture.allocated) = STREAM(picture.allocated);
-	}
+	device_copy_picture(&STREAM(picture), &EXPOSED(picture));
 
-	memcpy(MEM_STREAM_TO_EXPOSED);
-
-#	undef MEM_STREAM_TO_EXPOSED
-
-	EXPOSED(picture.used) = STREAM(picture.used);
-
-	EXPOSED(picture.grab_time) = STREAM(picture.grab_time);
-	EXPOSED(picture.encode_begin_time) = STREAM(picture.encode_begin_time);
-	EXPOSED(picture.encode_end_time) = STREAM(picture.encode_end_time);
-
-	EXPOSED(width) = STREAM(width);
-	EXPOSED(height) = STREAM(height);
 	EXPOSED(online) = true;
 	EXPOSED(dropped) = 0;
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
@@ -904,28 +885,14 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 }
 
 static bool _expose_blank_picture(struct http_server_t *server) {
-#	define BLANK(_next)		server->run->blank->_next
 #	define EXPOSED(_next)	server->run->exposed->_next
 
 	EXPOSED(expose_begin_time) = get_now_monotonic();
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
 
 	if (EXPOSED(online) || EXPOSED(picture.used) == 0) {
-		if (EXPOSED(picture.allocated) < BLANK(picture.used)) {
-			A_REALLOC(EXPOSED(picture.data), BLANK(picture.used));
-			EXPOSED(picture.allocated) = BLANK(picture.used);
-		}
+		device_copy_picture(server->run->blank, &EXPOSED(picture));
 
-		memcpy(EXPOSED(picture.data), BLANK(picture.data), BLANK(picture.used));
-
-		EXPOSED(picture.used) = BLANK(picture.used);
-
-		EXPOSED(picture.grab_time) = 0;
-		EXPOSED(picture.encode_begin_time) = 0;
-		EXPOSED(picture.encode_end_time) = 0;
-
-		EXPOSED(width) = BLANK(width);
-		EXPOSED(height) = BLANK(height);
 		EXPOSED(captured_fps) = 0;
 		EXPOSED(online) = false;
 		goto updated;
@@ -944,5 +911,4 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 		return true; // Updated
 
 #	undef EXPOSED
-#	undef BLANK
 }

@@ -121,6 +121,9 @@ struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
 
 void stream_destroy(struct stream_t *stream) {
 	A_MUTEX_DESTROY(&stream->mutex);
+	if (stream->picture.data) {
+		free(stream->picture.data);
+	}
 	free(stream->proc);
 	free(stream);
 }
@@ -138,9 +141,6 @@ void stream_loop(struct stream_t *stream) {
 		unsigned captured_fps_accum = 0;
 		long long captured_fps_second = 0;
 		bool persistent_timeout_reported = false;
-
-		LOG_DEBUG("Allocation memory for stream picture ...");
-		A_CALLOC(stream->picture.data, stream->dev->run->max_raw_image_size);
 
 		LOG_INFO("Capturing ...");
 
@@ -278,10 +278,7 @@ void stream_loop(struct stream_t *stream) {
 		}
 
 		A_MUTEX_LOCK(&stream->mutex);
-		stream->picture.used = 0; // On stream offline
-		free(stream->picture.data);
-		stream->width = 0;
-		stream->height = 0;
+		stream->online = false;
 		atomic_store(&stream->updated, true);
 		A_MUTEX_UNLOCK(&stream->mutex);
 
@@ -342,17 +339,9 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index, 
 
 	A_MUTEX_LOCK(&stream->mutex);
 
-	stream->picture.used = PICTURE(used);
-	stream->picture.allocated = PICTURE(allocated);
+	device_copy_picture(&stream->dev->run->pictures[buf_index], &stream->picture);
 
-	memcpy(stream->picture.data, PICTURE(data), stream->picture.used);
-
-	stream->picture.grab_time = PICTURE(grab_time);
-	stream->picture.encode_begin_time = PICTURE(encode_begin_time);
-	stream->picture.encode_end_time = PICTURE(encode_end_time);
-
-	stream->width = stream->dev->run->width;
-	stream->height = stream->dev->run->height;
+	stream->online = true;
 	stream->captured_fps = captured_fps;
 	atomic_store(&stream->updated, true);
 

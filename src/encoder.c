@@ -217,6 +217,9 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, uns
 
 	dev->run->pictures[buf_index].encode_end_time = get_now_monotonic();
 
+	dev->run->pictures[buf_index].width = dev->run->width;
+	dev->run->pictures[buf_index].height = dev->run->height;
+
 	return 0;
 
 #	pragma GCC diagnostic ignored "-Wunused-label"

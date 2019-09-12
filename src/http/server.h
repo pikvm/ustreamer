@@ -59,8 +59,6 @@ struct stream_client_t {
 
 struct exposed_t {
 	struct picture_t	picture;
-	unsigned			width;
-	unsigned			height;
 	unsigned			captured_fps;
 	unsigned			queued_fps;
 	bool				online;
@@ -80,7 +78,7 @@ struct http_server_runtime_t {
 	struct exposed_t		*exposed;
 	struct stream_client_t	*stream_clients;
 	unsigned				stream_clients_count;
-	struct blank_t			*blank;
+	struct picture_t		*blank;
 	unsigned				drop_same_frames_blank;
 };
 

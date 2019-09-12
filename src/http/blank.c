@@ -31,6 +31,7 @@
 
 #include "../tools.h"
 #include "../logging.h"
+#include "../device.h"
 
 #include "data/blank_jpeg.h"
 
@@ -41,14 +42,14 @@ struct _jpeg_error_manager_t {
 };
 
 
-static struct blank_t *_blank_init_internal(void);
-static struct blank_t *_blank_init_external(const char *path);
+static struct picture_t *_blank_init_internal(void);
+static struct picture_t *_blank_init_external(const char *path);
 static int _jpeg_read_geometry(FILE *fp, unsigned *width, unsigned *height);
 static void _jpeg_error_handler(j_common_ptr jpeg);
 
 
-struct blank_t *blank_init(const char *path) {
-	struct blank_t *blank = NULL;
+struct picture_t *blank_init(const char *path) {
+	struct picture_t *blank = NULL;
 
 	if (path) {
 		blank = _blank_init_external(path);
@@ -63,21 +64,21 @@ struct blank_t *blank_init(const char *path) {
 	return blank;
 }
 
-void blank_destroy(struct blank_t *blank) {
-	free(blank->picture.data);
+void blank_destroy(struct picture_t *blank) {
+	free(blank->data);
 	free(blank);
 }
 
-static struct blank_t *_blank_init_internal(void) {
-	struct blank_t *blank;
+static struct picture_t *_blank_init_internal(void) {
+	struct picture_t *blank;
 
 	A_CALLOC(blank, 1);
 
-	A_CALLOC(blank->picture.data, ARRAY_LEN(BLANK_JPEG_DATA));
-	memcpy(blank->picture.data, BLANK_JPEG_DATA, ARRAY_LEN(BLANK_JPEG_DATA));
+	A_CALLOC(blank->data, ARRAY_LEN(BLANK_JPEG_DATA));
+	memcpy(blank->data, BLANK_JPEG_DATA, ARRAY_LEN(BLANK_JPEG_DATA));
 
-	blank->picture.used = ARRAY_LEN(BLANK_JPEG_DATA);
-	blank->picture.allocated = ARRAY_LEN(BLANK_JPEG_DATA);
+	blank->used = ARRAY_LEN(BLANK_JPEG_DATA);
+	blank->allocated = ARRAY_LEN(BLANK_JPEG_DATA);
 
 	blank->width = BLANK_JPEG_WIDTH;
 	blank->height = BLANK_JPEG_HEIGHT;
@@ -85,9 +86,9 @@ static struct blank_t *_blank_init_internal(void) {
 	return blank;
 }
 
-static struct blank_t *_blank_init_external(const char *path) {
+static struct picture_t *_blank_init_external(const char *path) {
 	FILE *fp = NULL;
-	struct blank_t *blank;
+	struct picture_t *blank;
 
 	A_CALLOC(blank, 1);
 
@@ -107,13 +108,13 @@ static struct blank_t *_blank_init_external(const char *path) {
 
 #	define CHUNK_SIZE (100 * 1024)
 	while (true) {
-		if (blank->picture.used + CHUNK_SIZE >= blank->picture.allocated) {
-			blank->picture.allocated = blank->picture.used + CHUNK_SIZE * 2;
-			A_REALLOC(blank->picture.data, blank->picture.allocated);
+		if (blank->used + CHUNK_SIZE >= blank->allocated) {
+			blank->allocated = blank->used + CHUNK_SIZE * 2;
+			A_REALLOC(blank->data, blank->allocated);
 		}
 
-		size_t readed = fread(blank->picture.data + blank->picture.used, 1, CHUNK_SIZE, fp);
-		blank->picture.used += readed;
+		size_t readed = fread(blank->data + blank->used, 1, CHUNK_SIZE, fp);
+		blank->used += readed;
 
 		if (readed < CHUNK_SIZE) {
 			if (feof(fp)) {
@@ -127,7 +128,7 @@ static struct blank_t *_blank_init_external(const char *path) {
 #	undef CHUNK_SIZE
 
 	error:
-		free(blank->picture.data);
+		free(blank->data);
 		free(blank);
 		blank = NULL;
 
