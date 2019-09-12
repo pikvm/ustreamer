@@ -263,10 +263,10 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 		if (isalpha(_LONG_OPTS[opt_index].val)) {
 			short_opts[short_index] = _LONG_OPTS[opt_index].val;
 			++short_index;
-		}
-		if (_LONG_OPTS[opt_index].has_arg == required_argument) {
-			short_opts[short_index] = ':';
-			++short_index;
+			if (_LONG_OPTS[opt_index].has_arg == required_argument) {
+				short_opts[short_index] = ':';
+				++short_index;
+			}
 		}
 	}
 
