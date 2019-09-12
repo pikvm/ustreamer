@@ -22,34 +22,28 @@
 
 #pragma once
 
-#include <stdatomic.h>
-
-#include "picture.h"
-#include "device.h"
-#include "encoder.h"
+#include <stddef.h>
 
 
-struct process_t {
-	atomic_bool stop;
-	atomic_bool slowdown;
-};
-
-struct stream_t {
-	struct picture_t	*picture;
-	bool				online;
-	unsigned			captured_fps;
-	atomic_bool			updated;
-	pthread_mutex_t		mutex;
-
-	struct process_t	*proc;
-	struct device_t		*dev;
-	struct encoder_t	*encoder;
+struct picture_t {
+	unsigned char	*data;
+	size_t			used;
+	size_t			allocated;
+	unsigned		width;
+	unsigned		height;
+	long double		grab_time;
+	long double		encode_begin_time;
+	long double		encode_end_time;
 };
 
 
-struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder);
-void stream_destroy(struct stream_t *stream);
+struct picture_t *picture_init(void);
+void picture_destroy(struct picture_t *picture);
 
-void stream_loop(struct stream_t *stream);
-void stream_loop_break(struct stream_t *stream);
-void stream_switch_slowdown(struct stream_t *stream, bool slowdown);
+size_t picture_get_generous_size(unsigned width, unsigned height);
+
+void picture_realloc_data(struct picture_t *picture, size_t size);
+void picture_set_data(struct picture_t *picture, const unsigned char *data, size_t size);
+void picture_append_data(struct picture_t *picture, const unsigned char *data, size_t size);
+
+void picture_copy(const struct picture_t *src, struct picture_t *dest);

@@ -36,6 +36,7 @@
 #include <linux/videodev2.h>
 
 #include "../../tools.h"
+#include "../../picture.h"
 #include "../../device.h"
 
 
@@ -43,7 +44,6 @@ struct _jpeg_dest_manager_t {
 	struct				jpeg_destination_mgr mgr; // Default manager
 	JOCTET				*buffer; // Start of buffer
 	struct picture_t	*picture;
-	unsigned char		*picture_data_cursor;
 };
 
 
@@ -79,7 +79,7 @@ void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned 
 	jpeg.err = jpeg_std_error(&jpeg_error);
 	jpeg_create_compress(&jpeg);
 
-	_jpeg_set_picture(&jpeg, &dev->run->pictures[index]);
+	_jpeg_set_picture(&jpeg, dev->run->pictures[index]);
 
 	jpeg.image_width = dev->run->width;
 	jpeg.image_height = dev->run->height;
@@ -108,7 +108,7 @@ void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned 
 	jpeg_finish_compress(&jpeg);
 	jpeg_destroy_compress(&jpeg);
 
-	assert(dev->run->pictures[index].used > 0);
+	assert(dev->run->pictures[index]->used > 0);
 }
 
 static void _jpeg_set_picture(j_compress_ptr jpeg, struct picture_t *picture) {
@@ -125,7 +125,6 @@ static void _jpeg_set_picture(j_compress_ptr jpeg, struct picture_t *picture) {
 	dest->mgr.empty_output_buffer = _jpeg_empty_output_buffer;
 	dest->mgr.term_destination = _jpeg_term_destination;
 	dest->picture = picture;
-	dest->picture_data_cursor = picture->data;
 
 	picture->used = 0;
 }
@@ -277,13 +276,8 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg) {
 	// Called whenever local jpeg buffer fills up
 
 	struct _jpeg_dest_manager_t *dest = (struct _jpeg_dest_manager_t *)jpeg->dest;
-	size_t new_used = dest->picture->used + JPEG_OUTPUT_BUFFER_SIZE;
 
-	assert(new_used <= dest->picture->allocated);
-
-	memcpy(dest->picture_data_cursor, dest->buffer, JPEG_OUTPUT_BUFFER_SIZE);
-	dest->picture_data_cursor += JPEG_OUTPUT_BUFFER_SIZE;
-	dest->picture->used = new_used;
+	picture_append_data(dest->picture, dest->buffer, JPEG_OUTPUT_BUFFER_SIZE);
 
 	dest->mgr.next_output_byte = dest->buffer;
 	dest->mgr.free_in_buffer = JPEG_OUTPUT_BUFFER_SIZE;
@@ -293,18 +287,13 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg) {
 
 static void _jpeg_term_destination(j_compress_ptr jpeg) {
 	// Called by jpeg_finish_compress after all data has been written.
-	// Usually needs to flush buffer
+	// Usually needs to flush buffer.
 
 	struct _jpeg_dest_manager_t *dest = (struct _jpeg_dest_manager_t *)jpeg->dest;
 	size_t final = JPEG_OUTPUT_BUFFER_SIZE - dest->mgr.free_in_buffer;
-	size_t new_used = dest->picture->used + final;
 
-	assert(new_used <= dest->picture->allocated);
-
-	// Write any data remaining in the buffer
-	memcpy(dest->picture_data_cursor, dest->buffer, final);
-	dest->picture_data_cursor += final;
-	dest->picture->used = new_used;
+	// Write any data remaining in the buffer.
+	picture_append_data(dest->picture, dest->buffer, final);
 }
 
 #undef JPEG_OUTPUT_BUFFER_SIZE

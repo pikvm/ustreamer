@@ -133,28 +133,6 @@ v4l2_std_id device_parse_standard(const char *str) {
 	return STANDARD_UNKNOWN;
 }
 
-void device_copy_picture(const struct picture_t *src, struct picture_t *dest) {
-#	define COPY(_field) dest->_field = src->_field
-
-	if (dest->allocated < src->allocated) {
-		A_REALLOC(dest->data, src->allocated);
-		COPY(allocated);
-	}
-
-	memcpy(dest->data, src->data, src->used);
-
-	COPY(used);
-
-	COPY(width);
-	COPY(height);
-
-	COPY(grab_time);
-	COPY(encode_begin_time);
-	COPY(encode_end_time);
-
-#	undef COPY
-}
-
 int device_open(struct device_t *dev) {
 	if ((dev->run->fd = open(dev->path, O_RDWR|O_NONBLOCK)) < 0) {
 		LOG_PERROR("Can't open device");
@@ -196,9 +174,8 @@ void device_close(struct device_t *dev) {
 
 	if (dev->run->pictures) {
 		LOG_DEBUG("Releasing picture buffers ...");
-		for (unsigned index = 0; index < dev->run->n_buffers && dev->run->pictures[index].data; ++index) {
-			free(dev->run->pictures[index].data);
-			dev->run->pictures[index].data = NULL;
+		for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
+			picture_destroy(dev->run->pictures[index]);
 		}
 		free(dev->run->pictures);
 		dev->run->pictures = NULL;
@@ -305,7 +282,7 @@ int device_grab_buffer(struct device_t *dev) {
 
 	dev->run->hw_buffers[buf_info.index].used = buf_info.bytesused;
 	memcpy(&dev->run->hw_buffers[buf_info.index].buf_info, &buf_info, sizeof(struct v4l2_buffer));
-	dev->run->pictures[buf_info.index].grab_time = get_now_monotonic();
+	dev->run->pictures[buf_info.index]->grab_time = get_now_monotonic();
 	return buf_info.index;
 }
 
@@ -600,14 +577,15 @@ static int _device_open_queue_buffers(struct device_t *dev) {
 }
 
 static void _device_open_alloc_picbufs(struct device_t *dev) {
+	size_t picture_size = picture_get_generous_size(dev->run->width, dev->run->height);
+
 	LOG_DEBUG("Allocating picture buffers ...");
 	A_CALLOC(dev->run->pictures, dev->run->n_buffers);
 
-	dev->run->max_raw_image_size = ((dev->run->width * dev->run->height) << 1) * 2;
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
-		LOG_DEBUG("Allocating picture buffer %u sized %zu bytes... ", index, dev->run->max_raw_image_size);
-		A_CALLOC(dev->run->pictures[index].data, dev->run->max_raw_image_size);
-		dev->run->pictures[index].allocated = dev->run->max_raw_image_size;
+		dev->run->pictures[index] = picture_init();
+		LOG_DEBUG("Pre-allocating picture buffer %u sized %zu bytes... ", index, picture_size);
+		picture_realloc_data(dev->run->pictures[index], picture_size);
 	}
 }
 

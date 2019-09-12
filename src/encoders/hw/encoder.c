@@ -36,13 +36,14 @@
 #include "../../tools.h"
 #include "../../logging.h"
 #include "../../xioctl.h"
+#include "../../picture.h"
 #include "../../device.h"
 
 #include "huffman.h"
 
 
+void _copy_plus_huffman(const struct hw_buffer_t *src, struct picture_t *dest);
 static bool _is_huffman(const unsigned char *data);
-static size_t _memcpy_with_huffman(unsigned char *dest, const unsigned char *src, size_t size);
 
 
 int hw_encoder_prepare(struct device_t *dev, unsigned quality) {
@@ -66,15 +67,30 @@ void hw_encoder_compress_buffer(struct device_t *dev, unsigned index) {
 	if (dev->run->format != V4L2_PIX_FMT_MJPEG && dev->run->format != V4L2_PIX_FMT_JPEG) {
 		assert(0 && "Unsupported input format for HW encoder");
 	}
+	_copy_plus_huffman(&dev->run->hw_buffers[index], dev->run->pictures[index]);
+}
 
-#	define PICTURE(_next)	dev->run->pictures[index]._next
-#	define HW_BUFFER(_next)	dev->run->hw_buffers[index]._next
+void _copy_plus_huffman(const struct hw_buffer_t *src, struct picture_t *dest) {
+	if (!_is_huffman(src->data)) {
+		const unsigned char *src_ptr = src->data;
+		const unsigned char *src_end = src->data + src->used;
+		size_t paste;
 
-	assert(PICTURE(allocated) >= HW_BUFFER(used) + sizeof(HUFFMAN_TABLE));
-	PICTURE(used) = _memcpy_with_huffman(PICTURE(data), HW_BUFFER(data), HW_BUFFER(used));
+		while ((((src_ptr[0] << 8) | src_ptr[1]) != 0xFFC0) && (src_ptr < src_end)) {
+			src_ptr += 1;
+		}
+		if (src_ptr >= src_end) {
+			dest->used = 0; // Error
+			return;
+		}
+		paste = src_ptr - src->data;
 
-#	undef HW_BUFFER
-#	undef PICTURE
+		picture_set_data(dest, src->data, paste);
+		picture_append_data(dest, HUFFMAN_TABLE, sizeof(HUFFMAN_TABLE));
+		picture_append_data(dest, src_ptr, src->used - paste);
+	} else {
+		picture_set_data(dest, src->data, src->used);
+	}
 }
 
 static bool _is_huffman(const unsigned char *data) {
@@ -90,28 +106,4 @@ static bool _is_huffman(const unsigned char *data) {
 		data += 1;
 	}
 	return false;
-}
-
-static size_t _memcpy_with_huffman(unsigned char *dest, const unsigned char *src, size_t size) {
-	if (!_is_huffman(src)) {
-		const unsigned char *src_ptr = src;
-		const unsigned char *src_end = src + size;
-		size_t paste;
-
-		while ((((src_ptr[0] << 8) | src_ptr[1]) != 0xFFC0) && (src_ptr < src_end)) {
-			src_ptr += 1;
-		}
-		if (src_ptr >= src_end) {
-			return 0;
-		}
-		paste = src_ptr - src;
-
-		memcpy(dest, src, paste);
-		memcpy(dest + paste, HUFFMAN_TABLE, sizeof(HUFFMAN_TABLE));
-		memcpy(dest + paste + sizeof(HUFFMAN_TABLE), src_ptr, size - paste);
-		return (size + sizeof(HUFFMAN_TABLE));
-	} else {
-		memcpy(dest, src, size);
-		return size;
-	}
 }

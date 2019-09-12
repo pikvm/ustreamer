@@ -20,36 +20,72 @@
 *****************************************************************************/
 
 
-#pragma once
-
-#include <stdatomic.h>
-
 #include "picture.h"
-#include "device.h"
-#include "encoder.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+
+#include "tools.h"
+#include "logging.h"
 
 
-struct process_t {
-	atomic_bool stop;
-	atomic_bool slowdown;
-};
+struct picture_t *picture_init(void) {
+	struct picture_t *picture;
 
-struct stream_t {
-	struct picture_t	*picture;
-	bool				online;
-	unsigned			captured_fps;
-	atomic_bool			updated;
-	pthread_mutex_t		mutex;
+	A_CALLOC(picture, 1);
+	return picture;
+}
 
-	struct process_t	*proc;
-	struct device_t		*dev;
-	struct encoder_t	*encoder;
-};
+void picture_destroy(struct picture_t *picture) {
+	if (picture->data) {
+		free(picture->data);
+	}
+	free(picture);
+}
 
+size_t picture_get_generous_size(unsigned width, unsigned height) {
+	return ((width * height) << 1) * 2;
+}
 
-struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder);
-void stream_destroy(struct stream_t *stream);
+void picture_realloc_data(struct picture_t *picture, size_t size) {
+	if (picture->allocated < size) {
+		LOG_DEBUG("Increasing picture 0x%p buffer: %zu -> %zu (+%zu)",
+			picture, picture->allocated, size, size - picture->allocated);
+		A_REALLOC(picture->data, size);
+		picture->allocated = size;
+	}
+}
 
-void stream_loop(struct stream_t *stream);
-void stream_loop_break(struct stream_t *stream);
-void stream_switch_slowdown(struct stream_t *stream, bool slowdown);
+void picture_set_data(struct picture_t *picture, const unsigned char *data, size_t size) {
+	picture_realloc_data(picture, size);
+	memcpy(picture->data, data, size);
+	picture->used = size;
+}
+
+void picture_append_data(struct picture_t *picture, const unsigned char *data, size_t size) {
+	size_t new_used = picture->used + size;
+
+	picture_realloc_data(picture, new_used);
+	memcpy(picture->data + picture->used, data, size);
+	picture->used = new_used;
+}
+
+void picture_copy(const struct picture_t *src, struct picture_t *dest) {
+	assert(src->allocated);
+
+	picture_set_data(dest, src->data, src->allocated);
+
+#	define COPY(_field) dest->_field = src->_field
+
+	COPY(used);
+
+	COPY(width);
+	COPY(height);
+
+	COPY(grab_time);
+	COPY(encode_begin_time);
+	COPY(encode_end_time);
+
+#	undef COPY
+}

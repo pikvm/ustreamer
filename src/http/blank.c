@@ -31,6 +31,7 @@
 
 #include "../tools.h"
 #include "../logging.h"
+#include "../picture.h"
 #include "../device.h"
 
 #include "data/blank_jpeg.h"
@@ -42,55 +43,44 @@ struct _jpeg_error_manager_t {
 };
 
 
-static struct picture_t *_blank_init_internal(void);
-static struct picture_t *_blank_init_external(const char *path);
+static struct picture_t *_init_internal(void);
+static struct picture_t *_init_external(const char *path);
+
 static int _jpeg_read_geometry(FILE *fp, unsigned *width, unsigned *height);
 static void _jpeg_error_handler(j_common_ptr jpeg);
 
 
-struct picture_t *blank_init(const char *path) {
+struct picture_t *blank_picture_init(const char *path) {
 	struct picture_t *blank = NULL;
 
 	if (path) {
-		blank = _blank_init_external(path);
+		blank = _init_external(path);
 	}
 
 	if (blank) {
 		LOG_INFO("Using external blank placeholder: %s", path);
 	} else {
-		blank = _blank_init_internal();
+		blank = _init_internal();
 		LOG_INFO("Using internal blank placeholder");
 	}
 	return blank;
 }
 
-void blank_destroy(struct picture_t *blank) {
-	free(blank->data);
-	free(blank);
-}
-
-static struct picture_t *_blank_init_internal(void) {
+static struct picture_t *_init_internal(void) {
 	struct picture_t *blank;
 
-	A_CALLOC(blank, 1);
-
-	A_CALLOC(blank->data, ARRAY_LEN(BLANK_JPEG_DATA));
-	memcpy(blank->data, BLANK_JPEG_DATA, ARRAY_LEN(BLANK_JPEG_DATA));
-
-	blank->used = ARRAY_LEN(BLANK_JPEG_DATA);
-	blank->allocated = ARRAY_LEN(BLANK_JPEG_DATA);
-
+	blank = picture_init();
+	picture_set_data(blank, BLANK_JPEG_DATA, ARRAY_LEN(BLANK_JPEG_DATA));
 	blank->width = BLANK_JPEG_WIDTH;
 	blank->height = BLANK_JPEG_HEIGHT;
-
 	return blank;
 }
 
-static struct picture_t *_blank_init_external(const char *path) {
+static struct picture_t *_init_external(const char *path) {
 	FILE *fp = NULL;
 	struct picture_t *blank;
 
-	A_CALLOC(blank, 1);
+	blank = picture_init();
 
 	if ((fp = fopen(path, "rb")) == NULL) {
 		LOG_PERROR("Can't open blank placeholder '%s'", path);
@@ -109,8 +99,7 @@ static struct picture_t *_blank_init_external(const char *path) {
 #	define CHUNK_SIZE (100 * 1024)
 	while (true) {
 		if (blank->used + CHUNK_SIZE >= blank->allocated) {
-			blank->allocated = blank->used + CHUNK_SIZE * 2;
-			A_REALLOC(blank->data, blank->allocated);
+			picture_realloc_data(blank, blank->used + CHUNK_SIZE * 2);
 		}
 
 		size_t readed = fread(blank->data + blank->used, 1, CHUNK_SIZE, fp);
@@ -128,8 +117,7 @@ static struct picture_t *_blank_init_external(const char *path) {
 #	undef CHUNK_SIZE
 
 	error:
-		free(blank->data);
-		free(blank);
+		picture_destroy(blank);
 		blank = NULL;
 
 	ok:

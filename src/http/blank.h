@@ -24,8 +24,7 @@
 
 #include <stdlib.h>
 
-#include "../device.h"
+#include "../picture.h"
 
 
-struct picture_t *blank_init(const char *path);
-void blank_destroy(struct picture_t *blank);
+struct picture_t *blank_picture_init(const char *path);

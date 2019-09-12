@@ -36,6 +36,7 @@
 #include "tools.h"
 #include "logging.h"
 #include "xioctl.h"
+#include "picture.h"
 #include "device.h"
 #include "encoder.h"
 #ifdef WITH_GPIO
@@ -111,6 +112,7 @@ struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
 	atomic_init(&proc->slowdown, false);
 
 	A_CALLOC(stream, 1);
+	stream->picture = picture_init();
 	stream->dev = dev;
 	stream->encoder = encoder;
 	atomic_init(&stream->updated, false);
@@ -121,9 +123,7 @@ struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
 
 void stream_destroy(struct stream_t *stream) {
 	A_MUTEX_DESTROY(&stream->mutex);
-	if (stream->picture.data) {
-		free(stream->picture.data);
-	}
+	picture_destroy(stream->picture);
 	free(stream->proc);
 	free(stream);
 }
@@ -143,6 +143,9 @@ void stream_loop(struct stream_t *stream) {
 		bool persistent_timeout_reported = false;
 
 		LOG_INFO("Capturing ...");
+
+		LOG_DEBUG("Pre-allocating memory for stream picture ...");
+		picture_realloc_data(stream->picture, picture_get_generous_size(stream->dev->run->width, stream->dev->run->height));
 
 		while (!atomic_load(&stream->proc->stop)) {
 			struct _worker_t *ready_worker;
@@ -335,19 +338,15 @@ static struct _workers_pool_t *_stream_init(struct stream_t *stream) {
 }
 
 static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index, unsigned captured_fps) {
-#	define PICTURE(_next) stream->dev->run->pictures[buf_index]._next
-
 	A_MUTEX_LOCK(&stream->mutex);
 
-	device_copy_picture(&stream->dev->run->pictures[buf_index], &stream->picture);
+	picture_copy(stream->dev->run->pictures[buf_index], stream->picture);
 
 	stream->online = true;
 	stream->captured_fps = captured_fps;
 	atomic_store(&stream->updated, true);
 
 	A_MUTEX_UNLOCK(&stream->mutex);
-
-#	undef PICTURE
 }
 
 static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
@@ -443,7 +442,7 @@ static void *_worker_thread(void *v_worker) {
 		A_MUTEX_UNLOCK(&worker->has_job_mutex);
 
 		if (!atomic_load(worker->workers_stop)) {
-#			define PICTURE(_next) worker->dev->run->pictures[worker->buf_index]._next
+#			define PICTURE(_next) worker->dev->run->pictures[worker->buf_index]->_next
 
 			LOG_DEBUG("Worker %u compressing JPEG from buffer %u ...", worker->number, worker->buf_index);
 

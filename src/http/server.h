@@ -31,6 +31,7 @@
 #include <event2/util.h>
 
 #include "../tools.h"
+#include "../picture.h"
 #include "../stream.h"
 
 #include "blank.h"
@@ -58,7 +59,7 @@ struct stream_client_t {
 };
 
 struct exposed_t {
-	struct picture_t	picture;
+	struct picture_t	*picture;
 	unsigned			captured_fps;
 	unsigned			queued_fps;
 	bool				online;

@@ -51,6 +51,7 @@
 
 #include "../tools.h"
 #include "../logging.h"
+#include "../picture.h"
 #include "../encoder.h"
 #include "../stream.h"
 #ifdef WITH_GPIO
@@ -91,6 +92,7 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	struct exposed_t *exposed;
 
 	A_CALLOC(exposed, 1);
+	exposed->picture = picture_init();
 
 	A_CALLOC(run, 1);
 	run->stream = stream;
@@ -143,10 +145,10 @@ void http_server_destroy(struct http_server_t *server) {
 	}
 
 	if (server->run->blank) {
-		blank_destroy(server->run->blank);
+		picture_destroy(server->run->blank);
 	}
 
-	free(server->run->exposed->picture.data);
+	picture_destroy(server->run->exposed->picture);
 	free(server->run->exposed);
 	free(server->run);
 	free(server);
@@ -165,7 +167,7 @@ int http_server_listen(struct http_server_t *server) {
 	}
 
 	server->run->drop_same_frames_blank = max_u(server->drop_same_frames, server->run->drop_same_frames_blank);
-	server->run->blank = blank_init(server->blank_path);
+	server->run->blank = blank_picture_init(server->blank_path);
 	_expose_blank_picture(server);
 
 	{
@@ -436,8 +438,8 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
 		encoder_type_to_string(encoder_run_type),
 		encoder_run_quality,
-		(server->fake_width ? server->fake_width : server->run->exposed->picture.width),
-		(server->fake_height ? server->fake_height : server->run->exposed->picture.height),
+		(server->fake_width ? server->fake_width : server->run->exposed->picture->width),
+		(server->fake_height ? server->fake_height : server->run->exposed->picture->height),
 		bool_to_string(server->run->exposed->online),
 		server->run->stream->dev->desired_fps,
 		server->run->exposed->captured_fps,
@@ -476,7 +478,7 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 #	define EXPOSED(_next) server->run->exposed->_next
 
 	assert((buf = evbuffer_new()));
-	assert(!evbuffer_add(buf, (const void *)EXPOSED(picture.data), EXPOSED(picture.used)));
+	assert(!evbuffer_add(buf, (const void *)EXPOSED(picture->data), EXPOSED(picture->used)));
 
 	ADD_HEADER("Access-Control-Allow-Origin:", "*");
 	ADD_HEADER("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, pre-check=0, post-check=0, max-age=0");
@@ -497,11 +499,11 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 
 	ADD_HEADER("X-UStreamer-Online",					bool_to_string(EXPOSED(online)));
 	ADD_UNSIGNED_HEADER("X-UStreamer-Dropped",			EXPOSED(dropped));
-	ADD_UNSIGNED_HEADER("X-UStreamer-Width",			EXPOSED(picture.width));
-	ADD_UNSIGNED_HEADER("X-UStreamer-Height",			EXPOSED(picture.height));
-	ADD_TIME_HEADER("X-UStreamer-Grab-Time",			EXPOSED(picture.grab_time));
-	ADD_TIME_HEADER("X-UStreamer-Encode-Begin-Time",	EXPOSED(picture.encode_begin_time));
-	ADD_TIME_HEADER("X-UStreamer-Encode-End-Time",		EXPOSED(picture.encode_end_time));
+	ADD_UNSIGNED_HEADER("X-UStreamer-Width",			EXPOSED(picture->width));
+	ADD_UNSIGNED_HEADER("X-UStreamer-Height",			EXPOSED(picture->height));
+	ADD_TIME_HEADER("X-UStreamer-Grab-Time",			EXPOSED(picture->grab_time));
+	ADD_TIME_HEADER("X-UStreamer-Encode-Begin-Time",	EXPOSED(picture->encode_begin_time));
+	ADD_TIME_HEADER("X-UStreamer-Encode-End-Time",		EXPOSED(picture->encode_end_time));
 	ADD_TIME_HEADER("X-UStreamer-Expose-Begin-Time",	EXPOSED(expose_begin_time));
 	ADD_TIME_HEADER("X-UStreamer-Expose-Cmp-Time",		EXPOSED(expose_cmp_time));
 	ADD_TIME_HEADER("X-UStreamer-Expose-End-Time",		EXPOSED(expose_end_time));
@@ -663,7 +665,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"Content-Length: %zu" RN
 			"X-Timestamp: %.06Lf" RN
 			"%s",
-			EXPOSED(picture.used),
+			EXPOSED(picture->used),
 			get_now_real(),
 			(client->extra_headers ? "" : RN)
 		));
@@ -684,12 +686,12 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				RN,
 				bool_to_string(EXPOSED(online)),
 				EXPOSED(dropped),
-				EXPOSED(picture.width),
-				EXPOSED(picture.height),
+				EXPOSED(picture->width),
+				EXPOSED(picture->height),
 				client->fps,
-				EXPOSED(picture.grab_time),
-				EXPOSED(picture.encode_begin_time),
-				EXPOSED(picture.encode_end_time),
+				EXPOSED(picture->grab_time),
+				EXPOSED(picture->encode_begin_time),
+				EXPOSED(picture->encode_end_time),
 				EXPOSED(expose_begin_time),
 				EXPOSED(expose_cmp_time),
 				EXPOSED(expose_end_time),
@@ -698,7 +700,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 		}
 	}
 
-	assert(!evbuffer_add(buf, (void *)EXPOSED(picture.data), EXPOSED(picture.used)));
+	assert(!evbuffer_add(buf, (void *)EXPOSED(picture->data), EXPOSED(picture->used)));
 	assert(evbuffer_add_printf(buf, RN "--" BOUNDARY RN));
 
 	if (client->advance_headers) {
@@ -853,8 +855,8 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 		if (
 			EXPOSED(online)
 			&& EXPOSED(dropped) < server->drop_same_frames
-			&& EXPOSED(picture.used) == STREAM(picture.used)
-			&& !memcmp(EXPOSED(picture.data), STREAM(picture.data), STREAM(picture.used))
+			&& EXPOSED(picture->used) == STREAM(picture->used)
+			&& !memcmp(EXPOSED(picture->data), STREAM(picture->data), STREAM(picture->used))
 		) {
 			EXPOSED(expose_cmp_time) = get_now_monotonic();
 			EXPOSED(expose_end_time) = EXPOSED(expose_cmp_time);
@@ -869,7 +871,7 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 		}
 	}
 
-	device_copy_picture(&STREAM(picture), &EXPOSED(picture));
+	picture_copy(STREAM(picture), EXPOSED(picture));
 
 	EXPOSED(online) = true;
 	EXPOSED(dropped) = 0;
@@ -890,9 +892,8 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 	EXPOSED(expose_begin_time) = get_now_monotonic();
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
 
-	if (EXPOSED(online) || EXPOSED(picture.used) == 0) {
-		device_copy_picture(server->run->blank, &EXPOSED(picture));
-
+	if (EXPOSED(online) || EXPOSED(picture->used) == 0) {
+		picture_copy(server->run->blank, EXPOSED(picture));
 		EXPOSED(captured_fps) = 0;
 		EXPOSED(online) = false;
 		goto updated;

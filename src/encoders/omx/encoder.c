@@ -37,6 +37,7 @@
 
 #include "../../logging.h"
 #include "../../tools.h"
+#include "../../picture.h"
 #include "../../device.h"
 
 #include "formatters.h"
@@ -174,7 +175,6 @@ int omx_encoder_prepare(struct omx_encoder_t *omx, struct device_t *dev, unsigne
 }
 
 int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, unsigned index) {
-#	define PICTURE(_next)	dev->run->pictures[index]._next
 #	define HW_BUFFER(_next)	dev->run->hw_buffers[index]._next
 #	define IN(_next)		omx->input_buffer->_next
 #	define OUT(_next)		omx->output_buffer->_next
@@ -188,7 +188,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 		return -1;
 	}
 
-	PICTURE(used) = 0;
+	dev->run->pictures[index]->used = 0;
 	omx->output_available = false;
 	omx->input_required = true;
 
@@ -200,9 +200,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 		if (omx->output_available) {
 			omx->output_available = false;
 
-			assert(PICTURE(used) + OUT(nFilledLen) <= PICTURE(allocated));
-			memcpy(PICTURE(data) + PICTURE(used), OUT(pBuffer) + OUT(nOffset), OUT(nFilledLen));
-			PICTURE(used) += OUT(nFilledLen);
+			picture_append_data(dev->run->pictures[index], OUT(pBuffer) + OUT(nOffset), OUT(nFilledLen));
 
 			if (OUT(nFlags) & OMX_BUFFERFLAG_ENDOFFRAME) {
 				OUT(nFlags) = 0;
@@ -244,7 +242,6 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 #	undef OUT
 #	undef IN
 #	undef HW_BUFFER
-#	undef PICTURE
 	return 0;
 }
 
@@ -313,7 +310,7 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 #	undef ALIGN_HEIGHT
 	portdef.format.image.bFlagErrorConcealment = OMX_FALSE;
 	portdef.format.image.eCompressionFormat = OMX_IMAGE_CodingUnused;
-	portdef.nBufferSize = dev->run->max_raw_image_size;
+	portdef.nBufferSize = picture_get_generous_size(dev->run->width, dev->run->height);
 
 #	define MAP_FORMAT(_v4l2_format, _omx_format) \
 		case _v4l2_format: { portdef.format.image.eColorFormat = _omx_format; break; }
