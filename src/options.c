@@ -233,9 +233,9 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			}
 #	endif
 
-#	define OPT_PARSE(_name, _dest, _func, _invalid) { \
+#	define OPT_PARSE(_name, _dest, _func, _invalid, _available) { \
 			if ((_dest = _func(optarg)) == _invalid) { \
-				printf("Unknown " _name ": %s\n", optarg); \
+				printf("Unknown " _name ": %s; available: %s\n", optarg, _available); \
 				return -1; \
 			} \
 			break; \
@@ -277,9 +277,9 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			case _O_RESOLUTION:		OPT_RESOLUTION("--resolution", dev->width, dev->height, true);
 #			pragma GCC diagnostic ignored "-Wsign-compare"
 #			pragma GCC diagnostic push
-			case _O_FORMAT:			OPT_PARSE("pixel format", dev->format, device_parse_format, FORMAT_UNKNOWN);
+			case _O_FORMAT:			OPT_PARSE("pixel format", dev->format, device_parse_format, FORMAT_UNKNOWN, FORMATS_STR);
 #			pragma GCC diagnostic pop
-			case _O_TV_STANDARD:	OPT_PARSE("TV standard", dev->standard, device_parse_standard, STANDARD_UNKNOWN);
+			case _O_TV_STANDARD:	OPT_PARSE("TV standard", dev->standard, device_parse_standard, STANDARD_UNKNOWN, STANDARDS_STR);
 			case _O_DESIRED_FPS:	OPT_NUMBER("--desired-fps", dev->desired_fps, 0, VIDEO_MAX_FPS, 0);
 			case _O_MIN_FRAME_SIZE:	OPT_NUMBER("--min-frame-size", dev->min_frame_size, 0, 8192, 0);
 			case _O_PERSISTENT:		OPT_SET(dev->persistent, true);
@@ -287,7 +287,7 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			case _O_BUFFERS:		OPT_NUMBER("--buffers", dev->n_buffers, 1, 32, 0);
 			case _O_WORKERS:		OPT_NUMBER("--workers", dev->n_workers, 1, 32, 0);
 			case _O_QUALITY:		OPT_NUMBER("--quality", encoder->quality, 1, 100, 0);
-			case _O_ENCODER:		OPT_PARSE("encoder type", encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN);
+			case _O_ENCODER:		OPT_PARSE("encoder type", encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, ENCODER_TYPES_STR);
 #			ifdef WITH_OMX
 			case _O_GLITCHED_RESOLUTIONS:	OPT_GLITCHED_RESOLUTIONS;
 #			endif
