@@ -96,6 +96,7 @@ struct http_server_t {
 	char		*static_path;
 
 	char		*blank_path;
+	bool		last_as_blank;
 	unsigned	drop_same_frames;
 	bool		slowdown;
 	unsigned	fake_width;

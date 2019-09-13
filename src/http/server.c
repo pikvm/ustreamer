@@ -893,7 +893,9 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
 
 	if (EXPOSED(online) || EXPOSED(picture->used) == 0) {
-		picture_copy(server->run->blank, EXPOSED(picture));
+		if (!(server->last_as_blank && EXPOSED(picture->used) > 0)) {
+			picture_copy(server->run->blank, EXPOSED(picture));
+		}
 		EXPOSED(captured_fps) = 0;
 		EXPOSED(online) = false;
 		goto updated;
