@@ -32,7 +32,7 @@
 # Сборка
 Для сборки вам понадобятся ```make```, ```gcc```, ```libevent``` с поддержкой ```pthreads```, ```libjpeg8```/```libjpeg-turbo``` и ```libuuid```.
 
-На Raspberry Pi программу можно собрать с поддержкой OpenMAX IL. Для этого передайте ```make``` параметр ```WITH_OMX=1```. Для включения сборки с поддержкой GPIO установите [wiringPi](http://wiringpi.com) и добавьте параметр ```WITH_GPIO=1```.
+На Raspberry Pi программу можно собрать с поддержкой OpenMAX IL. Для этого передайте ```make``` параметр ```WITH_OMX=1```. Для включения сборки с поддержкой GPIO установите [wiringPi](http://wiringpi.com) и добавьте параметр ```WITH_GPIO=1```. Если при сборке компилятор ругается на отсутствие функции ```pthread_get_name_np()``` или другой подобной, добавьте параметр ```WITH_PTHREAD_NP=0``` (по умолчанию он включен).
 
 ```
 $ git clone --depth=1 https://github.com/pikvm/ustreamer

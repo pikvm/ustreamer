@@ -36,6 +36,12 @@ override CFLAGS += -DWITH_GPIO
 endif
 
 
+WITH_PTHREAD_NP ?= 1
+ifneq ($(call optbool,$(WITH_PTHREAD_NP)),)
+override CFLAGS += -DWITH_PTHREAD_NP
+endif
+
+
 # =====
 all: $(SOURCES) $(PROG)
 

@@ -33,6 +33,7 @@
 #include <pthread.h>
 
 #include "tools.h"
+#include "threading.h"
 #include "logging.h"
 #include "options.h"
 #include "device.h"
@@ -60,12 +61,14 @@ static void _block_thread_signals(void) {
 }
 
 static void *_stream_loop_thread(UNUSED void *arg) {
+	A_THREAD_RENAME("stream");
 	_block_thread_signals();
 	stream_loop(_ctx->stream);
 	return NULL;
 }
 
 static void *_server_loop_thread(UNUSED void *arg) {
+	A_THREAD_RENAME("http");
 	_block_thread_signals();
 	http_server_loop(_ctx->server);
 	return NULL;
@@ -104,6 +107,8 @@ int main(int argc, char *argv[]) {
 	int exit_code = 0;
 
 	LOGGING_INIT;
+
+	A_THREAD_RENAME("main");
 
 #	ifdef WITH_GPIO
 	GPIO_INIT;
@@ -150,6 +155,9 @@ int main(int argc, char *argv[]) {
 	GPIO_SET_LOW(prog_running);
 #	endif
 
+	if (exit_code == 0) {
+		LOG_INFO("Bye-bye");
+	}
 	LOGGING_DESTROY;
 	return (exit_code < 0 ? 1 : 0);
 }

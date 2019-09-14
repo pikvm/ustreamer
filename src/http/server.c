@@ -50,6 +50,7 @@
 #endif
 
 #include "../tools.h"
+#include "../threading.h"
 #include "../logging.h"
 #include "../picture.h"
 #include "../encoder.h"

@@ -24,7 +24,7 @@
 
 #include <stdbool.h>
 
-#include "pthread.h"
+#include <pthread.h>
 
 #include "tools.h"
 #include "device.h"

@@ -29,6 +29,7 @@
 #include <linux/videodev2.h>
 
 #include "tools.h"
+#include "threading.h"
 #include "logging.h"
 #include "device.h"
 

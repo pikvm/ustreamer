@@ -34,6 +34,7 @@
 #include <pthread.h>
 
 #include "tools.h"
+#include "threading.h"
 
 
 enum {
@@ -51,13 +52,13 @@ pthread_mutex_t log_mutex;
 #define LOGGING_INIT { \
 		log_level = LOG_LEVEL_INFO; \
 		log_colored = isatty(1); \
-		assert(!pthread_mutex_init(&log_mutex, NULL)); \
+		A_MUTEX_INIT(&log_mutex); \
 	}
 
-#define LOGGING_DESTROY assert(!pthread_mutex_destroy(&log_mutex))
+#define LOGGING_DESTROY A_MUTEX_DESTROY(&log_mutex)
 
-#define LOGGING_LOCK	assert(!pthread_mutex_lock(&log_mutex))
-#define LOGGING_UNLOCK	assert(!pthread_mutex_unlock(&log_mutex))
+#define LOGGING_LOCK	A_MUTEX_LOCK(&log_mutex)
+#define LOGGING_UNLOCK	A_MUTEX_UNLOCK(&log_mutex)
 
 
 #define COLOR_GRAY		"\x1b[30;1m"
@@ -87,12 +88,14 @@ pthread_mutex_t log_mutex;
 
 
 #define LOG_PRINTF_NOLOCK(_label_color, _label, _msg_color, _msg, ...) { \
+		char _buf[MAX_THREAD_NAME] = {0}; \
+		thread_get_name(_buf); \
 		if (log_colored) { \
-			printf(COLOR_GRAY "-- " _label_color _label COLOR_GRAY " [%.03Lf tid=%d]" " -- " COLOR_RESET _msg_color _msg COLOR_RESET, \
-				get_now_monotonic(), get_thread_id(), ##__VA_ARGS__); \
+			printf(COLOR_GRAY "-- " _label_color _label COLOR_GRAY " [%.03Lf %9s]" " -- " COLOR_RESET _msg_color _msg COLOR_RESET, \
+				get_now_monotonic(), _buf, ##__VA_ARGS__); \
 		} else { \
-			printf("-- " _label " [%.03Lf tid=%d] -- " _msg, \
-				get_now_monotonic(), get_thread_id(), ##__VA_ARGS__); \
+			printf("-- " _label " [%.03Lf %9s] -- " _msg, \
+				get_now_monotonic(), _buf, ##__VA_ARGS__); \
 		} \
 		putchar('\n'); \
 		fflush(stdout); \
@@ -109,7 +112,7 @@ pthread_mutex_t log_mutex;
 	}
 
 #define LOG_PERROR(_msg, ...) { \
-		char _buf[1024] = ""; \
+		char _buf[1024] = {0}; \
 		char *_ptr = errno_to_string(_buf, 1024); \
 		LOG_ERROR(_msg ": %s", ##__VA_ARGS__, _ptr); \
 	}

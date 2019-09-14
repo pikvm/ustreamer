@@ -34,6 +34,7 @@
 #include <linux/videodev2.h>
 
 #include "tools.h"
+#include "threading.h"
 #include "logging.h"
 #include "xioctl.h"
 #include "picture.h"
@@ -424,6 +425,7 @@ static void _workers_pool_destroy(struct _workers_pool_t *pool) {
 static void *_worker_thread(void *v_worker) {
 	struct _worker_t *worker = (struct _worker_t *)v_worker;
 
+	A_THREAD_RENAME("worker-%u", worker->number);
 	LOG_DEBUG("Hello! I am a worker #%u ^_^", worker->number);
 
 #	ifdef WITH_GPIO
