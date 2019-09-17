@@ -11,11 +11,13 @@ LDFLAGS ?=
 RPI_VC_HEADERS ?= /opt/vc/include
 RPI_VC_LIBS ?= /opt/vc/lib
 
+BUILD ?= build
+
 
 # =====
-LIBS = -lm -ljpeg -pthread -levent -levent_pthreads -luuid
+_LIBS = -lm -ljpeg -pthread -levent -levent_pthreads -luuid
 override CFLAGS += -c -std=c11 -Wall -Wextra -D_GNU_SOURCE
-SOURCES = $(shell ls src/*.c src/http/*.c src/encoders/cpu/*.c src/encoders/hw/*.c)
+_SRCS = $(shell ls src/*.c src/http/*.c src/encoders/cpu/*.c src/encoders/hw/*.c)
 
 
 define optbool
@@ -24,14 +26,14 @@ endef
 
 
 ifneq ($(call optbool,$(WITH_OMX)),)
-LIBS += -lbcm_host -lvcos -lopenmaxil -L$(RPI_VC_LIBS)
+_LIBS += -lbcm_host -lvcos -lopenmaxil -L$(RPI_VC_LIBS)
 override CFLAGS += -DWITH_OMX -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
-SOURCES += $(shell ls src/encoders/omx/*.c)
+_SRCS += $(shell ls src/encoders/omx/*.c)
 endif
 
 
 ifneq ($(call optbool,$(WITH_GPIO)),)
-LIBS += -lwiringPi
+_LIBS += -lwiringPi
 override CFLAGS += -DWITH_GPIO
 endif
 
@@ -43,7 +45,7 @@ endif
 
 
 # =====
-all: $(SOURCES) $(PROG)
+all: $(PROG)
 
 
 install: $(PROG)
@@ -63,19 +65,20 @@ regen:
 	tools/make-html-h.py src/http/data/index.html src/http/data/index_html.h INDEX
 
 
-$(PROG): $(SOURCES:.c=.o)
+$(PROG): $(_SRCS:%.c=$(BUILD)/%.o)
 	$(info -- LD $@)
-	@ $(CC) $(SOURCES:.c=.o) -o $@ $(LDFLAGS) $(LIBS)
+	@ $(CC) $^ -o $@ $(LDFLAGS) $(_LIBS)
 	$(info ===== Build complete =====)
 	$(info == CC      = $(CC))
-	$(info == LIBS    = $(LIBS))
+	$(info == LIBS    = $(_LIBS))
 	$(info == CFLAGS  = $(CFLAGS))
 	$(info == LDFLAGS = $(LDFLAGS))
 
 
-.c.o:
+$(BUILD)/%.o: %.c
 	$(info -- CC $<)
-	@ $(CC) $< -o $@ $(CFLAGS) $(LIBS)
+	@ mkdir -p $(dir $@) || true
+	@ $(CC) $< -o $@ $(CFLAGS) $(_LIBS)
 
 
 release:
@@ -97,6 +100,5 @@ push:
 
 clean-all: clean
 clean:
-	find src -name '*.o' -exec rm '{}' \;
 	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.xz
-	rm -f vgcore.* *.sock $(PROG)
+	rm -rf $(PROG) $(BUILD) vgcore.* *.sock
