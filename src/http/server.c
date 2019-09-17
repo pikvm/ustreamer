@@ -431,6 +431,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 	PREPROCESS_REQUEST;
 
 #	define ENCODER(_next) server->run->stream->encoder->_next
+#	define EXPOSED(_next) server->run->exposed->_next
 
 	A_MUTEX_LOCK(&ENCODER(run->mutex));
 	encoder_run_type = ENCODER(run->type);
@@ -447,15 +448,16 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
 		encoder_type_to_string(encoder_run_type),
 		encoder_run_quality,
-		(server->fake_width ? server->fake_width : server->run->exposed->picture->width),
-		(server->fake_height ? server->fake_height : server->run->exposed->picture->height),
-		bool_to_string(server->run->exposed->online),
+		(server->fake_width ? server->fake_width : EXPOSED(picture->width)),
+		(server->fake_height ? server->fake_height : EXPOSED(picture->height)),
+		bool_to_string(EXPOSED(online)),
 		server->run->stream->dev->desired_fps,
-		server->run->exposed->captured_fps,
-		server->run->exposed->queued_fps,
+		EXPOSED(captured_fps),
+		EXPOSED(queued_fps),
 		server->run->stream_clients_count
 	));
 
+#	undef EXPOSED
 #	undef ENCODER
 
 	for (struct stream_client_t * client = server->run->stream_clients; client != NULL; client = client->next) {
@@ -520,13 +522,12 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 
 #	undef ADD_UNSUGNED_HEADER
 #	undef ADD_TIME_HEADER
+#	undef EXPOSED
 
 	ADD_HEADER("Content-Type", "image/jpeg");
 
 	evhttp_send_reply(request, HTTP_OK, "OK", buf);
 	evbuffer_free(buf);
-
-#	undef EXPOSED
 }
 
 #undef ADD_HEADER
@@ -854,8 +855,8 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 }
 
 static bool _expose_new_picture_unsafe(struct http_server_t *server) {
-#	define STREAM(_next) server->run->stream->_next
 #	define EXPOSED(_next) server->run->exposed->_next
+#	define STREAM(_next) server->run->stream->_next
 
 	EXPOSED(captured_fps) = STREAM(captured_fps);
 	EXPOSED(expose_begin_time) = get_now_monotonic();
@@ -881,6 +882,8 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 
 	picture_copy(STREAM(picture), EXPOSED(picture));
 
+#	undef STREAM
+
 	EXPOSED(online) = true;
 	EXPOSED(dropped) = 0;
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
@@ -890,7 +893,6 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 		 EXPOSED(expose_end_time) - EXPOSED(expose_begin_time));
 
 #	undef EXPOSED
-#	undef STREAM
 	return true; // Updated
 }
 
