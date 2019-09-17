@@ -30,11 +30,8 @@
 #include <event2/http.h>
 #include <event2/util.h>
 
-#include "../tools.h"
 #include "../picture.h"
 #include "../stream.h"
-
-#include "blank.h"
 
 
 struct stream_client_t {

@@ -24,7 +24,6 @@
 
 #include <stdio.h>
 #include <stdbool.h>
-#include <string.h>
 #include <setjmp.h>
 
 #include <jpeglib.h>
@@ -32,7 +31,6 @@
 #include "../tools.h"
 #include "../logging.h"
 #include "../picture.h"
-#include "../device.h"
 
 #include "data/blank_jpeg.h"
 

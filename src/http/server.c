@@ -22,16 +22,17 @@
 
 #include "server.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdatomic.h>
 #include <string.h>
-#include <strings.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <assert.h>
 
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #include <event2/event.h>
 #include <event2/thread.h>

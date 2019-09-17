@@ -22,10 +22,11 @@
 
 #include "path.h"
 
-#include <stdio.h>
-#include <stdlib.h>
+#ifdef TEST_HTTP_PATH
+#	include <stdio.h>
+#	include <stdlib.h>
+#endif
 #include <string.h>
-#include <assert.h>
 
 #include "../tools.h"
 
@@ -116,7 +117,7 @@ char *simplify_request_path(const char *str) {
 	return simplified;
 }
 
-#if 0
+#if TEST_HTTP_PATH
 
 int test_simplify_request_path(const char *sample, const char *expected) {
 	char *result = simplify_request_path(sample);

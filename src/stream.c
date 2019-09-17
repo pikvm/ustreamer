@@ -22,21 +22,18 @@
 
 #include "stream.h"
 
+#include <stdlib.h>
 #include <stdbool.h>
 #include <stdatomic.h>
 #include <unistd.h>
 #include <errno.h>
-#include <time.h>
 #include <assert.h>
 
 #include <pthread.h>
 
-#include <linux/videodev2.h>
-
 #include "tools.h"
 #include "threading.h"
 #include "logging.h"
-#include "xioctl.h"
 #include "picture.h"
 #include "device.h"
 #include "encoder.h"

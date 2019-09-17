@@ -27,11 +27,10 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <sys/types.h>
 #include <sys/stat.h>
 
 #include "../tools.h"
-#include "../logging.h"
+// #include "../logging.h"
 
 #include "path.h"
 

@@ -34,11 +34,15 @@
 
 #include <sys/select.h>
 #include <sys/mman.h>
+#include <sys/time.h>
+
 #include <linux/videodev2.h>
+#include <linux/v4l2-controls.h>
 
 #include "tools.h"
 #include "logging.h"
 #include "xioctl.h"
+#include "picture.h"
 
 
 static const struct {

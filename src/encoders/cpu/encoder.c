@@ -29,10 +29,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <assert.h>
 
 #include <jpeglib.h>
+
 #include <linux/videodev2.h>
 
 #include "../../tools.h"

@@ -23,20 +23,21 @@
 #include "options.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
-#include <string.h>
+#ifdef WITH_OMX
+#	include <string.h>
+#endif
 #include <ctype.h>
 #include <limits.h>
-#include <signal.h>
 #include <getopt.h>
+#include <errno.h>
 #include <assert.h>
 
 #include "config.h"
-#include "tools.h"
 #include "logging.h"
 #include "device.h"
 #include "encoder.h"
-#include "stream.h"
 #include "http/server.h"
 #ifdef WITH_GPIO
 #	include "gpio.h"

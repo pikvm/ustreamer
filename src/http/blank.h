@@ -22,8 +22,6 @@
 
 #pragma once
 
-#include <stdlib.h>
-
 #include "../picture.h"
 
 

@@ -26,7 +26,6 @@
 
 #include <pthread.h>
 
-#include "tools.h"
 #include "device.h"
 
 #ifdef WITH_OMX

@@ -25,6 +25,7 @@
 #include <stdbool.h>
 
 #include <event2/http.h>
+#include <event2/keyvalq_struct.h>
 
 
 bool uri_get_true(struct evkeyvalq *params, const char *key);

@@ -22,6 +22,7 @@
 
 #include "encoder.h"
 
+#include <stdlib.h>
 #include <stdbool.h>
 #include <strings.h>
 #include <assert.h>
@@ -35,7 +36,6 @@
 
 #include "encoders/cpu/encoder.h"
 #include "encoders/hw/encoder.h"
-
 #ifdef WITH_OMX
 #	include "encoders/omx/encoder.h"
 #endif
