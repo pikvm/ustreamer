@@ -31,9 +31,6 @@
 #include <fcntl.h>
 #include <assert.h>
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <sys/stat.h>
 
 #include <event2/event.h>
@@ -59,11 +56,12 @@
 #	include "../gpio.h"
 #endif
 
-#include "blank.h"
+#include "unix.h"
 #include "uri.h"
 #include "base64.h"
 #include "mime.h"
 #include "static.h"
+#include "blank.h"
 
 #include "data/index_html.h"
 
@@ -215,51 +213,16 @@ int http_server_listen(struct http_server_t *server) {
 	}
 
 	if (server->unix_path[0] != '\0') {
-		struct sockaddr_un unix_addr;
-
 		LOG_DEBUG("Binding HTTP to UNIX socket '%s' ...", server->unix_path);
-
-#		define MAX_SUN_PATH (sizeof(unix_addr.sun_path) - 1)
-
-		if (strlen(server->unix_path) > MAX_SUN_PATH) {
-			LOG_ERROR("UNIX socket path is too long; max=%zu", MAX_SUN_PATH);
+		if ((server->run->unix_fd = evhttp_my_bind_unix(
+			server->run->http,
+			server->unix_path,
+			server->unix_rm,
+			server->unix_mode)) < 0
+		) {
 			return -1;
 		}
-
-		MEMSET_ZERO(unix_addr);
-		strncpy(unix_addr.sun_path, server->unix_path, MAX_SUN_PATH);
-		unix_addr.sun_family = AF_UNIX;
-
-#		undef MAX_SUN_PATH
-
-		assert((server->run->unix_fd = socket(AF_UNIX, SOCK_STREAM, 0)) >= 0);
-		assert(!evutil_make_socket_nonblocking(server->run->unix_fd));
-
-		if (server->unix_rm && unlink(server->unix_path) < 0) {
-			if (errno != ENOENT) {
-				LOG_PERROR("Can't remove old UNIX socket '%s'", server->unix_path);
-				return -1;
-			}
-		}
-		if (bind(server->run->unix_fd, (struct sockaddr *)&unix_addr, sizeof(struct sockaddr_un)) < 0) {
-			LOG_PERROR("Can't bind HTTP to UNIX socket '%s'", server->unix_path);
-			return -1;
-		}
-		if (server->unix_mode && chmod(server->unix_path, server->unix_mode) < 0) {
-			LOG_PERROR("Can't set permissions %o to UNIX socket '%s'", server->unix_mode, server->unix_path);
-			return -1;
-		}
-		if (listen(server->run->unix_fd, 128) < 0) {
-			LOG_PERROR("Can't listen UNIX socket '%s'", server->unix_path);
-			return -1;
-		}
-		if (evhttp_accept_socket(server->run->http, server->run->unix_fd) < 0) {
-			LOG_PERROR("Can't evhttp_accept_socket() UNIX socket '%s'", server->unix_path);
-			return -1;
-		}
-
 		LOG_INFO("Listening HTTP on UNIX socket '%s'", server->unix_path);
-
 	} else {
 		LOG_DEBUG("Binding HTTP to [%s]:%u ...", server->host, server->port);
 		if (evhttp_bind_socket(server->run->http, server->host, server->port) < 0) {
