@@ -486,8 +486,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    -g|--glitched-resolutions <WxH,...>  ─ Comma-separated list of resolutions that require forced\n");
 	printf("                                           encoding on CPU instead of OMX. Default: disabled.\n\n");
 #	endif
-	printf("    --device-timeout <seconds>  ────────── Timeout for device querying. Default: %u.\n\n", dev->timeout);
-	printf("    --device-error-delay <seconds>  ────── Delay before trying to connect to the device again\n");
+	printf("    --device-timeout <sec>  ────────────── Timeout for device querying. Default: %u.\n\n", dev->timeout);
+	printf("    --device-error-delay <sec>  ────────── Delay before trying to connect to the device again\n");
 	printf("                                           after an error (timeout for example). Default: %u.\n\n", dev->error_delay);
 	printf("Image control options:\n");
 	printf("══════════════════════\n");
@@ -528,7 +528,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    -l|--slowdown  ────────────── Slowdown capturing to 1 FPS or less when no stream clients are connected.\n");
 	printf("                                  Useful to reduce CPU consumption. Default: disabled.\n\n");
 	printf("    -R|--fake-resolution <WxH>  ─ Override image resolution for state. Default: disabled.\n\n");
-	printf("    --server-timeout <seconds>  ─ Timeout for client connections. Default: %u.\n\n", server->timeout);
+	printf("    --server-timeout <sec>  ───── Timeout for client connections. Default: %u.\n\n", server->timeout);
 #ifdef WITH_GPIO
 	printf("GPIO options:\n");
 	printf("═════════════\n");
