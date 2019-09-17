@@ -60,6 +60,7 @@
 #endif
 
 #include "blank.h"
+#include "uri.h"
 #include "base64.h"
 #include "mime.h"
 #include "static.h"
@@ -67,8 +68,6 @@
 #include "data/index_html.h"
 
 
-static bool _http_get_param_true(struct evkeyvalq *params, const char *key);
-static char *_http_get_param_uri(struct evkeyvalq *params, const char *key);
 static int _http_preprocess_request(struct evhttp_request *request, struct http_server_t *server);
 
 static void _http_callback_root(struct evhttp_request *request, void *v_server);
@@ -281,31 +280,6 @@ void http_server_loop(struct http_server_t *server) {
 
 void http_server_loop_break(struct http_server_t *server) {
 	event_base_loopbreak(server->run->base);
-}
-
-
-static bool _http_get_param_true(struct evkeyvalq *params, const char *key) {
-	const char *value_str;
-
-	if ((value_str = evhttp_find_header(params, key)) != NULL) {
-		if (
-			value_str[0] == '1'
-			|| !evutil_ascii_strcasecmp(value_str, "true")
-			|| !evutil_ascii_strcasecmp(value_str, "yes")
-		) {
-			return true;
-		}
-	}
-	return false;
-}
-
-static char *_http_get_param_uri(struct evkeyvalq *params, const char *key) {
-	const char *value_str;
-
-	if ((value_str = evhttp_find_header(params, key)) != NULL) {
-		return evhttp_encode_uri(value_str);
-	}
-	return NULL;
 }
 
 #define ADD_HEADER(_key, _value) \
@@ -559,10 +533,10 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		client->need_first_frame = true;
 
 		evhttp_parse_query(evhttp_request_get_uri(request), &params);
-		client->key = _http_get_param_uri(&params, "key");
-		client->extra_headers = _http_get_param_true(&params, "extra_headers");
-		client->advance_headers = _http_get_param_true(&params, "advance_headers");
-		client->dual_final_frames = _http_get_param_true(&params, "dual_final_frames");
+		client->key = uri_get_string(&params, "key");
+		client->extra_headers = uri_get_true(&params, "extra_headers");
+		client->advance_headers = uri_get_true(&params, "advance_headers");
+		client->dual_final_frames = uri_get_true(&params, "dual_final_frames");
 		evhttp_clear_headers(&params);
 
 		uuid_generate(uuid);
