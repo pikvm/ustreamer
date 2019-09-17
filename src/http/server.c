@@ -856,8 +856,7 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 		if (
 			EXPOSED(online)
 			&& EXPOSED(dropped) < server->drop_same_frames
-			&& EXPOSED(picture->used) == STREAM(picture->used)
-			&& !memcmp(EXPOSED(picture->data), STREAM(picture->data), STREAM(picture->used))
+			&& picture_compare(EXPOSED(picture), STREAM(picture))
 		) {
 			EXPOSED(expose_cmp_time) = get_now_monotonic();
 			EXPOSED(expose_end_time) = EXPOSED(expose_cmp_time);

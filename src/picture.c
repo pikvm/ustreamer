@@ -23,6 +23,7 @@
 #include "picture.h"
 
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <assert.h>
 
@@ -88,4 +89,8 @@ void picture_copy(const struct picture_t *src, struct picture_t *dest) {
 	COPY(encode_end_time);
 
 #	undef COPY
+}
+
+bool picture_compare(const struct picture_t *a, const struct picture_t *b) {
+	return (a->used == b->used && !memcmp(a->data, b->data, b->used));
 }

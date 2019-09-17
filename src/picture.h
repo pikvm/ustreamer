@@ -23,6 +23,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdbool.h>
 
 
 struct picture_t {
@@ -47,3 +48,4 @@ void picture_set_data(struct picture_t *picture, const unsigned char *data, size
 void picture_append_data(struct picture_t *picture, const unsigned char *data, size_t size);
 
 void picture_copy(const struct picture_t *src, struct picture_t *dest);
+bool picture_compare(const struct picture_t *a, const struct picture_t *b);
