@@ -67,6 +67,7 @@ struct exposed_t {
 	long double			expose_begin_time;
 	long double			expose_cmp_time;
 	long double			expose_end_time;
+	long double			last_as_blank_time;
 };
 
 struct http_server_runtime_t {
@@ -96,7 +97,7 @@ struct http_server_t {
 	char		*static_path;
 
 	char		*blank_path;
-	bool		last_as_blank;
+	int			last_as_blank;
 	unsigned	drop_same_frames;
 	bool		slowdown;
 	unsigned	fake_width;

@@ -157,7 +157,7 @@ static const struct option _LONG_OPTS[] = {
 	{"passwd",					required_argument,	NULL,	_O_PASSWD},
 	{"static",					required_argument,	NULL,	_O_STATIC},
 	{"blank",					required_argument,	NULL,	_O_BLANK},
-	{"last-as-blank",			no_argument,		NULL,	_O_LAST_AS_BLANK},
+	{"last-as-blank",			required_argument,	NULL,	_O_LAST_AS_BLANK},
 	{"drop-same-frames",		required_argument,	NULL,	_O_DROP_SAME_FRAMES},
 	{"slowdown",				no_argument,		NULL,	_O_SLOWDOWN},
 	{"fake-resolution",			required_argument,	NULL,	_O_FAKE_RESOLUTION},
@@ -319,7 +319,7 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			case _O_PASSWD:				OPT_SET(server->passwd, optarg);
 			case _O_STATIC:				OPT_SET(server->static_path, optarg);
 			case _O_BLANK:				OPT_SET(server->blank_path, optarg);
-			case _O_LAST_AS_BLANK:		OPT_SET(server->last_as_blank, true);
+			case _O_LAST_AS_BLANK:		OPT_NUMBER("--last-as-blank", server->last_as_blank, 0, 86400, 0);
 			case _O_DROP_SAME_FRAMES:	OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, VIDEO_MAX_FPS, 0);
 			case _O_SLOWDOWN:			OPT_SET(server->slowdown, true);
 			case _O_FAKE_RESOLUTION:	OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, false);
@@ -517,7 +517,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                  Symlinks are not supported for security reasons. Default: disabled.\n\n");
 	printf("    -k|--blank <path>  ────────── Path to JPEG file that will be shown when the device is disconnected\n");
 	printf("                                  during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.\n\n");
-	printf("    -K|--last-as-blank  ───────── Show the last frame received from the camera after it was disconnected.\n");
+	printf("    -K|--last-as-blank <sec>  ─── Show the last frame received from the camera after it was disconnected,\n");
+	printf("                                  but no more than specified time (or endlessly if 0 is specified).\n");
 	printf("                                  If the device has not yet been online, display 'NO SIGNAL' or the image\n");
 	printf("                                  specified by option --blank. Default: disabled.\n\n");
 	printf("    -e|--drop-same-frames <N>  ── Don't send identical frames to clients, but no more than specified number.\n");

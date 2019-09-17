@@ -108,6 +108,7 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	server->passwd = "";
 	server->static_path = "";
 	server->timeout = 10;
+	server->last_as_blank = -1;
 	server->run = run;
 
 	assert(!evthread_use_pthreads());
@@ -169,7 +170,14 @@ int http_server_listen(struct http_server_t *server) {
 
 	server->run->drop_same_frames_blank = max_u(server->drop_same_frames, server->run->drop_same_frames_blank);
 	server->run->blank = blank_picture_init(server->blank_path);
-	_expose_blank_picture(server);
+
+#	define EXPOSED(_next) server->run->exposed->_next
+	// See _expose_blank_picture()
+	picture_copy(server->run->blank, EXPOSED(picture));
+	EXPOSED(expose_begin_time) = get_now_monotonic();
+	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
+	EXPOSED(expose_end_time) = EXPOSED(expose_begin_time);
+#	undef EXPOSED
 
 	{
 		struct timeval refresh_interval;
@@ -887,19 +895,38 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 }
 
 static bool _expose_blank_picture(struct http_server_t *server) {
-#	define EXPOSED(_next)	server->run->exposed->_next
+#	define EXPOSED(_next) server->run->exposed->_next
 
 	EXPOSED(expose_begin_time) = get_now_monotonic();
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
 
-	if (EXPOSED(online) || EXPOSED(picture->used) == 0) {
-		if (!(server->last_as_blank && EXPOSED(picture->used) > 0)) {
-			picture_copy(server->run->blank, EXPOSED(picture));
+#	define EXPOSE_BLANK picture_copy(server->run->blank, EXPOSED(picture))
+
+	if (EXPOSED(online)) { // Если переходим из online в offline
+		if (server->last_as_blank < 0) { // Если last_as_blank выключено, просто покажем картинку
+			LOG_INFO("HTTP: changed picture to BLANK");
+			EXPOSE_BLANK;
+		} else if (server->last_as_blank > 0) { // Если нужен таймер - запустим
+			LOG_INFO("HTTP: freezing last alive frame for %d seconds", server->last_as_blank);
+			EXPOSED(last_as_blank_time) = get_now_monotonic();
+		} else { // last_as_blank == 0 - показываем последний фрейм вечно
+			LOG_INFO("HTTP: freezing last alive frame forever");
 		}
-		EXPOSED(captured_fps) = 0;
-		EXPOSED(online) = false;
 		goto updated;
 	}
+
+	if ( // Если уже оффлайн, включена фича last_as_blank с таймером и он запущен
+		server->last_as_blank > 0
+		&& EXPOSED(last_as_blank_time) > 0
+		&& EXPOSED(last_as_blank_time) + server->last_as_blank < EXPOSED(expose_begin_time)
+	) {
+		LOG_INFO("HTTP: changed last alive frame to BLANK");
+		EXPOSE_BLANK;
+		EXPOSED(last_as_blank_time) = 0; // Останавливаем таймер
+		goto updated;
+	}
+
+#	undef EXPOSE_BLANK
 
 	if (EXPOSED(dropped) < server->run->drop_same_frames_blank) {
 		LOG_PERF("HTTP: dropped same frame (BLANK) number %u", EXPOSED(dropped));
@@ -909,6 +936,8 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 	}
 
 	updated:
+		EXPOSED(captured_fps) = 0;
+		EXPOSED(online) = false;
 		EXPOSED(dropped) = 0;
 		EXPOSED(expose_end_time) = get_now_monotonic();
 		return true; // Updated
