@@ -29,7 +29,7 @@
 #include "../tools.h"
 
 
-static const char ENCODING_TABLE[] = {
+static const char _ENCODING_TABLE[] = {
 	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
 	'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
 	'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
@@ -40,7 +40,7 @@ static const char ENCODING_TABLE[] = {
 	'4', '5', '6', '7', '8', '9', '+', '/',
 };
 
-static const unsigned MOD_TABLE[] = {0, 2, 1};
+static const unsigned _MOD_TABLE[] = {0, 2, 1};
 
 
 char *base64_encode(const unsigned char *str) {
@@ -57,13 +57,13 @@ char *base64_encode(const unsigned char *str) {
 
 		unsigned triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
 
-		encoded[encoded_index++] = ENCODING_TABLE[(triple >> 3 * 6) & 0x3F];
-		encoded[encoded_index++] = ENCODING_TABLE[(triple >> 2 * 6) & 0x3F];
-		encoded[encoded_index++] = ENCODING_TABLE[(triple >> 1 * 6) & 0x3F];
-		encoded[encoded_index++] = ENCODING_TABLE[(triple >> 0 * 6) & 0x3F];
+		encoded[encoded_index++] = _ENCODING_TABLE[(triple >> 3 * 6) & 0x3F];
+		encoded[encoded_index++] = _ENCODING_TABLE[(triple >> 2 * 6) & 0x3F];
+		encoded[encoded_index++] = _ENCODING_TABLE[(triple >> 1 * 6) & 0x3F];
+		encoded[encoded_index++] = _ENCODING_TABLE[(triple >> 0 * 6) & 0x3F];
 	}
 
-	for (unsigned index = 0; index < MOD_TABLE[str_len % 3]; index++) {
+	for (unsigned index = 0; index < _MOD_TABLE[str_len % 3]; index++) {
 		encoded[encoded_size - 2 - index] = '=';
 	}
 
