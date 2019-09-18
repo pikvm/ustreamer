@@ -807,13 +807,13 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 		) {
 			EXPOSED(expose_cmp_time) = get_now_monotonic();
 			EXPOSED(expose_end_time) = EXPOSED(expose_cmp_time);
-			LOG_VERBOSE("HTTP: dropped same frame number %u; cmp_time=%.06Lf",
+			LOG_VERBOSE("HTTP: Dropped same frame number %u; cmp_time=%.06Lf",
 				EXPOSED(dropped), EXPOSED(expose_cmp_time) - EXPOSED(expose_begin_time));
 			EXPOSED(dropped) += 1;
 			return false; // Not updated
 		} else {
 			EXPOSED(expose_cmp_time) = get_now_monotonic();
-			LOG_VERBOSE("HTTP: passed same frame check (frames are differ); cmp_time=%.06Lf",
+			LOG_VERBOSE("HTTP: Passed same frame check (frames are differ); cmp_time=%.06Lf",
 				EXPOSED(expose_cmp_time) - EXPOSED(expose_begin_time));
 		}
 	}
@@ -827,7 +827,7 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
 	EXPOSED(expose_end_time) = get_now_monotonic();
 
-	LOG_VERBOSE("HTTP: exposed new frame; full exposition time = %.06Lf",
+	LOG_VERBOSE("HTTP: Exposed new frame; full exposition time = %.06Lf",
 		 EXPOSED(expose_end_time) - EXPOSED(expose_begin_time));
 
 #	undef EXPOSED
@@ -844,13 +844,13 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 
 	if (EXPOSED(online)) { // Если переходим из online в offline
 		if (server->last_as_blank < 0) { // Если last_as_blank выключено, просто покажем картинку
-			LOG_INFO("HTTP: changed picture to BLANK");
+			LOG_INFO("HTTP: Changed picture to BLANK");
 			EXPOSE_BLANK;
 		} else if (server->last_as_blank > 0) { // Если нужен таймер - запустим
-			LOG_INFO("HTTP: freezing last alive frame for %d seconds", server->last_as_blank);
+			LOG_INFO("HTTP: Freezing last alive frame for %d seconds", server->last_as_blank);
 			EXPOSED(last_as_blank_time) = get_now_monotonic();
 		} else { // last_as_blank == 0 - показываем последний фрейм вечно
-			LOG_INFO("HTTP: freezing last alive frame forever");
+			LOG_INFO("HTTP: Freezing last alive frame forever");
 		}
 		goto updated;
 	}
@@ -860,7 +860,7 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 		&& EXPOSED(last_as_blank_time) > 0
 		&& EXPOSED(last_as_blank_time) + server->last_as_blank < EXPOSED(expose_begin_time)
 	) {
-		LOG_INFO("HTTP: changed last alive frame to BLANK");
+		LOG_INFO("HTTP: Changed last alive frame to BLANK");
 		EXPOSE_BLANK;
 		EXPOSED(last_as_blank_time) = 0; // Останавливаем таймер
 		goto updated;
@@ -869,7 +869,7 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 #	undef EXPOSE_BLANK
 
 	if (EXPOSED(dropped) < server->run->drop_same_frames_blank) {
-		LOG_PERF("HTTP: dropped same frame (BLANK) number %u", EXPOSED(dropped));
+		LOG_PERF("HTTP: Dropped same frame (BLANK) number %u", EXPOSED(dropped));
 		EXPOSED(dropped) += 1;
 		EXPOSED(expose_end_time) = get_now_monotonic();
 		return false; // Not updated
