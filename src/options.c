@@ -36,6 +36,7 @@
 
 #include "config.h"
 #include "logging.h"
+#include "process.h"
 #include "device.h"
 #include "encoder.h"
 #include "http/server.h"
@@ -107,6 +108,10 @@ enum _OPT_VALUES {
 	_O_GPIO_WORKERS_BUSY_AT,
 #endif
 
+#ifdef HAS_PROCESS_SET_SIGTERM_ON_PARENT_DEATH
+	_O_EXIT_ON_PARENT_DEATH,
+#endif
+
 	_O_LOG_LEVEL,
 	_O_PERF,
 	_O_VERBOSE,
@@ -169,6 +174,10 @@ static const struct option _LONG_OPTS[] = {
 	{"gpio-stream-online",		required_argument,	NULL,	_O_GPIO_STREAM_ONLINE},
 	{"gpio-has-http-clients",	required_argument,	NULL,	_O_GPIO_HAS_HTTP_CLIENTS},
 	{"gpio-workers-busy-at",	required_argument,	NULL,	_O_GPIO_WORKERS_BUSY_AT},
+#endif
+
+#ifdef HAS_PROCESS_SET_SIGTERM_ON_PARENT_DEATH
+	{"exit-on-parent-death",	no_argument,		NULL,	_O_EXIT_ON_PARENT_DEATH},
 #endif
 
 	{"log-level",				required_argument,	NULL,	_O_LOG_LEVEL},
@@ -331,6 +340,10 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			case _O_GPIO_STREAM_ONLINE:		OPT_NUMBER("--gpio-stream-online", gpio_pin_stream_online, 0, 256, 0);
 			case _O_GPIO_HAS_HTTP_CLIENTS:	OPT_NUMBER("--gpio-has-http-clients", gpio_pin_has_http_clients, 0, 256, 0);
 			case _O_GPIO_WORKERS_BUSY_AT:	OPT_NUMBER("--gpio-workers-busy-at", gpio_pin_workers_busy_at, 0, 256, 0);
+#			endif
+
+#			ifdef HAS_PROCESS_SET_SIGTERM_ON_PARENT_DEATH
+			case _O_EXIT_ON_PARENT_DEATH:	process_set_sigterm_on_parent_death(); break;
 #			endif
 
 			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
@@ -538,6 +551,11 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --gpio-has-http-clients <pin>  ─ Set 1 while stream has at least one client. Default: disabled.\n\n");
 	printf("    --gpio-workers-busy-at <pin>  ── Set 1 on (pin + N) while worker with number N has a job.\n");
 	printf("                                     The worker's numbering starts from 0. Default: disabled\n\n");
+#endif
+#ifdef HAS_PROCESS_SET_SIGTERM_ON_PARENT_DEATH
+	printf("Process options:\n");
+	printf("════════════════\n");
+	printf("    --exit-on-parent-death  ─ Exit the program if the parent process is dead. Default: disabled.\n\n");
 #endif
 	printf("Logging options:\n");
 	printf("════════════════\n");
