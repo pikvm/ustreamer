@@ -108,7 +108,7 @@ enum _OPT_VALUES {
 	_O_GPIO_WORKERS_BUSY_AT,
 #endif
 
-#ifdef HAS_PROCESS_SET_SIGTERM_ON_PARENT_DEATH
+#ifdef HAS_PDEATHSIG
 	_O_EXIT_ON_PARENT_DEATH,
 #endif
 
@@ -176,7 +176,7 @@ static const struct option _LONG_OPTS[] = {
 	{"gpio-workers-busy-at",	required_argument,	NULL,	_O_GPIO_WORKERS_BUSY_AT},
 #endif
 
-#ifdef HAS_PROCESS_SET_SIGTERM_ON_PARENT_DEATH
+#ifdef HAS_PDEATHSIG
 	{"exit-on-parent-death",	no_argument,		NULL,	_O_EXIT_ON_PARENT_DEATH},
 #endif
 
@@ -342,8 +342,8 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			case _O_GPIO_WORKERS_BUSY_AT:	OPT_NUMBER("--gpio-workers-busy-at", gpio_pin_workers_busy_at, 0, 256, 0);
 #			endif
 
-#			ifdef HAS_PROCESS_SET_SIGTERM_ON_PARENT_DEATH
-			case _O_EXIT_ON_PARENT_DEATH:	process_set_sigterm_on_parent_death(); break;
+#			ifdef HAS_PDEATHSIG
+			case _O_EXIT_ON_PARENT_DEATH:	process_set_pdeathsig_sigterm(); break;
 #			endif
 
 			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
@@ -552,7 +552,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --gpio-workers-busy-at <pin>  ── Set 1 on (pin + N) while worker with number N has a job.\n");
 	printf("                                     The worker's numbering starts from 0. Default: disabled\n\n");
 #endif
-#ifdef HAS_PROCESS_SET_SIGTERM_ON_PARENT_DEATH
+#ifdef HAS_PDEATHSIG
 	printf("Process options:\n");
 	printf("════════════════\n");
 	printf("    --exit-on-parent-death  ─ Exit the program if the parent process is dead. Default: disabled.\n\n");

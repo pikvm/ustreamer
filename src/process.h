@@ -23,15 +23,15 @@
 #pragma once
 
 #if defined(__linux__)
-#	define HAS_PROCESS_SET_SIGTERM_ON_PARENT_DEATH
+#	define HAS_PDEATHSIG
 #elif defined(__FreeBSD__)
 #	include <sys/param.h>
 #	if __FreeBSD_version >= 1102000
-#		define HAS_PROCESS_SET_SIGTERM_ON_PARENT_DEATH
+#		define HAS_PDEATHSIG
 #	endif
 #endif
 
-#ifdef HAS_PROCESS_SET_SIGTERM_ON_PARENT_DEATH
+#ifdef HAS_PDEATHSIG
 #	include <signal.h>
 
 #	if defined(__linux__)
@@ -42,8 +42,7 @@
 
 #	include "logging.h"
 
-
-INLINE void process_set_sigterm_on_parent_death(void) {
+INLINE void process_set_pdeathsig_sigterm(void) {
 	int signum = SIGTERM;
 #	ifdef __linux__
 	int retval = prctl(PR_SET_PDEATHSIG, signum);
@@ -57,4 +56,4 @@ INLINE void process_set_sigterm_on_parent_death(void) {
 	}
 }
 
-#endif
+#endif // HAS_PDEATHSIG
