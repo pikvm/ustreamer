@@ -12,7 +12,7 @@
 | [OpenMAX IL](https://www.khronos.org/openmaxil) hardware acceleration<br>on Raspberry Pi | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Behavior when the device<br>is disconnected while streaming | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Shows a black screen<br>with ```NO SIGNAL``` on it<br>until reconnected | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) Stops the broadcast <sup>1</sup> |
 | [DV-timings](https://linuxtv.org/downloads/v4l-dvb-apis/uapi/v4l/dv-timings.html) support -<br>the ability to change resolution<br>on the fly by source signal | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#ffaa00](https://placehold.it/15/ffaa00/000000?text=+) Partially yes <sup>1</sup> |
-| Option to skip frames when streaming<br>static images by HTTP to save traffic | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes <sup>2</sup> | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
+| Option to skip frames when streaming<br>static images by HTTP to save the traffic | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes <sup>2</sup> | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Streaming via UNIX domain socket | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Debug logs without recompiling,<br>performance statistics log,<br>access to HTTP broadcast parameters | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Option to serve files<br>with a built-in HTTP server | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#ffaa00](https://placehold.it/15/ffaa00/000000?text=+) Regular files only |
@@ -59,7 +59,7 @@ $ ./ustreamer \
     --workers=3 \ # Maximum workers for OpenMAX
     --persistent \ # Don't re-initialize device on timeout (for example when HDMI cable was disconnected)
     --dv-timings \ # Use DV-timings
-    --drop-same-frames=30 # Save that traffic
+    --drop-same-frames=30 # Save the traffic
 ```
 
 You can always view the full list of options with ```ustreamer --help```.
