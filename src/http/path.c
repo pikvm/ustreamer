@@ -117,7 +117,7 @@ char *simplify_request_path(const char *str) {
 	return simplified;
 }
 
-#if TEST_HTTP_PATH
+#ifdef TEST_HTTP_PATH
 
 int test_simplify_request_path(const char *sample, const char *expected) {
 	char *result = simplify_request_path(sample);
