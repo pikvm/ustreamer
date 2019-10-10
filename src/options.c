@@ -236,15 +236,6 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			break; \
 		}
 
-#	ifdef WITH_OMX
-#		define OPT_GLITCHED_RESOLUTIONS { \
-				if (_parse_glitched_resolutions(optarg, encoder) < 0) { \
-					return -1; \
-				} \
-				break; \
-			}
-#	endif
-
 #	define OPT_PARSE(_name, _dest, _func, _invalid, _available) { \
 			if ((_dest = _func(optarg)) == _invalid) { \
 				printf("Unknown " _name ": %s; available: %s\n", optarg, _available); \
@@ -301,7 +292,11 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			case _O_QUALITY:		OPT_NUMBER("--quality", encoder->quality, 1, 100, 0);
 			case _O_ENCODER:		OPT_PARSE("encoder type", encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, ENCODER_TYPES_STR);
 #			ifdef WITH_OMX
-			case _O_GLITCHED_RESOLUTIONS:	OPT_GLITCHED_RESOLUTIONS;
+			case _O_GLITCHED_RESOLUTIONS:
+				if (_parse_glitched_resolutions(optarg, encoder) < 0) {
+					return -1;
+				}
+				break;
 #			endif
 			case _O_DEVICE_TIMEOUT:		OPT_NUMBER("--device-timeout", dev->timeout, 1, 60, 0);
 			case _O_DEVICE_ERROR_DELAY:	OPT_NUMBER("--device-error-delay", dev->error_delay, 1, 60, 0);
@@ -364,9 +359,6 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 #	undef OPT_CTL_AUTO
 #	undef OPT_CTL
 #	undef OPT_PARSE
-#	ifdef WITH_OMX
-#		undef OPT_GLITCHED_RESOLUTIONS
-#	endif
 #	undef OPT_RESOLUTION
 #	undef OPT_NUMBER
 #	undef OPT_SET
