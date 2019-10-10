@@ -33,6 +33,7 @@
 
 #ifdef HAS_PDEATHSIG
 #	include <signal.h>
+#	include <unistd.h>
 
 #	if defined(__linux__)
 #		include <sys/prctl.h>
@@ -42,18 +43,27 @@
 
 #	include "logging.h"
 
-INLINE void process_set_pdeathsig_sigterm(void) {
+
+INLINE int process_track_parent_death(void) {
 	int signum = SIGTERM;
-#	ifdef __linux__
+#	if defined(__linux__)
 	int retval = prctl(PR_SET_PDEATHSIG, signum);
-#	elif __FreeBSD__
+#	elif defined(__FreeBSD__)
 	int retval = procctl(P_PID, 0, PROC_PDEATHSIG_CTL, &signum);
 #	else
 #		error WTF?
 #	endif
 	if (retval < 0) {
 		LOG_PERROR("Can't set to receive SIGTERM on parent process death");
+		return -1;
 	}
+
+	if (kill(getppid(), 0) < 0) {
+		LOG_PERROR("The parent process is already dead");
+		return -1;
+	}
+
+	return 0;
 }
 
 #endif // HAS_PDEATHSIG

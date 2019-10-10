@@ -338,7 +338,11 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 #			endif
 
 #			ifdef HAS_PDEATHSIG
-			case _O_EXIT_ON_PARENT_DEATH:	process_set_pdeathsig_sigterm(); break;
+			case _O_EXIT_ON_PARENT_DEATH:
+				if (process_track_parent_death() < 0) {
+					return -1;
+				};
+				break;
 #			endif
 
 			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
