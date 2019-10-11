@@ -121,6 +121,8 @@ enum _OPT_VALUES {
 	_O_DEBUG,
 	_O_FORCE_LOG_COLORS,
 	_O_NO_LOG_COLORS,
+
+	_O_FEATURES,
 };
 
 static const struct option _LONG_OPTS[] = {
@@ -195,6 +197,7 @@ static const struct option _LONG_OPTS[] = {
 
 	{"help",					no_argument,		NULL,	_O_HELP},
 	{"version",					no_argument,		NULL,	_O_VERSION},
+	{"features",				no_argument,		NULL,	_O_FEATURES},
 
 	{NULL, 0, NULL, 0},
 };
@@ -205,7 +208,7 @@ static int _parse_resolution(const char *str, unsigned *width, unsigned *height,
 static int _parse_glitched_resolutions(const char *str, struct encoder_t *encoder);
 #endif
 
-static void _version(bool nl);
+static void _features(void);
 static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server);
 
 
@@ -365,7 +368,8 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			case _O_NO_LOG_COLORS:		OPT_SET(log_colored, false);
 
 			case _O_HELP:		_help(dev, encoder, server); return 1;
-			case _O_VERSION:	_version(true); return 1;
+			case _O_VERSION:	puts(VERSION); return 1;
+			case _O_FEATURES:	_features(); return 1;
 
 			case 0:		break;
 			default:	_help(dev, encoder, server); return -1;
@@ -457,34 +461,42 @@ static int _parse_glitched_resolutions(const char *str, struct encoder_t *encode
 }
 #endif
 
-static void _version(bool nl) {
-	printf(VERSION);
+static void _features(void) {
 #	ifdef WITH_OMX
-	printf(" + OMX");
+	puts("+ WITH_OMX");
+#	else
+	puts("- WITH_OMX");
 #	endif
+
 #	ifdef WITH_GPIO
-	printf(" + GPIO");
+	puts("+ WITH_GPIO");
+#	else
+	puts("- WITH_GPIO");
 #	endif
+
 #	ifdef WITH_PTHREAD_NP
-	printf(" + PThreadNP");
+	puts("+ WITH_PTHREAD_NP");
+#	else
+	puts("- WITH_PTHREAD_NP");
 #	endif
+
 #	ifdef WITH_SETPROCTITLE
-	printf(" + SetProcTitle");
+	puts("+ WITH_SETPROCTITLE");
+#	else
+	puts("- WITH_SETPROCTITLE");
 #	endif
+
 #	ifdef HAS_PDEATHSIG
-	printf(" + PDeathSig");
+	puts("+ HAS_PDEATHSIG");
+#	else
+	puts("- HAS_PDEATHSIG");
 #	endif
-	if (nl) {
-		putchar('\n');
-	}
 }
 
 static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server) {
 	printf("\nuStreamer - Lightweight and fast MJPG-HTTP streamer\n");
 	printf("═══════════════════════════════════════════════════\n\n");
-	printf("Version: ");
-	_version(false);
-	printf("; license: GPLv3\n");
+	printf("Version: %s; license: GPLv3\n", VERSION);
 	printf("Copyright (C) 2018 Maxim Devaev <mdevaev@gmail.com>\n\n");
 	printf("Capturing options:\n");
 	printf("══════════════════\n");
@@ -601,4 +613,5 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("═════════════\n");
 	printf("    -h|--help  ─────── Print this text and exit.\n\n");
 	printf("    -v|--version  ──── Print version and exit.\n\n");
+	printf("    --features  ────── Print list of supporeted features.\n\n");
 }
