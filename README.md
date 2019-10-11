@@ -32,7 +32,7 @@ If you're going to live-stream from your backyard webcam and need to control it,
 # Building
 You'll need  ```make```, ```gcc```, ```libevent``` with ```pthreads``` support, ```libjpeg8```/```libjpeg-turbo```, ```libuuid``` and ```libbsd``` (only for Linux).
 
-On Raspberry Pi you can build the program with OpenMAX IL. To do this pass option ```WITH_OMX=1``` to ```make```. To enable GPIO support install [wiringPi](http://wiringpi.com) and pass option ```WITH_GPIO=1```. If the compiler reports about a missing function ```pthread_get_name_np()``` (or similar), add option ```WITH_PTHREAD_NP=0``` (it's enabled by default).
+On Raspberry Pi you can build the program with OpenMAX IL. To do this pass option ```WITH_OMX=1``` to ```make```. To enable GPIO support install [wiringPi](http://wiringpi.com) and pass option ```WITH_GPIO=1```. If the compiler reports about a missing function ```pthread_get_name_np()``` (or similar), add option ```WITH_PTHREAD_NP=0``` (it's enabled by default). For the similar error with ```setproctitle()``` add option ```WITH_SETPROCTITLE=0```.
 
 ```
 $ git clone --depth=1 https://github.com/pikvm/ustreamer
