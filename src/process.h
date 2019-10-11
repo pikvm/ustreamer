@@ -31,19 +31,46 @@
 #	endif
 #endif
 
+
 #ifdef HAS_PDEATHSIG
 #	include <signal.h>
 #	include <unistd.h>
-
+#endif
+#ifdef WITH_SETPROCTITLE
+#	include <stdlib.h>
+#	include <string.h>
+#	if defined(__linux__)
+#		include <bsd/unistd.h>
+#		include <sys/types.h>
+#	elif (defined(__FreeBSD__) || defined(__DragonFly__))
+#		include <unistd.h>
+#		include <sys/types.h>
+#	elif (defined(__NetBSD__) || defined(__OpenBSD__)) // setproctitle() placed in stdlib.h
+#	else
+#		error setproctitle() not implemented, you can disable it using WITH_SETPROCTITLE=0
+#	endif
+#endif
+#ifdef HAS_PDEATHSIG
 #	if defined(__linux__)
 #		include <sys/prctl.h>
 #	elif defined(__FreeBSD__)
 #		include <sys/procctl.h>
 #	endif
-
+#endif
+#ifdef WITH_SETPROCTITLE
+#	include "tools.h"
+#endif
+#ifdef HAS_PDEATHSIG
 #	include "logging.h"
+#endif
 
 
+#ifdef WITH_SETPROCTITLE
+extern char **environ;
+#endif
+
+
+#ifdef HAS_PDEATHSIG
 INLINE int process_track_parent_death(void) {
 	int signum = SIGTERM;
 #	if defined(__linux__)
@@ -65,5 +92,39 @@ INLINE int process_track_parent_death(void) {
 
 	return 0;
 }
+#endif
 
-#endif // HAS_PDEATHSIG
+#ifdef WITH_SETPROCTITLE
+#	pragma GCC diagnostic ignored "-Wunused-parameter"
+#	pragma GCC diagnostic push
+INLINE void process_set_name_prefix(int argc, char *argv[], const char *prefix) {
+#	pragma GCC diagnostic pop
+
+	char *cmdline = NULL;
+	size_t allocated = 2048;
+	size_t used = 0;
+	size_t arg_len = 0;
+
+	A_REALLOC(cmdline, allocated);
+	cmdline[0] = '\0';
+
+	for (int index = 0; index < argc; ++index) {
+		arg_len = strlen(argv[index]);
+		if (used + arg_len + 16 >= allocated) {
+			allocated += arg_len + 2048;
+			A_REALLOC(cmdline, allocated);
+		}
+
+		strcat(cmdline, " ");
+		strcat(cmdline, argv[index]);
+		used = strlen(cmdline); // Не считаем вручную, так надежнее
+	}
+
+#	ifdef __linux__
+	setproctitle_init(argc, argv, environ);
+#	endif
+	setproctitle("-%s:%s", prefix, cmdline);
+
+	free(cmdline);
+}
+#endif

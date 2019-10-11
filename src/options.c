@@ -111,6 +111,9 @@ enum _OPT_VALUES {
 #ifdef HAS_PDEATHSIG
 	_O_EXIT_ON_PARENT_DEATH,
 #endif
+#ifdef WITH_SETPROCTITLE
+	_O_PROCESS_NAME_PREFIX,
+#endif
 
 	_O_LOG_LEVEL,
 	_O_PERF,
@@ -178,6 +181,9 @@ static const struct option _LONG_OPTS[] = {
 
 #ifdef HAS_PDEATHSIG
 	{"exit-on-parent-death",	no_argument,		NULL,	_O_EXIT_ON_PARENT_DEATH},
+#endif
+#ifdef WITH_SETPROCTITLE
+	{"process-name-prefix",		required_argument,	NULL,	_O_PROCESS_NAME_PREFIX},
 #endif
 
 	{"log-level",				required_argument,	NULL,	_O_LOG_LEVEL},
@@ -261,6 +267,9 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 	int short_index;
 	int opt_index;
 	char short_opts[1024] = {0};
+#	ifdef WITH_SETPROCTITLE
+	char *process_name_prefix = NULL;
+#	endif
 
 	for (short_index = 0, opt_index = 0; _LONG_OPTS[opt_index].name != NULL; ++opt_index) {
 		if (isalpha(_LONG_OPTS[opt_index].val)) {
@@ -344,6 +353,9 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 				};
 				break;
 #			endif
+#			ifdef WITH_SETPROCTITLE
+			case _O_PROCESS_NAME_PREFIX:	OPT_SET(process_name_prefix, optarg);
+#			endif
 
 			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
 			case _O_PERF:				OPT_SET(log_level, LOG_LEVEL_PERF);
@@ -359,6 +371,12 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 			default:	_help(dev, encoder, server); return -1;
 		}
 	}
+
+#	ifdef WITH_SETPROCTITLE
+	if (process_name_prefix != NULL) {
+		process_set_name_prefix(argc, argv, process_name_prefix);
+	}
+#	endif
 
 #	undef OPT_CTL_AUTO
 #	undef OPT_CTL
@@ -446,6 +464,15 @@ static void _version(bool nl) {
 #	endif
 #	ifdef WITH_GPIO
 	printf(" + GPIO");
+#	endif
+#	ifdef WITH_PTHREAD_NP
+	printf(" + PThreadNP");
+#	endif
+#	ifdef WITH_SETPROCTITLE
+	printf(" + SetProcTitle");
+#	endif
+#	ifdef HAS_PDEATHSIG
+	printf(" + PDeathSig");
 #	endif
 	if (nl) {
 		putchar('\n');
@@ -548,10 +575,16 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --gpio-workers-busy-at <pin>  ── Set 1 on (pin + N) while worker with number N has a job.\n");
 	printf("                                     The worker's numbering starts from 0. Default: disabled\n\n");
 #endif
-#ifdef HAS_PDEATHSIG
+#if (defined(HAS_PDEATHSIG) || defined(WITH_SETPROCTITLE))
 	printf("Process options:\n");
 	printf("════════════════\n");
-	printf("    --exit-on-parent-death  ─ Exit the program if the parent process is dead. Default: disabled.\n\n");
+#endif
+#ifdef HAS_PDEATHSIG
+	printf("    --exit-on-parent-death  ─────── Exit the program if the parent process is dead. Default: disabled.\n\n");
+#endif
+#ifdef WITH_SETPROCTITLE
+	printf("    --process-name-prefix <str>  ── Set process name prefix which will be displayed in the process list\n");
+	printf("                                    like '<str>: ustreamer --blah-blah-blah'. Default: disabled.\n\n");
 #endif
 	printf("Logging options:\n");
 	printf("════════════════\n");

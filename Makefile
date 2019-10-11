@@ -44,6 +44,15 @@ override CFLAGS += -DWITH_PTHREAD_NP
 endif
 
 
+WITH_SETPROCTITLE ?= 1
+ifneq ($(call optbool,$(WITH_SETPROCTITLE)),)
+ifeq ($(shell uname -s | tr A-Z a-z),linux)
+_LIBS += -lbsd
+endif
+override CFLAGS += -DWITH_SETPROCTITLE
+endif
+
+
 # =====
 all: $(PROG)
 

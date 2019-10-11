@@ -25,7 +25,7 @@ define Package/ustreamer
   SECTION:=multimedia
   CATEGORY:=Multimedia
   TITLE:=uStreamer
-  DEPENDS:=+libpthread +libjpeg +libv4l +libuuid +libevent2 +libevent2-core +libevent2-extra +libevent2-pthreads
+  DEPENDS:=+libpthread +libjpeg +libv4l +libuuid +libbsd +libevent2 +libevent2-core +libevent2-extra +libevent2-pthreads
   URL:=https://github.com/pikvm/ustreamer
 endef
 
