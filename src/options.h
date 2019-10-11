@@ -27,4 +27,14 @@
 #include "http/server.h"
 
 
-int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server);
+struct options_t {
+	int		argc;
+	char	**argv;
+	char	**argv_copy;
+};
+
+
+struct options_t *options_init(int argc, char *argv[]);
+void options_destroy(struct options_t *options);
+
+int options_parse(struct options_t *options, struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server);

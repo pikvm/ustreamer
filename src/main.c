@@ -98,6 +98,7 @@ static void _install_signal_handlers(void) {
 }
 
 int main(int argc, char *argv[]) {
+	struct options_t *options;
 	struct device_t *dev;
 	struct encoder_t *encoder;
 	struct stream_t *stream;
@@ -105,8 +106,8 @@ int main(int argc, char *argv[]) {
 	int exit_code = 0;
 
 	LOGGING_INIT;
-
 	A_THREAD_RENAME("main");
+	options = options_init(argc, argv);
 
 #	ifdef WITH_GPIO
 	GPIO_INIT;
@@ -117,7 +118,7 @@ int main(int argc, char *argv[]) {
 	stream = stream_init(dev, encoder);
 	server = http_server_init(stream);
 
-	if ((exit_code = parse_options(argc, argv, dev, encoder, server)) == 0) {
+	if ((exit_code = options_parse(options, dev, encoder, server)) == 0) {
 #		ifdef WITH_GPIO
 		GPIO_INIT_PINOUT;
 #		endif
@@ -153,6 +154,7 @@ int main(int argc, char *argv[]) {
 	GPIO_SET_LOW(prog_running);
 #	endif
 
+	options_destroy(options);
 	if (exit_code == 0) {
 		LOG_INFO("Bye-bye");
 	}

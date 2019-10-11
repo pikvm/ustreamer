@@ -25,9 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#ifdef WITH_OMX
-#	include <string.h>
-#endif
+#include <string.h>
 #include <ctype.h>
 #include <limits.h>
 #include <getopt.h>
@@ -212,7 +210,31 @@ static void _features(void);
 static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server);
 
 
-int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server) {
+struct options_t *options_init(int argc, char *argv[]) {
+	struct options_t *options;
+
+	A_CALLOC(options, 1);
+	options->argc = argc;
+	options->argv = argv;
+
+	A_CALLOC(options->argv_copy, argc);
+	for (int index = 0; index < argc; ++index) {
+		assert(options->argv_copy[index] = strdup(argv[index]));
+	}
+
+	return options;
+}
+
+void options_destroy(struct options_t *options) {
+	for (int index = 0; index < options->argc; ++index) {
+		free(options->argv_copy[index]);
+	}
+	free(options->argv_copy);
+	free(options);
+}
+
+
+int options_parse(struct options_t *options, struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server) {
 #	define OPT_SET(_dest, _value) { \
 			_dest = _value; \
 			break; \
@@ -285,7 +307,7 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 		}
 	}
 
-	while ((ch = getopt_long(argc, argv, short_opts, _LONG_OPTS, NULL)) >= 0) {
+	while ((ch = getopt_long(options->argc, options->argv_copy, short_opts, _LONG_OPTS, NULL)) >= 0) {
 		switch (ch) {
 			case _O_DEVICE:			OPT_SET(dev->path, optarg);
 			case _O_INPUT:			OPT_NUMBER("--input", dev->input, 0, 128, 0);
@@ -378,7 +400,7 @@ int parse_options(int argc, char *argv[], struct device_t *dev, struct encoder_t
 
 #	ifdef WITH_SETPROCTITLE
 	if (process_name_prefix != NULL) {
-		process_set_name_prefix(argc, argv, process_name_prefix);
+		process_set_name_prefix(options->argc, options->argv, process_name_prefix);
 	}
 #	endif
 
