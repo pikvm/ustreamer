@@ -2,6 +2,7 @@
 /pkg/arch/src/
 /pkg/arch/v*.tar.gz
 /pkg/arch/ustreamer-*.pkg.tar.xz
+/pkg/arch/ustreamer-*.pkg.tar.zst
 /build/
 /config.mk
 /vgcore.*

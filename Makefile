@@ -109,5 +109,5 @@ push:
 
 clean-all: clean
 clean:
-	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.xz
+	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.{xz,zst}
 	rm -rf $(PROG) $(BUILD) vgcore.* *.sock
