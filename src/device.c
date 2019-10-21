@@ -286,7 +286,7 @@ int device_grab_buffer(struct device_t *dev) {
 
 	dev->run->hw_buffers[buf_info.index].used = buf_info.bytesused;
 	memcpy(&dev->run->hw_buffers[buf_info.index].buf_info, &buf_info, sizeof(struct v4l2_buffer));
-	dev->run->pictures[buf_info.index]->grab_time = get_now_monotonic();
+	dev->run->pictures[buf_info.index]->grab_ts = get_now_monotonic();
 	return buf_info.index;
 }
 

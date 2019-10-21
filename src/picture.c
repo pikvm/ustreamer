@@ -84,9 +84,9 @@ void picture_copy(const struct picture_t *src, struct picture_t *dest) {
 	COPY(width);
 	COPY(height);
 
-	COPY(grab_time);
-	COPY(encode_begin_time);
-	COPY(encode_end_time);
+	COPY(grab_ts);
+	COPY(encode_begin_ts);
+	COPY(encode_end_ts);
 
 #	undef COPY
 }

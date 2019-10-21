@@ -55,7 +55,7 @@ struct _worker_t {
 	atomic_bool			has_job;
 	bool				job_timely;
 	bool				job_failed;
-	long double			job_start_time;
+	long double			job_start_ts;
 	pthread_cond_t		has_job_cond;
 
 	pthread_mutex_t		*free_workers_mutex;
@@ -454,10 +454,10 @@ static void *_worker_thread(void *v_worker) {
 			}
 
 			if (device_release_buffer(worker->dev, worker->buf_index) == 0) {
-				worker->job_start_time = PICTURE(encode_begin_time);
+				worker->job_start_ts = PICTURE(encode_begin_ts);
 				atomic_store(&worker->has_job, false);
 
-				worker->last_comp_time = PICTURE(encode_end_time) - worker->job_start_time;
+				worker->last_comp_time = PICTURE(encode_end_ts) - worker->job_start_ts;
 
 				LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%u, buffer=%u",
 					PICTURE(used), worker->last_comp_time, worker->number, worker->buf_index);
@@ -498,7 +498,7 @@ static struct _worker_t *_workers_pool_wait(struct _workers_pool_t *pool) {
 			if (
 				!atomic_load(&pool->workers[number].has_job) && (
 					ready_worker == NULL
-					|| ready_worker->job_start_time < pool->workers[number].job_start_time
+					|| ready_worker->job_start_ts < pool->workers[number].job_start_ts
 				)
 			) {
 				ready_worker = &pool->workers[number];

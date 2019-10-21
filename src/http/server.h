@@ -61,10 +61,10 @@ struct exposed_t {
 	unsigned			queued_fps;
 	bool				online;
 	unsigned			dropped;
-	long double			expose_begin_time;
-	long double			expose_cmp_time;
-	long double			expose_end_time;
-	long double			last_as_blank_time;
+	long double			expose_begin_ts;
+	long double			expose_cmp_ts;
+	long double			expose_end_ts;
+	long double			last_as_blank_ts;
 };
 
 struct http_server_runtime_t {

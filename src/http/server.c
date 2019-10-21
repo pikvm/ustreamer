@@ -172,9 +172,9 @@ int http_server_listen(struct http_server_t *server) {
 #	define EXPOSED(_next) server->run->exposed->_next
 	// See _expose_blank_picture()
 	picture_copy(server->run->blank, EXPOSED(picture));
-	EXPOSED(expose_begin_time) = get_now_monotonic();
-	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
-	EXPOSED(expose_end_time) = EXPOSED(expose_begin_time);
+	EXPOSED(expose_begin_ts) = get_now_monotonic();
+	EXPOSED(expose_cmp_ts) = EXPOSED(expose_begin_ts);
+	EXPOSED(expose_end_ts) = EXPOSED(expose_begin_ts);
 #	undef EXPOSED
 
 	{
@@ -446,17 +446,17 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 
 	ADD_TIME_HEADER("X-Timestamp", get_now_real());
 
-	ADD_HEADER("X-UStreamer-Online",					bool_to_string(EXPOSED(online)));
-	ADD_UNSIGNED_HEADER("X-UStreamer-Dropped",			EXPOSED(dropped));
-	ADD_UNSIGNED_HEADER("X-UStreamer-Width",			EXPOSED(picture->width));
-	ADD_UNSIGNED_HEADER("X-UStreamer-Height",			EXPOSED(picture->height));
-	ADD_TIME_HEADER("X-UStreamer-Grab-Time",			EXPOSED(picture->grab_time));
-	ADD_TIME_HEADER("X-UStreamer-Encode-Begin-Time",	EXPOSED(picture->encode_begin_time));
-	ADD_TIME_HEADER("X-UStreamer-Encode-End-Time",		EXPOSED(picture->encode_end_time));
-	ADD_TIME_HEADER("X-UStreamer-Expose-Begin-Time",	EXPOSED(expose_begin_time));
-	ADD_TIME_HEADER("X-UStreamer-Expose-Cmp-Time",		EXPOSED(expose_cmp_time));
-	ADD_TIME_HEADER("X-UStreamer-Expose-End-Time",		EXPOSED(expose_end_time));
-	ADD_TIME_HEADER("X-UStreamer-Send-Time",			get_now_monotonic());
+	ADD_HEADER("X-UStreamer-Online",						bool_to_string(EXPOSED(online)));
+	ADD_UNSIGNED_HEADER("X-UStreamer-Dropped",				EXPOSED(dropped));
+	ADD_UNSIGNED_HEADER("X-UStreamer-Width",				EXPOSED(picture->width));
+	ADD_UNSIGNED_HEADER("X-UStreamer-Height",				EXPOSED(picture->height));
+	ADD_TIME_HEADER("X-UStreamer-Grab-Timestamp",			EXPOSED(picture->grab_ts));
+	ADD_TIME_HEADER("X-UStreamer-Encode-Begin-Timestamp",	EXPOSED(picture->encode_begin_ts));
+	ADD_TIME_HEADER("X-UStreamer-Encode-End-Timestamp",		EXPOSED(picture->encode_end_ts));
+	ADD_TIME_HEADER("X-UStreamer-Expose-Begin-Timestamp",	EXPOSED(expose_begin_ts));
+	ADD_TIME_HEADER("X-UStreamer-Expose-Cmp-Timestamp",		EXPOSED(expose_cmp_ts));
+	ADD_TIME_HEADER("X-UStreamer-Expose-End-Timestamp",		EXPOSED(expose_end_ts));
+	ADD_TIME_HEADER("X-UStreamer-Send-Timestamp",			get_now_monotonic());
 
 #	undef ADD_UNSUGNED_HEADER
 #	undef ADD_TIME_HEADER
@@ -637,12 +637,12 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				EXPOSED(picture->width),
 				EXPOSED(picture->height),
 				client->fps,
-				EXPOSED(picture->grab_time),
-				EXPOSED(picture->encode_begin_time),
-				EXPOSED(picture->encode_end_time),
-				EXPOSED(expose_begin_time),
-				EXPOSED(expose_cmp_time),
-				EXPOSED(expose_end_time),
+				EXPOSED(picture->grab_ts),
+				EXPOSED(picture->encode_begin_ts),
+				EXPOSED(picture->encode_end_ts),
+				EXPOSED(expose_begin_ts),
+				EXPOSED(expose_cmp_ts),
+				EXPOSED(expose_end_ts),
 				now
 			));
 		}
@@ -797,7 +797,7 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 #	define STREAM(_next) server->run->stream->_next
 
 	EXPOSED(captured_fps) = STREAM(captured_fps);
-	EXPOSED(expose_begin_time) = get_now_monotonic();
+	EXPOSED(expose_begin_ts) = get_now_monotonic();
 
 	if (server->drop_same_frames) {
 		if (
@@ -805,16 +805,16 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 			&& EXPOSED(dropped) < server->drop_same_frames
 			&& picture_compare(EXPOSED(picture), STREAM(picture))
 		) {
-			EXPOSED(expose_cmp_time) = get_now_monotonic();
-			EXPOSED(expose_end_time) = EXPOSED(expose_cmp_time);
+			EXPOSED(expose_cmp_ts) = get_now_monotonic();
+			EXPOSED(expose_end_ts) = EXPOSED(expose_cmp_ts);
 			LOG_VERBOSE("HTTP: Dropped same frame number %u; cmp_time=%.06Lf",
-				EXPOSED(dropped), EXPOSED(expose_cmp_time) - EXPOSED(expose_begin_time));
+				EXPOSED(dropped), EXPOSED(expose_cmp_ts) - EXPOSED(expose_begin_ts));
 			EXPOSED(dropped) += 1;
 			return false; // Not updated
 		} else {
-			EXPOSED(expose_cmp_time) = get_now_monotonic();
+			EXPOSED(expose_cmp_ts) = get_now_monotonic();
 			LOG_VERBOSE("HTTP: Passed same frame check (frames are differ); cmp_time=%.06Lf",
-				EXPOSED(expose_cmp_time) - EXPOSED(expose_begin_time));
+				EXPOSED(expose_cmp_ts) - EXPOSED(expose_begin_ts));
 		}
 	}
 
@@ -824,11 +824,11 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 
 	EXPOSED(online) = true;
 	EXPOSED(dropped) = 0;
-	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
-	EXPOSED(expose_end_time) = get_now_monotonic();
+	EXPOSED(expose_cmp_ts) = EXPOSED(expose_begin_ts);
+	EXPOSED(expose_end_ts) = get_now_monotonic();
 
 	LOG_VERBOSE("HTTP: Exposed new frame; full exposition time = %.06Lf",
-		 EXPOSED(expose_end_time) - EXPOSED(expose_begin_time));
+		 EXPOSED(expose_end_ts) - EXPOSED(expose_begin_ts));
 
 #	undef EXPOSED
 	return true; // Updated
@@ -837,8 +837,8 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 static bool _expose_blank_picture(struct http_server_t *server) {
 #	define EXPOSED(_next) server->run->exposed->_next
 
-	EXPOSED(expose_begin_time) = get_now_monotonic();
-	EXPOSED(expose_cmp_time) = EXPOSED(expose_begin_time);
+	EXPOSED(expose_begin_ts) = get_now_monotonic();
+	EXPOSED(expose_cmp_ts) = EXPOSED(expose_begin_ts);
 
 #	define EXPOSE_BLANK picture_copy(server->run->blank, EXPOSED(picture))
 
@@ -848,7 +848,7 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 			EXPOSE_BLANK;
 		} else if (server->last_as_blank > 0) { // Если нужен таймер - запустим
 			LOG_INFO("HTTP: Freezing last alive frame for %d seconds", server->last_as_blank);
-			EXPOSED(last_as_blank_time) = get_now_monotonic();
+			EXPOSED(last_as_blank_ts) = get_now_monotonic();
 		} else { // last_as_blank == 0 - показываем последний фрейм вечно
 			LOG_INFO("HTTP: Freezing last alive frame forever");
 		}
@@ -857,12 +857,12 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 
 	if ( // Если уже оффлайн, включена фича last_as_blank с таймером и он запущен
 		server->last_as_blank > 0
-		&& EXPOSED(last_as_blank_time) > 0
-		&& EXPOSED(last_as_blank_time) + server->last_as_blank < EXPOSED(expose_begin_time)
+		&& EXPOSED(last_as_blank_ts) > 0
+		&& EXPOSED(last_as_blank_ts) + server->last_as_blank < EXPOSED(expose_begin_ts)
 	) {
 		LOG_INFO("HTTP: Changed last alive frame to BLANK");
 		EXPOSE_BLANK;
-		EXPOSED(last_as_blank_time) = 0; // Останавливаем таймер
+		EXPOSED(last_as_blank_ts) = 0; // Останавливаем таймер
 		goto updated;
 	}
 
@@ -871,7 +871,7 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 	if (EXPOSED(dropped) < server->run->drop_same_frames_blank) {
 		LOG_PERF("HTTP: Dropped same frame (BLANK) number %u", EXPOSED(dropped));
 		EXPOSED(dropped) += 1;
-		EXPOSED(expose_end_time) = get_now_monotonic();
+		EXPOSED(expose_end_ts) = get_now_monotonic();
 		return false; // Not updated
 	}
 
@@ -879,7 +879,7 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 		EXPOSED(captured_fps) = 0;
 		EXPOSED(online) = false;
 		EXPOSED(dropped) = 0;
-		EXPOSED(expose_end_time) = get_now_monotonic();
+		EXPOSED(expose_end_ts) = get_now_monotonic();
 		return true; // Updated
 
 #	undef EXPOSED

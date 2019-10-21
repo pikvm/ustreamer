@@ -32,9 +32,9 @@ struct picture_t {
 	size_t			allocated;
 	unsigned		width;
 	unsigned		height;
-	long double		grab_time;
-	long double		encode_begin_time;
-	long double		encode_end_time;
+	long double		grab_ts;
+	long double		encode_begin_ts;
+	long double		encode_end_ts;
 };
 
 
