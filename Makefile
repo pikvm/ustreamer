@@ -87,7 +87,7 @@ $(PROG): $(_SRCS:%.c=$(BUILD)/%.o)
 $(BUILD)/%.o: %.c
 	$(info -- CC $<)
 	@ mkdir -p $(dir $@) || true
-	@ $(CC) $< -o $@ $(CFLAGS) $(_LIBS)
+	@ $(CC) $< -o $@ $(CFLAGS)
 
 
 release:
