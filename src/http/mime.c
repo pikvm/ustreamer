@@ -56,7 +56,7 @@ const char *guess_mime_type(const char *path) {
 	char *dot;
 	char *ext;
 
-	dot = strchr(path, '.');
+	dot = strrchr(path, '.');
 	if (dot == NULL || strchr(dot, '/') != NULL) {
 		goto misc;
 	}
