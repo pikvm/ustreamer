@@ -326,7 +326,7 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 		goto not_found;
 	}
 
-	if (evbuffer_add_file(buf, fd, 0, st.st_size) < 0) {
+	if (st.st_size > 0 && evbuffer_add_file(buf, fd, 0, st.st_size) < 0) {
 		LOG_ERROR("HTTP: Can't serve static file %s", static_path);
 		goto not_found;
 	}
