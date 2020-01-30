@@ -157,6 +157,7 @@ void http_server_destroy(struct http_server_t *server) {
 int http_server_listen(struct http_server_t *server) {
 	{
 		if (server->static_path[0] != '\0') {
+			LOG_INFO("Enabling HTTP file server: %s", server->static_path);
 			evhttp_set_gencb(server->run->http, _http_callback_static, (void *)server);
 		} else {
 			assert(!evhttp_set_cb(server->run->http, "/", _http_callback_root, (void *)server));
