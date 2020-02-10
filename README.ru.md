@@ -65,6 +65,10 @@ $ ./ustreamer \
 За полным списком опций обращайтесь ко встроенной справке: ```ustreamer --help```.
 
 -----
+# Советы
+* [Запуск с помощью systemd-сервиса](https://github.com/pikvm/ustreamer/issues/16)
+
+-----
 # Лицензия
 Copyright (C) 2018 by Maxim Devaev mdevaev@gmail.com
 
