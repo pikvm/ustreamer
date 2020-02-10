@@ -65,6 +65,10 @@ $ ./ustreamer \
 You can always view the full list of options with ```ustreamer --help```.
 
 -----
+# Tips
+* [Running uStreamer via systemd service](https://github.com/pikvm/ustreamer/issues/16)
+
+-----
 # License
 Copyright (C) 2018 by Maxim Devaev mdevaev@gmail.com
 
