@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <strings.h>
 #include <ctype.h>
 #include <limits.h>
 #include <getopt.h>
@@ -82,27 +83,14 @@ enum _OPT_VALUES {
 
 	_O_IMAGE_DEFAULT,
 	_O_BRIGHTNESS,
-	_O_BRIGHTNESS_AUTO,
-	_O_BRIGHTNESS_DEFAULT,
 	_O_CONTRAST,
-	_O_CONTRAST_DEFAULT,
 	_O_SATURATION,
-	_O_SATURATION_DEFAULT,
 	_O_HUE,
-	_O_HUE_AUTO,
-	_O_HUE_DEFAULT,
 	_O_GAMMA,
-	_O_GAMMA_DEFAULT,
 	_O_SHARPNESS,
-	_O_SHARPNESS_DEFAULT,
 	_O_BACKLIGHT_COMPENSATION,
-	_O_BACKLIGHT_COMPENSATION_DEFAULT,
 	_O_WHITE_BALANCE,
-	_O_WHITE_BALANCE_AUTO,
-	_O_WHITE_BALANCE_DEFAULT,
 	_O_GAIN,
-	_O_GAIN_AUTO,
-	_O_GAIN_DEFAULT,
 
 	_O_USER,
 	_O_PASSWD,
@@ -155,27 +143,14 @@ static const struct option _LONG_OPTS[] = {
 
 	{"image-default",			no_argument,		NULL,	_O_IMAGE_DEFAULT},
 	{"brightness",				required_argument,	NULL,	_O_BRIGHTNESS},
-	{"brightness-auto",			no_argument,		NULL,	_O_BRIGHTNESS_AUTO},
-	{"brightness-default",		no_argument,		NULL,	_O_BRIGHTNESS_DEFAULT},
 	{"contrast",				required_argument,	NULL,	_O_CONTRAST},
-	{"contrast-default",		no_argument,		NULL,	_O_CONTRAST_DEFAULT},
 	{"saturation",				required_argument,	NULL,	_O_SATURATION},
-	{"saturation-default",		no_argument,		NULL,	_O_SATURATION_DEFAULT},
 	{"hue",						required_argument,	NULL,	_O_HUE},
-	{"hue-auto",				no_argument,		NULL,	_O_HUE_AUTO},
-	{"hue-default",				no_argument,		NULL,	_O_HUE_DEFAULT},
 	{"gamma",					required_argument,	NULL,	_O_GAMMA},
-	{"gamma-default",			no_argument,		NULL,	_O_GAMMA_DEFAULT},
 	{"sharpness",				required_argument,	NULL,	_O_SHARPNESS},
-	{"sharpness-default",		no_argument,		NULL,	_O_SHARPNESS_DEFAULT},
 	{"backlight-compensation",	required_argument,	NULL,	_O_BACKLIGHT_COMPENSATION},
-	{"backlight-compensation-default",	no_argument,	NULL,	_O_BACKLIGHT_COMPENSATION_DEFAULT},
 	{"white-balance",			required_argument,	NULL,	_O_WHITE_BALANCE},
-	{"white-balance-auto",		no_argument,		NULL,	_O_WHITE_BALANCE_AUTO},
-	{"white-balance-default",	no_argument,		NULL,	_O_WHITE_BALANCE_DEFAULT},
 	{"gain",					required_argument,	NULL,	_O_GAIN},
-	{"gain-auto",				no_argument,		NULL,	_O_GAIN_AUTO},
-	{"gain-default",			no_argument,		NULL,	_O_GAIN_DEFAULT},
 
 	{"host",					required_argument,	NULL,	_O_HOST},
 	{"port",					required_argument,	NULL,	_O_PORT},
@@ -295,29 +270,37 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 			break; \
 		}
 
-#	define OPT_CTL(_dest) { \
-			dev->ctl._dest.value_set = true; \
-			dev->ctl._dest.auto_set = false; \
-			dev->ctl._dest.default_set = false; \
-			OPT_NUMBER("--"#_dest, dev->ctl._dest.value, INT_MIN, INT_MAX, 0); \
-			break; \
-		}
-
-#	define OPT_CTL_AUTO(_dest) { \
-			dev->ctl._dest.value_set = false; \
-			dev->ctl._dest.auto_set = true; \
-			dev->ctl._dest.default_set = false; \
-			break; \
-		}
-
 #	define OPT_CTL_DEFAULT_NOBREAK(_dest) { \
 			dev->ctl._dest.value_set = false; \
 			dev->ctl._dest.auto_set = false; \
 			dev->ctl._dest.default_set = true; \
 		}
 
-#	define OPT_CTL_DEFAULT(_dest) { \
-			OPT_CTL_DEFAULT_NOBREAK(_dest); \
+#	define OPT_CTL_MANUAL(_dest) { \
+			if (!strcasecmp(optarg, "default")) { \
+				OPT_CTL_DEFAULT_NOBREAK(_dest); \
+			} else { \
+				dev->ctl._dest.value_set = true; \
+				dev->ctl._dest.auto_set = false; \
+				dev->ctl._dest.default_set = false; \
+				OPT_NUMBER("--"#_dest, dev->ctl._dest.value, INT_MIN, INT_MAX, 0); \
+			} \
+			break; \
+		}
+
+#	define OPT_CTL_AUTO(_dest) { \
+			if (!strcasecmp(optarg, "default")) { \
+				OPT_CTL_DEFAULT_NOBREAK(_dest); \
+			} else if (!strcasecmp(optarg, "auto")) { \
+				dev->ctl._dest.value_set = false; \
+				dev->ctl._dest.auto_set = true; \
+				dev->ctl._dest.default_set = false; \
+			} else { \
+				dev->ctl._dest.value_set = true; \
+				dev->ctl._dest.auto_set = false; \
+				dev->ctl._dest.default_set = false; \
+				OPT_NUMBER("--"#_dest, dev->ctl._dest.value, INT_MIN, INT_MAX, 0); \
+			} \
 			break; \
 		}
 
@@ -379,28 +362,15 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 				OPT_CTL_DEFAULT_NOBREAK(white_balance);
 				OPT_CTL_DEFAULT_NOBREAK(gain);
 				break;
-			case _O_BRIGHTNESS:				OPT_CTL(brightness);
-			case _O_BRIGHTNESS_AUTO:		OPT_CTL_AUTO(brightness);
-			case _O_BRIGHTNESS_DEFAULT:		OPT_CTL_DEFAULT(brightness);
-			case _O_CONTRAST:				OPT_CTL(contrast);
-			case _O_CONTRAST_DEFAULT:		OPT_CTL_DEFAULT(contrast);
-			case _O_SATURATION:				OPT_CTL(saturation);
-			case _O_SATURATION_DEFAULT:		OPT_CTL_DEFAULT(saturation);
-			case _O_HUE:					OPT_CTL(hue);
-			case _O_HUE_AUTO:				OPT_CTL_AUTO(hue);
-			case _O_HUE_DEFAULT:			OPT_CTL_DEFAULT(hue);
-			case _O_GAMMA:					OPT_CTL(gamma);
-			case _O_GAMMA_DEFAULT:			OPT_CTL_DEFAULT(gamma);
-			case _O_SHARPNESS:				OPT_CTL(sharpness);
-			case _O_SHARPNESS_DEFAULT:		OPT_CTL_DEFAULT(sharpness);
-			case _O_BACKLIGHT_COMPENSATION:	OPT_CTL(backlight_compensation);
-			case _O_BACKLIGHT_COMPENSATION_DEFAULT:	OPT_CTL_DEFAULT(backlight_compensation);
-			case _O_WHITE_BALANCE:			OPT_CTL(white_balance);
-			case _O_WHITE_BALANCE_AUTO:		OPT_CTL_AUTO(white_balance);
-			case _O_WHITE_BALANCE_DEFAULT:	OPT_CTL_DEFAULT(white_balance);
-			case _O_GAIN:					OPT_CTL(gain);
-			case _O_GAIN_AUTO:				OPT_CTL_AUTO(gain);
-			case _O_GAIN_DEFAULT:			OPT_CTL_DEFAULT(gain);
+			case _O_BRIGHTNESS:				OPT_CTL_AUTO(brightness);
+			case _O_CONTRAST:				OPT_CTL_MANUAL(contrast);
+			case _O_SATURATION:				OPT_CTL_MANUAL(saturation);
+			case _O_HUE:					OPT_CTL_AUTO(hue);
+			case _O_GAMMA:					OPT_CTL_MANUAL(gamma);
+			case _O_SHARPNESS:				OPT_CTL_MANUAL(sharpness);
+			case _O_BACKLIGHT_COMPENSATION:	OPT_CTL_MANUAL(backlight_compensation);
+			case _O_WHITE_BALANCE:			OPT_CTL_AUTO(white_balance);
+			case _O_GAIN:					OPT_CTL_AUTO(gain);
 
 			case _O_HOST:				OPT_SET(server->host, optarg);
 			case _O_PORT:				OPT_NUMBER("--port", server->port, 1, 65535, 0);
@@ -457,10 +427,9 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 	}
 #	endif
 
-#	undef OPT_CTL_DEFAULT
-#	undef OPT_CTL_DEFAULT_NOBREAK
 #	undef OPT_CTL_AUTO
-#	undef OPT_CTL
+#	undef OPT_CTL_MANUAL
+#	undef OPT_CTL_DEFAULT_NOBREAK
 #	undef OPT_PARSE
 #	undef OPT_RESOLUTION
 #	undef OPT_NUMBER
@@ -617,29 +586,16 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                           after an error (timeout for example). Default: %u.\n\n", dev->error_delay);
 	printf("Image control options:\n");
 	printf("══════════════════════\n");
-	printf("    --image-default  ────────────────── Reset all image settings bellow to default. Default: no change.\n\n");
-	printf("    --brightness <N>  ───────────────── Set brightness. Default: no change.\n");
-	printf("    --brightness-auto  ──────────────── Enable automatic brightness control. Default: no change.\n");
-	printf("    --brightness-default  ───────────── Set default brightness. Default: no change.\n\n");
-	printf("    --contrast <N>  ─────────────────── Set contrast. Default: no change.\n");
-	printf("    --contrast-default  ─────────────── Set default contrast. Default: no change.\n\n");
-	printf("    --saturation <N>  ───────────────── Set saturation. Default: no change.\n");
-	printf("    --saturation-default  ───────────── Set default saturation. Default: no change.\n\n");
-	printf("    --hue <N>  ──────────────────────── Set hue. Default: no change.\n");
-	printf("    --hue-auto  ─────────────────────── Enable automatic hue control. Default: no change.\n");
-	printf("    --hue-default  ──────────────────── Set default hue. Default: no change.\n\n");
-	printf("    --gamma <N>  ────────────────────── Set gamma. Default: no change.\n");
-	printf("    --gamma-default  ────────────────── Set default gamma. Default: no change.\n\n");
-	printf("    --sharpness <N>  ────────────────── Set sharpness. Default: no change.\n");
-	printf("    --sharpness-default  ────────────── Set default sharpness. Default: no change.\n\n");
-	printf("    --backlight-compensation <N>  ───── Set backlight compensation. Default: no change.\n");
-	printf("    --backlight-compensation-default  ─ Set default backlight compensation. Default: no change.\n\n");
-	printf("    --white-balance <N>  ────────────── Set white balance. Default: no change.\n");
-	printf("    --white-balance-auto  ───────────── Enable automatic white balance control. Default: no change.\n");
-	printf("    --white-balance-default  ────────── Set default white balance. Default: no change.\n\n");
-	printf("    --gain <N>  ─────────────────────── Set gain. Default: no change.\n");
-	printf("    --gain-auto  ────────────────────── Enable automatic gain control. Default: no change.\n\n");
-	printf("    --gain-default  ─────────────────── Set default gain. Default: no change.\n\n");
+	printf("    --image-default  ────────────────────── Reset all image settings bellow to default. Default: no change.\n\n");
+	printf("    --brightness <N|auto|default>  ──────── Set brightness. Default: no change.\n\n");
+	printf("    --contrast <N|default>  ─────────────── Set contrast. Default: no change.\n\n");
+	printf("    --saturation <N|default>  ───────────── Set saturation. Default: no change.\n\n");
+	printf("    --hue <N|auto|default>  ─────────────── Set hue. Default: no change.\n\n");
+	printf("    --gamma <N|default> ─────────────────── Set gamma. Default: no change.\n\n");
+	printf("    --sharpness <N|default>  ────────────── Set sharpness. Default: no change.\n\n");
+	printf("    --backlight-compensation <N|default>  ─ Set backlight compensation. Default: no change.\n\n");
+	printf("    --white-balance <N|auto|default>  ───── Set white balance. Default: no change.\n\n");
+	printf("    --gain <N|auto|default>  ────────────── Set gain. Default: no change.\n\n");
 	printf("HTTP server options:\n");
 	printf("════════════════════\n");
 	printf("    -s|--host <address>  ──────── Listen on Hostname or IP. Default: %s.\n\n", server->host);
