@@ -68,6 +68,7 @@ struct control_t {
 	int		value;
 	bool	value_set;
 	bool	auto_set;
+	bool	default_set;
 };
 
 struct controls_t {

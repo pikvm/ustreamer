@@ -77,9 +77,10 @@ static int _device_open_mmap(struct device_t *dev);
 static int _device_open_queue_buffers(struct device_t *dev);
 static void _device_open_alloc_picbufs(struct device_t *dev);
 static int _device_apply_resolution(struct device_t *dev, unsigned width, unsigned height);
+
 static void _device_apply_controls(struct device_t *dev);
-static int _device_check_control(struct device_t *dev, const char *name, unsigned cid, int value, bool quiet);
-static void _device_set_control(struct device_t *dev, const char *name, unsigned cid, int value, bool quiet);
+static int _device_query_control(struct device_t *dev, struct v4l2_queryctrl *query, const char *name, unsigned cid, bool quiet);
+static void _device_set_control(struct device_t *dev, struct v4l2_queryctrl *query, const char *name, unsigned cid, int value, bool quiet);
 
 static const char *_format_to_string_fourcc(char *buf, size_t size, unsigned format);
 static const char *_format_to_string_nullable(unsigned format);
@@ -610,64 +611,80 @@ static int _device_apply_resolution(struct device_t *dev, unsigned width, unsign
 }
 
 static void _device_apply_controls(struct device_t *dev) {
-#	define SET_CID(_cid, _dest, _value, _quiet) { \
-			if (_device_check_control(dev, #_dest, _cid, _value, _quiet) == 0) { \
-				_device_set_control(dev, #_dest, _cid, _value, _quiet); \
+#	define SET_CID_VALUE(_cid, _field, _value, _quiet) { \
+			struct v4l2_queryctrl query; \
+			if (_device_query_control(dev, &query, #_field, _cid, _quiet) == 0) { \
+				_device_set_control(dev, &query, #_field, _cid, _value, _quiet); \
 			} \
 		}
 
-#	define SET_CID_MANUAL(_cid, _dest) { \
-			if (dev->ctl._dest.value_set) { \
-				SET_CID(_cid, _dest, dev->ctl._dest.value, false); \
+#	define SET_CID_DEFAULT(_cid, _field, _quiet) { \
+			struct v4l2_queryctrl query; \
+			if (_device_query_control(dev, &query, #_field, _cid, _quiet) == 0) { \
+				_device_set_control(dev, &query, #_field, _cid, query.default_value, _quiet); \
 			} \
 		}
 
-#	define SET_CID_AUTO(_cid_auto, _cid_manual, _dest) { \
-			if (dev->ctl._dest.value_set || dev->ctl._dest.auto_set) { \
-				SET_CID(_cid_auto, _dest##_auto, dev->ctl._dest.auto_set, dev->ctl._dest.value_set); \
-				SET_CID_MANUAL(_cid_manual, _dest); \
+#	define CONTROL_MANUAL_CID(_cid, _field) { \
+			if (dev->ctl._field.value_set) { \
+				SET_CID_VALUE(_cid, _field, dev->ctl._field.value, false); \
+			} else if (dev->ctl._field.default_set) { \
+				SET_CID_DEFAULT(_cid, _field, false); \
 			} \
 		}
 
-	SET_CID_AUTO	(V4L2_CID_AUTOBRIGHTNESS,		V4L2_CID_BRIGHTNESS,				brightness);
-	SET_CID_MANUAL	(								V4L2_CID_CONTRAST,					contrast);
-	SET_CID_MANUAL	(								V4L2_CID_SATURATION,				saturation);
-	SET_CID_AUTO	(V4L2_CID_HUE_AUTO,				V4L2_CID_HUE,						hue);
-	SET_CID_MANUAL	(								V4L2_CID_GAMMA,						gamma);
-	SET_CID_MANUAL	(								V4L2_CID_SHARPNESS,					sharpness);
-	SET_CID_MANUAL	(								V4L2_CID_BACKLIGHT_COMPENSATION,	backlight_compensation);
-	SET_CID_AUTO	(V4L2_CID_AUTO_WHITE_BALANCE,	V4L2_CID_WHITE_BALANCE_TEMPERATURE,	white_balance);
-	SET_CID_AUTO	(V4L2_CID_AUTOGAIN,				V4L2_CID_GAIN,						gain);
+#	define CONTROL_AUTO_CID(_cid_auto, _cid_manual, _field) { \
+			if (dev->ctl._field.value_set) { \
+				SET_CID_VALUE(_cid_auto, _field##_auto, 0, true); \
+				SET_CID_VALUE(_cid_manual, _field, dev->ctl._field.value, false); \
+			} else if (dev->ctl._field.auto_set) { \
+				SET_CID_VALUE(_cid_auto, _field##_auto, 1, false); \
+			} else if (dev->ctl._field.default_set) { \
+				SET_CID_VALUE(_cid_auto, _field##_auto, 0, true); /* Reset inactive flag */ \
+				SET_CID_DEFAULT(_cid_manual, _field, false); \
+				SET_CID_DEFAULT(_cid_auto, _field##_auto, false); \
+			} \
+		}
 
-#	undef SET_CID_AUTO
-#	undef SET_CID_MANUAL
-#	undef SET_CID
+	CONTROL_AUTO_CID	(V4L2_CID_AUTOBRIGHTNESS,		V4L2_CID_BRIGHTNESS,				brightness);
+	CONTROL_MANUAL_CID	(								V4L2_CID_CONTRAST,					contrast);
+	CONTROL_MANUAL_CID	(								V4L2_CID_SATURATION,				saturation);
+	CONTROL_AUTO_CID	(V4L2_CID_HUE_AUTO,				V4L2_CID_HUE,						hue);
+	CONTROL_MANUAL_CID	(								V4L2_CID_GAMMA,						gamma);
+	CONTROL_MANUAL_CID	(								V4L2_CID_SHARPNESS,					sharpness);
+	CONTROL_MANUAL_CID	(								V4L2_CID_BACKLIGHT_COMPENSATION,	backlight_compensation);
+	CONTROL_AUTO_CID	(V4L2_CID_AUTO_WHITE_BALANCE,	V4L2_CID_WHITE_BALANCE_TEMPERATURE,	white_balance);
+	CONTROL_AUTO_CID	(V4L2_CID_AUTOGAIN,				V4L2_CID_GAIN,						gain);
+
+#	undef CONTROL_AUTO_CID
+#	undef CONTROL_MANUAL_CID
+#	undef SET_CID_DEFAULT
+#	undef SET_CID_VALUE
 }
 
-static int _device_check_control(struct device_t *dev, const char *name, unsigned cid, int value, bool quiet) {
-	struct v4l2_queryctrl query;
+static int _device_query_control(struct device_t *dev, struct v4l2_queryctrl *query, const char *name, unsigned cid, bool quiet) {
+	MEMSET_ZERO(*query);
+	query->id = cid;
 
-	MEMSET_ZERO(query);
-	query.id = cid;
-
-	if (xioctl(dev->run->fd, VIDIOC_QUERYCTRL, &query) < 0 || query.flags & V4L2_CTRL_FLAG_DISABLED) {
+	if (xioctl(dev->run->fd, VIDIOC_QUERYCTRL, query) < 0 || query->flags & V4L2_CTRL_FLAG_DISABLED) {
 		if (!quiet) {
 			LOG_ERROR("Changing control %s is unsupported", name);
 		}
 		return -1;
 	}
-	if (value < query.minimum || value > query.maximum || value % query.step != 0) {
-		if (!quiet) {
-			LOG_ERROR("Invalid value %d of control %s: min=%d, max=%d, default=%d, step=%u",
-				value, name, query.minimum, query.maximum, query.default_value, query.step);
-		}
-		return -2;
-	}
 	return 0;
 }
 
-static void _device_set_control(struct device_t *dev, const char *name, unsigned cid, int value, bool quiet) {
+static void _device_set_control(struct device_t *dev, struct v4l2_queryctrl *query, const char *name, unsigned cid, int value, bool quiet) {
 	struct v4l2_control ctl;
+
+	if (value < query->minimum || value > query->maximum || value % query->step != 0) {
+		if (!quiet) {
+			LOG_ERROR("Invalid value %d of control %s: min=%d, max=%d, default=%d, step=%u",
+				value, name, query->minimum, query->maximum, query->default_value, query->step);
+		}
+		return;
+	}
 
 	MEMSET_ZERO(ctl);
 	ctl.id = cid;
@@ -678,7 +695,7 @@ static void _device_set_control(struct device_t *dev, const char *name, unsigned
 			LOG_PERROR("Can't set control %s", name);
 		}
 	} else if (!quiet) {
-		LOG_INFO("Using control %s: %d", name, ctl.value);
+		LOG_INFO("Applying control %s: %d", name, ctl.value);
 	}
 }
 
