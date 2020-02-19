@@ -626,20 +626,20 @@ static void _device_apply_controls(struct device_t *dev) {
 		}
 
 #	define CONTROL_MANUAL_CID(_cid, _field) { \
-			if (dev->ctl._field.value_set) { \
+			if (dev->ctl._field.mode == CTL_MODE_VALUE) { \
 				SET_CID_VALUE(_cid, _field, dev->ctl._field.value, false); \
-			} else if (dev->ctl._field.default_set) { \
+			} else if (dev->ctl._field.mode == CTL_MODE_DEFAULT) { \
 				SET_CID_DEFAULT(_cid, _field, false); \
 			} \
 		}
 
 #	define CONTROL_AUTO_CID(_cid_auto, _cid_manual, _field) { \
-			if (dev->ctl._field.value_set) { \
+			if (dev->ctl._field.mode == CTL_MODE_VALUE) { \
 				SET_CID_VALUE(_cid_auto, _field##_auto, 0, true); \
 				SET_CID_VALUE(_cid_manual, _field, dev->ctl._field.value, false); \
-			} else if (dev->ctl._field.auto_set) { \
+			} else if (dev->ctl._field.mode == CTL_MODE_AUTO) { \
 				SET_CID_VALUE(_cid_auto, _field##_auto, 1, false); \
-			} else if (dev->ctl._field.default_set) { \
+			} else if (dev->ctl._field.mode == CTL_MODE_DEFAULT) { \
 				SET_CID_VALUE(_cid_auto, _field##_auto, 0, true); /* Reset inactive flag */ \
 				SET_CID_DEFAULT(_cid_manual, _field, false); \
 				SET_CID_DEFAULT(_cid_auto, _field##_auto, false); \

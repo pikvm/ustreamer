@@ -64,11 +64,16 @@ struct device_runtime_t {
 	bool				capturing;
 };
 
+enum control_mode_t {
+	CTL_MODE_NONE = 0,
+	CTL_MODE_VALUE,
+	CTL_MODE_AUTO,
+	CTL_MODE_DEFAULT,
+};
+
 struct control_t {
-	int		value;
-	bool	value_set;
-	bool	auto_set;
-	bool	default_set;
+	enum control_mode_t	mode;
+	int					value;
 };
 
 struct controls_t {

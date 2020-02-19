@@ -271,18 +271,14 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 		}
 
 #	define OPT_CTL_DEFAULT_NOBREAK(_dest) { \
-			dev->ctl._dest.value_set = false; \
-			dev->ctl._dest.auto_set = false; \
-			dev->ctl._dest.default_set = true; \
+			dev->ctl._dest.mode = CTL_MODE_DEFAULT; \
 		}
 
 #	define OPT_CTL_MANUAL(_dest) { \
 			if (!strcasecmp(optarg, "default")) { \
 				OPT_CTL_DEFAULT_NOBREAK(_dest); \
 			} else { \
-				dev->ctl._dest.value_set = true; \
-				dev->ctl._dest.auto_set = false; \
-				dev->ctl._dest.default_set = false; \
+				dev->ctl._dest.mode = CTL_MODE_VALUE; \
 				OPT_NUMBER("--"#_dest, dev->ctl._dest.value, INT_MIN, INT_MAX, 0); \
 			} \
 			break; \
@@ -292,13 +288,9 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 			if (!strcasecmp(optarg, "default")) { \
 				OPT_CTL_DEFAULT_NOBREAK(_dest); \
 			} else if (!strcasecmp(optarg, "auto")) { \
-				dev->ctl._dest.value_set = false; \
-				dev->ctl._dest.auto_set = true; \
-				dev->ctl._dest.default_set = false; \
+				dev->ctl._dest.mode = CTL_MODE_AUTO; \
 			} else { \
-				dev->ctl._dest.value_set = true; \
-				dev->ctl._dest.auto_set = false; \
-				dev->ctl._dest.default_set = false; \
+				dev->ctl._dest.mode = CTL_MODE_VALUE; \
 				OPT_NUMBER("--"#_dest, dev->ctl._dest.value, INT_MIN, INT_MAX, 0); \
 			} \
 			break; \
