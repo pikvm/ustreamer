@@ -588,6 +588,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --backlight-compensation <N|default>  ─ Set backlight compensation. Default: no change.\n\n");
 	printf("    --white-balance <N|auto|default>  ───── Set white balance. Default: no change.\n\n");
 	printf("    --gain <N|auto|default>  ────────────── Set gain. Default: no change.\n\n");
+	printf("    Hint: use v4l2-ctl --list-ctrls-menus to query available controls of the device.\n\n");
 	printf("HTTP server options:\n");
 	printf("════════════════════\n");
 	printf("    -s|--host <address>  ──────── Listen on Hostname or IP. Default: %s.\n\n", server->host);
