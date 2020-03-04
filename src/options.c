@@ -110,6 +110,7 @@ enum _OPT_VALUES {
 #ifdef WITH_SETPROCTITLE
 	_O_PROCESS_NAME_PREFIX,
 #endif
+	_O_NOTIFY_PARENT,
 
 	_O_LOG_LEVEL,
 	_O_PERF,
@@ -180,6 +181,7 @@ static const struct option _LONG_OPTS[] = {
 #ifdef WITH_SETPROCTITLE
 	{"process-name-prefix",		required_argument,	NULL,	_O_PROCESS_NAME_PREFIX},
 #endif
+	{"notify-parent",			no_argument,		NULL,	_O_NOTIFY_PARENT},
 
 	{"log-level",				required_argument,	NULL,	_O_LOG_LEVEL},
 	{"perf",					no_argument,		NULL,	_O_PERF},
@@ -396,6 +398,7 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 #			ifdef WITH_SETPROCTITLE
 			case _O_PROCESS_NAME_PREFIX:	OPT_SET(process_name_prefix, optarg);
 #			endif
+			case _O_NOTIFY_PARENT:			OPT_SET(server->notify_parent, true);
 
 			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
 			case _O_PERF:				OPT_SET(log_level, LOG_LEVEL_PERF);
@@ -633,6 +636,8 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 #ifdef WITH_SETPROCTITLE
 	printf("    --process-name-prefix <str>  ── Set process name prefix which will be displayed in the process list\n");
 	printf("                                    like '<str>: ustreamer --blah-blah-blah'. Default: disabled.\n\n");
+	printf("    --notify-parent  ────────────── Send SIGUSR2 to the parent process when the stream parameters are changed.\n");
+	printf("                                    Checking changes is performed for the online flag and image resolution.\n\n");
 #endif
 	printf("Logging options:\n");
 	printf("════════════════\n");

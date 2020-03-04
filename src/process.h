@@ -22,6 +22,12 @@
 
 #pragma once
 
+#include <signal.h>
+#include <unistd.h>
+
+#include <sys/types.h>
+
+
 #if defined(__linux__)
 #	define HAS_PDEATHSIG
 #elif defined(__FreeBSD__)
@@ -32,19 +38,14 @@
 #endif
 
 
-#ifdef HAS_PDEATHSIG
-#	include <signal.h>
-#	include <unistd.h>
-#endif
 #ifdef WITH_SETPROCTITLE
 #	include <stdlib.h>
 #	include <string.h>
 #	if defined(__linux__)
 #		include <bsd/unistd.h>
-#		include <sys/types.h>
 #	elif (defined(__FreeBSD__) || defined(__DragonFly__))
-#		include <unistd.h>
-#		include <sys/types.h>
+//#		include <unistd.h>
+//#		include <sys/types.h>
 #	elif (defined(__NetBSD__) || defined(__OpenBSD__)) // setproctitle() placed in stdlib.h
 #	else
 #		error setproctitle() not implemented, you can disable it using WITH_SETPROCTITLE=0
@@ -72,6 +73,7 @@ extern char **environ;
 
 #ifdef HAS_PDEATHSIG
 INLINE int process_track_parent_death(void) {
+	pid_t parent = getppid();
 	int signum = SIGTERM;
 #	if defined(__linux__)
 	int retval = prctl(PR_SET_PDEATHSIG, signum);
@@ -85,8 +87,8 @@ INLINE int process_track_parent_death(void) {
 		return -1;
 	}
 
-	if (kill(getppid(), 0) < 0) {
-		LOG_PERROR("The parent process is already dead");
+	if (kill(parent, 0) < 0) {
+		LOG_PERROR("The parent process %d is already dead", parent);
 		return -1;
 	}
 
@@ -128,3 +130,11 @@ INLINE void process_set_name_prefix(int argc, char *argv[], const char *prefix) 
 	free(cmdline);
 }
 #endif
+
+INLINE void process_notify_parent(void) {
+	pid_t parent = getppid();
+
+	if (kill(parent, SIGUSR2) < 0) {
+		LOG_PERROR("Can't send SIGUSR2 to the parent process %d", parent);
+	}
+}

@@ -50,6 +50,7 @@
 #include "../tools.h"
 #include "../threading.h"
 #include "../logging.h"
+#include "../process.h"
 #include "../picture.h"
 #include "../encoder.h"
 #include "../stream.h"
@@ -176,6 +177,9 @@ int http_server_listen(struct http_server_t *server) {
 	EXPOSED(expose_begin_ts) = get_now_monotonic();
 	EXPOSED(expose_cmp_ts) = EXPOSED(expose_begin_ts);
 	EXPOSED(expose_end_ts) = EXPOSED(expose_begin_ts);
+	// See _http_exposed_refresh()
+	EXPOSED(notify_last_width) = EXPOSED(picture->width);
+	EXPOSED(notify_last_height) = EXPOSED(picture->height);
 #	undef EXPOSED
 
 	{
@@ -791,6 +795,25 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 #	undef UNLOCK_STREAM
 
 	_http_queue_send_stream(server, stream_updated, picture_updated);
+
+#	define EXPOSED(_next) server->run->exposed->_next
+
+	if (
+		picture_updated
+		&& server->notify_parent
+		&& (
+			EXPOSED(notify_last_online) != EXPOSED(online)
+			|| EXPOSED(notify_last_width) != EXPOSED(picture->width)
+			|| EXPOSED(notify_last_height) != EXPOSED(picture->height)
+		)
+	) {
+		EXPOSED(notify_last_online) = EXPOSED(online);
+		EXPOSED(notify_last_width) = EXPOSED(picture->width);
+		EXPOSED(notify_last_height) = EXPOSED(picture->height);
+		process_notify_parent();
+	}
+
+#	undef EXPOSED
 }
 
 static bool _expose_new_picture_unsafe(struct http_server_t *server) {

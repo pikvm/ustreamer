@@ -65,6 +65,10 @@ struct exposed_t {
 	long double			expose_cmp_ts;
 	long double			expose_end_ts;
 	long double			last_as_blank_ts;
+
+	bool		notify_last_online;
+	unsigned	notify_last_width;
+	unsigned	notify_last_height;
 };
 
 struct http_server_runtime_t {
@@ -99,6 +103,8 @@ struct http_server_t {
 	bool		slowdown;
 	unsigned	fake_width;
 	unsigned	fake_height;
+
+	bool		notify_parent;
 
 	struct http_server_runtime_t *run;
 };
