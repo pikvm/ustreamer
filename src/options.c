@@ -615,7 +615,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                  or webcams, it's useless. Default: disabled.\n\n");
 	printf("    -l|--slowdown  ────────────── Slowdown capturing to 1 FPS or less when no stream clients are connected.\n");
 	printf("                                  Useful to reduce CPU consumption. Default: disabled.\n\n");
-	printf("    -R|--fake-resolution <WxH>  ─ Override image resolution for state. Default: disabled.\n\n");
+	printf("    -R|--fake-resolution <WxH>  ─ Override image resolution for the /state. Default: disabled.\n\n");
 	printf("    --server-timeout <sec>  ───── Timeout for client connections. Default: %u.\n\n", server->timeout);
 #ifdef WITH_GPIO
 	printf("GPIO options:\n");
