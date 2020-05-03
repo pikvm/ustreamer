@@ -51,9 +51,9 @@
 
 #ifdef WITH_PTHREAD_NP
 #	define A_THREAD_RENAME(_fmt, ...) { \
-			char _buf[MAX_THREAD_NAME] = {0}; \
-			assert(snprintf(_buf, MAX_THREAD_NAME, _fmt, ##__VA_ARGS__) > 0); \
-			thread_set_name(_buf); \
+			char _new_tname_buf[MAX_THREAD_NAME] = {0}; \
+			assert(snprintf(_new_tname_buf, MAX_THREAD_NAME, _fmt, ##__VA_ARGS__) > 0); \
+			thread_set_name(_new_tname_buf); \
 		}
 #else
 #	define A_THREAD_RENAME(_fmt, ...)

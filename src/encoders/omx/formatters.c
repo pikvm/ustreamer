@@ -35,9 +35,9 @@
 	case _value: { return #_value; }
 
 #define CASE_ASSERT(_msg, _value) default: { \
-		char *_buf; A_CALLOC(_buf, 128); \
-		sprintf(_buf, _msg ": 0x%08x", _value); \
-		assert(0 && _buf); \
+		char *_assert_buf; A_CALLOC(_assert_buf, 128); \
+		sprintf(_assert_buf, _msg ": 0x%08x", _value); \
+		assert(0 && _assert_buf); \
 	}
 
 const char *omx_error_to_string(OMX_ERRORTYPE error) {
