@@ -88,14 +88,14 @@ pthread_mutex_t log_mutex;
 
 
 #define LOG_PRINTF_NOLOCK(_label_color, _label, _msg_color, _msg, ...) { \
-		char _buf[MAX_THREAD_NAME] = {0}; \
-		thread_get_name(_buf); \
+		char _tname_buf[MAX_THREAD_NAME] = {0}; \
+		thread_get_name(_tname_buf); \
 		if (log_colored) { \
 			printf(COLOR_GRAY "-- " _label_color _label COLOR_GRAY " [%.03Lf %9s]" " -- " COLOR_RESET _msg_color _msg COLOR_RESET, \
-				get_now_monotonic(), _buf, ##__VA_ARGS__); \
+				get_now_monotonic(), _tname_buf, ##__VA_ARGS__); \
 		} else { \
 			printf("-- " _label " [%.03Lf %9s] -- " _msg, \
-				get_now_monotonic(), _buf, ##__VA_ARGS__); \
+				get_now_monotonic(), _tname_buf, ##__VA_ARGS__); \
 		} \
 		putchar('\n'); \
 		fflush(stdout); \
@@ -112,9 +112,9 @@ pthread_mutex_t log_mutex;
 	}
 
 #define LOG_PERROR(_msg, ...) { \
-		char _buf[1024] = {0}; \
-		char *_ptr = errno_to_string(_buf, 1024); \
-		LOG_ERROR(_msg ": %s", ##__VA_ARGS__, _ptr); \
+		char _perror_buf[1024] = {0}; \
+		char *_perror_ptr = errno_to_string(_perror_buf, 1024); \
+		LOG_ERROR(_msg ": %s", ##__VA_ARGS__, _perror_ptr); \
 	}
 
 #define LOG_INFO(_msg, ...) { \
@@ -140,6 +140,14 @@ pthread_mutex_t log_mutex;
 #define LOG_VERBOSE(_msg, ...) { \
 		if (log_level >= LOG_LEVEL_VERBOSE) { \
 			LOG_PRINTF(COLOR_BLUE, "VERB ", COLOR_BLUE, _msg, ##__VA_ARGS__); \
+		} \
+	}
+
+#define LOG_VERBOSE_PERROR(_msg, ...) { \
+		if (log_level >= LOG_LEVEL_VERBOSE) { \
+			char _perror_buf[1024] = {0}; \
+			char *_perror_ptr = errno_to_string(_perror_buf, 1024); \
+			LOG_PRINTF(COLOR_BLUE, "VERB ", COLOR_BLUE, _msg ": %s", ##__VA_ARGS__, _perror_ptr); \
 		} \
 	}
 
