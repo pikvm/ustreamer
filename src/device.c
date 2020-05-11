@@ -257,9 +257,9 @@ int device_select(struct device_t *dev, bool *has_read, bool *has_write, bool *h
 		*has_write = FD_ISSET(dev->run->fd, &write_fds);
 		*has_error = FD_ISSET(dev->run->fd, &error_fds);
 	} else {
-		has_read = false;
-		has_write = false;
-		has_error = false;
+		*has_read = false;
+		*has_write = false;
+		*has_error = false;
 	}
 
 	LOG_DEBUG("Device select() --> %d", retval);
