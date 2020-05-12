@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: deps
+      run: sudo apt-get install python3 build-essential libevent-dev libjpeg62-turbo-dev uuid-dev libbsd-dev
+    - name: make
+      run: make
+    - name: make tox
+      run: make tox
