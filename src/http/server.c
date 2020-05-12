@@ -680,9 +680,10 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 
 #	define RUN(_next) client->server->run->_next
 
+	assert(RUN(stream_clients_count) > 0);
 	RUN(stream_clients_count) -= 1;
 
-	if (RUN(stream_clients_count) <= 0) {
+	if (RUN(stream_clients_count) == 0) {
 		if (client->server->slowdown) {
 			stream_switch_slowdown(RUN(stream), true);
 		}

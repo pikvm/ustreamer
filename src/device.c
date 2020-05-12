@@ -705,7 +705,7 @@ static const char *_format_to_string_fourcc(char *buf, size_t size, unsigned for
 	buf[1] = (format >> 8) & 0x7F;
 	buf[2] = (format >> 16) & 0x7F;
 	buf[3] = (format >> 24) & 0x7F;
-	if (format & (1 << 31)) {
+	if (format & ((unsigned)1 << 31)) {
 		buf[4] = '-';
 		buf[5] = 'B';
 		buf[6] = 'E';
