@@ -52,6 +52,7 @@ INLINE int xioctl(int fd, int request, void *arg) {
 		)
 	);
 
+	// cppcheck-suppress knownConditionTrueFalse
 	if (retval && retries <= 0) {
 		LOG_PERROR("ioctl(%d) retried %u times; giving up", request, XIOCTL_RETRIES);
 	}
