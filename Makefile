@@ -13,6 +13,8 @@ RPI_VC_LIBS ?= /opt/vc/lib
 
 BUILD ?= build
 
+LINTERS_IMAGE ?= $(PROG)-linters
+
 
 # =====
 _LIBS = -lm -ljpeg -pthread -levent -levent_pthreads -luuid
@@ -99,8 +101,22 @@ release:
 	make clean
 
 
-tox:
-	tox -q -c tox.ini $(if $(E),-e $(E),-p auto)
+tox: linters
+	time docker run --rm \
+			--volume `pwd`:/src:ro \
+			--volume `pwd`/linters:/src/linters:rw \
+		-t $(LINTERS_IMAGE) bash -c " \
+			cd /src \
+			&& tox -q -c linters/tox.ini $(if $(E),-e $(E),-p auto) \
+		"
+
+
+linters:
+	docker build \
+			$(if $(call optbool,$(NC)),--no-cache,) \
+			--rm \
+			--tag $(LINTERS_IMAGE) \
+		-f linters/Dockerfile linters
 
 
 bump:
@@ -112,8 +128,12 @@ push:
 	git push --tags
 
 
-clean-all: clean
-	rm -rf .mypy-cache .tox
+clean-all: linters clean
+	- docker run --rm \
+			--volume `pwd`:/src \
+		-it $(LINTERS_IMAGE) bash -c "cd src && rm -rf linters/{.tox,.mypy_cache}"
 clean:
 	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.{xz,zst}
 	rm -rf $(PROG) $(BUILD) vgcore.* *.sock
+
+.PHONY: linters

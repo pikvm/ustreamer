@@ -1,5 +1,5 @@
-/.tox/
-/.mypy_cache/
+/linters/.tox/
+/linters/.mypy_cache/
 /pkg/arch/pkg/
 /pkg/arch/src/
 /pkg/arch/v*.tar.gz
