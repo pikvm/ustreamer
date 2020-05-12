@@ -240,7 +240,7 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 #	define OPT_NUMBER(_name, _dest, _min, _max, _base) { \
 			errno = 0; char *_end = NULL; long long _tmp = strtoll(optarg, &_end, _base); \
 			if (errno || *_end || _tmp < _min || _tmp > _max) { \
-				printf("Invalid value for '%s=%s': min=%u, max=%u\n", _name, optarg, _min, _max); \
+				printf("Invalid value for '%s=%s': min=%lld, max=%lld\n", _name, optarg, (long long)_min, (long long)_max); \
 				return -1; \
 			} \
 			_dest = _tmp; \
@@ -644,7 +644,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --log-level <N>  ──── Verbosity level of messages from 0 (info) to 3 (debug).\n");
 	printf("                          Enabling debugging messages can slow down the program.\n");
 	printf("                          Available levels: 0 (info), 1 (performance), 2 (verbose), 3 (debug).\n");
-	printf("                          Default: %u.\n\n", log_level);
+	printf("                          Default: %d.\n\n", log_level);
 	printf("    --perf  ───────────── Enable performance messages (same as --log-level=1). Default: disabled.\n\n");
 	printf("    --verbose  ────────── Enable verbose messages and lower (same as --log-level=2). Default: disabled.\n\n");
 	printf("    --debug  ──────────── Enable debug messages and lower (same as --log-level=3). Default: disabled.\n\n");

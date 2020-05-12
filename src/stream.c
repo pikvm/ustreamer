@@ -51,7 +51,7 @@ struct _worker_t {
 	long double			last_comp_time;
 
 	pthread_mutex_t		has_job_mutex;
-	int					buf_index;
+	unsigned			buf_index;
 	atomic_bool			has_job;
 	bool				job_timely;
 	bool				job_failed;
@@ -489,7 +489,7 @@ static struct _worker_t *_workers_pool_wait(struct _workers_pool_t *pool) {
 	A_COND_WAIT_TRUE(pool->free_workers, &pool->free_workers_cond, &pool->free_workers_mutex);
 	A_MUTEX_UNLOCK(&pool->free_workers_mutex);
 
-	if (pool->oldest_worker && !atomic_load(&pool->oldest_worker->has_job) && pool->oldest_worker->buf_index >= 0) {
+	if (pool->oldest_worker && !atomic_load(&pool->oldest_worker->has_job)) {
 		ready_worker = pool->oldest_worker;
 		ready_worker->job_timely = true;
 		pool->oldest_worker = pool->oldest_worker->order_next;
