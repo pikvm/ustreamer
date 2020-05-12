@@ -61,6 +61,7 @@ int component_disable_port(OMX_HANDLETYPE *component, OMX_U32 port) {
 int component_get_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYPE *portdef, OMX_U32 port) {
 	OMX_ERRORTYPE error;
 
+	// cppcheck-suppress redundantPointerOp
 	OMX_INIT_STRUCTURE(*portdef);
 	portdef->nPortIndex = port;
 

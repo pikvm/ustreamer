@@ -722,8 +722,6 @@ static void _http_queue_send_stream(struct http_server_t *server, bool stream_up
 	struct bufferevent *buf_event;
 	long long now;
 	bool queued = false;
-	static unsigned queued_fps_accum = 0;
-	static long long queued_fps_second = 0;
 
 	for (struct stream_client_t *client = server->run->stream_clients; client != NULL; client = client->next) {
 		conn = evhttp_request_get_connection(client->request);
@@ -757,6 +755,9 @@ static void _http_queue_send_stream(struct http_server_t *server, bool stream_up
 	}
 
 	if (queued) {
+		static unsigned queued_fps_accum = 0;
+		static long long queued_fps_second = 0;
+
 		if ((now = floor_ms(get_now_monotonic())) != queued_fps_second) {
 			server->run->exposed->queued_fps = queued_fps_accum;
 			queued_fps_accum = 0;

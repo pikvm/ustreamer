@@ -663,6 +663,7 @@ static void _device_apply_controls(struct device_t *dev) {
 }
 
 static int _device_query_control(struct device_t *dev, struct v4l2_queryctrl *query, const char *name, unsigned cid, bool quiet) {
+	// cppcheck-suppress redundantPointerOp
 	MEMSET_ZERO(*query);
 	query->id = cid;
 

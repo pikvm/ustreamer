@@ -170,6 +170,7 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 
 #	pragma GCC diagnostic ignored "-Wunused-label"
 #	pragma GCC diagnostic push
+	// cppcheck-suppress unusedLabel
 	force_cpu:
 		cpu_forced = true;
 #	pragma GCC diagnostic pop
@@ -225,6 +226,7 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, uns
 
 #	pragma GCC diagnostic ignored "-Wunused-label"
 #	pragma GCC diagnostic push
+	// cppcheck-suppress unusedLabel
 	error:
 		LOG_INFO("Error while compressing buffer, falling back to CPU");
 		A_MUTEX_LOCK(&encoder->run->mutex);

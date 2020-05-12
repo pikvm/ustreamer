@@ -105,13 +105,12 @@ INLINE void process_set_name_prefix(int argc, char *argv[], const char *prefix) 
 	char *cmdline = NULL;
 	size_t allocated = 2048;
 	size_t used = 0;
-	size_t arg_len = 0;
 
 	A_REALLOC(cmdline, allocated);
 	cmdline[0] = '\0';
 
 	for (int index = 0; index < argc; ++index) {
-		arg_len = strlen(argv[index]);
+		size_t arg_len = strlen(argv[index]);
 		if (used + arg_len + 16 >= allocated) {
 			allocated += arg_len + 2048;
 			A_REALLOC(cmdline, allocated);
