@@ -92,10 +92,15 @@ $(BUILD)/%.o: %.c
 
 release:
 	make clean
+	make tox
 	make push
 	make bump
 	make push
 	make clean
+
+
+tox:
+	tox -q -c tox.ini $(if $(E),-e $(E),-p auto)
 
 
 bump:
@@ -108,6 +113,7 @@ push:
 
 
 clean-all: clean
+	rm -rf .mypy-cache .tox
 clean:
 	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.{xz,zst}
 	rm -rf $(PROG) $(BUILD) vgcore.* *.sock

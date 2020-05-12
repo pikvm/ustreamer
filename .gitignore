@@ -1,3 +1,5 @@
+/.tox/
+/.mypy_cache/
 /pkg/arch/pkg/
 /pkg/arch/src/
 /pkg/arch/v*.tar.gz
