@@ -13,8 +13,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: deps
-      run: sudo apt-get install python3 tox build-essential libevent-dev libjpeg-turbo8-dev uuid-dev libbsd-dev
+    - name: apt deps
+      run: sudo apt-get install python3 python3-pip build-essential libevent-dev libjpeg-turbo8-dev uuid-dev libbsd-dev
+    - name: pip deps
+      run: sudo pip install tox
     - name: make
       run: make
     - name: make tox
