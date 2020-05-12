@@ -15,6 +15,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: deps
       run: |
+        sudo dpkg --purge --force-remove-reinstreq --force-depends python3.6
         sudo add-apt-repository ppa:deadsnakes/ppa
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends python3.8 python3.8-distutils build-essential libevent-dev libjpeg-turbo8-dev uuid-dev libbsd-dev
