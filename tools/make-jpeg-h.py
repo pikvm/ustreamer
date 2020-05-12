@@ -1,5 +1,5 @@
 #!/usr/bin/env -S python3 -B
-#============================================================================#
+# ========================================================================== #
 #                                                                            #
 #    uStreamer - Lightweight and fast MJPG-HTTP streamer.                    #
 #                                                                            #
@@ -18,7 +18,7 @@
 #    You should have received a copy of the GNU General Public License       #
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.  #
 #                                                                            #
-#============================================================================#
+# ========================================================================== #
 
 
 import sys
@@ -26,7 +26,6 @@ import io
 import struct
 
 from typing import Tuple
-from typing import List
 
 import common
 
@@ -38,14 +37,15 @@ def _get_jpeg_size(data: bytes) -> Tuple[int, int]:
     stream = io.BytesIO(data)
     while True:
         marker = struct.unpack(">H", stream.read(2))[0]
+        if marker == 0xFFD9:
+            raise RuntimeError("Can't find jpeg size")
+
         if (
             marker == 0xFFD8  # Start of image
             or marker == 0xFF01  # Private marker
-            or (marker >= 0xFFD0 and marker <= 0xFFD7)  # Restart markers
+            or 0xFFD0 <= marker <= 0xFFD7  # Restart markers
         ):
             continue
-        elif marker == 0xFFD9:
-            raise RuntimeError("Can't find jpeg size")
 
         # All other markers specify chunks with lengths
         length = struct.unpack(">H", stream.read(2))[0]
