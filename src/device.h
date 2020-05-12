@@ -30,13 +30,13 @@
 #include "picture.h"
 
 
-#define VIDEO_MIN_WIDTH		160
-#define VIDEO_MAX_WIDTH		10240
+#define VIDEO_MIN_WIDTH		((unsigned)160)
+#define VIDEO_MAX_WIDTH		((unsigned)10240)
 
-#define VIDEO_MIN_HEIGHT	120
-#define VIDEO_MAX_HEIGHT	4320
+#define VIDEO_MIN_HEIGHT	((unsigned)120)
+#define VIDEO_MAX_HEIGHT	((unsigned)4320)
 
-#define VIDEO_MAX_FPS		120
+#define VIDEO_MAX_FPS		((unsigned)120)
 
 #define STANDARD_UNKNOWN	V4L2_STD_UNKNOWN
 #define STANDARDS_STR		"PAL, NTSC, SECAM"

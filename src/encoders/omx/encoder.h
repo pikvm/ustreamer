@@ -29,9 +29,10 @@
 
 #include "../../device.h"
 
-#ifndef OMX_MAX_ENCODERS
-#	define OMX_MAX_ENCODERS 3 // Raspberry Pi limitation
+#ifndef CFG_OMX_MAX_ENCODERS
+#	define CFG_OMX_MAX_ENCODERS 3 // Raspberry Pi limitation
 #endif
+#define OMX_MAX_ENCODERS ((unsigned)(CFG_OMX_MAX_ENCODERS))
 
 
 struct omx_encoder_t {

@@ -94,7 +94,7 @@ static struct picture_t *_init_external(const char *path) {
 		goto error;
 	}
 
-#	define CHUNK_SIZE (100 * 1024)
+#	define CHUNK_SIZE ((size_t)(100 * 1024))
 	while (true) {
 		if (blank->used + CHUNK_SIZE >= blank->allocated) {
 			picture_realloc_data(blank, blank->used + CHUNK_SIZE * 2);

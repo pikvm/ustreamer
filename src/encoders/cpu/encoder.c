@@ -258,7 +258,7 @@ static void _jpeg_write_scanlines_rgb24(
 	}
 }
 
-#define JPEG_OUTPUT_BUFFER_SIZE 4096
+#define JPEG_OUTPUT_BUFFER_SIZE ((size_t)4096)
 
 static void _jpeg_init_destination(j_compress_ptr jpeg) {
 	struct _jpeg_dest_manager_t *dest = (struct _jpeg_dest_manager_t *)jpeg->dest;

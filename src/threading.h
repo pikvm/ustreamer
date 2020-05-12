@@ -41,9 +41,9 @@
 
 
 #ifdef PTHREAD_MAX_NAMELEN_NP
-#	define MAX_THREAD_NAME PTHREAD_MAX_NAMELEN_NP
+#	define MAX_THREAD_NAME ((size_t)(PTHREAD_MAX_NAMELEN_NP))
 #else
-#	define MAX_THREAD_NAME 16
+#	define MAX_THREAD_NAME ((size_t)16)
 #endif
 
 #define A_THREAD_CREATE(_tid, _func, _arg)	assert(!pthread_create(_tid, NULL, _func, _arg))

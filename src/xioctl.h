@@ -30,9 +30,10 @@
 #include "logging.h"
 
 
-#ifndef XIOCTL_RETRIES
-#	define XIOCTL_RETRIES 4
+#ifndef CFG_XIOCTL_RETRIES
+#	define CFG_XIOCTL_RETRIES 4
 #endif
+#define XIOCTL_RETRIES ((unsigned)(CFG_XIOCTL_RETRIES))
 
 
 INLINE int xioctl(int fd, int request, void *arg) {
@@ -52,7 +53,7 @@ INLINE int xioctl(int fd, int request, void *arg) {
 	);
 
 	if (retval && retries <= 0) {
-		LOG_PERROR("ioctl(%d) retried %d times; giving up", request, XIOCTL_RETRIES);
+		LOG_PERROR("ioctl(%d) retried %u times; giving up", request, XIOCTL_RETRIES);
 	}
 	return retval;
 }

@@ -26,6 +26,7 @@
 
 #include <wiringPi.h>
 
+#include "tools.h"
 #include "logging.h"
 
 
@@ -42,17 +43,18 @@ int gpio_pin_workers_busy_at;
 		gpio_pin_workers_busy_at = -1; \
 	}
 
-#define GPIO_INIT_PIN(_role, _offset) { \
-		if (gpio_pin_##_role >= 0) { \
-			pinMode(gpio_pin_##_role + _offset, OUTPUT); \
-			digitalWrite(gpio_pin_##_role + _offset, LOW); \
-			if (_offset == 0) { \
-				LOG_INFO("GPIO: Using pin %d as %s", gpio_pin_##_role, #_role); \
-			} else { \
-				LOG_INFO("GPIO: Using pin %d+%d as %s", gpio_pin_##_role, _offset, #_role); \
-			} \
-		} \
+#define GPIO_INIT_PIN(_role, _offset) _gpio_init_pin(#_role, gpio_pin_##_role, _offset)
+
+INLINE void _gpio_init_pin(const char *role, int base, unsigned offset) {
+	if (base >= 0) {
+		pinMode(base + offset, OUTPUT);
+		if (offset == 0) {
+			LOG_INFO("GPIO: Using pin %d as %s", base, role);
+		} else {
+			LOG_INFO("GPIO: Using pin %d+%u as %s", base, offset, role);
+		}
 	}
+}
 
 #define GPIO_INIT_PINOUT { \
 		if ( \
@@ -74,16 +76,18 @@ int gpio_pin_workers_busy_at;
 		} \
 	}
 
-#define GPIO_SET_STATE(_role, _offset, _state) { \
-		if (gpio_pin_##_role >= 0) { \
-			if (_offset == 0) { \
-				LOG_DEBUG("GPIO: Writing %d to pin %d (%s)", _state, gpio_pin_##_role, #_role); \
-			} else { \
-				LOG_DEBUG("GPIO: Writing %d to pin %d+%d (%s)", _state, gpio_pin_##_role, _offset, #_role); \
-			} \
-			digitalWrite(gpio_pin_##_role + _offset, _state); \
-		} \
+#define GPIO_SET_STATE(_role, _offset, _state) _gpio_set_state(#_role, gpio_pin_##_role, _offset, _state)
+
+INLINE void _gpio_set_state(const char *role, int base, unsigned offset, int state) {
+	if (base >= 0) {
+		if (offset == 0) {
+			LOG_DEBUG("GPIO: Writing %d to pin %d (%s)", state, base, role);
+		} else {
+			LOG_DEBUG("GPIO: Writing %d to pin %d+%u (%s)", state, base, offset, role);
+		}
+		digitalWrite(base + offset, state);
 	}
+}
 
 #define GPIO_SET_LOW(_role)		GPIO_SET_STATE(_role, 0, LOW)
 #define GPIO_SET_HIGH(_role)	GPIO_SET_STATE(_role, 0, HIGH)
