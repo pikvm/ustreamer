@@ -37,16 +37,19 @@
 #include "threading.h"
 
 
-enum {
-	LOG_LEVEL_INFO,
-	LOG_LEVEL_PERF,
-	LOG_LEVEL_VERBOSE,
-	LOG_LEVEL_DEBUG,
-} log_level;
+enum log_level_t {
+    LOG_LEVEL_INFO,
+    LOG_LEVEL_PERF,
+    LOG_LEVEL_VERBOSE,
+    LOG_LEVEL_DEBUG,
+};
 
-bool log_colored;
 
-pthread_mutex_t log_mutex;
+extern enum log_level_t log_level;
+
+extern bool log_colored;
+
+extern pthread_mutex_t log_mutex;
 
 
 #define LOGGING_INIT { \
