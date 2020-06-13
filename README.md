@@ -62,7 +62,7 @@ The recommended way of running µStreamer with [Auvidea B101](https://www.raspbe
 ```bash
 $ ./ustreamer \
     --format=uyvy \ # Device input format
-    --encoder=omx \ # Hardware encoding with OpenMAX
+    --encoder=HW \ # Hardware encoding with OpenMAX
     --workers=3 \ # Maximum workers for OpenMAX
     --persistent \ # Don't re-initialize device on timeout (for example when HDMI cable was disconnected)
     --dv-timings \ # Use DV-timings
