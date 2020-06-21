@@ -76,6 +76,11 @@ You can always view the full list of options with ```ustreamer --help```.
 * [Running uStreamer via systemd service](https://github.com/pikvm/ustreamer/issues/16)
 
 -----
+# See Also
+
+* [uStreamer Ansible Role](https://github.com/mtlynch/ansible-role-ustreamer): Use [Ansible](https://docs.ansible.com/ansible/latest/index.html) to compile uStreamer and install it as a systemd service automatically.
+
+-----
 # License
 Copyright (C) 2018 by Maxim Devaev mdevaev@gmail.com
 
