@@ -116,7 +116,7 @@ extern pthread_mutex_t log_mutex;
 
 #define LOG_PERROR(_msg, ...) { \
 		char _perror_buf[1024] = {0}; \
-		char *_perror_ptr = errno_to_string(_perror_buf, 1024); \
+		char *_perror_ptr = errno_to_string(errno, _perror_buf, 1024); \
 		LOG_ERROR(_msg ": %s", ##__VA_ARGS__, _perror_ptr); \
 	}
 
@@ -149,7 +149,7 @@ extern pthread_mutex_t log_mutex;
 #define LOG_VERBOSE_PERROR(_msg, ...) { \
 		if (log_level >= LOG_LEVEL_VERBOSE) { \
 			char _perror_buf[1024] = {0}; \
-			char *_perror_ptr = errno_to_string(_perror_buf, 1024); \
+			char *_perror_ptr = errno_to_string(errno, _perror_buf, 1024); \
 			LOG_PRINTF(COLOR_BLUE, "VERB ", COLOR_BLUE, _msg ": %s", ##__VA_ARGS__, _perror_ptr); \
 		} \
 	}
@@ -161,11 +161,11 @@ extern pthread_mutex_t log_mutex;
 	}
 
 
-INLINE char *errno_to_string(char *buf, size_t size) {
+INLINE char *errno_to_string(int error, char *buf, size_t size) {
 #	if defined(__GLIBC__) && defined(_GNU_SOURCE)
-	return strerror_r(errno, buf, size);
+	return strerror_r(error, buf, size);
 #	else
-	strerror_r(errno, buf, size);
+	strerror_r(error, buf, size);
 	return buf;
 #	endif
 }

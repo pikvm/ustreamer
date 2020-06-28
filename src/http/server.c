@@ -85,6 +85,8 @@ static void _http_queue_send_stream(struct http_server_t *server, bool stream_up
 static bool _expose_new_picture_unsafe(struct http_server_t *server);
 static bool _expose_blank_picture(struct http_server_t *server);
 
+static void _format_bufferevent_reason(short what, char *reason);
+
 
 struct http_server_t *http_server_init(struct stream_t *stream) {
 	struct http_server_runtime_t *run;
@@ -533,7 +535,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		}
 
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
-		LOG_INFO("HTTP: Registered the new stream client: [%s]:%u, id=%s; clients now: %u",
+		LOG_INFO("HTTP: Registered client: [%s]:%u, id=%s; clients now: %u",
 			client_addr, client_port, client->id, server->run->stream_clients_count);
 
 		buf_event = evhttp_connection_get_bufferevent(conn);
@@ -677,6 +679,9 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	struct evhttp_connection *conn;
 	char *client_addr = "???";
 	unsigned short client_port = 0;
+	char reason[2048] = {0};
+
+	_format_bufferevent_reason(what, reason);
 
 #	define RUN(_next) client->server->run->_next
 
@@ -697,8 +702,9 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	if (conn) {
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
 	}
-	LOG_INFO("HTTP: Disconnected the stream client: [%s]:%u; clients now: %u",
-		client_addr, client_port, RUN(stream_clients_count));
+
+	LOG_INFO("HTTP: Disconnected client: [%s]:%u, id=%s, %s; clients now: %u",
+		client_addr, client_port, client->id, reason, RUN(stream_clients_count));
 	if (conn) {
 		evhttp_connection_free(conn);
 	}
@@ -909,4 +915,34 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 		return true; // Updated
 
 #	undef EXPOSED
+}
+
+static void _format_bufferevent_reason(short what, char *reason) {
+	char perror_buf[1024] = {0};
+	char *perror_ptr = errno_to_string(EVUTIL_SOCKET_ERROR(), perror_buf, 1024); // evutil_socket_error_to_string() is not thread-sage
+	bool first = true;
+
+	strcat(reason, perror_ptr);
+	strcat(reason, " (");
+
+#	define FILL_REASON(_bev, _name) { \
+			if (what & _bev) { \
+				if (first) { \
+					first = false; \
+				} else { \
+					strcat(reason, ","); \
+				} \
+				strcat(reason, _name); \
+			} \
+		}
+
+	FILL_REASON(BEV_EVENT_READING, "reading");
+	FILL_REASON(BEV_EVENT_WRITING, "writing");
+	FILL_REASON(BEV_EVENT_ERROR, "error");
+	FILL_REASON(BEV_EVENT_TIMEOUT, "timeout");
+	FILL_REASON(BEV_EVENT_EOF, "eof"); // cppcheck-suppress unreadVariable
+
+#	undef FILL_REASON
+
+	strcat(reason, ")");
 }
