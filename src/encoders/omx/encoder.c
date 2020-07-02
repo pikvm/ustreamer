@@ -305,9 +305,7 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 	portdef.format.image.nFrameWidth = dev->run->width;
 	portdef.format.image.nFrameHeight = dev->run->height;
 	portdef.format.image.nStride = 0;
-#	define ALIGN_HEIGHT(_x, _y) (((_x) + ((_y) - 1)) & ~((_y) - 1))
-	portdef.format.image.nSliceHeight = ALIGN_HEIGHT(dev->run->height, 16);
-#	undef ALIGN_HEIGHT
+	portdef.format.image.nSliceHeight = align_size(dev->run->height, 16);
 	portdef.format.image.bFlagErrorConcealment = OMX_FALSE;
 	portdef.format.image.eCompressionFormat = OMX_IMAGE_CodingUnused;
 	portdef.nBufferSize = picture_get_generous_size(dev->run->width, dev->run->height);

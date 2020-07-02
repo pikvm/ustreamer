@@ -45,6 +45,10 @@ INLINE char *bool_to_string(bool flag) {
 	return (flag ? "true" : "false");
 }
 
+INLINE size_t align_size(size_t size, size_t to) {
+	return ((size + (to - 1)) & ~(to - 1));
+}
+
 INLINE unsigned min_u(unsigned a, unsigned b) {
 	return (a < b ? a : b);
 }
