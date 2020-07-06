@@ -73,8 +73,6 @@ void picture_append_data(struct picture_t *picture, const unsigned char *data, s
 }
 
 void picture_copy(const struct picture_t *src, struct picture_t *dest) {
-	assert(src->allocated);
-
 	picture_set_data(dest, src->data, src->used);
 
 #	define COPY(_field) dest->_field = src->_field
@@ -92,5 +90,9 @@ void picture_copy(const struct picture_t *src, struct picture_t *dest) {
 }
 
 bool picture_compare(const struct picture_t *a, const struct picture_t *b) {
-	return (a->used == b->used && !memcmp(a->data, b->data, b->used));
+	return (
+		a->allocated && b->allocated
+		&& a->used == b->used
+		&& !memcmp(a->data, b->data, b->used)
+	);
 }
