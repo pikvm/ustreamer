@@ -151,7 +151,7 @@ v4l2_std_id device_parse_standard(const char *str) {
 }
 
 int device_parse_io_method(const char *str) {
-	for (unsigned index = 1; index < ARRAY_LEN(_IO_METHODS); ++index) {
+	for (unsigned index = 0; index < ARRAY_LEN(_IO_METHODS); ++index) {
 		if (!strcasecmp(str, _IO_METHODS[index].name)) {
 			return _IO_METHODS[index].io_method;
 		}
