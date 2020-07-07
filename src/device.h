@@ -44,6 +44,9 @@
 #define FORMAT_UNKNOWN	-1
 #define FORMATS_STR		"YUYV, UYVY, RGB565, RGB24, JPEG"
 
+#define IO_METHOD_UNKNOWN	-1
+#define IO_METHODS_STR		"MMAP, USERPTR"
+
 
 struct hw_buffer_t {
 	unsigned char		*data;
@@ -57,6 +60,7 @@ struct device_runtime_t {
 	unsigned			width;
 	unsigned			height;
 	unsigned			format;
+	size_t				raw_size;
 	unsigned			n_buffers;
 	unsigned			n_workers;
 	struct hw_buffer_t	*hw_buffers;
@@ -95,6 +99,7 @@ struct device_t {
 	unsigned		height;
 	unsigned		format;
 	v4l2_std_id		standard;
+	enum v4l2_memory	io_method;
 	bool			dv_timings;
 	unsigned		n_buffers;
 	unsigned		n_workers;
@@ -115,6 +120,7 @@ void device_destroy(struct device_t *dev);
 
 int device_parse_format(const char *str);
 v4l2_std_id device_parse_standard(const char *str);
+int device_parse_io_method(const char *str);
 
 int device_open(struct device_t *dev);
 void device_close(struct device_t *dev);

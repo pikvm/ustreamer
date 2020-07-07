@@ -67,13 +67,23 @@ static const struct {
 	{"JPEG",	V4L2_PIX_FMT_JPEG},
 };
 
+static const struct {
+	const char *name;
+	const enum v4l2_memory io_method;
+} _IO_METHODS[] = {
+	{"MMAP",	V4L2_MEMORY_MMAP},
+	{"USERPTR",	V4L2_MEMORY_USERPTR},
+};
+
 
 static int _device_open_check_cap(struct device_t *dev);
 static int _device_open_dv_timings(struct device_t *dev);
 static int _device_apply_dv_timings(struct device_t *dev);
 static int _device_open_format(struct device_t *dev);
 static void _device_open_hw_fps(struct device_t *dev);
-static int _device_open_mmap(struct device_t *dev);
+static int _device_open_io_method(struct device_t *dev);
+static int _device_open_io_method_mmap(struct device_t *dev);
+static int _device_open_io_method_userptr(struct device_t *dev);
 static int _device_open_queue_buffers(struct device_t *dev);
 static void _device_open_alloc_picbufs(struct device_t *dev);
 static int _device_apply_resolution(struct device_t *dev, unsigned width, unsigned height);
@@ -86,6 +96,7 @@ static const char *_format_to_string_fourcc(char *buf, size_t size, unsigned for
 static const char *_format_to_string_nullable(unsigned format);
 static const char *_format_to_string_supported(unsigned format);
 static const char *_standard_to_string(v4l2_std_id standard);
+static const char *_io_method_to_string_supported(enum v4l2_memory io_method);
 
 
 struct device_t *device_init(void) {
@@ -111,6 +122,7 @@ struct device_t *device_init(void) {
 	dev->n_workers = min_u(cores_available, dev->n_buffers);
 	dev->timeout = 1;
 	dev->error_delay = 1;
+	dev->io_method = V4L2_MEMORY_MMAP;
 	dev->run = run;
 	return dev;
 }
@@ -138,6 +150,15 @@ v4l2_std_id device_parse_standard(const char *str) {
 	return STANDARD_UNKNOWN;
 }
 
+int device_parse_io_method(const char *str) {
+	for (unsigned index = 1; index < ARRAY_LEN(_IO_METHODS); ++index) {
+		if (!strcasecmp(str, _IO_METHODS[index].name)) {
+			return _IO_METHODS[index].io_method;
+		}
+	}
+	return IO_METHOD_UNKNOWN;
+}
+
 int device_open(struct device_t *dev) {
 	if ((dev->run->fd = open(dev->path, O_RDWR|O_NONBLOCK)) < 0) {
 		LOG_PERROR("Can't open device");
@@ -155,7 +176,7 @@ int device_open(struct device_t *dev) {
 		goto error;
 	}
 	_device_open_hw_fps(dev);
-	if (_device_open_mmap(dev) < 0) {
+	if (_device_open_io_method(dev) < 0) {
 		goto error;
 	}
 	if (_device_open_queue_buffers(dev) < 0) {
@@ -187,13 +208,19 @@ void device_close(struct device_t *dev) {
 	}
 
 	if (dev->run->hw_buffers) {
-		LOG_DEBUG("Unmapping HW buffers ...");
+		LOG_DEBUG("Releasing HW buffers ...");
 		for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
 #			define HW_BUFFER(_next) dev->run->hw_buffers[index]._next
 
-			if (HW_BUFFER(allocated) > 0 && HW_BUFFER(data) != MAP_FAILED) {
-				if (munmap(HW_BUFFER(data), HW_BUFFER(allocated)) < 0) {
-					LOG_PERROR("Can't unmap device buffer %u", index);
+			if (dev->io_method == V4L2_MEMORY_MMAP) {
+				if (HW_BUFFER(allocated) > 0 && HW_BUFFER(data) != MAP_FAILED) {
+					if (munmap(HW_BUFFER(data), HW_BUFFER(allocated)) < 0) {
+						LOG_PERROR("Can't unmap device buffer %u", index);
+					}
+				}
+			} else { // V4L2_MEMORY_USERPTR
+				if (HW_BUFFER(data)) {
+					free(HW_BUFFER(data));
 				}
 			}
 
@@ -271,7 +298,7 @@ int device_grab_buffer(struct device_t *dev) {
 
 	MEMSET_ZERO(buf_info);
 	buf_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	buf_info.memory = V4L2_MEMORY_MMAP;
+	buf_info.memory = dev->io_method;
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_DQBUF) ...");
 	if (xioctl(dev->run->fd, VIDIOC_DQBUF, &buf_info) < 0) {
@@ -465,6 +492,8 @@ static int _device_open_format(struct device_t *dev) {
 
 	dev->run->format = fmt.fmt.pix.pixelformat;
 	LOG_INFO("Using pixelformat: %s", _format_to_string_supported(dev->run->format));
+
+	dev->run->raw_size = fmt.fmt.pix.sizeimage; // Only for userptr
 	return 0;
 }
 
@@ -510,7 +539,17 @@ static void _device_open_hw_fps(struct device_t *dev) {
 #	undef SETFPS_TPF
 }
 
-static int _device_open_mmap(struct device_t *dev) {
+static int _device_open_io_method(struct device_t *dev) {
+	LOG_INFO("Using IO method: %s", _io_method_to_string_supported(dev->io_method));
+	switch (dev->io_method) {
+		case V4L2_MEMORY_MMAP: return _device_open_io_method_mmap(dev);
+		case V4L2_MEMORY_USERPTR: return _device_open_io_method_userptr(dev);
+		default: assert(0 && "Unsupported IO method");
+	}
+	return -1;
+}
+
+static int _device_open_io_method_mmap(struct device_t *dev) {
 	struct v4l2_requestbuffers req;
 
 	MEMSET_ZERO(req);
@@ -518,9 +557,9 @@ static int _device_open_mmap(struct device_t *dev) {
 	req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	req.memory = V4L2_MEMORY_MMAP;
 
-	LOG_DEBUG("Calling ioctl(VIDIOC_REQBUFS) ...");
+	LOG_DEBUG("Calling ioctl(VIDIOC_REQBUFS) for V4L2_MEMORY_MMAP ...");
 	if (xioctl(dev->run->fd, VIDIOC_REQBUFS, &req) < 0) {
-		LOG_PERROR("Device '%s' doesn't support memory mapping", dev->path);
+		LOG_PERROR("Device '%s' doesn't support V4L2_MEMORY_MMAP", dev->path);
 		return -1;
 	}
 
@@ -563,14 +602,56 @@ static int _device_open_mmap(struct device_t *dev) {
 	return 0;
 }
 
+static int _device_open_io_method_userptr(struct device_t *dev) {
+	struct v4l2_requestbuffers req;
+	unsigned page_size = getpagesize();
+	unsigned buf_size = align_size(dev->run->raw_size, page_size);
+
+	MEMSET_ZERO(req);
+	req.count = dev->n_buffers;
+	req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	req.memory = V4L2_MEMORY_USERPTR;
+
+	LOG_DEBUG("Calling ioctl(VIDIOC_REQBUFS) for V4L2_MEMORY_USERPTR ...");
+	if (xioctl(dev->run->fd, VIDIOC_REQBUFS, &req) < 0) {
+		LOG_PERROR("Device '%s' doesn't support V4L2_MEMORY_USERPTR", dev->path);
+		return -1;
+	}
+
+	if (req.count < 1) {
+		LOG_ERROR("Insufficient buffer memory: %u", req.count);
+		return -1;
+	} else {
+		LOG_INFO("Requested %u HW buffers, got %u", dev->n_buffers, req.count);
+	}
+
+	LOG_DEBUG("Allocating HW buffers ...");
+
+	A_CALLOC(dev->run->hw_buffers, req.count);
+	for (dev->run->n_buffers = 0; dev->run->n_buffers < req.count; ++dev->run->n_buffers) {
+#       define HW_BUFFER(_next) dev->run->hw_buffers[dev->run->n_buffers]._next
+
+		assert(HW_BUFFER(data) = aligned_alloc(page_size, buf_size));
+		memset(HW_BUFFER(data), 0, buf_size);
+		HW_BUFFER(allocated) = buf_size;
+
+#		undef HW_BUFFER
+	}
+	return 0;
+}
+
 static int _device_open_queue_buffers(struct device_t *dev) {
 	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
 		struct v4l2_buffer buf_info;
 
 		MEMSET_ZERO(buf_info);
 		buf_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-		buf_info.memory = V4L2_MEMORY_MMAP;
+		buf_info.memory = dev->io_method;
 		buf_info.index = index;
+		if (dev->io_method == V4L2_MEMORY_USERPTR) {
+			buf_info.m.userptr = (unsigned long)dev->run->hw_buffers[index].data;
+			buf_info.length = dev->run->hw_buffers[index].allocated;
+		}
 
 		LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) for buffer %u ...", index);
 		if (xioctl(dev->run->fd, VIDIOC_QBUF, &buf_info) < 0) {
@@ -738,4 +819,13 @@ static const char *_standard_to_string(v4l2_std_id standard) {
 		}
 	}
 	return _STANDARDS[0].name;
+}
+
+static const char *_io_method_to_string_supported(enum v4l2_memory io_method) {
+	for (unsigned index = 0; index < ARRAY_LEN(_IO_METHODS); ++index) {
+		if (io_method == _IO_METHODS[index].io_method) {
+			return _IO_METHODS[index].name;
+		}
+	}
+	return "unsupported";
 }

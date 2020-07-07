@@ -50,6 +50,7 @@ enum _OPT_VALUES {
 	_O_RESOLUTION = 'r',
 	_O_FORMAT = 'm',
 	_O_TV_STANDARD = 'a',
+	_O_IO_METHOD = 'I',
 	_O_DESIRED_FPS = 'f',
 	_O_MIN_FRAME_SIZE = 'z',
 	_O_PERSISTENT = 'n',
@@ -128,6 +129,7 @@ static const struct option _LONG_OPTS[] = {
 	{"resolution",				required_argument,	NULL,	_O_RESOLUTION},
 	{"format",					required_argument,	NULL,	_O_FORMAT},
 	{"tv-standard",				required_argument,	NULL,	_O_TV_STANDARD},
+	{"io-method",				required_argument,	NULL,	_O_IO_METHOD},
 	{"desired-fps",				required_argument,	NULL,	_O_DESIRED_FPS},
 	{"min-frame-size",			required_argument,	NULL,	_O_MIN_FRAME_SIZE},
 	{"persistent",				no_argument,		NULL,	_O_PERSISTENT},
@@ -327,6 +329,7 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 			case _O_FORMAT:			OPT_PARSE("pixel format", dev->format, device_parse_format, FORMAT_UNKNOWN, FORMATS_STR);
 #			pragma GCC diagnostic pop
 			case _O_TV_STANDARD:	OPT_PARSE("TV standard", dev->standard, device_parse_standard, STANDARD_UNKNOWN, STANDARDS_STR);
+			case _O_IO_METHOD:		OPT_PARSE("IO method", dev->io_method, device_parse_io_method, IO_METHOD_UNKNOWN, IO_METHODS_STR);
 			case _O_DESIRED_FPS:	OPT_NUMBER("--desired-fps", dev->desired_fps, 0, VIDEO_MAX_FPS, 0);
 			case _O_MIN_FRAME_SIZE:	OPT_NUMBER("--min-frame-size", dev->min_frame_size, 0, 8192, 0);
 			case _O_PERSISTENT:		OPT_SET(dev->persistent, true);
@@ -548,6 +551,9 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                           Available: %s; default: YUYV.\n\n", FORMATS_STR);
 	printf("    -a|--tv-standard <std>  ────────────── Force TV standard.\n");
 	printf("                                           Available: %s; default: disabled.\n\n", STANDARDS_STR);
+	printf("    -I|--io-method <method>  ───────────── Set V4L2 IO method (see kernel documentation).\n");
+	printf("                                           Changing of this parameter may increase the performance. Or not.\n");
+	printf("                                           Available: %s; default: MMAP\n\n", IO_METHODS_STR);
 	printf("    -f|--desired-fps <N>  ──────────────── Desired FPS. Default: maximum possible.\n\n");
 	printf("    -z|--min-frame-size <N>  ───────────── Drop frames smaller then this limit. Useful if the device\n");
 	printf("                                           produces small-sized garbage frames. Default: disabled.\n\n");
