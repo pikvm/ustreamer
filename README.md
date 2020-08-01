@@ -5,7 +5,7 @@
 [[Русская версия]](README.ru.md)
 
 µStreamer is a lightweight and very quick server to stream [MJPG](https://en.wikipedia.org/wiki/Motion_JPEG) video from any V4L2 device to the net. All new browsers have native support of this video format, as well as most video players such as mplayer, VLC etc.
-µStreamer is a part of the [Pi-KVM](https://github.com/pikvm) project designed to stream [VGA](https://www.amazon.com/dp/B0126O0RDC) and [HDMI](https://auvidea.com/b101-hdmi-to-csi-2-bridge-15-pin-fpc/) screencast hardware data with the highest resolution and FPS possible.
+µStreamer is a part of the [Pi-KVM](https://github.com/pikvm/pikvm) project designed to stream [VGA](https://www.amazon.com/dp/B0126O0RDC) and [HDMI](https://auvidea.com/b101-hdmi-to-csi-2-bridge-15-pin-fpc/) screencast hardware data with the highest resolution and FPS possible.
 
 µStreamer is very similar to [mjpg-streamer](https://github.com/jacksonliam/mjpg-streamer) with ```input_uvc.so``` and ```output_http.so``` plugins, however, there are some major differences. The key ones are:
 
