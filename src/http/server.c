@@ -31,6 +31,8 @@
 #include <fcntl.h>
 #include <assert.h>
 
+#include <netinet/tcp.h>
+#include <netinet/ip.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 
@@ -539,6 +541,15 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 			client_addr, client_port, client->id, server->run->stream_clients_count);
 
 		buf_event = evhttp_connection_get_bufferevent(conn);
+		if (server->tcp_nodelay && !server->run->unix_fd) {
+			evutil_socket_t fd;
+			int on = 1;
+
+			assert((fd = bufferevent_getfd(buf_event)) >= 0);
+			if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (void *)&on, sizeof(on)) != 0) {
+				LOG_PERROR("HTTP: Can't set TCP_NODELAY to the client socket [%s]:%u", client_addr, client_port);
+			}
+		}
 		bufferevent_setcb(buf_event, NULL, NULL, _http_callback_stream_error, (void *)client);
 		bufferevent_enable(buf_event, EV_READ);
 	} else {

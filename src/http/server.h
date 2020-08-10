@@ -91,6 +91,7 @@ struct http_server_t {
 	char		*unix_path;
 	bool		unix_rm;
 	mode_t		unix_mode;
+	bool		tcp_nodelay;
 	unsigned	timeout;
 
 	char		*user;
