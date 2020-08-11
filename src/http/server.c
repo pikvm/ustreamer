@@ -233,6 +233,9 @@ int http_server_listen(struct http_server_t *server) {
 			return -1;
 		}
 		LOG_INFO("Listening HTTP on UNIX socket '%s'", server->unix_path);
+		if (server->tcp_nodelay) {
+			LOG_ERROR("TCP_NODELAY flag can't be used with UNIX socket and will be ignored");
+		}
 	} else {
 		LOG_DEBUG("Binding HTTP to [%s]:%u ...", server->host, server->port);
 		if (evhttp_bind_socket(server->run->http, server->host, server->port) < 0) {
@@ -545,9 +548,10 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 			evutil_socket_t fd;
 			int on = 1;
 
+			LOG_DEBUG("HTTP: Setting up TCP_NODELAY to the client [%s]:%u ...", client_addr, client_port);
 			assert((fd = bufferevent_getfd(buf_event)) >= 0);
 			if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (void *)&on, sizeof(on)) != 0) {
-				LOG_PERROR("HTTP: Can't set TCP_NODELAY to the client socket [%s]:%u", client_addr, client_port);
+				LOG_PERROR("HTTP: Can't set TCP_NODELAY to the client [%s]:%u", client_addr, client_port);
 			}
 		}
 		bufferevent_setcb(buf_event, NULL, NULL, _http_callback_stream_error, (void *)client);
