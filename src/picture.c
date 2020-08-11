@@ -51,7 +51,7 @@ size_t picture_get_generous_size(unsigned width, unsigned height) {
 
 void picture_realloc_data(struct picture_t *picture, size_t size) {
 	if (picture->allocated < size) {
-		LOG_DEBUG("Increasing picture 0x%p buffer: %zu -> %zu (+%zu)",
+		LOG_DEBUG("Increasing picture %p buffer: %zu -> %zu (+%zu)",
 			picture, picture->allocated, size, size - picture->allocated);
 		A_REALLOC(picture->data, size);
 		picture->allocated = size;
