@@ -102,11 +102,11 @@ struct omx_encoder_t *omx_encoder_init(void) {
 
 	LOG_INFO("Initializing OMX encoder ...");
 
-	if (vcos_semaphore_create(&omx->handler_lock, "handler_lock", 0) != VCOS_SUCCESS) {
+	if (vcos_semaphore_create(&omx->handler_sem, "handler_sem", 0) != VCOS_SUCCESS) {
 		LOG_ERROR("Can't create VCOS semaphore");
 		goto error;
 	}
-	omx->i_handler_lock = true;
+	omx->i_handler_sem = true;
 
 	if (_omx_init_component(omx) < 0) {
 		goto error;
@@ -132,8 +132,8 @@ void omx_encoder_destroy(struct omx_encoder_t *omx) {
 	_omx_encoder_clear_ports(omx);
 	component_set_state(&omx->encoder, OMX_StateLoaded);
 
-	if (omx->i_handler_lock) {
-		vcos_semaphore_delete(&omx->handler_lock);
+	if (omx->i_handler_sem) {
+		vcos_semaphore_delete(&omx->handler_sem);
 	}
 
 	if (omx->i_encoder) {
@@ -180,6 +180,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 #	define OUT(_next)		omx->output_buffer->_next
 
 	OMX_ERRORTYPE error;
+	VCOS_STATUS_T sem_status;
 	size_t slice_size = (IN(nAllocLen) < HW_BUFFER(used) ? IN(nAllocLen) : HW_BUFFER(used));
 	size_t pos = 0;
 
@@ -236,7 +237,13 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 			}
 		}
 
-		vcos_semaphore_wait(&omx->handler_lock);
+		// vcos_semaphore_wait(&omx->handler_sem);
+		switch (sem_status = vcos_semaphore_wait_timeout(&omx->handler_sem, 3000)) {
+			case VCOS_SUCCESS: break;
+			case VCOS_EAGAIN: LOG_ERROR("Can't wait VCOS semaphore: EAGAIN (timeout)"); return -1;
+			case VCOS_EINVAL: LOG_ERROR("Can't wait VCOS semaphore: EINTVAL"); return -1;
+			default: LOG_ERROR("Can't wait VCOS semaphore: %d", sem_status); return -1;
+		}
 	}
 
 #	undef OUT
@@ -466,7 +473,7 @@ static OMX_ERRORTYPE _omx_event_handler(
 	if (event == OMX_EventError) {
 		LOG_ERROR_OMX((OMX_ERRORTYPE)data1, "OMX error event received");
 		omx->failed = true;
-		vcos_semaphore_post(&omx->handler_lock);
+		assert(vcos_semaphore_post(&omx->handler_sem) == VCOS_SUCCESS);
 	}
 	return OMX_ErrorNone;
 }
@@ -481,7 +488,7 @@ static OMX_ERRORTYPE _omx_input_required_handler(
 	struct omx_encoder_t *omx = (struct omx_encoder_t *)v_omx;
 
 	omx->input_required = true;
-	vcos_semaphore_post(&omx->handler_lock);
+	assert(vcos_semaphore_post(&omx->handler_sem) == VCOS_SUCCESS);
 	return OMX_ErrorNone;
 }
 
@@ -495,6 +502,6 @@ static OMX_ERRORTYPE _omx_output_available_handler(
 	struct omx_encoder_t *omx = (struct omx_encoder_t *)v_omx;
 
 	omx->output_available = true;
-	vcos_semaphore_post(&omx->handler_lock);
+	assert(vcos_semaphore_post(&omx->handler_sem) == VCOS_SUCCESS);
 	return OMX_ErrorNone;
 }
