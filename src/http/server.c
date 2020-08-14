@@ -31,10 +31,12 @@
 #include <fcntl.h>
 #include <assert.h>
 
-#include <netinet/tcp.h>
-#include <netinet/ip.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <netinet/tcp.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
 
 #include <event2/event.h>
 #include <event2/thread.h>
