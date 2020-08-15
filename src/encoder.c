@@ -205,12 +205,15 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, uns
 	dev->run->pictures[buf_index]->encode_begin_ts = get_now_monotonic();
 
 	if (encoder->run->type == ENCODER_TYPE_CPU) {
+		LOG_VERBOSE("Compressing buffer %u using CPU", buf_index);
 		cpu_encoder_compress_buffer(dev, buf_index, encoder->run->quality);
 	} else if (encoder->run->type == ENCODER_TYPE_HW) {
+		LOG_VERBOSE("Compressing buffer %u using HW (just copying)", buf_index);
 		hw_encoder_compress_buffer(dev, buf_index);
 	}
 #	ifdef WITH_OMX
 	else if (encoder->run->type == ENCODER_TYPE_OMX) {
+		LOG_VERBOSE("Compressing buffer %u using OMX", buf_index);
 		if (omx_encoder_compress_buffer(encoder->run->omxs[worker_number], dev, buf_index) < 0) {
 			goto error;
 		}
