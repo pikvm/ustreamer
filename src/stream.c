@@ -449,22 +449,23 @@ static void *_worker_thread(void *v_worker) {
 			GPIO_SET_HIGH_AT(workers_busy_at, worker->number);
 #			endif
 
-			if (encoder_compress_buffer(worker->encoder, worker->dev, worker->number, worker->buf_index) < 0) {
-				worker->job_failed = false;
-			}
+			worker->job_failed = (bool)encoder_compress_buffer(worker->encoder, worker->dev, worker->number, worker->buf_index);
 
 			if (device_release_buffer(worker->dev, worker->buf_index) == 0) {
-				worker->job_start_ts = PICTURE(encode_begin_ts);
-				atomic_store(&worker->has_job, false);
+				if (!worker->job_failed) {
+					worker->job_start_ts = PICTURE(encode_begin_ts);
+					worker->last_comp_time = PICTURE(encode_end_ts) - worker->job_start_ts;
 
-				worker->last_comp_time = PICTURE(encode_end_ts) - worker->job_start_ts;
-
-				LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%u, buffer=%u",
-					PICTURE(used), worker->last_comp_time, worker->number, worker->buf_index);
+					LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%u, buffer=%u",
+						PICTURE(used), worker->last_comp_time, worker->number, worker->buf_index);
+				} else {
+					LOG_VERBOSE("Compression failed: worker=%u, buffer=%u", worker->number, worker->buf_index);
+				}
 			} else {
 				worker->job_failed = true;
-				atomic_store(&worker->has_job, false);
 			}
+
+			atomic_store(&worker->has_job, false);
 
 #			undef PICTURE
 		}
