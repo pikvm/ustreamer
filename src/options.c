@@ -92,6 +92,7 @@ enum _OPT_VALUES {
 	_O_BACKLIGHT_COMPENSATION,
 	_O_WHITE_BALANCE,
 	_O_GAIN,
+	_O_COLOR_EFFECT,
 	_O_FLIP_VERTICAL,
 	_O_FLIP_HORIZONTAL,
 
@@ -157,6 +158,7 @@ static const struct option _LONG_OPTS[] = {
 	{"backlight-compensation",	required_argument,	NULL,	_O_BACKLIGHT_COMPENSATION},
 	{"white-balance",			required_argument,	NULL,	_O_WHITE_BALANCE},
 	{"gain",					required_argument,	NULL,	_O_GAIN},
+	{"color-effect",			required_argument,	NULL,	_O_COLOR_EFFECT},
 	{"flip-vertical",			required_argument,	NULL,	_O_FLIP_VERTICAL},
 	{"flip-horizontal",			required_argument,	NULL,	_O_FLIP_HORIZONTAL},
 
@@ -364,6 +366,7 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 				OPT_CTL_DEFAULT_NOBREAK(backlight_compensation);
 				OPT_CTL_DEFAULT_NOBREAK(white_balance);
 				OPT_CTL_DEFAULT_NOBREAK(gain);
+				OPT_CTL_DEFAULT_NOBREAK(color_effect);
 				OPT_CTL_DEFAULT_NOBREAK(flip_vertical);
 				OPT_CTL_DEFAULT_NOBREAK(flip_horizontal);
 				break;
@@ -376,6 +379,7 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 			case _O_BACKLIGHT_COMPENSATION:	OPT_CTL_MANUAL(backlight_compensation);
 			case _O_WHITE_BALANCE:			OPT_CTL_AUTO(white_balance);
 			case _O_GAIN:					OPT_CTL_AUTO(gain);
+			case _O_COLOR_EFFECT:			OPT_CTL_MANUAL(color_effect);
 			case _O_FLIP_VERTICAL:			OPT_CTL_MANUAL(flip_vertical);
 			case _O_FLIP_HORIZONTAL:		OPT_CTL_MANUAL(flip_horizontal);
 
@@ -608,6 +612,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --backlight-compensation <N|default>  ─ Set backlight compensation. Default: no change.\n\n");
 	printf("    --white-balance <N|auto|default>  ───── Set white balance. Default: no change.\n\n");
 	printf("    --gain <N|auto|default>  ────────────── Set gain. Default: no change.\n\n");
+	printf("    --color-effect <N|default>  ─────────── Set color effect. Default: no change.\n\n");
 	printf("    --flip-vertical <1|0|default>  ──────── Set vertical flip. Default: no change.\n\n");
 	printf("    --flip-horizontal <1|0|default>  ────── Set horizontal flip. Default: no change.\n\n");
 	printf("    Hint: use v4l2-ctl --list-ctrls-menus to query available controls of the device.\n\n");

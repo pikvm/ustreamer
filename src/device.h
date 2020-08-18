@@ -90,6 +90,7 @@ struct controls_t {
 	struct control_t backlight_compensation;
 	struct control_t white_balance;
 	struct control_t gain;
+	struct control_t color_effect;
 	struct control_t flip_vertical;
 	struct control_t flip_horizontal;
 };

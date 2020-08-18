@@ -736,6 +736,7 @@ static void _device_apply_controls(struct device_t *dev) {
 	CONTROL_MANUAL_CID	(								V4L2_CID_BACKLIGHT_COMPENSATION,	backlight_compensation);
 	CONTROL_AUTO_CID	(V4L2_CID_AUTO_WHITE_BALANCE,	V4L2_CID_WHITE_BALANCE_TEMPERATURE,	white_balance);
 	CONTROL_AUTO_CID	(V4L2_CID_AUTOGAIN,				V4L2_CID_GAIN,						gain);
+	CONTROL_MANUAL_CID	(								V4L2_CID_COLORFX,					color_effect);
 	CONTROL_MANUAL_CID	(								V4L2_CID_VFLIP,						flip_vertical);
 	CONTROL_MANUAL_CID	(								V4L2_CID_HFLIP,						flip_horizontal);
 
