@@ -78,7 +78,13 @@ INLINE long double get_now_monotonic(void) {
 	time_t sec;
 	long msec;
 
+#	if defined(CLOCK_MONOTONIC_RAW)
 	get_now(CLOCK_MONOTONIC_RAW, &sec, &msec);
+#	elif defined(CLOCK_MONOTONIC_FAST)
+	get_now(CLOCK_MONOTONIC_FAST, &sec, &msec);
+#	else
+	get_now(CLOCK_MONOTONIC, &sec, &msec);
+#	endif
 	return (long double)sec + ((long double)msec) / 1000;
 }
 
