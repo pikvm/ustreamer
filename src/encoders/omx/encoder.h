@@ -42,9 +42,9 @@ struct omx_encoder_t {
 	bool					input_required;
 	bool					output_available;
 	bool					failed;
-	VCOS_SEMAPHORE_T		handler_lock;
+	VCOS_SEMAPHORE_T		handler_sem;
 
-	bool	i_handler_lock;
+	bool	i_handler_sem;
 	bool	i_encoder;
 	bool	i_input_port_enabled;
 	bool	i_output_port_enabled;
