@@ -333,7 +333,7 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 			case _O_TV_STANDARD:	OPT_PARSE("TV standard", dev->standard, device_parse_standard, STANDARD_UNKNOWN, STANDARDS_STR);
 			case _O_IO_METHOD:		OPT_PARSE("IO method", dev->io_method, device_parse_io_method, IO_METHOD_UNKNOWN, IO_METHODS_STR);
 			case _O_DESIRED_FPS:	OPT_NUMBER("--desired-fps", dev->desired_fps, 0, VIDEO_MAX_FPS, 0);
-			case _O_MIN_FRAME_SIZE:	OPT_NUMBER("--min-frame-size", dev->min_frame_size, 0, 8192, 0);
+			case _O_MIN_FRAME_SIZE:	OPT_NUMBER("--min-frame-size", dev->min_frame_size, 1, 8192, 0);
 			case _O_PERSISTENT:		OPT_SET(dev->persistent, true);
 			case _O_DV_TIMINGS:		OPT_SET(dev->dv_timings, true);
 			case _O_BUFFERS:		OPT_NUMBER("--buffers", dev->n_buffers, 1, 32, 0);
@@ -559,7 +559,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                           Available: %s; default: MMAP\n\n", IO_METHODS_STR);
 	printf("    -f|--desired-fps <N>  ──────────────── Desired FPS. Default: maximum possible.\n\n");
 	printf("    -z|--min-frame-size <N>  ───────────── Drop frames smaller then this limit. Useful if the device\n");
-	printf("                                           produces small-sized garbage frames. Default: disabled.\n\n");
+	printf("                                           produces small-sized garbage frames. Default: %zu bytes.\n\n", dev->min_frame_size);
 	printf("    -n|--persistent  ───────────────────── Don't re-initialize device on timeout. Default: disabled.\n\n");
 	printf("    -t|--dv-timings  ───────────────────── Enable DV timings querying and events processing\n");
 	printf("                                           to automatic resolution change. Default: disabled.\n\n");

@@ -201,6 +201,7 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, uns
 #pragma GCC diagnostic pop
 
 	assert(encoder->run->type != ENCODER_TYPE_UNKNOWN);
+	assert(dev->run->hw_buffers[buf_index].used > 0);
 
 	dev->run->pictures[buf_index]->encode_begin_ts = get_now_monotonic();
 

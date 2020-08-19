@@ -120,6 +120,7 @@ struct device_t *device_init(void) {
 	dev->standard = V4L2_STD_UNKNOWN;
 	dev->n_buffers = cores_available + 1;
 	dev->n_workers = min_u(cores_available, dev->n_buffers);
+	dev->min_frame_size = 128;
 	dev->timeout = 1;
 	dev->error_delay = 1;
 	dev->io_method = V4L2_MEMORY_MMAP;
