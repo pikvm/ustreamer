@@ -744,6 +744,7 @@ static void _http_queue_send_stream(struct http_server_t *server, bool stream_up
 	struct evhttp_connection *conn;
 	struct bufferevent *buf_event;
 	long long now;
+	bool has_clients = false;
 	bool queued = false;
 
 	for (struct stream_client_t *client = server->run->stream_clients; client != NULL; client = client->next) {
@@ -774,6 +775,8 @@ static void _http_queue_send_stream(struct http_server_t *server, bool stream_up
 			} else if (stream_updated) { // Для dual
 				client->updated_prev = false;
 			}
+
+			has_clients = true;
 		}
 	}
 
@@ -787,6 +790,8 @@ static void _http_queue_send_stream(struct http_server_t *server, bool stream_up
 			queued_fps_second = now;
 		}
 		queued_fps_accum += 1;
+	} else if (!has_clients) {
+		server->run->exposed->queued_fps = 0;
 	}
 }
 
