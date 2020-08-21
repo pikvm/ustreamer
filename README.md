@@ -69,6 +69,8 @@ $ ./ustreamer \
     --drop-same-frames=30 # Save the traffic
 ```
 
+Please note that to use `--drop-same-frames` for different browsers you need to use some specific URL `/stream` parameters (see URL `/` for details).
+
 You can always view the full list of options with ```ustreamer --help```.
 
 -----
