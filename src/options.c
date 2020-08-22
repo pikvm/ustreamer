@@ -680,5 +680,5 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("═════════════\n");
 	printf("    -h|--help  ─────── Print this text and exit.\n\n");
 	printf("    -v|--version  ──── Print version and exit.\n\n");
-	printf("    --features  ────── Print list of supporeted features.\n\n");
+	printf("    --features  ────── Print list of supported features.\n\n");
 }
