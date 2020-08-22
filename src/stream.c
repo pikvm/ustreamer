@@ -350,11 +350,14 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index, 
 static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
 	struct _workers_pool_t *pool;
 
-	LOG_INFO("Creating pool with %u workers ...", stream->dev->run->n_workers);
+#	define DEV(_next) stream->dev->_next
+#	define RUN(_next) stream->dev->run->_next
+
+	LOG_INFO("Creating pool with %u workers ...", RUN(n_workers));
 
 	A_CALLOC(pool, 1);
 
-	pool->n_workers = stream->dev->run->n_workers;
+	pool->n_workers = RUN(n_workers);
 	A_CALLOC(pool->workers, pool->n_workers);
 
 	A_MUTEX_INIT(&pool->free_workers_mutex);
@@ -362,9 +365,12 @@ static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
 
 	atomic_init(&pool->workers_stop, false);
 
-	if (stream->dev->desired_fps > 0) {
-		pool->desired_frames_interval = (long double)1 / stream->dev->desired_fps;
+	if (DEV(desired_fps) > 0 && (DEV(desired_fps) < RUN(hw_fps) || RUN(hw_fps) == 0)) {
+		pool->desired_frames_interval = (long double)1 / DEV(desired_fps);
 	}
+
+#	undef RUN
+#	undef DEV
 
 	for (unsigned number = 0; number < pool->n_workers; ++number) {
 #		define WORKER(_next) pool->workers[number]._next
@@ -557,6 +563,7 @@ static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool,
 
 	if (pool->desired_frames_interval > 0 && min_delay > 0 && pool->desired_frames_interval > min_delay) {
 		// Искусственное время задержки на основе желаемого FPS, если включен --desired-fps
+		// и аппаратный fps не попадает точно в желаемое значение
 		return pool->desired_frames_interval;
 	}
 	return min_delay;

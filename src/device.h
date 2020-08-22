@@ -60,6 +60,7 @@ struct device_runtime_t {
 	unsigned			width;
 	unsigned			height;
 	unsigned			format;
+	unsigned			hw_fps;
 	size_t				raw_size;
 	unsigned			n_buffers;
 	unsigned			n_workers;

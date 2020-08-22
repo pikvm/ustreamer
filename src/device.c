@@ -501,6 +501,8 @@ static int _device_open_format(struct device_t *dev) {
 static void _device_open_hw_fps(struct device_t *dev) {
 	struct v4l2_streamparm setfps;
 
+	dev->run->hw_fps = 0;
+
 	MEMSET_ZERO(setfps);
 	setfps.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
@@ -531,10 +533,21 @@ static void _device_open_hw_fps(struct device_t *dev) {
 		return;
 	}
 
-	if (dev->desired_fps != SETFPS_TPF(denominator)) {
-		LOG_INFO("Using HW FPS: %u -> %u (coerced)", dev->desired_fps, SETFPS_TPF(denominator));
+	if (SETFPS_TPF(numerator) != 1) {
+		LOG_ERROR("Invalid HW FPS numerator: %u != 1", SETFPS_TPF(numerator));
+		return;
+	}
+
+	if (SETFPS_TPF(denominator) == 0) { // Не знаю, бывает ли так, но пускай на всякий случай
+		LOG_ERROR("Invalid HW FPS denominator: 0");
+		return;
+	}
+
+	dev->run->hw_fps = SETFPS_TPF(denominator);
+	if (dev->desired_fps != dev->run->hw_fps) {
+		LOG_INFO("Using HW FPS: %u -> %u (coerced)", dev->desired_fps, dev->run->hw_fps);
 	} else {
-		LOG_INFO("Using HW FPS: %u", dev->desired_fps);
+		LOG_INFO("Using HW FPS: %u", dev->run->hw_fps);
 	}
 
 #	undef SETFPS_TPF
