@@ -4,4 +4,3 @@
 # Allow source code
 !Makefile
 !src/**
-
