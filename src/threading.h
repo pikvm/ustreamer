@@ -102,6 +102,7 @@ INLINE void thread_get_name(char *name) { // Always required for logging
 #	endif
 	if (retval < 0) {
 #endif
+
 #if defined(__linux__)
 		pid_t tid = syscall(SYS_gettid);
 #elif defined(__FreeBSD__)
@@ -113,9 +114,11 @@ INLINE void thread_get_name(char *name) { // Always required for logging
 #elif defined(__DragonFly__)
 		pid_t tid = syscall(SYS_lwp_gettid);
 #else
-#	error gettid() not implemented
+		pid_t tid = 0; // Makes cppcheck happy
+#	warning gettid() not implemented
 #endif
 		assert(snprintf(name, MAX_THREAD_NAME, "tid=%d", tid) > 0);
+
 #ifdef WITH_PTHREAD_NP
 	}
 #endif
