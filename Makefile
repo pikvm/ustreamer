@@ -37,6 +37,7 @@ endif
 ifneq ($(call optbool,$(WITH_GPIO)),)
 _LIBS += -lwiringPi
 override CFLAGS += -DWITH_GPIO
+_SRCS += $(shell ls src/gpio/*.c)
 endif
 
 

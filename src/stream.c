@@ -38,7 +38,7 @@
 #include "device.h"
 #include "encoder.h"
 #ifdef WITH_GPIO
-#	include "gpio.h"
+#	include "gpio/gpio.h"
 #endif
 
 

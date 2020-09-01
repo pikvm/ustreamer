@@ -44,7 +44,7 @@
 #include "stream.h"
 #include "http/server.h"
 #ifdef WITH_GPIO
-#	include "gpio.h"
+#	include "gpio/gpio.h"
 #endif
 
 

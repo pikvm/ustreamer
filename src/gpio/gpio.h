@@ -26,14 +26,14 @@
 
 #include <wiringPi.h>
 
-#include "tools.h"
-#include "logging.h"
+#include "../tools.h"
+#include "../logging.h"
 
 
-int gpio_pin_prog_running;
-int gpio_pin_stream_online;
-int gpio_pin_has_http_clients;
-int gpio_pin_workers_busy_at;
+extern int gpio_pin_prog_running;
+extern int gpio_pin_stream_online;
+extern int gpio_pin_has_http_clients;
+extern int gpio_pin_workers_busy_at;
 
 
 #define GPIO_INIT { \

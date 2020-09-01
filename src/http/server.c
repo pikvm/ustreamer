@@ -59,7 +59,7 @@
 #include "../encoder.h"
 #include "../stream.h"
 #ifdef WITH_GPIO
-#	include "../gpio.h"
+#	include "../gpio/gpio.h"
 #endif
 
 #include "unix.h"
