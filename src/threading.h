@@ -102,7 +102,20 @@ INLINE void thread_get_name(char *name) { // Always required for logging
 #	endif
 	if (retval < 0) {
 #endif
-		assert(snprintf(name, MAX_THREAD_NAME, "tid=%d", (pid_t)syscall(SYS_gettid)) > 0);
+#if defined(__linux__)
+		pid_t tid = syscall(SYS_gettid);
+#elif defined(__FreeBSD__)
+		pid_t tid = syscall(SYS_thr_self);
+#elif defined(__OpenBSD__)
+		pid_t tid = syscall(SYS_getthrid);
+#elif defined(__NetBSD__)
+		pid_t tid = syscall(SYS__lwp_self);
+#elif defined(__DragonFly__)
+		pid_t tid = syscall(SYS_lwp_gettid);
+#else
+#	error gettid() not implemented
+#endif
+		assert(snprintf(name, MAX_THREAD_NAME, "tid=%d", tid) > 0);
 #ifdef WITH_PTHREAD_NP
 	}
 #endif
