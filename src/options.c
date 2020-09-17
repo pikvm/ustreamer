@@ -103,10 +103,11 @@ enum _OPT_VALUES {
 	_O_SERVER_TIMEOUT,
 
 #ifdef WITH_GPIO
+	_O_GPIO_DEVICE,
+	_O_GPIO_CONSUMER_PREFIX,
 	_O_GPIO_PROG_RUNNING,
 	_O_GPIO_STREAM_ONLINE,
 	_O_GPIO_HAS_HTTP_CLIENTS,
-	_O_GPIO_WORKERS_BUSY_AT,
 #endif
 
 #ifdef HAS_PDEATHSIG
@@ -179,10 +180,11 @@ static const struct option _LONG_OPTS[] = {
 	{"server-timeout",			required_argument,	NULL,	_O_SERVER_TIMEOUT},
 
 #ifdef WITH_GPIO
+	{"gpio-device",				required_argument,	NULL,	_O_GPIO_DEVICE},
+	{"gpio-consumer-prefix",	required_argument,	NULL,	_O_GPIO_CONSUMER_PREFIX},
 	{"gpio-prog-running",		required_argument,	NULL,	_O_GPIO_PROG_RUNNING},
 	{"gpio-stream-online",		required_argument,	NULL,	_O_GPIO_STREAM_ONLINE},
 	{"gpio-has-http-clients",	required_argument,	NULL,	_O_GPIO_HAS_HTTP_CLIENTS},
-	{"gpio-workers-busy-at",	required_argument,	NULL,	_O_GPIO_WORKERS_BUSY_AT},
 #endif
 
 #ifdef HAS_PDEATHSIG
@@ -400,10 +402,11 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 			case _O_SERVER_TIMEOUT:		OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
 #			ifdef WITH_GPIO
-			case _O_GPIO_PROG_RUNNING:		OPT_NUMBER("--gpio-prog-running", gpio_pin_prog_running, 0, 256, 0);
-			case _O_GPIO_STREAM_ONLINE:		OPT_NUMBER("--gpio-stream-online", gpio_pin_stream_online, 0, 256, 0);
-			case _O_GPIO_HAS_HTTP_CLIENTS:	OPT_NUMBER("--gpio-has-http-clients", gpio_pin_has_http_clients, 0, 256, 0);
-			case _O_GPIO_WORKERS_BUSY_AT:	OPT_NUMBER("--gpio-workers-busy-at", gpio_pin_workers_busy_at, 0, 256, 0);
+			case _O_GPIO_DEVICE:			OPT_SET(gpio.path, optarg);
+			case _O_GPIO_CONSUMER_PREFIX:	OPT_SET(gpio.consumer_prefix, optarg);
+			case _O_GPIO_PROG_RUNNING:		OPT_NUMBER("--gpio-prog-running", gpio.prog_running.pin, 0, 256, 0);
+			case _O_GPIO_STREAM_ONLINE:		OPT_NUMBER("--gpio-stream-online", gpio.stream_online.pin, 0, 256, 0);
+			case _O_GPIO_HAS_HTTP_CLIENTS:	OPT_NUMBER("--gpio-has-http-clients", gpio.has_http_clients.pin, 0, 256, 0);
 #			endif
 
 #			ifdef HAS_PDEATHSIG
@@ -646,11 +649,11 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 #ifdef WITH_GPIO
 	printf("GPIO options:\n");
 	printf("═════════════\n");
+	printf("    --gpio-device </dev/path>  ───── Path to GPIO character device. Default: %s.\n\n", gpio.path);
+	printf("    --gpio-consumer-prefix <str>  ── Consumer prefix for GPIO outputs. Default: %s.\n\n", gpio.consumer_prefix);
 	printf("    --gpio-prog-running <pin>  ───── Set 1 on GPIO pin while uStreamer is running. Default: disabled.\n\n");
 	printf("    --gpio-stream-online <pin>  ──── Set 1 while streaming. Default: disabled\n\n");
 	printf("    --gpio-has-http-clients <pin>  ─ Set 1 while stream has at least one client. Default: disabled.\n\n");
-	printf("    --gpio-workers-busy-at <pin>  ── Set 1 on (pin + N) while worker with number N has a job.\n");
-	printf("                                     The worker's numbering starts from 0. Default: disabled\n\n");
 #endif
 #if (defined(HAS_PDEATHSIG) || defined(WITH_SETPROCTITLE))
 	printf("Process options:\n");

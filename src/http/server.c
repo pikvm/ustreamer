@@ -537,7 +537,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 			}
 
 #			ifdef WITH_GPIO
-			GPIO_SET_HIGH(has_http_clients);
+			gpio_set_has_http_clients(true);
 #			endif
 		}
 
@@ -711,7 +711,7 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 		}
 
 #		ifdef WITH_GPIO
-		GPIO_SET_LOW(has_http_clients);
+		gpio_set_has_http_clients(false);
 #		endif
 	}
 

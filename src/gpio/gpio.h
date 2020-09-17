@@ -22,75 +22,62 @@
 
 #pragma once
 
-#include <stdlib.h>
+#include <stdbool.h>
 
-#include <wiringPi.h>
+#include <pthread.h>
+#include <gpiod.h>
 
 #include "../tools.h"
 #include "../logging.h"
 
 
-extern int gpio_pin_prog_running;
-extern int gpio_pin_stream_online;
-extern int gpio_pin_has_http_clients;
-extern int gpio_pin_workers_busy_at;
+struct gpio_output_t {
+	int					pin;
+	const char			*role;
+	char 				*consumer;
+	struct gpiod_line	*line;
+	bool				state;
+};
+
+struct gpio_t {
+	char *path;
+	char *consumer_prefix;
+
+	struct gpio_output_t prog_running;
+	struct gpio_output_t stream_online;
+	struct gpio_output_t has_http_clients;
+
+	pthread_mutex_t		mutex;
+	struct gpiod_chip	*chip;
+};
 
 
-#define GPIO_INIT { \
-		gpio_pin_prog_running = -1; \
-		gpio_pin_stream_online = -1; \
-		gpio_pin_has_http_clients = -1; \
-		gpio_pin_workers_busy_at = -1; \
-	}
+extern struct gpio_t gpio;
 
-#define GPIO_INIT_PIN(_role, _offset) _gpio_init_pin(#_role, gpio_pin_##_role, _offset)
 
-INLINE void _gpio_init_pin(const char *role, int base, unsigned offset) {
-	if (base >= 0) {
-		pinMode(base + offset, OUTPUT);
-		if (offset == 0) {
-			LOG_INFO("GPIO: Using pin %d as %s", base, role);
-		} else {
-			LOG_INFO("GPIO: Using pin %d+%u as %s", base, offset, role);
-		}
-	}
-}
+void gpio_init(void);
+void gpio_destroy(void);
+int gpio_inner_set(struct gpio_output_t *output, bool state);
 
-#define GPIO_INIT_PINOUT { \
-		if ( \
-			gpio_pin_prog_running >= 0 \
-			|| gpio_pin_stream_online >= 0 \
-			|| gpio_pin_has_http_clients >= 0 \
-			|| gpio_pin_workers_busy_at >= 0 \
-		) { \
-			LOG_INFO("GPIO: Using wiringPi"); \
-			if (wiringPiSetupGpio() < 0) { \
-				LOG_PERROR("GPIO: Can't initialize wiringPi"); \
-				exit(1); \
-			} else { \
-				GPIO_INIT_PIN(prog_running, 0); \
-				GPIO_INIT_PIN(stream_online, 0); \
-				GPIO_INIT_PIN(has_http_clients, 0); \
-				GPIO_INIT_PIN(workers_busy_at, 0); \
+
+#define SET_STATE(_output, _state) { \
+		if (_output.line && _output.state != _state) { \
+			if (!gpio_inner_set(&_output, _state)) { \
+				_output.state = _state; \
 			} \
 		} \
 	}
 
-#define GPIO_SET_STATE(_role, _offset, _state) _gpio_set_state(#_role, gpio_pin_##_role, _offset, _state)
-
-INLINE void _gpio_set_state(const char *role, int base, unsigned offset, int state) {
-	if (base >= 0) {
-		if (offset == 0) {
-			LOG_DEBUG("GPIO: Writing %d to pin %d (%s)", state, base, role);
-		} else {
-			LOG_DEBUG("GPIO: Writing %d to pin %d+%u (%s)", state, base, offset, role);
-		}
-		digitalWrite(base + offset, state);
-	}
+INLINE void gpio_set_prog_running(bool state) {
+	SET_STATE(gpio.prog_running, state);
 }
 
-#define GPIO_SET_LOW(_role)		GPIO_SET_STATE(_role, 0, LOW)
-#define GPIO_SET_HIGH(_role)	GPIO_SET_STATE(_role, 0, HIGH)
+INLINE void gpio_set_stream_online(bool state) {
+	SET_STATE(gpio.stream_online, state);
+}
 
-#define GPIO_SET_LOW_AT(_role, _offset)		GPIO_SET_STATE(_role, _offset, LOW)
-#define GPIO_SET_HIGH_AT(_role, _offset)	GPIO_SET_STATE(_role, _offset, HIGH)
+INLINE void gpio_set_has_http_clients(bool state) {
+	SET_STATE(gpio.has_http_clients, state);
+}
+
+#undef SET_STATE
