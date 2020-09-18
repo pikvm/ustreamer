@@ -25,6 +25,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#include <pthread.h>
 #include <linux/videodev2.h>
 
 #include "picture.h"
@@ -53,6 +54,9 @@ struct hw_buffer_t {
 	size_t				used;
 	size_t				allocated;
 	struct v4l2_buffer	buf_info;
+
+	pthread_mutex_t grabbed_mutex;
+	bool			grabbed;
 };
 
 struct device_runtime_t {
