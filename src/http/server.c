@@ -291,8 +291,25 @@ static int _http_preprocess_request(struct evhttp_request *request, struct http_
 static void _http_callback_root(struct evhttp_request *request, void *v_server) {
 	struct http_server_t *server = (struct http_server_t *)v_server;
 	struct evbuffer *buf;
+	// Variables to make mjpg_streamer compatibility
+        const char *action;
+        struct evkeyvalq args;
+	// End
 
-	PREPROCESS_REQUEST;
+        PREPROCESS_REQUEST;
+
+	// Variables to make mjpg_streamer compatibility
+        evhttp_parse_query(evhttp_request_get_uri(request), &args);
+        action = evhttp_find_header(&args, "action");
+        if ( strcmp( action, "snapshot" ) == 0 ) {
+                _http_callback_snapshot(request, (void *)v_server);
+                return;
+        }
+        if ( strcmp( action, "stream" ) == 0 ) {
+                _http_callback_stream(request, (void *)v_server);
+                return;
+        }
+	// End
 
 	assert((buf = evbuffer_new()));
 	assert(evbuffer_add_printf(buf, "%s", HTML_INDEX_PAGE));
