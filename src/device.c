@@ -209,7 +209,7 @@ void device_close(struct device_t *dev) {
 	}
 
 	if (dev->run->hw_buffers) {
-		LOG_DEBUG("Releasing HW buffers ...");
+		LOG_DEBUG("Releasing device buffers ...");
 		for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
 #			define HW_BUFFER(_next) dev->run->hw_buffers[index]._next
 
@@ -301,15 +301,15 @@ int device_grab_buffer(struct device_t *dev) {
 	buf_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	buf_info.memory = dev->io_method;
 
-	LOG_DEBUG("Calling ioctl(VIDIOC_DQBUF) ...");
+	LOG_DEBUG("Grabbing device buffer ...");
 	if (xioctl(dev->run->fd, VIDIOC_DQBUF, &buf_info) < 0) {
-		LOG_PERROR("Unable to dequeue buffer");
+		LOG_PERROR("Unable to grab device buffer");
 		return -1;
 	}
 
-	LOG_DEBUG("Got a new frame in buffer: index=%u, bytesused=%u", buf_info.index, buf_info.bytesused);
+	LOG_DEBUG("Grabbed new frame in device buffer: index=%u, bytesused=%u", buf_info.index, buf_info.bytesused);
 	if (buf_info.index >= dev->run->n_buffers) {
-		LOG_ERROR("Got invalid buffer: index=%u, nbuffers=%u", buf_info.index, dev->run->n_buffers);
+		LOG_ERROR("Grabbed invalid device buffer: index=%u, nbuffers=%u", buf_info.index, dev->run->n_buffers);
 		return -1;
 	}
 
@@ -320,9 +320,9 @@ int device_grab_buffer(struct device_t *dev) {
 }
 
 int device_release_buffer(struct device_t *dev, unsigned index) {
-	LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) ...");
+	LOG_DEBUG("Releasing device buffer index=%u ...", index);
 	if (xioctl(dev->run->fd, VIDIOC_QBUF, &dev->run->hw_buffers[index].buf_info) < 0) {
-		LOG_PERROR("Unable to requeue buffer");
+		LOG_PERROR("Unable to release device buffer index=%u", index);
 		return -1;
 	}
 	dev->run->hw_buffers[index].used = 0;
@@ -581,10 +581,10 @@ static int _device_open_io_method_mmap(struct device_t *dev) {
 		LOG_ERROR("Insufficient buffer memory: %u", req.count);
 		return -1;
 	} else {
-		LOG_INFO("Requested %u HW buffers, got %u", dev->n_buffers, req.count);
+		LOG_INFO("Requested %u device buffers, got %u", dev->n_buffers, req.count);
 	}
 
-	LOG_DEBUG("Allocating HW buffers ...");
+	LOG_DEBUG("Allocating device buffers ...");
 
 	A_CALLOC(dev->run->hw_buffers, req.count);
 	for (dev->run->n_buffers = 0; dev->run->n_buffers < req.count; ++dev->run->n_buffers) {
@@ -636,10 +636,10 @@ static int _device_open_io_method_userptr(struct device_t *dev) {
 		LOG_ERROR("Insufficient buffer memory: %u", req.count);
 		return -1;
 	} else {
-		LOG_INFO("Requested %u HW buffers, got %u", dev->n_buffers, req.count);
+		LOG_INFO("Requested %u device buffers, got %u", dev->n_buffers, req.count);
 	}
 
-	LOG_DEBUG("Allocating HW buffers ...");
+	LOG_DEBUG("Allocating device buffers ...");
 
 	A_CALLOC(dev->run->hw_buffers, req.count);
 	for (dev->run->n_buffers = 0; dev->run->n_buffers < req.count; ++dev->run->n_buffers) {
