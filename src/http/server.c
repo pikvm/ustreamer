@@ -301,14 +301,16 @@ static void _http_callback_root(struct evhttp_request *request, void *v_server) 
 	// Variables to make mjpg_streamer compatibility
         evhttp_parse_query(evhttp_request_get_uri(request), &args);
         action = evhttp_find_header(&args, "action");
-        if ( strcmp( action, "snapshot" ) == 0 ) {
-                _http_callback_snapshot(request, (void *)v_server);
-                return;
-        }
-        if ( strcmp( action, "stream" ) == 0 ) {
-                _http_callback_stream(request, (void *)v_server);
-                return;
-        }
+	if ( action != NULL ) {
+	        if ( strcmp( action, "snapshot" ) == 0 ) {
+        	        _http_callback_snapshot(request, (void *)v_server);
+                	return;
+	        }
+        	if ( strcmp( action, "stream" ) == 0 ) {
+                	_http_callback_stream(request, (void *)v_server);
+	                return;
+        	}
+	}
 	// End
 
 	assert((buf = evbuffer_new()));
