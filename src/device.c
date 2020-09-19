@@ -41,6 +41,7 @@
 
 #include "tools.h"
 #include "logging.h"
+#include "threading.h"
 #include "xioctl.h"
 #include "picture.h"
 
@@ -224,6 +225,7 @@ void device_close(struct device_t *dev) {
 					free(HW_BUFFER(data));
 				}
 			}
+			A_MUTEX_DESTROY(&HW_BUFFER(grabbed_mutex));
 
 #			undef HW_BUFFER
 		}
@@ -307,25 +309,51 @@ int device_grab_buffer(struct device_t *dev) {
 		return -1;
 	}
 
-	LOG_DEBUG("Grabbed new frame in device buffer: index=%u, bytesused=%u", buf_info.index, buf_info.bytesused);
+	LOG_DEBUG("Grabbed new frame in device buffer: index=%u, bytesused=%u",
+		buf_info.index, buf_info.bytesused);
+
 	if (buf_info.index >= dev->run->n_buffers) {
-		LOG_ERROR("Grabbed invalid device buffer: index=%u, nbuffers=%u", buf_info.index, dev->run->n_buffers);
+		LOG_ERROR("V4L2 error: grabbed invalid device buffer: index=%u, nbuffers=%u",
+			buf_info.index, dev->run->n_buffers);
 		return -1;
 	}
 
-	dev->run->hw_buffers[buf_info.index].used = buf_info.bytesused;
-	memcpy(&dev->run->hw_buffers[buf_info.index].buf_info, &buf_info, sizeof(struct v4l2_buffer));
+#	define HW_BUFFER(_next) dev->run->hw_buffers[buf_info.index]._next
+
+	A_MUTEX_LOCK(&HW_BUFFER(grabbed_mutex));
+	if (HW_BUFFER(grabbed)) {
+		LOG_ERROR("V4L2 error: grabbed device buffer is already used: index=%u, bytesused=%u",
+			buf_info.index, buf_info.bytesused);
+		A_MUTEX_UNLOCK(&HW_BUFFER(grabbed_mutex));
+		return -1;
+	}
+	HW_BUFFER(grabbed) = true;
+	A_MUTEX_UNLOCK(&HW_BUFFER(grabbed_mutex));
+
+	HW_BUFFER(used) = buf_info.bytesused;
+	memcpy(&HW_BUFFER(buf_info), &buf_info, sizeof(struct v4l2_buffer));
 	dev->run->pictures[buf_info.index]->grab_ts = get_now_monotonic();
+
+#	undef HW_BUFFER
 	return buf_info.index;
 }
 
 int device_release_buffer(struct device_t *dev, unsigned index) {
+#	define HW_BUFFER(_next) dev->run->hw_buffers[index]._next
+
 	LOG_DEBUG("Releasing device buffer index=%u ...", index);
-	if (xioctl(dev->run->fd, VIDIOC_QBUF, &dev->run->hw_buffers[index].buf_info) < 0) {
+
+	A_MUTEX_LOCK(&HW_BUFFER(grabbed_mutex));
+	if (xioctl(dev->run->fd, VIDIOC_QBUF, &HW_BUFFER(buf_info)) < 0) {
 		LOG_PERROR("Unable to release device buffer index=%u", index);
+		A_MUTEX_UNLOCK(&HW_BUFFER(grabbed_mutex));
 		return -1;
 	}
-	dev->run->hw_buffers[index].used = 0;
+	HW_BUFFER(grabbed) = false;
+	A_MUTEX_UNLOCK(&HW_BUFFER(grabbed_mutex));
+	HW_BUFFER(used) = 0;
+
+#	undef HW_BUFFER
 	return 0;
 }
 
@@ -602,6 +630,8 @@ static int _device_open_io_method_mmap(struct device_t *dev) {
 		}
 
 #		define HW_BUFFER(_next) dev->run->hw_buffers[dev->run->n_buffers]._next
+
+		A_MUTEX_INIT(&HW_BUFFER(grabbed_mutex));
 
 		LOG_DEBUG("Mapping device buffer %u ...", dev->run->n_buffers);
 		HW_BUFFER(data) = mmap(NULL, buf_info.length, PROT_READ|PROT_WRITE, MAP_SHARED, dev->run->fd, buf_info.m.offset);
