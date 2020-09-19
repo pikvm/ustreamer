@@ -309,10 +309,12 @@ int device_grab_buffer(struct device_t *dev) {
 		return -1;
 	}
 
-	LOG_DEBUG("Grabbed new frame in device buffer: index=%u, bytesused=%u", buf_info.index, buf_info.bytesused);
+	LOG_DEBUG("Grabbed new frame in device buffer: index=%u, bytesused=%u",
+		buf_info.index, buf_info.bytesused);
 
 	if (buf_info.index >= dev->run->n_buffers) {
-		LOG_ERROR("Grabbed invalid device buffer: index=%u, nbuffers=%u", buf_info.index, dev->run->n_buffers);
+		LOG_ERROR("V4L2 error: grabbed invalid device buffer: index=%u, nbuffers=%u",
+			buf_info.index, dev->run->n_buffers);
 		return -1;
 	}
 
@@ -320,7 +322,8 @@ int device_grab_buffer(struct device_t *dev) {
 
 	A_MUTEX_LOCK(&HW_BUFFER(grabbed_mutex));
 	if (HW_BUFFER(grabbed)) {
-		LOG_ERROR("V4L2 error: grabbed buffer is already used: index=%u, bytesused=%u", buf_info.index, buf_info.bytesused);
+		LOG_ERROR("V4L2 error: grabbed device buffer is already used: index=%u, bytesused=%u",
+			buf_info.index, buf_info.bytesused);
 		A_MUTEX_UNLOCK(&HW_BUFFER(grabbed_mutex));
 		return -1;
 	}
