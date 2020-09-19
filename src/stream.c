@@ -185,7 +185,7 @@ void stream_loop(struct stream_t *stream) {
 
 			} else if (selected == 0) {
 #				ifdef WITH_GPIO
-				GPIO_SET_LOW(stream_online);
+				gpio_set_stream_online(false);
 #				endif
 
 				if (stream->dev->persistent) {
@@ -207,7 +207,7 @@ void stream_loop(struct stream_t *stream) {
 					LOG_DEBUG("Frame is ready");
 
 #					ifdef WITH_GPIO
-					GPIO_SET_HIGH(stream_online);
+					gpio_set_stream_online(true);
 #					endif
 
 					int buf_index;
@@ -288,7 +288,7 @@ void stream_loop(struct stream_t *stream) {
 		device_close(stream->dev);
 
 #		ifdef WITH_GPIO
-		GPIO_SET_LOW(stream_online);
+		gpio_set_stream_online(false);
 #		endif
 	}
 }
@@ -431,16 +431,8 @@ static void *_worker_thread(void *v_worker) {
 	A_THREAD_RENAME("worker-%u", worker->number);
 	LOG_DEBUG("Hello! I am a worker #%u ^_^", worker->number);
 
-#	ifdef WITH_GPIO
-	GPIO_INIT_PIN(workers_busy_at, worker->number);
-#	endif
-
 	while (!atomic_load(worker->proc_stop) && !atomic_load(worker->workers_stop)) {
 		LOG_DEBUG("Worker %u waiting for a new job ...", worker->number);
-
-#		ifdef WITH_GPIO
-		GPIO_SET_LOW_AT(workers_busy_at, worker->number);
-#		endif
 
 		A_MUTEX_LOCK(&worker->has_job_mutex);
 		A_COND_WAIT_TRUE(atomic_load(&worker->has_job), &worker->has_job_cond, &worker->has_job_mutex);
@@ -450,10 +442,6 @@ static void *_worker_thread(void *v_worker) {
 #			define PICTURE(_next) worker->dev->run->pictures[worker->buf_index]->_next
 
 			LOG_DEBUG("Worker %u compressing JPEG from buffer %u ...", worker->number, worker->buf_index);
-
-#			ifdef WITH_GPIO
-			GPIO_SET_HIGH_AT(workers_busy_at, worker->number);
-#			endif
 
 			worker->job_failed = (bool)encoder_compress_buffer(worker->encoder, worker->dev, worker->number, worker->buf_index);
 
@@ -483,9 +471,6 @@ static void *_worker_thread(void *v_worker) {
 	}
 
 	LOG_DEBUG("Bye-bye (worker %u)", worker->number);
-#	ifdef WITH_GPIO
-	GPIO_SET_LOW_AT(workers_busy_at, worker->number);
-#	endif
 	return NULL;
 }
 

@@ -6,7 +6,7 @@ RUN apt-get update \
 		libjpeg8-dev \
 		libbsd-dev \
 		libraspberrypi-dev \
-		wiringpi \
+		libgpiod-dev \
 	&& rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build/ustreamer/
@@ -22,7 +22,7 @@ RUN apt-get update \
 		libjpeg8 \
 		uuid \
 		libbsd0 \
-		wiringpi \
+		libgpiod2 \
 	&& rm -rf /var/lib/apt/lists/*
 
 WORKDIR /ustreamer

@@ -10,11 +10,12 @@ RUN apt-get update \
 		libjpeg62-turbo-dev \
 		uuid-dev \
 		libbsd-dev \
+		libgpiod-dev \
 	&& rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build/ustreamer/
 COPY . .
-RUN make -j5
+RUN make -j5 WITH_GPIO=1
 
 FROM debian:buster-slim as run
 
@@ -26,6 +27,7 @@ RUN apt-get update \
 		libjpeg62-turbo \
 		uuid \
 		libbsd0 \
+		libgpiod2 \
 	&& rm -rf /var/lib/apt/lists/*
 
 WORKDIR /ustreamer

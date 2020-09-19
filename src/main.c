@@ -31,6 +31,7 @@
 #endif
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <signal.h>
 
 #include <pthread.h>
@@ -114,10 +115,6 @@ int main(int argc, char *argv[]) {
 	A_THREAD_RENAME("main");
 	options = options_init(argc, argv);
 
-#	ifdef WITH_GPIO
-	GPIO_INIT;
-#	endif
-
 	dev = device_init();
 	encoder = encoder_init();
 	stream = stream_init(dev, encoder);
@@ -125,7 +122,7 @@ int main(int argc, char *argv[]) {
 
 	if ((exit_code = options_parse(options, dev, encoder, server)) == 0) {
 #		ifdef WITH_GPIO
-		GPIO_INIT_PINOUT;
+		gpio_init();
 #		endif
 
 		_install_signal_handlers();
@@ -140,7 +137,7 @@ int main(int argc, char *argv[]) {
 
 		if ((exit_code = http_server_listen(server)) == 0) {
 #			ifdef WITH_GPIO
-			GPIO_SET_HIGH(prog_running);
+			gpio_set_prog_running(true);
 #			endif
 
 			A_THREAD_CREATE(&stream_loop_tid, _stream_loop_thread, NULL);
@@ -148,16 +145,17 @@ int main(int argc, char *argv[]) {
 			A_THREAD_JOIN(server_loop_tid);
 			A_THREAD_JOIN(stream_loop_tid);
 		}
+
+#		ifdef WITH_GPIO
+		gpio_set_prog_running(false);
+		gpio_destroy();
+#		endif
 	}
 
 	http_server_destroy(server);
 	stream_destroy(stream);
 	encoder_destroy(encoder);
 	device_destroy(dev);
-
-#	ifdef WITH_GPIO
-	GPIO_SET_LOW(prog_running);
-#	endif
 
 	options_destroy(options);
 	if (exit_code == 0) {
