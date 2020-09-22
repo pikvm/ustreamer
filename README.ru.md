@@ -58,6 +58,8 @@ $ ./ustreamer --help
 # ./ustreamer --device=/dev/video1 --host=0.0.0.0 --port=80
 ```
 
+:exclamation: Обратите внимание, что начиная с версии µStreamer v2.0 кросс-доменные запросы были выключены по умолчанию [по соображениям безопасности](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS). Чтобы включить старое поведение, используйте опцию `--allow-origin=*`.
+
 Рекомендуемый способ запуска µStreamer для работы с [Auvidea B101](https://www.raspberrypi.org/forums/viewtopic.php?f=38&t=120702&start=400#p1339178) на Raspberry Pi:
 ```bash
 $ ./ustreamer \
