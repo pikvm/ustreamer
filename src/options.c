@@ -99,6 +99,7 @@ enum _OPT_VALUES {
 	_O_USER,
 	_O_PASSWD,
 	_O_STATIC,
+	_O_ALLOW_ORIGIN,
 	_O_TCP_NODELAY,
 	_O_SERVER_TIMEOUT,
 
@@ -175,6 +176,7 @@ static const struct option _LONG_OPTS[] = {
 	{"last-as-blank",			required_argument,	NULL,	_O_LAST_AS_BLANK},
 	{"drop-same-frames",		required_argument,	NULL,	_O_DROP_SAME_FRAMES},
 	{"slowdown",				no_argument,		NULL,	_O_SLOWDOWN},
+	{"allow-origin",			required_argument,	NULL,	_O_ALLOW_ORIGIN},
 	{"fake-resolution",			required_argument,	NULL,	_O_FAKE_RESOLUTION},
 	{"tcp-nodelay",				no_argument,		NULL,	_O_TCP_NODELAY},
 	{"server-timeout",			required_argument,	NULL,	_O_SERVER_TIMEOUT},
@@ -398,6 +400,7 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 			case _O_DROP_SAME_FRAMES:	OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, VIDEO_MAX_FPS, 0);
 			case _O_SLOWDOWN:			OPT_SET(server->slowdown, true);
 			case _O_FAKE_RESOLUTION:	OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, false);
+			case _O_ALLOW_ORIGIN:		OPT_SET(server->allow_origin, optarg);
 			case _O_TCP_NODELAY:		OPT_SET(server->tcp_nodelay, true);
 			case _O_SERVER_TIMEOUT:		OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
@@ -645,6 +648,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    -R|--fake-resolution <WxH>  ─ Override image resolution for the /state. Default: disabled.\n\n");
 	printf("    --tcp-nodelay  ────────────── Set TCP_NODELAY flag to the client /stream socket. Ignored for --unix.\n");
 	printf("                                  Default: disabled.\n\n");
+	printf("    --allow-origin <str>  ─────── Set Access-Control-Allow-Origin header. Default: disabled.\n\n");
 	printf("    --server-timeout <sec>  ───── Timeout for client connections. Default: %u.\n\n", server->timeout);
 #ifdef WITH_GPIO
 	printf("GPIO options:\n");
