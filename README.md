@@ -19,7 +19,7 @@
 | Streaming via UNIX domain socket | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Debug logs without recompiling,<br>performance statistics log,<br>access to HTTP streaming parameters | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Option to serve files<br>with a built-in HTTP server | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#ffaa00](https://placehold.it/15/ffaa00/000000?text=+) Regular files only |
-| Signaling about the stream state to GPIO using [libgpiod](https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/about) | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
+| Signaling about the stream state<br>on GPIO using [libgpiod](https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/about) | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Access to webcam controls (focus, servos)<br>and settings such as brightness via HTTP | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes |
 
 Footnotes:
@@ -58,7 +58,7 @@ Without arguments, ```ustreamer``` will try to open ```/dev/video0``` with 640x4
 # ./ustreamer --device=/dev/video1 --host=0.0.0.0 --port=80
 ```
 
-:exclamation: Please not that since µStreamer v2.0 cross-domain requests were disabled by default for [security reasons](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS). To enable the old behavior, use the option `--allow-origin=*`.
+:exclamation: Please note that since µStreamer v2.0 cross-domain requests were disabled by default for [security reasons](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS). To enable the old behavior, use the option `--allow-origin=\*`.
 
 The recommended way of running µStreamer with [Auvidea B101](https://www.raspberrypi.org/forums/viewtopic.php?f=38&t=120702&start=400#p1339178) on Raspberry Pi:
 ```bash
@@ -71,7 +71,7 @@ $ ./ustreamer \
     --drop-same-frames=30 # Save the traffic
 ```
 
-Please note that to use `--drop-same-frames` for different browsers you need to use some specific URL `/stream` parameters (see URL `/` for details).
+:exclamation: Please note that to use `--drop-same-frames` for different browsers you need to use some specific URL `/stream` parameters (see URL `/` for details).
 
 You can always view the full list of options with ```ustreamer --help```.
 
