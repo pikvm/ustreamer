@@ -58,6 +58,8 @@ Without arguments, ```ustreamer``` will try to open ```/dev/video0``` with 640x4
 # ./ustreamer --device=/dev/video1 --host=0.0.0.0 --port=80
 ```
 
+:exclamation: Since µStreamer v2.0 cross-domain requests were disabled by default for [security reasons](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS). To enable the old behavior, use the option `--allow-origin=*`.
+
 The recommended way of running µStreamer with [Auvidea B101](https://www.raspberrypi.org/forums/viewtopic.php?f=38&t=120702&start=400#p1339178) on Raspberry Pi:
 ```bash
 $ ./ustreamer \
