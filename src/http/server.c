@@ -112,6 +112,7 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	server->user = "";
 	server->passwd = "";
 	server->static_path = "";
+	server->allow_origin = "";
 	server->timeout = 10;
 	server->last_as_blank = -1;
 	server->run = run;
@@ -456,7 +457,9 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	assert((buf = evbuffer_new()));
 	assert(!evbuffer_add(buf, (const void *)EXPOSED(picture->data), EXPOSED(picture->used)));
 
-	ADD_HEADER("Access-Control-Allow-Origin:", "*");
+	if (server->allow_origin[0] != '\0') {
+		ADD_HEADER("Access-Control-Allow-Origin", server->allow_origin);
+	}
 	ADD_HEADER("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, pre-check=0, post-check=0, max-age=0");
 	ADD_HEADER("Pragma", "no-cache");
 	ADD_HEADER("Expires", "Mon, 3 Jan 2000 12:34:56 GMT");
@@ -620,9 +623,11 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"Content-Type: image/jpeg" RN "X-Timestamp: %.06Lf" RN RN, get_now_real()))
 
 	if (client->need_initial) {
+		assert(evbuffer_add_printf(buf, "HTTP/1.0 200 OK" RN));
+		if (client->server->allow_origin[0] != '\0') {
+			assert(evbuffer_add_printf(buf, "Access-Control-Allow-Origin: %s" RN, client->server->allow_origin));
+		}
 		assert(evbuffer_add_printf(buf,
-			"HTTP/1.0 200 OK" RN
-			"Access-Control-Allow-Origin: *" RN
 			"Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, pre-check=0, post-check=0, max-age=0" RN
 			"Pragma: no-cache" RN
 			"Expires: Mon, 3 Jan 2000 12:34:56 GMT" RN

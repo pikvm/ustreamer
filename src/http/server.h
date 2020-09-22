@@ -97,6 +97,7 @@ struct http_server_t {
 	char		*user;
 	char		*passwd;
 	char		*static_path;
+	char		*allow_origin;
 
 	char		*blank_path;
 	int			last_as_blank;
