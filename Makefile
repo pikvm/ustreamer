@@ -97,7 +97,7 @@ release:
 	make clean
 	make tox
 	make push
-	make bump
+	make bump V=$(V)
 	make push
 	make clean
 
