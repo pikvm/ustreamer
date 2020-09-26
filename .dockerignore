@@ -2,5 +2,6 @@
 *
 
 # Allow source code
+!.github/workflows/*.sh
 !Makefile
 !src/**

@@ -1,0 +1,70 @@
+name: Build
+on:
+  - push
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup environment
+        run: sudo ./.github/workflows/setup-environment.sh
+      - name: Build
+        run: |
+          set -euxo pipefail
+          # create a local buildx builder.
+          DOCKER_CLI_EXPERIMENTAL=enabled \
+            docker buildx create \
+              --name local \
+              --driver docker-container \
+              --driver-opt network=host \
+              --use
+          DOCKER_CLI_EXPERIMENTAL=enabled \
+            docker buildx ls
+          # build the images for the given platforms.
+          # NB we cannot enable linux/arm64 because OMX does not seem to build
+          #    in 64-bit mode. the build with fail with:
+          #       == CFLAGS  = -O3 -c -std=c11 -Wall -Wextra -D_GNU_SOURCE -DWITH_OMX -DOMX_SKIP64BIT -I/opt/vc/include -DWITH_GPIO -DWITH_PTHREAD_NP -DWITH_SETPROCTITLE
+          #       == LDFLAGS = 
+          #       /usr/bin/ld: cannot find -lopenmaxil
+          DOCKER_CLI_EXPERIMENTAL=enabled \
+            docker buildx build \
+              --file pkg/docker/Dockerfile \
+              --tag localhost:5000/ustreamer \
+              --output type=registry \
+              --platform linux/amd64,linux/arm/v7 \
+              --progress plain \
+              .
+      - name: Show image manifest
+        run: |
+          set -euxo pipefail
+          http get http://localhost:5000/v2/_catalog
+          http get http://localhost:5000/v2/ustreamer/tags/list
+          http get \
+            http://localhost:5000/v2/ustreamer/manifests/latest \
+            Accept:application/vnd.docker.distribution.manifest.list.v2+json
+          skopeo inspect --raw docker://localhost:5000/ustreamer
+      - name: Use native container
+        run: |
+          set -euxo pipefail
+          docker rmi -f localhost:5000/ustreamer
+          docker run --rm -t localhost:5000/ustreamer --version
+          docker run --rm -t localhost:5000/ustreamer --features
+      - name: Use linux/arm/v7 emulated container
+        run: |
+          set -euxo pipefail
+          docker rmi -f localhost:5000/ustreamer
+          docker run --platform linux/arm/v7 --rm -t localhost:5000/ustreamer --version
+          docker run --platform linux/arm/v7 --rm -t localhost:5000/ustreamer --features
+      - name: Publish to Docker Hub
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+          DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+        run: |
+          image_name='ustreamer'
+          image_tag="$(echo "$GITHUB_REF" | sed -E 's,^refs/tags/,,')"
+          skopeo copy --all \
+            --dest-creds "$DOCKER_HUB_USER:$DOCKER_HUB_ACCESS_TOKEN" \
+            docker://localhost:5000/ustreamer \
+            docker://docker.io/$DOCKER_HUB_USER/$image_name:$image_tag

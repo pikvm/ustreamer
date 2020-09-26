@@ -52,6 +52,45 @@ $ ./ustreamer --help
 AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer. It should compile automatically with OpenMAX IL on Raspberry Pi, if the corresponding headers are present in ```/opt/vc/include```.  
 FreeBSD port: https://www.freshports.org/multimedia/ustreamer.
 
+## Building (Docker on Raspbian on Raspberry Pi 4)
+
+Build ustreamer:
+
+```bash
+docker build --file pkg/docker/Dockerfile --tag ustreamer .
+```
+
+Set the hdmi-to-csi bridge EDID:
+
+```bash
+wget -qO tc358743-edid.hex https://raw.githubusercontent.com/pikvm/kvmd/master/configs/kvmd/tc358743-edid.hex
+v4l2-ctl --device /dev/video0 --set-edid file=tc358743-edid.hex --fix-edid-checksums
+```
+
+Start ustreamer in foreground:
+
+```bash
+docker run --rm \
+  --device /dev/video0 \
+  --device /dev/vchiq \
+  -p 8080:8080 \
+  ustreamer \
+  --device=/dev/video0 \
+  --persistent \
+  --dv-timings \
+  --format=uyvy \
+  --encoder=omx \
+  --workers=$(nproc) \
+  --quality=85 \
+  --desired-fps=30 \
+  --drop-same-frames=30 \
+  --slowdown \
+  --host=0.0.0.0 \
+  --port=8080
+```
+
+Then access the web interface at port 8080 (e.g. http://raspberrypi.local:8080).
+
 -----
 # Usage
 Without arguments, ```ustreamer``` will try to open ```/dev/video0``` with 640x480 resolution and start streaming on  ```http://127.0.0.1:8080```. You can override this behavior using parameters ```--device```, ```--host``` and ```--port```. For example, to stream to the world, run:
