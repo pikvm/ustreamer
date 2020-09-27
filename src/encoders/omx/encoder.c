@@ -433,32 +433,32 @@ static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality) {
 
 static int _omx_encoder_clear_ports(struct omx_encoder_t *omx) {
 	OMX_ERRORTYPE error;
-	int retcode = 0;
+	int retval = 0;
 
 	if (omx->i_output_port_enabled) {
-		retcode -= component_disable_port(&omx->encoder, _OUTPUT_PORT);
+		retval -= component_disable_port(&omx->encoder, _OUTPUT_PORT);
 		omx->i_output_port_enabled = false;
 	}
 	if (omx->i_input_port_enabled) {
-		retcode -= component_disable_port(&omx->encoder, _INPUT_PORT);
+		retval -= component_disable_port(&omx->encoder, _INPUT_PORT);
 		omx->i_input_port_enabled = false;
 	}
 
 	if (omx->input_buffer) {
 		if ((error = OMX_FreeBuffer(omx->encoder, _INPUT_PORT, omx->input_buffer)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't free OMX JPEG input buffer");
-			// retcode -= 1;
+			// retval -= 1;
 		}
 		omx->input_buffer = NULL;
 	}
 	if (omx->output_buffer) {
 		if ((error = OMX_FreeBuffer(omx->encoder, _OUTPUT_PORT, omx->output_buffer)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't free OMX JPEG output buffer");
-			// retcode -= 1;
+			// retval -= 1;
 		}
 		omx->output_buffer = NULL;
 	}
-	return retcode;
+	return retval;
 }
 
 static OMX_ERRORTYPE _omx_event_handler(
