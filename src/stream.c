@@ -88,7 +88,7 @@ struct _workers_pool_t {
 
 
 static struct _workers_pool_t *_stream_init_loop(struct stream_t *stream);
-static struct _workers_pool_t *_stream_init(struct stream_t *stream);
+static struct _workers_pool_t *_stream_init_one(struct stream_t *stream);
 static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index, unsigned captured_fps);
 
 static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream);
@@ -309,7 +309,7 @@ static struct _workers_pool_t *_stream_init_loop(struct stream_t *stream) {
 	while (!atomic_load(&stream->proc->stop)) {
 		SEP_INFO('=');
 
-		if ((pool = _stream_init(stream)) == NULL) {
+		if ((pool = _stream_init_one(stream)) == NULL) {
 			LOG_INFO("Sleeping %u seconds before new stream init ...", stream->dev->error_delay);
 			sleep(stream->dev->error_delay);
 		} else {
@@ -319,7 +319,7 @@ static struct _workers_pool_t *_stream_init_loop(struct stream_t *stream) {
 	return pool;
 }
 
-static struct _workers_pool_t *_stream_init(struct stream_t *stream) {
+static struct _workers_pool_t *_stream_init_one(struct stream_t *stream) {
 	if (device_open(stream->dev) < 0) {
 		goto error;
 	}
