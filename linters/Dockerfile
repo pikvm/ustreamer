@@ -16,6 +16,9 @@ RUN pacman -Syu --noconfirm \
 		python-pip \
 		python-tox \
 		cppcheck \
+		npm \
 	&& (pacman -Sc --noconfirm || true)
+
+RUN npm install htmlhint -g
 
 CMD /bin/bash

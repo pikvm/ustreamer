@@ -32,6 +32,7 @@ const char HTML_INDEX_PAGE[] = " \
 	<head> \
 		<meta charset=\"utf-8\" /> \
 		<title>uStreamer</title> \
+		<style>body {font-family: monospace;}</style> \
 	</head> \
 	\
 	<body> \
@@ -39,46 +40,56 @@ const char HTML_INDEX_PAGE[] = " \
 		<hr> \
 		<ul> \
 			<li> \
-				<a href=\"/state\"><b><samp>/state</samp></b></a><br> \
-				Get JSON structure with state of the server. \
+				<a href=\"/state\"><b>/state</b></a><br> \
+				Get JSON structure with the state of the server. \
 			</li> \
 			<br> \
 			<li> \
-				<a href=\"/snapshot\"><b><samp>/snapshot</samp></b></a><br> \
+				<a href=\"/snapshot\"><b>/snapshot</b></a><br> \
 				Get a current actual image from the server. \
 			</li> \
 			<br> \
 			<li> \
-				<a href=\"/stream\"><b><samp>/stream</samp></b></a><br> \
+				<a href=\"/stream\"><b>/stream</b></a><br> \
 				Get a live stream. Query params:<br> \
 				<br> \
 				<ul> \
 					<li> \
-						<b><samp>key=abc123</samp></b><br> \
-						User-defined key, which is part of cookie <samp>stream_client</samp>, which allows<br> \
-						the stream client to determine its identifier and view statistics using <a href=\"/state\"><samp>/state</samp></a>. \
+						<b>key=abc123</b><br> \
+						The user-defined key, which is part of cookie <i>stream_client</i>, which allows<br> \
+						the stream client to determine its identifier and view statistics using <a href=\"/state\">/state</a>. \
 					</li> \
 					<br> \
 					<li> \
-						<b><samp>extra_headers=1</samp></b><br> \
-						Add <samp>X-UStreamer-*</samp> headers to /stream handle (like on <a href=\"/snapshot\"><samp>/snapshot</samp></a>). \
+						<b>extra_headers=1</b><br> \
+						Add <i>X-UStreamer-*</i> headers to the <a href=\"/stream\">/stream</a> handle \
+						(like with the <a href=\"/snapshot\">/snapshot</a>). \
 					</li> \
 					<br> \
 					<li> \
-						<b><samp>advance_headers=1</samp></b><br> \
-						Enable workaround for Chromium/Blink \
-						<a href=\"https://bugs.chromium.org/p/chromium/issues/detail?id=527446\">Bug #527446</a>. \
+						<b>advance_headers=1</b><br> \
+						Enable workaround for the Chromium/Blink bug \
+						<a href=\"https://bugs.chromium.org/p/chromium/issues/detail?id=527446\">#527446</a>. \
 					</li> \
 					<br> \
 					<li> \
-						<b><samp>dual_final_frames=1</samp></b><br> \
-						Enable workaround for Safari/WebKit bug when using option <samp>--drop-same-frames</samp>.<br> \
+						<b>dual_final_frames=1</b><br> \
+						Enable workaround for the Safari/WebKit bug when using option <i>--drop-same-frames</i>.<br> \
 						Without this option, when the frame series is completed, WebKit-based browsers<br> \
 						renders the last frame with a delay. \
 					</li> \
 				</ul> \
 			</li> \
 			<br> \
+			<li> \
+				The mjpg-streamer compatibility layer:<br> \
+				<br> \
+				<ul> \
+					<li><a href=\"/?action=snapshot\">/?action=snapshot</a> as alias to the <a href=\"/snapshot\">/snapshot</a>.</li> \
+					<br> \
+					<li><a href=\"/?action=stream\">/?action=stream</a> as alias to the <a href=\"/stream\">/stream</a>.</li> \
+				</ul> \
+			</li> \
 		</ul> \
 		<br> \
 		<hr> \

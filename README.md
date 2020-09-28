@@ -21,6 +21,7 @@
 | Option to serve files<br>with a built-in HTTP server | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#ffaa00](https://placehold.it/15/ffaa00/000000?text=+) Regular files only |
 | Signaling about the stream state<br>on GPIO using [libgpiod](https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/about) | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
 | Access to webcam controls (focus, servos)<br>and settings such as brightness via HTTP | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes |
+| Compatibility with mjpg-streamer's API | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | :) |
 
 Footnotes:
   * ```1``` Long before µStreamer, I made a [patch](https://github.com/jacksonliam/mjpg-streamer/pull/164) to add DV-timings support to mjpg-streamer and to keep it from hanging up no device disconnection. Alas, the patch is far from perfect and I can't guarantee it will work every time - mjpg-streamer's source code is very complicated and its structure is hard to understand. With this in mind, along with needing multithreading and JPEG hardware acceleration in the future, I decided to make my own stream server from scratch instead of supporting legacy code.
