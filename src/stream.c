@@ -303,24 +303,24 @@ void stream_switch_slowdown(struct stream_t *stream, bool slowdown) {
 
 static struct _workers_pool_t *_stream_init_loop(struct stream_t *stream) {
 	struct _workers_pool_t *pool = NULL;
-	bool wait_for_access = false;
+	int access_error = 0;
 
 	LOG_DEBUG("%s: stream->proc->stop=%d", __FUNCTION__, atomic_load(&stream->proc->stop));
 
 	while (!atomic_load(&stream->proc->stop)) {
-		if (access(stream->dev->path, R_OK) < 0) {
-			if (!wait_for_access) {
+		if (access(stream->dev->path, R_OK|W_OK) < 0) {
+			if (access_error != errno) {
+				SEP_INFO('=');
 				LOG_PERROR("Can't access device");
 				LOG_INFO("Waiting for the device access ...");
-				wait_for_access = true;
+				access_error = errno;
 			}
 			sleep(stream->dev->error_delay);
 			continue;
 		} else {
-			wait_for_access = false;
+			SEP_INFO('=');
+			access_error = 0;
 		}
-
-		SEP_INFO('=');
 
 		if ((pool = _stream_init_one(stream)) == NULL) {
 			LOG_INFO("Sleeping %u seconds before new stream init ...", stream->dev->error_delay);
