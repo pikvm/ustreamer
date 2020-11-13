@@ -23,6 +23,7 @@
 #include "encoder.h"
 
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
@@ -51,6 +52,7 @@ static const OMX_U32 _OUTPUT_PORT = 341;
 static int _i_omx = 0;
 
 
+static int _vcos_semwait(VCOS_SEMAPHORE_T *sem, long double timeout);
 static int _omx_init_component(struct omx_encoder_t *omx);
 static int _omx_init_disable_ports(struct omx_encoder_t *omx);
 static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev);
@@ -180,7 +182,6 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 #	define OUT(_next)		omx->output_buffer->_next
 
 	OMX_ERRORTYPE error;
-	VCOS_STATUS_T sem_status;
 	size_t slice_size = (IN(nAllocLen) < HW_BUFFER(used) ? IN(nAllocLen) : HW_BUFFER(used));
 	size_t pos = 0;
 
@@ -237,12 +238,8 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 			}
 		}
 
-		// vcos_semaphore_wait(&omx->handler_sem);
-		switch (sem_status = vcos_semaphore_wait_timeout(&omx->handler_sem, 3000)) {
-			case VCOS_SUCCESS: break;
-			case VCOS_EAGAIN: LOG_ERROR("Can't wait VCOS semaphore: EAGAIN (timeout)"); return -1;
-			case VCOS_EINVAL: LOG_ERROR("Can't wait VCOS semaphore: EINVAL"); return -1;
-			default: LOG_ERROR("Can't wait VCOS semaphore: %d", sem_status); return -1;
+		if (_vcos_semwait(&omx->handler_sem, 3.0) != 0) {
+			return -1;
 		}
 	}
 
@@ -250,6 +247,34 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 #	undef IN
 #	undef HW_BUFFER
 	return 0;
+}
+
+static int _vcos_semwait(VCOS_SEMAPHORE_T *sem, long double timeout) {
+	// vcos_semaphore_wait() can wait infinite
+	// vcos_semaphore_wait_timeout() is broken by design:
+	//   - https://github.com/pikvm/ustreamer/issues/56
+	//   - https://github.com/raspberrypi/userland/issues/658
+
+	long double deadline_ts = get_now_monotonic() + timeout;
+	VCOS_STATUS_T sem_status;
+
+	while (true) {
+		sem_status = vcos_semaphore_trywait(sem);
+		if (sem_status == VCOS_SUCCESS) {
+			return 0;
+		} else if (sem_status != VCOS_EAGAIN || get_now_monotonic() > deadline_ts) {
+			goto error;
+		}
+		usleep(1000);
+	}
+
+	error:
+		switch (sem_status) {
+			case VCOS_EAGAIN: LOG_ERROR("Can't wait VCOS semaphore: EAGAIN (timeout)"); break;
+			case VCOS_EINVAL: LOG_ERROR("Can't wait VCOS semaphore: EINVAL"); break;
+			default: LOG_ERROR("Can't wait VCOS semaphore: %d", sem_status); break;
+		}
+		return -1;
 }
 
 static int _omx_init_component(struct omx_encoder_t *omx) {
