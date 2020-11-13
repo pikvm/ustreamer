@@ -537,7 +537,7 @@ static void _device_open_hw_fps(struct device_t *dev) {
 	LOG_DEBUG("Calling ioctl(VIDIOC_G_PARM) ...");
 	if (xioctl(dev->run->fd, VIDIOC_G_PARM, &setfps) < 0) {
 		if (errno == ENOTTY) { // Quiet message for Auvidea B101
-			LOG_INFO("Quierying HW FPS changing is not supported");
+			LOG_INFO("Querying HW FPS changing is not supported");
 		} else {
 			LOG_PERROR("Unable to query HW FPS changing");
 		}

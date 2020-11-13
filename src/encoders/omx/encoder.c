@@ -241,7 +241,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 		switch (sem_status = vcos_semaphore_wait_timeout(&omx->handler_sem, 3000)) {
 			case VCOS_SUCCESS: break;
 			case VCOS_EAGAIN: LOG_ERROR("Can't wait VCOS semaphore: EAGAIN (timeout)"); return -1;
-			case VCOS_EINVAL: LOG_ERROR("Can't wait VCOS semaphore: EINTVAL"); return -1;
+			case VCOS_EINVAL: LOG_ERROR("Can't wait VCOS semaphore: EINVAL"); return -1;
 			default: LOG_ERROR("Can't wait VCOS semaphore: %d", sem_status); return -1;
 		}
 	}
