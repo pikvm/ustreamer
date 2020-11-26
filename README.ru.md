@@ -39,6 +39,7 @@
 * Arch: `sudo pacman -S libevent libjpeg-turbo libutil-linux libbsd`.
 * Raspbian: `sudo apt install libevent-dev libjpeg8-dev uuid-dev libbsd-dev`.  Добавьте `libraspberrypi-dev` для сборки с `WITH_OMX=1` и `libgpiod` для `WITH_GPIO=1`.
 * Debian: `sudo apt install build-essential libevent-dev libjpeg62-turbo-dev uuid-dev libbsd-dev`.
+* Ubuntu 20.04 x86_64: `sudo apt install build-essential libevent-dev libjpeg62-dev uuid-dev libbsd-dev make gcc libjpeg8 libjpeg-turbo8 libuuid1 libbsd0`.
 
 На Raspberry Pi программу можно собрать с поддержкой OpenMAX IL. Для этого передайте ```make``` параметр ```WITH_OMX=1```. Для включения сборки с поддержкой GPIO установите [libgpiod](https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/about) и добавьте параметр ```WITH_GPIO=1```. Если при сборке компилятор ругается на отсутствие функции ```pthread_get_name_np()``` или другой подобной, добавьте параметр ```WITH_PTHREAD_NP=0``` (по умолчанию он включен). При аналогичной ошибке с функцией ```setproctitle()``` добавьте параметр ```WITH_SETPROCTITLE=0```.
 
