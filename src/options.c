@@ -574,7 +574,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                           Available: %s; default: disabled.\n\n", STANDARDS_STR);
 	printf("    -I|--io-method <method>  ───────────── Set V4L2 IO method (see kernel documentation).\n");
 	printf("                                           Changing of this parameter may increase the performance. Or not.\n");
-	printf("                                           Available: %s; default: MMAP\n\n", IO_METHODS_STR);
+	printf("                                           Available: %s; default: MMAP.\n\n", IO_METHODS_STR);
 	printf("    -f|--desired-fps <N>  ──────────────── Desired FPS. Default: maximum possible.\n\n");
 	printf("    -z|--min-frame-size <N>  ───────────── Drop frames smaller then this limit. Useful if the device\n");
 	printf("                                           produces small-sized garbage frames. Default: %zu bytes.\n\n", dev->min_frame_size);
@@ -656,7 +656,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("    --gpio-device </dev/path>  ───── Path to GPIO character device. Default: %s.\n\n", gpio.path);
 	printf("    --gpio-consumer-prefix <str>  ── Consumer prefix for GPIO outputs. Default: %s.\n\n", gpio.consumer_prefix);
 	printf("    --gpio-prog-running <pin>  ───── Set 1 on GPIO pin while uStreamer is running. Default: disabled.\n\n");
-	printf("    --gpio-stream-online <pin>  ──── Set 1 while streaming. Default: disabled\n\n");
+	printf("    --gpio-stream-online <pin>  ──── Set 1 while streaming. Default: disabled.\n\n");
 	printf("    --gpio-has-http-clients <pin>  ─ Set 1 while stream has at least one client. Default: disabled.\n\n");
 #endif
 #if (defined(HAS_PDEATHSIG) || defined(WITH_SETPROCTITLE))
