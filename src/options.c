@@ -608,7 +608,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                           after an error (timeout for example). Default: %u.\n\n", dev->error_delay);
 	printf("Image control options:\n");
 	printf("══════════════════════\n");
-	printf("    --image-default  ────────────────────── Reset all image settings bellow to default. Default: no change.\n\n");
+	printf("    --image-default  ────────────────────── Reset all image settings below to default. Default: no change.\n\n");
 	printf("    --brightness <N|auto|default>  ──────── Set brightness. Default: no change.\n\n");
 	printf("    --contrast <N|default>  ─────────────── Set contrast. Default: no change.\n\n");
 	printf("    --saturation <N|default>  ───────────── Set saturation. Default: no change.\n\n");
