@@ -1,0 +1,241 @@
+.\" Manpage for ustreamer.
+.\" Open an issue or pull request to https://github.com/pikvm/ustreamer to correct errors or typos
+.TH USTREAMER 1 "version 2.2" "November 2020"
+
+.SH NAME
+ustreamer \- stream MJPG video from any V4L2 device to the network
+
+.SH SYNOPSIS
+.B ustreamer
+.RI [OPTION]
+
+.SH DESCRIPTION
+µStreamer (\fBustreamer\fP) is a lightweight and very quick server to stream MJPG video from any V4L2 device to the network. All new browsers have native support of this video format, as well as most video players such as mplayer, VLC etc. µStreamer is a part of the Pi-KVM project designed to stream VGA and HDMI screencast hardware data with the highest resolution and FPS possible.
+
+.SH USAGE
+Without arguments, \fBustreamer\fR will try to open \fB/dev/video0\fR with 640x480 resolution and start streaming on \fBhttp://127\.0\.0\.1:8080\fR\. You can override this behavior using parameters \fB\-\-device\fR, \fB\-\-host\fR and \fB\-\-port\fR\. For example, to stream to the world, run: \fBustreamer --device=/dev/video1 --host=0.0.0.0 --port=80\fR
+
+Please note that since µStreamer v2\.0 cross\-domain requests were disabled by default for security reasons\. To enable the old behavior, use the option \fB\-\-allow\-origin=\e*\fR\.
+
+For example, the recommended way of running µStreamer with Auvidea B101 on a Raspberry Pi is:
+
+\fBustreamer \e\fR
+.RS
+\fB\-\-format=uyvy \e\fR # Device input format
+.nf
+\fB\-\-encoder=omx \e\fR # Hardware encoding with OpenMAX
+.nf
+\fB\-\-workers=3 \e\fR # Maximum workers for OpenMAX
+.nf
+\fB\-\-persistent \e\fR # Don\'t re\-initialize device on timeout (for example when HDMI cable was disconnected)
+.nf
+\fB\-\-dv\-timings \e\fR # Use DV\-timings
+.nf
+\fB\-\-drop\-same\-frames=30\fR # Save the traffic\fR
+.RE
+.P
+Please note that to use \fB\-\-drop\-same\-frames\fR for different browsers you need to use some specific URL \fB/stream\fR parameters (see URL \fB/\fR for details)\.
+.P
+You can always view the full list of options with \fBustreamer \-\-help\fR\.
+
+.SH OPTIONS
+.SS "Capturing options"
+.BR \-d\ \fI/dev/path ", " \-\-device\ \fI/dev/path
+Path to V4L2 device. Default: /dev/video0.
+.TP
+.BR \-i\ \fIN ", " \-\-input\ \fIN
+Input channel. Default: 0.
+.TP
+.BR \-r\ \fIWxH ", " \-\-resolution\ \fIWxH
+Initial image resolution. Default: 640x480.
+.TP
+.BR \-m\ \fIfmt ", " \-\-format\ \fIfmt
+Image format.
+Available: YUYV, UYVY, RGB565, RGB24, JPEG; default: YUYV.
+.TP
+.BR \-a\ \fIstd ", " \-\-tv\-standard\ \fIstd
+Force TV standard.
+Available: PAL, NTSC, SECAM; default: disabled.
+.TP
+.BR \-I\ \fImethod ", " \-\-io\-method\ \fImethod
+Set V4L2 IO method (see kernel documentation). Changing of this parameter may increase the performance. Or not.
+Available: MMAP, USERPTR; default: MMAP.
+.TP
+.BR \-f\ \fIN ", " \-\-desired\-fps\ \fIN
+Desired FPS. Default: maximum possible.
+.TP
+.BR \-z\ \fIN ", " \-\-min\-frame\-size\ \fIN
+Drop frames smaller then this limit. Useful if the device produces small\-sized garbage frames. Default: 128 bytes.
+.TP
+.BR \-n ", " \-\-persistent
+Don't re\-initialize device on timeout. Default: disabled.
+.TP
+.BR \-t ", " \-\-dv\-timings
+Enable DV timings querying and events processing to automatic resolution change. Default: disabled.
+.TP
+.BR \-b\ \fIN ", " \-\-buffers\ \fIN
+The number of buffers to receive data from the device. Each buffer may processed using an independent thread.
+Default: 2 (the number of CPU cores (but not more than 4) + 1).
+.TP
+.BR \-w\ \fIN ", " \-\-workers\ \fIN
+The number of worker threads but not more than buffers.
+Default: 1 (the number of CPU cores (but not more than 4)).
+.TP
+.BR \-q\ \fIN ", " \-\-quality\ \fIN
+Set quality of JPEG encoding from 1 to 100 (best). Default: 80.
+Note: If HW encoding is used (JPEG source format selected), this parameter attempts to configure the camera or capture device hardware's internal encoder. It does not re\-encode MJPG to MJPG to change the quality level for sources that already output MJPG.
+.TP
+.BR \-c\ \fItype ", " \-\-encoder\ \fItype
+Use specified encoder. It may affect the number of workers.
+CPU ─ Software MJPG encoding (default). HW ─ Use pre-encoded MJPG frames directly from camera hardware.
+Available: CPU, HW; default: CPU.
+.TP
+.BR \-\-device\-timeout\ \fIsec
+Timeout for device querying. Default: 1.
+.TP
+.BR \-\-device\-error\-delay\ \fIsec
+Delay before trying to connect to the device again after an error (timeout for example). Default: 1.
+
+.SS "Image control options"
+.BR \-\-image\-default
+Reset all image settings bellow to default. Default: no change.
+.TP
+.BR \-\-brightness\ \fIN ", " \fIauto ", " \fIdefault
+Set brightness. Default: no change.
+.TP
+.BR \-\-contrast\ \fIN ", " \fIdefault
+Set contrast. Default: no change.
+.TP
+.BR \-\-saturation\ \fIN ", " \fIdefault
+Set saturation. Default: no change.
+.TP
+.BR \-\-hue\ \fIN ", " \fIauto ", " \fIdefault
+Set hue. Default: no change.
+.TP
+.BR \-\-gamma\ \fIN ", " \fIdefault
+Set gamma. Default: no change.
+.TP
+.BR \-\-sharpness\ \fIN ", " \fIdefault
+Set sharpness. Default: no change.
+.TP
+.BR \-\-backlight\-compensation\ \fIN ", " \fIdefault
+Set backlight compensation. Default: no change.
+.TP
+.BR \-\-white\-balance\ \fIN ", " \fIauto ", " \fIdefault
+Set white balance. Default: no change.
+.TP
+.BR \-\-gain\ \fIN ", " \fIauto ", " \fIdefault
+Set gain. Default: no change.
+.TP
+.BR \-\-color\-effect\ \fIN ", " \fIdefault
+Set color effect. Default: no change.
+.TP
+.BR \-\-flip\-vertical\ \fI1 ", " \fI0 ", " \fIdefault
+Set vertical flip. Default: no change.
+.TP
+.BR \-\-flip\-horizontal\ \fI1 ", " \fI0 ", " \fIdefault
+Set horizontal flip. Default: no change.
+
+.SS "HTTP server options"
+.BR \-s\ \fIaddress ", " \-\-host\ \fIaddress
+Listen on Hostname or IP. Default: 127.0.0.1.
+.TP
+.BR \-p\ \fIN ", " \-\-port\ \fIN
+Bind to this TCP port. Default: 8080.
+.TP
+.BR \-U\ \fIpath ", " \-\-unix\ \fIpath
+Bind to UNIX domain socket. Default: disabled.
+.TP
+.BR \-D ", " \-\-unix\-rm
+Try to remove old UNIX socket file before binding. Default: disabled.
+.TP
+.BR \-M\ \fImode ", " \-\-unix\-mode\ \fImode
+Set UNIX socket file permissions (like 777). Default: disabled.
+.TP
+.BR \-\-user\ \fIname
+HTTP basic auth user. Default: disabled.
+.TP
+.BR \-\-passwd\ \fIstr
+HTTP basic auth passwd. Default: empty.
+.TP
+.BR \-\-static\ \fIpath
+Path to dir with static files instead of embedded root index page. Symlinks are not supported for security reasons. Default: disabled.
+.TP
+.BR \-k\ \fIpath ", " \-\-blank\ \fIpath
+Path to JPEG file that will be shown when the device is disconnected during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.
+.TP
+.BR \-K\ \fIsec ", " \-\-last\-as\-blank\ \fIsec
+Show the last frame received from the camera after it was disconnected, but no more than specified time (or endlessly if 0 is specified). If the device has not yet been online, display 'NO SIGNAL' or the image specified by option \-\-blank. Default: disabled.
+.TP
+.BR \-e\ \fIN ", " \-\-drop\-same\-frames\ \fIN
+Don't send identical frames to clients, but no more than specified number. It can significantly reduce the outgoing traffic, but will increase the CPU loading. Don't use this option with analog signal sources or webcams, it's useless. Default: disabled.
+.TP
+.BR \-l ", " \-\-slowdown
+Slowdown capturing to 1 FPS or less when no stream clients are connected. Useful to reduce CPU consumption. Default: disabled.
+.TP
+.BR \-R\ \fIWxH ", " \-\-fake\-resolution\ \fIWxH
+Override image resolution for the /state. Default: disabled.
+.TP
+.BR \-\-tcp\-nodelay
+Set TCP_NODELAY flag to the client /stream socket. Ignored for \-\-unix.
+Default: disabled.
+.TP
+.BR \-\-allow\-origin\ \fIstr
+Set Access\-Control\-Allow\-Origin header. Default: disabled.
+.TP
+.BR \-\-server\-timeout\ \fIsec
+Timeout for client connections. Default: 10.
+
+.SS "Process options"
+.BR \-\-exit\-on\-parent\-death
+Exit the program if the parent process is dead. Default: disabled.
+.TP
+.BR \-\-process\-name\-prefix\ \fIstr
+Set process name prefix which will be displayed in the process list like '\fIstr: ustreamer \-\-blah\-blah\-blah'. Default: disabled.
+.TP
+.BR \-\-notify\-parent
+Send SIGUSR2 to the parent process when the stream parameters are changed. Checking changes is performed for the online flag and image resolution.
+
+.SS "Logging options"
+.BR \-\-log\-level\ \fIN
+Verbosity level of messages from 0 (info) to 3 (debug). Enabling debugging messages can slow down the program.
+Available levels: 0 (info), 1 (performance), 2 (verbose), 3 (debug).
+Default: 0.
+.TP
+.BR \-\-perf
+Enable performance messages (same as \-\-log\-level=1). Default: disabled.
+.TP
+.BR \-\-verbose
+Enable verbose messages and lower (same as \-\-log\-level=2). Default: disabled.
+.TP
+.BR \-\-debug
+Enable debug messages and lower (same as \-\-log\-level=3). Default: disabled.
+.TP
+.BR \-\-force\-log\-colors
+Force color logging. Default: colored if stdout is a TTY.
+.TP
+.BR \-\-no\-log\-colors
+Disable color logging. Default: ditto.
+
+.SS "Help options"
+.BR \-h ", " \-\-help
+Print this text and exit.
+.TP
+.BR \-v ", " \-\-version
+Print version and exit.
+.TP
+.BR \-\-features
+Print list of supported features.
+
+.SH BUGS
+Please file any bugs and issues at \fIhttps://github.com/pikvm/ustreamer/issues\fR
+
+.SH AUTHOR
+Maxim Devaev <mdevaev@gmail.com>
+
+.SH HOMEPAGE
+\fIhttps://pikvm.org/\fR
+
+.SH COPYRIGHT
+GNU General Public License v3.0
+
