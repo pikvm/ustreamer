@@ -3,6 +3,7 @@
 PROG ?= ustreamer
 DESTDIR ?=
 PREFIX ?= /usr/local
+MANPREFIX ?= $(PREFIX)/share/man
 
 CC ?= gcc
 CFLAGS ?= -O3
@@ -62,6 +63,8 @@ all: $(PROG)
 
 install: $(PROG)
 	install -Dm755 $(PROG) $(DESTDIR)$(PREFIX)/bin/$(PROG)
+	install -Dm644 $(PROG).1 $(DESTDIR)$(MANPREFIX)/man1/$(PROG).1
+	gzip $(DESTDIR)$(MANPREFIX)/man1/$(PROG).1
 
 
 install-strip: install
