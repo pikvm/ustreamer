@@ -36,7 +36,7 @@ For example, the recommended way of running µStreamer with Auvidea B101 on a Ra
 .P
 Please note that to use \fB\-\-drop\-same\-frames\fR for different browsers you need to use some specific URL \fB/stream\fR parameters (see URL \fB/\fR for details)\.
 .P
-You can always view the full list of options with \fBustreamer \-\-help\fR\.
+You can always view the full list of options with \fBustreamer \-\-help\fR\. Some features may not be available on your platform. To find out which features are enabled, use \fBustreamer \-\-features\fR.
 
 .SH OPTIONS
 .SS "Capturing options"
@@ -87,8 +87,16 @@ Note: If HW encoding is used (JPEG source format selected), this parameter attem
 .TP
 .BR \-c\ \fItype ", " \-\-encoder\ \fItype
 Use specified encoder. It may affect the number of workers.
-CPU ─ Software MJPG encoding (default). HW ─ Use pre-encoded MJPG frames directly from camera hardware.
-Available: CPU, HW; default: CPU.
+
+CPU ─ Software MJPG encoding (default).
+
+OMX ─ GPU hardware accelerated MJPG encoding with OpenMax (required \fBWITH_OMX\fR feature).
+
+HW ─ Use pre-encoded MJPG frames directly from camera hardware.
+.TP
+.BR \-g\ \fIWxH,... ", " \-\-glitched\-resolutions\ \fIWxH,...
+Comma-separated list of resolutions that require forced
+encoding on CPU instead of OMX. Required \fBWITH_OMX\fR feature. Default: disabled.
 .TP
 .BR \-\-device\-timeout\ \fIsec
 Timeout for device querying. Default: 1.
@@ -188,13 +196,31 @@ Timeout for client connections. Default: 10.
 
 .SS "Process options"
 .BR \-\-exit\-on\-parent\-death
-Exit the program if the parent process is dead. Default: disabled.
+Exit the program if the parent process is dead. Required \fBHAS_PDEATHSIG\fR feature. Default: disabled.
 .TP
 .BR \-\-process\-name\-prefix\ \fIstr
-Set process name prefix which will be displayed in the process list like '\fIstr: ustreamer \-\-blah\-blah\-blah'. Default: disabled.
+Set process name prefix which will be displayed in the process list like '\fIstr: ustreamer \-\-blah\-blah\-blah'\fR. Required \fBWITH_SETPROCTITLE\fR feature. Default: disabled.
 .TP
 .BR \-\-notify\-parent
-Send SIGUSR2 to the parent process when the stream parameters are changed. Checking changes is performed for the online flag and image resolution.
+Send SIGUSR2 to the parent process when the stream parameters are changed. Checking changes is performed for the online flag and image resolution. Required \fBWITH_SETPROCTITLE\fR feature.
+
+.SS "GPIO options"
+Available only if \fBWITH_GPIO\fR feature enabled.
+.TP
+.BR \-\-gpio\-device\ \fI/dev/path
+Path to GPIO character device. Default: /dev/gpiochip0.
+.TP
+.BR \-\-gpio\-consumer\-prefix\ \fIstr
+Consumer prefix for GPIO outputs. Default: ustreamer.
+.TP
+.BR \-\-gpio\-prog\-running\ \fIpin
+Set 1 on GPIO pin while µStreamer is running. Default: disabled.
+.TP
+.BR \-\-gpio\-stream\-online\ \fIpin
+Set 1 while streaming. Default: disabled.
+.TP
+.BR \-\-gpio\-has\-http\-clients\ \fIpin
+Set 1 while stream has at least one client. Default: disabled.
 
 .SS "Logging options"
 .BR \-\-log\-level\ \fIN
