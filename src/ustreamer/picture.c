@@ -27,8 +27,8 @@
 #include <string.h>
 #include <assert.h>
 
-#include "tools.h"
-#include "logging.h"
+#include "../common/tools.h"
+#include "../common/logging.h"
 
 
 struct picture_t *picture_init(void) {

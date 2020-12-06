@@ -20,41 +20,66 @@
 *****************************************************************************/
 
 
-#pragma once
+#include "unix.h"
 
+#include <stdbool.h>
+#include <string.h>
+#include <unistd.h>
 #include <errno.h>
+#include <assert.h>
 
-#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/stat.h>
 
-#include "tools.h"
-#include "logging.h"
+#include <event2/http.h>
+#include <event2/util.h>
+
+#include "../../common/tools.h"
+#include "../../common/logging.h"
 
 
-#ifndef CFG_XIOCTL_RETRIES
-#	define CFG_XIOCTL_RETRIES 4
-#endif
-#define XIOCTL_RETRIES ((unsigned)(CFG_XIOCTL_RETRIES))
+evutil_socket_t evhttp_my_bind_unix(struct evhttp *http, const char *path, bool rm, mode_t mode) {
+	evutil_socket_t fd = -1;
+	struct sockaddr_un addr;
 
+#	define MAX_SUN_PATH (sizeof(addr.sun_path) - 1)
 
-INLINE int xioctl(int fd, int request, void *arg) {
-	int retries = XIOCTL_RETRIES;
-	int retval = -1;
-
-	do {
-		retval = ioctl(fd, request, arg);
-	} while (
-		retval
-		&& retries--
-		&& (
-			errno == EINTR
-			|| errno == EAGAIN
-			|| errno == ETIMEDOUT
-		)
-	);
-
-	// cppcheck-suppress knownConditionTrueFalse
-	if (retval && retries <= 0) {
-		LOG_PERROR("ioctl(%d) retried %u times; giving up", request, XIOCTL_RETRIES);
+	if (strlen(path) > MAX_SUN_PATH) {
+		LOG_ERROR("UNIX socket path is too long; max=%zu", MAX_SUN_PATH);
+		return -1;
 	}
-	return retval;
+
+	MEMSET_ZERO(addr);
+	strncpy(addr.sun_path, path, MAX_SUN_PATH);
+	addr.sun_family = AF_UNIX;
+
+#	undef MAX_SUN_PATH
+
+	assert((fd = socket(AF_UNIX, SOCK_STREAM, 0)) >= 0);
+	assert(!evutil_make_socket_nonblocking(fd));
+
+	if (rm && unlink(path) < 0) {
+		if (errno != ENOENT) {
+			LOG_PERROR("Can't remove old UNIX socket '%s'", path);
+			return -1;
+		}
+	}
+	if (bind(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr_un)) < 0) {
+		LOG_PERROR("Can't bind HTTP to UNIX socket '%s'", path);
+		return -1;
+	}
+	if (mode && chmod(path, mode) < 0) {
+		LOG_PERROR("Can't set permissions %o to UNIX socket '%s'", mode, path);
+		return -1;
+	}
+	if (listen(fd, 128) < 0) {
+		LOG_PERROR("Can't listen UNIX socket '%s'", path);
+		return -1;
+	}
+	if (evhttp_accept_socket(http, fd) < 0) {
+		LOG_PERROR("Can't evhttp_accept_socket() UNIX socket '%s'", path);
+		return -1;
+	}
+	return fd;
 }

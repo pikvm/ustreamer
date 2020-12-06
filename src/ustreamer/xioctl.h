@@ -20,71 +20,41 @@
 *****************************************************************************/
 
 
-#include "static.h"
+#pragma once
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+#include <errno.h>
 
-#include <sys/stat.h>
+#include <sys/ioctl.h>
 
-#include "../tools.h"
-#include "../logging.h"
-
-#include "path.h"
+#include "../common/tools.h"
+#include "../common/logging.h"
 
 
-char *find_static_file_path(const char *root_path, const char *request_path) {
-	char *simplified_path;
-	char *path = NULL;
-	struct stat st;
+#ifndef CFG_XIOCTL_RETRIES
+#	define CFG_XIOCTL_RETRIES 4
+#endif
+#define XIOCTL_RETRIES ((unsigned)(CFG_XIOCTL_RETRIES))
 
-	simplified_path = simplify_request_path(request_path);
-	if (simplified_path[0] == '\0') {
-		LOG_VERBOSE("HTTP: Invalid request path %s to static", request_path);
-		goto error;
+
+INLINE int xioctl(int fd, int request, void *arg) {
+	int retries = XIOCTL_RETRIES;
+	int retval = -1;
+
+	do {
+		retval = ioctl(fd, request, arg);
+	} while (
+		retval
+		&& retries--
+		&& (
+			errno == EINTR
+			|| errno == EAGAIN
+			|| errno == ETIMEDOUT
+		)
+	);
+
+	// cppcheck-suppress knownConditionTrueFalse
+	if (retval && retries <= 0) {
+		LOG_PERROR("ioctl(%d) retried %u times; giving up", request, XIOCTL_RETRIES);
 	}
-
-	A_CALLOC(path, strlen(root_path) + strlen(simplified_path) + 32);
-	sprintf(path, "%s/%s", root_path, simplified_path);
-
-#	define LOAD_STAT { \
-			if (lstat(path, &st) < 0) { \
-				LOG_VERBOSE_PERROR("HTTP: Can't stat() static path %s", path); \
-				goto error; \
-			} \
-		}
-
-	LOAD_STAT;
-	if (S_ISDIR(st.st_mode)) {
-		LOG_VERBOSE("HTTP: Requested static path %s is a directory, trying %s/index.html", path, path);
-		strcat(path, "/index.html");
-		LOAD_STAT;
-	}
-
-#	undef LOAD_STAT
-
-	if (!S_ISREG(st.st_mode)) {
-		LOG_VERBOSE("HTTP: Not a regular file: %s", path);
-		goto error;
-	}
-
-	if (access(path, R_OK) < 0) {
-		LOG_VERBOSE_PERROR("HTTP: Can't access() R_OK file %s", path);
-		goto error;
-	}
-
-	goto ok;
-
-	error:
-		if (path) {
-			free(path);
-		}
-		path = NULL;
-
-	ok:
-		free(simplified_path);
-
-	return path;
+	return retval;
 }

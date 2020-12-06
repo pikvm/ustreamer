@@ -33,8 +33,8 @@
 
 #include <linux/videodev2.h>
 
-#include "../../tools.h"
-#include "../../logging.h"
+#include "../../../common/tools.h"
+#include "../../../common/logging.h"
 #include "../../xioctl.h"
 #include "../../picture.h"
 #include "../../device.h"

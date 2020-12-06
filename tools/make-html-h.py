@@ -46,7 +46,7 @@ def main() -> None:
         for line in html.split("\n")
     )
 
-    text = f"{common.C_PREPEND}\n#include \"../../config.h\"\n\n\n"
+    text = f"{common.C_PREPEND}\n#include \"../../../common/config.h\"\n\n\n"
     text += f"const char HTML_{name}_PAGE[] = \" \\\n{html}\n\";\n"
 
     with open(header_path, "w") as header_file:

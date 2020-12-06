@@ -20,52 +20,54 @@
 *****************************************************************************/
 
 
-#include "base64.h"
+#include "mime.h"
 
-#include <stdlib.h>
 #include <string.h>
 
-#include "../tools.h"
+#include <event2/util.h>
+
+#include "../../common/tools.h"
 
 
-static const char _ENCODING_TABLE[] = {
-	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
-	'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
-	'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
-	'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
-	'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
-	'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
-	'w', 'x', 'y', 'z', '0', '1', '2', '3',
-	'4', '5', '6', '7', '8', '9', '+', '/',
+static const struct {
+	const char *ext;
+	const char *mime;
+} _MIME_TYPES[] = {
+	{"html",	"text/html"},
+	{"htm",		"text/html"},
+	{"css",		"text/css"},
+	{"js",		"text/javascript"},
+	{"txt",		"text/plain"},
+	{"jpg",		"image/jpeg"},
+	{"jpeg",	"image/jpeg"},
+	{"png",		"image/png"},
+	{"gif",		"image/gif"},
+	{"ico",		"image/x-icon"},
+	{"bmp",		"image/bmp"},
+	{"svg",		"image/svg+xml"},
+	{"swf",		"application/x-shockwave-flash"},
+	{"cab",		"application/x-shockwave-flash"},
+	{"jar",		"application/java-archive"},
+	{"json",	"application/json"},
 };
 
-static const unsigned _MOD_TABLE[] = {0, 2, 1};
 
+const char *guess_mime_type(const char *path) {
+	char *dot;
+	char *ext;
 
-char *base64_encode(const unsigned char *str) {
-	size_t str_len = strlen((const char *)str);
-	size_t encoded_size = 4 * ((str_len + 2) / 3) + 1; // +1 for '\0'
-	char *encoded;
-
-	A_CALLOC(encoded, encoded_size);
-
-	for (unsigned str_index = 0, encoded_index = 0; str_index < str_len;) {
-		unsigned octet_a = (str_index < str_len ? (unsigned char)str[str_index++] : 0);
-		unsigned octet_b = (str_index < str_len ? (unsigned char)str[str_index++] : 0);
-		unsigned octet_c = (str_index < str_len ? (unsigned char)str[str_index++] : 0);
-
-		unsigned triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
-
-		encoded[encoded_index++] = _ENCODING_TABLE[(triple >> 3 * 6) & 0x3F];
-		encoded[encoded_index++] = _ENCODING_TABLE[(triple >> 2 * 6) & 0x3F];
-		encoded[encoded_index++] = _ENCODING_TABLE[(triple >> 1 * 6) & 0x3F];
-		encoded[encoded_index++] = _ENCODING_TABLE[(triple >> 0 * 6) & 0x3F];
+	dot = strrchr(path, '.');
+	if (dot == NULL || strchr(dot, '/') != NULL) {
+		goto misc;
 	}
 
-	for (unsigned index = 0; index < _MOD_TABLE[str_len % 3]; index++) {
-		encoded[encoded_size - 2 - index] = '=';
+	ext = dot + 1;
+	for (unsigned index = 0; index < ARRAY_LEN(_MIME_TYPES); ++index) {
+		if (!evutil_ascii_strcasecmp(ext, _MIME_TYPES[index].ext)) {
+			return _MIME_TYPES[index].mime;
+		}
 	}
 
-	encoded[encoded_size - 1] = '\0';
-	return encoded;
+	misc:
+		return "application/misc";
 }

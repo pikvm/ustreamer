@@ -39,9 +39,10 @@
 #include <linux/videodev2.h>
 #include <linux/v4l2-controls.h>
 
-#include "tools.h"
-#include "logging.h"
-#include "threading.h"
+#include "../common/tools.h"
+#include "../common/logging.h"
+#include "../common/threading.h"
+
 #include "xioctl.h"
 #include "picture.h"
 

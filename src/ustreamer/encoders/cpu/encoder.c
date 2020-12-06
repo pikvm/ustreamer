@@ -35,7 +35,7 @@
 
 #include <linux/videodev2.h>
 
-#include "../../tools.h"
+#include "../../../common/tools.h"
 #include "../../picture.h"
 #include "../../device.h"
 

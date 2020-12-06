@@ -20,66 +20,64 @@
 *****************************************************************************/
 
 
-#include "unix.h"
+#pragma once
 
 #include <stdbool.h>
-#include <string.h>
-#include <unistd.h>
-#include <errno.h>
-#include <assert.h>
 
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/stat.h>
+#include <pthread.h>
+#include <gpiod.h>
 
-#include <event2/http.h>
-#include <event2/util.h>
-
-#include "../tools.h"
-#include "../logging.h"
+#include "../../common/tools.h"
+#include "../../common/logging.h"
 
 
-evutil_socket_t evhttp_my_bind_unix(struct evhttp *http, const char *path, bool rm, mode_t mode) {
-	evutil_socket_t fd = -1;
-	struct sockaddr_un addr;
+struct gpio_output_t {
+	int					pin;
+	const char			*role;
+	char 				*consumer;
+	struct gpiod_line	*line;
+	bool				state;
+};
 
-#	define MAX_SUN_PATH (sizeof(addr.sun_path) - 1)
+struct gpio_t {
+	char *path;
+	char *consumer_prefix;
 
-	if (strlen(path) > MAX_SUN_PATH) {
-		LOG_ERROR("UNIX socket path is too long; max=%zu", MAX_SUN_PATH);
-		return -1;
+	struct gpio_output_t prog_running;
+	struct gpio_output_t stream_online;
+	struct gpio_output_t has_http_clients;
+
+	pthread_mutex_t		mutex;
+	struct gpiod_chip	*chip;
+};
+
+
+extern struct gpio_t gpio;
+
+
+void gpio_init(void);
+void gpio_destroy(void);
+int gpio_inner_set(struct gpio_output_t *output, bool state);
+
+
+#define SET_STATE(_output, _state) { \
+		if (_output.line && _output.state != _state) { \
+			if (!gpio_inner_set(&_output, _state)) { \
+				_output.state = _state; \
+			} \
+		} \
 	}
 
-	MEMSET_ZERO(addr);
-	strncpy(addr.sun_path, path, MAX_SUN_PATH);
-	addr.sun_family = AF_UNIX;
-
-#	undef MAX_SUN_PATH
-
-	assert((fd = socket(AF_UNIX, SOCK_STREAM, 0)) >= 0);
-	assert(!evutil_make_socket_nonblocking(fd));
-
-	if (rm && unlink(path) < 0) {
-		if (errno != ENOENT) {
-			LOG_PERROR("Can't remove old UNIX socket '%s'", path);
-			return -1;
-		}
-	}
-	if (bind(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr_un)) < 0) {
-		LOG_PERROR("Can't bind HTTP to UNIX socket '%s'", path);
-		return -1;
-	}
-	if (mode && chmod(path, mode) < 0) {
-		LOG_PERROR("Can't set permissions %o to UNIX socket '%s'", mode, path);
-		return -1;
-	}
-	if (listen(fd, 128) < 0) {
-		LOG_PERROR("Can't listen UNIX socket '%s'", path);
-		return -1;
-	}
-	if (evhttp_accept_socket(http, fd) < 0) {
-		LOG_PERROR("Can't evhttp_accept_socket() UNIX socket '%s'", path);
-		return -1;
-	}
-	return fd;
+INLINE void gpio_set_prog_running(bool state) {
+	SET_STATE(gpio.prog_running, state);
 }
+
+INLINE void gpio_set_stream_online(bool state) {
+	SET_STATE(gpio.stream_online, state);
+}
+
+INLINE void gpio_set_has_http_clients(bool state) {
+	SET_STATE(gpio.has_http_clients, state);
+}
+
+#undef SET_STATE

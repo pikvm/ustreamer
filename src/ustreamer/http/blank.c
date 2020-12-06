@@ -28,8 +28,8 @@
 
 #include <jpeglib.h>
 
-#include "../tools.h"
-#include "../logging.h"
+#include "../../common/tools.h"
+#include "../../common/logging.h"
 #include "../picture.h"
 
 #include "data/blank_jpeg.h"

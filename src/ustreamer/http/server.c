@@ -51,10 +51,10 @@
 #	error Required libevent-pthreads support
 #endif
 
-#include "../tools.h"
-#include "../threading.h"
-#include "../logging.h"
-#include "../process.h"
+#include "../../common/tools.h"
+#include "../../common/threading.h"
+#include "../../common/logging.h"
+#include "../../common/process.h"
 #include "../picture.h"
 #include "../encoder.h"
 #include "../stream.h"

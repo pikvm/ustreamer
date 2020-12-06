@@ -20,7 +20,7 @@ LINTERS_IMAGE ?= $(PROG)-linters
 # =====
 _LIBS = -lm -ljpeg -pthread -levent -levent_pthreads -luuid
 override CFLAGS += -c -std=c11 -Wall -Wextra -D_GNU_SOURCE
-_SRCS = $(shell ls src/*.c src/http/*.c src/encoders/cpu/*.c src/encoders/hw/*.c)
+_SRCS = $(shell ls src/common/*.c src/ustreamer/*.c src/ustreamer/http/*.c src/ustreamer/encoders/cpu/*.c src/ustreamer/encoders/hw/*.c)
 
 
 define optbool
@@ -31,14 +31,14 @@ endef
 ifneq ($(call optbool,$(WITH_OMX)),)
 _LIBS += -lbcm_host -lvcos -lopenmaxil -L$(RPI_VC_LIBS)
 override CFLAGS += -DWITH_OMX -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
-_SRCS += $(shell ls src/encoders/omx/*.c)
+_SRCS += $(shell ls src/ustreamer/encoders/omx/*.c)
 endif
 
 
 ifneq ($(call optbool,$(WITH_GPIO)),)
 _LIBS += -lgpiod
 override CFLAGS += -DWITH_GPIO
-_SRCS += $(shell ls src/gpio/*.c)
+_SRCS += $(shell ls src/ustreamer/gpio/*.c)
 endif
 
 
@@ -76,8 +76,8 @@ uninstall:
 
 
 regen:
-	tools/make-jpeg-h.py src/http/data/blank.jpeg src/http/data/blank_jpeg.h BLANK
-	tools/make-html-h.py src/http/data/index.html src/http/data/index_html.h INDEX
+	tools/make-jpeg-h.py src/ustreamer/http/data/blank.jpeg src/ustreamer/http/data/blank_jpeg.h BLANK
+	tools/make-html-h.py src/ustreamer/http/data/index.html src/ustreamer/http/data/index_html.h INDEX
 
 
 $(PROG): $(_SRCS:%.c=$(BUILD)/%.o)

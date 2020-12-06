@@ -36,9 +36,10 @@
 
 #include <pthread.h>
 
-#include "tools.h"
-#include "threading.h"
-#include "logging.h"
+#include "../common/tools.h"
+#include "../common/threading.h"
+#include "../common/logging.h"
+
 #include "options.h"
 #include "device.h"
 #include "encoder.h"

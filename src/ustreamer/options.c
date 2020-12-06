@@ -33,9 +33,10 @@
 #include <errno.h>
 #include <assert.h>
 
-#include "config.h"
-#include "logging.h"
-#include "process.h"
+#include "../common/config.h"
+#include "../common/logging.h"
+#include "../common/process.h"
+
 #include "device.h"
 #include "encoder.h"
 #include "http/server.h"

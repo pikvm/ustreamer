@@ -20,54 +20,71 @@
 *****************************************************************************/
 
 
-#include "mime.h"
+#include "static.h"
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
-#include <event2/util.h>
+#include <sys/stat.h>
 
-#include "../tools.h"
+#include "../../common/tools.h"
+#include "../../common/logging.h"
 
-
-static const struct {
-	const char *ext;
-	const char *mime;
-} _MIME_TYPES[] = {
-	{"html",	"text/html"},
-	{"htm",		"text/html"},
-	{"css",		"text/css"},
-	{"js",		"text/javascript"},
-	{"txt",		"text/plain"},
-	{"jpg",		"image/jpeg"},
-	{"jpeg",	"image/jpeg"},
-	{"png",		"image/png"},
-	{"gif",		"image/gif"},
-	{"ico",		"image/x-icon"},
-	{"bmp",		"image/bmp"},
-	{"svg",		"image/svg+xml"},
-	{"swf",		"application/x-shockwave-flash"},
-	{"cab",		"application/x-shockwave-flash"},
-	{"jar",		"application/java-archive"},
-	{"json",	"application/json"},
-};
+#include "path.h"
 
 
-const char *guess_mime_type(const char *path) {
-	char *dot;
-	char *ext;
+char *find_static_file_path(const char *root_path, const char *request_path) {
+	char *simplified_path;
+	char *path = NULL;
+	struct stat st;
 
-	dot = strrchr(path, '.');
-	if (dot == NULL || strchr(dot, '/') != NULL) {
-		goto misc;
+	simplified_path = simplify_request_path(request_path);
+	if (simplified_path[0] == '\0') {
+		LOG_VERBOSE("HTTP: Invalid request path %s to static", request_path);
+		goto error;
 	}
 
-	ext = dot + 1;
-	for (unsigned index = 0; index < ARRAY_LEN(_MIME_TYPES); ++index) {
-		if (!evutil_ascii_strcasecmp(ext, _MIME_TYPES[index].ext)) {
-			return _MIME_TYPES[index].mime;
+	A_CALLOC(path, strlen(root_path) + strlen(simplified_path) + 32);
+	sprintf(path, "%s/%s", root_path, simplified_path);
+
+#	define LOAD_STAT { \
+			if (lstat(path, &st) < 0) { \
+				LOG_VERBOSE_PERROR("HTTP: Can't stat() static path %s", path); \
+				goto error; \
+			} \
 		}
+
+	LOAD_STAT;
+	if (S_ISDIR(st.st_mode)) {
+		LOG_VERBOSE("HTTP: Requested static path %s is a directory, trying %s/index.html", path, path);
+		strcat(path, "/index.html");
+		LOAD_STAT;
 	}
 
-	misc:
-		return "application/misc";
+#	undef LOAD_STAT
+
+	if (!S_ISREG(st.st_mode)) {
+		LOG_VERBOSE("HTTP: Not a regular file: %s", path);
+		goto error;
+	}
+
+	if (access(path, R_OK) < 0) {
+		LOG_VERBOSE_PERROR("HTTP: Can't access() R_OK file %s", path);
+		goto error;
+	}
+
+	goto ok;
+
+	error:
+		if (path) {
+			free(path);
+		}
+		path = NULL;
+
+	ok:
+		free(simplified_path);
+
+	return path;
 }

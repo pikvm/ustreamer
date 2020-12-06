@@ -30,9 +30,9 @@
 #include <pthread.h>
 #include <gpiod.h>
 
-#include "../tools.h"
-#include "../logging.h"
-#include "../threading.h"
+#include "../../common/tools.h"
+#include "../../common/logging.h"
+#include "../../common/threading.h"
 
 
 struct gpio_t gpio = {

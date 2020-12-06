@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include "../../config.h"
+#include "../../../common/config.h"
 
 
 const char HTML_INDEX_PAGE[] = " \

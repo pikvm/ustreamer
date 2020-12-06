@@ -26,7 +26,7 @@
 #include <IL/OMX_Core.h>
 #include <IL/OMX_Image.h>
 
-#include "../../logging.h"
+#include "../../../common/logging.h"
 
 
 #define LOG_ERROR_OMX(_error, _msg, ...) { \
