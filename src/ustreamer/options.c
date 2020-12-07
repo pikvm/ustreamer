@@ -619,11 +619,14 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                           for sources that already output MJPG.\n\n");
 	printf("    -c|--encoder <type>  ───────────────── Use specified encoder. It may affect the number of workers.\n");
 	printf("                                           Available:\n");
-	printf("                                             * CPU  ─ Software MJPG encoding (default);\n");
+	printf("                                             * CPU  ── Software MJPG encoding (default);\n");
 #	ifdef WITH_OMX
-	printf("                                             * OMX  ─ GPU hardware accelerated MJPG encoding with OpenMax;\n");
+	printf("                                             * OMX  ── GPU hardware accelerated MJPG encoding with OpenMax;\n");
 #	endif
-	printf("                                             * HW  ── Use pre-encoded MJPG frames directly from camera hardware.\n\n");
+	printf("                                             * HW  ─── Use pre-encoded MJPG frames directly from camera hardware.\n");
+#	ifdef WITH_RAWSINK
+	printf("                                             * NOOP  ─ Don't compress stream. Useful for the RAW sink.\n\n");
+#	endif
 #	ifdef WITH_OMX
 	printf("    -g|--glitched-resolutions <WxH,...>  ─ Comma-separated list of resolutions that require forced\n");
 	printf("                                           encoding on CPU instead of OMX. Default: disabled.\n\n");

@@ -46,10 +46,13 @@ static const struct {
 	const char *name;
 	const enum encoder_type_t type;
 } _ENCODER_TYPES[] = {
-	{"CPU",	ENCODER_TYPE_CPU},
-	{"HW",	ENCODER_TYPE_HW},
+	{"CPU",		ENCODER_TYPE_CPU},
+	{"HW",		ENCODER_TYPE_HW},
 #	ifdef WITH_OMX
-	{"OMX",	ENCODER_TYPE_OMX},
+	{"OMX",		ENCODER_TYPE_OMX},
+#	endif
+#	ifdef WITH_RAWSINK
+	{"NOOP",	ENCODER_TYPE_NOOP},
 #	endif
 };
 
@@ -183,6 +186,10 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 	ok:
 		if (quality == 0) {
 			LOG_INFO("Using JPEG quality: encoder default");
+#		ifdef WITH_RAWSINK
+		} else if (type == ENCODER_TYPE_NOOP) {
+			LOG_INFO("Using JPEG NOOP encoder");
+#		endif
 		} else {
 			LOG_INFO("Using JPEG quality: %u%%", quality);
 		}
@@ -221,6 +228,12 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, uns
 		}
 	}
 #	endif
+#	ifdef WITH_RAWSINK
+	else if (encoder->run->type == ENCODER_TYPE_NOOP) {
+		LOG_VERBOSE("Compressing buffer %u using NOOP (do nothing)", buf_index);
+	}
+#	endif
+
 
 	dev->run->pictures[buf_index]->encode_end_ts = get_now_monotonic();
 

@@ -41,10 +41,17 @@
 #	define ENCODER_TYPES_OMX_HINT ""
 #endif
 
+#ifdef WITH_RAWSINK
+#	define ENCODER_TYPES_NOOP_HINT ", NOOP"
+#else
+#	define ENCODER_TYPES_NOOP_HINT ""
+#endif
+
 
 #define ENCODER_TYPES_STR \
 	"CPU, HW" \
-	ENCODER_TYPES_OMX_HINT
+	ENCODER_TYPES_OMX_HINT \
+	ENCODER_TYPES_NOOP_HINT
 
 enum encoder_type_t {
 	ENCODER_TYPE_UNKNOWN, // Only for encoder_parse_type() and main()
@@ -52,6 +59,9 @@ enum encoder_type_t {
 	ENCODER_TYPE_HW,
 #	ifdef WITH_OMX
 	ENCODER_TYPE_OMX,
+#	endif
+#	ifdef WITH_RAWSINK
+	ENCODER_TYPE_NOOP,
 #	endif
 };
 
