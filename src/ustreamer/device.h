@@ -71,6 +71,7 @@ struct device_runtime_t {
 	struct hw_buffer_t	*hw_buffers;
 	struct picture_t	**pictures;
 	bool				capturing;
+	bool				persistent_timeout_reported;
 };
 
 enum control_mode_t {

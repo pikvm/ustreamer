@@ -199,6 +199,7 @@ int device_open(struct device_t *dev) {
 }
 
 void device_close(struct device_t *dev) {
+	dev->run->persistent_timeout_reported = false;
 	dev->run->n_workers = 0;
 
 	if (dev->run->pictures) {
@@ -292,8 +293,21 @@ int device_select(struct device_t *dev, bool *has_read, bool *has_write, bool *h
 		*has_write = false;
 		*has_error = false;
 	}
-
 	LOG_DEBUG("Device select() --> %d", retval);
+
+	if (retval > 0) {
+		dev->run->persistent_timeout_reported = false;
+	} else if (retval == 0) {
+		if (dev->persistent) {
+			if (!dev->run->persistent_timeout_reported) {
+				LOG_ERROR("Persistent device timeout (unplugged)");
+				dev->run->persistent_timeout_reported = true;
+			}
+		} else {
+			// Если устройство не персистентное, то таймаут является ошибкой
+			retval = -1;
+		}
+	}
 	return retval;
 }
 

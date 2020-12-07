@@ -139,7 +139,6 @@ void stream_loop(struct stream_t *stream) {
 		unsigned captured_fps = 0;
 		unsigned captured_fps_accum = 0;
 		long long captured_fps_second = 0;
-		bool persistent_timeout_reported = false;
 
 		LOG_INFO("Capturing ...");
 
@@ -183,26 +182,11 @@ void stream_loop(struct stream_t *stream) {
 					LOG_PERROR("Mainloop select() error");
 					break;
 				}
-
-			} else if (selected == 0) {
+			} else if (selected == 0) { // Persistent timeout
 #				ifdef WITH_GPIO
 				gpio_set_stream_online(false);
 #				endif
-
-				if (stream->dev->persistent) {
-					if (!persistent_timeout_reported) {
-						LOG_ERROR("Mainloop select() timeout, polling ...")
-						persistent_timeout_reported = true;
-					}
-					continue;
-				} else {
-					LOG_ERROR("Mainloop select() timeout");
-					break;
-				}
-
 			} else {
-				persistent_timeout_reported = false;
-
 				if (has_read) {
 					LOG_DEBUG("Frame is ready");
 
