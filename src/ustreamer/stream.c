@@ -194,7 +194,6 @@ void stream_loop(struct stream_t *stream) {
 						LOG_ERROR("Mainloop select() timeout, polling ...")
 						persistent_timeout_reported = true;
 					}
-
 					continue;
 				} else {
 					LOG_ERROR("Mainloop select() timeout");
@@ -211,59 +210,39 @@ void stream_loop(struct stream_t *stream) {
 					gpio_set_stream_online(true);
 #					endif
 
-					int buf_index;
 					long double now = get_now_monotonic();
 					long long now_second = floor_ms(now);
 
-					if ((buf_index = device_grab_buffer(stream->dev)) < 0) {
-						break;
-					}
-
-					// Workaround for broken, corrupted frames:
-					// Under low light conditions corrupted frames may get captured.
-					// The good thing is such frames are quite small compared to the regular pictures.
-					// For example a VGA (640x480) webcam picture is normally >= 8kByte large,
-					// corrupted frames are smaller.
-					if (stream->dev->run->hw_buffers[buf_index].used < stream->dev->min_frame_size) {
-						LOG_DEBUG("Dropped too small frame sized %zu bytes, assuming it was broken",
-							stream->dev->run->hw_buffers[buf_index].used);
-						goto pass_frame;
-					}
-
-					{
+					int buf_index = device_grab_buffer(stream->dev);
+					if (buf_index >= 0) {
 						if (now < grab_after) {
 							fluency_passed += 1;
 							LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf", fluency_passed, now, grab_after);
-							goto pass_frame;
+							if (device_release_buffer(stream->dev, buf_index) < 0) {
+								break;
+							}
+						} else {
+							fluency_passed = 0;
+
+							if (now_second != captured_fps_second) {
+								captured_fps = captured_fps_accum;
+								captured_fps_accum = 0;
+								captured_fps_second = now_second;
+								LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps);
+							}
+							captured_fps_accum += 1;
+
+							long double fluency_delay = _workers_pool_get_fluency_delay(pool, ready_worker);
+
+							grab_after = now + fluency_delay;
+							LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
+
+							_workers_pool_assign(pool, ready_worker, buf_index);
 						}
-						fluency_passed = 0;
-
-						if (now_second != captured_fps_second) {
-							captured_fps = captured_fps_accum;
-							captured_fps_accum = 0;
-							captured_fps_second = now_second;
-							LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps);
-						}
-						captured_fps_accum += 1;
-
-						long double fluency_delay = _workers_pool_get_fluency_delay(pool, ready_worker);
-
-						grab_after = now + fluency_delay;
-						LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
-					}
-
-					_workers_pool_assign(pool, ready_worker, buf_index);
-
-					goto next_handlers; // Поток сам освободит буфер
-
-					pass_frame:
-
-					if (device_release_buffer(stream->dev, buf_index) < 0) {
+					} else if (buf_index != -2) { // -2 for broken frame
 						break;
 					}
 				}
-
-				next_handlers:
 
 				if (has_write) {
 					LOG_ERROR("Got unexpected writing event, seems device was disconnected");

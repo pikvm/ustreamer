@@ -319,6 +319,21 @@ int device_grab_buffer(struct device_t *dev) {
 		return -1;
 	}
 
+	// Workaround for broken, corrupted frames:
+	// Under low light conditions corrupted frames may get captured.
+	// The good thing is such frames are quite small compared to the regular pictures.
+	// For example a VGA (640x480) webcam picture is normally >= 8kByte large,
+	// corrupted frames are smaller.
+	if (buf_info.bytesused < dev->min_frame_size) {
+		LOG_DEBUG("Dropped too small frame sized %d bytes, assuming it was broken", buf_info.bytesused);
+		LOG_DEBUG("Releasing device buffer index=%u (broken frame) ...", buf_info.index);
+		if (xioctl(dev->run->fd, VIDIOC_QBUF, &buf_info) < 0) {
+			LOG_PERROR("Unable to release device buffer index=%u (broken frame)", buf_info.index);
+			return -1;
+		}
+		return -2;
+	}
+
 #	define HW_BUFFER(_next) dev->run->hw_buffers[buf_info.index]._next
 
 	A_MUTEX_LOCK(&HW_BUFFER(grabbed_mutex));
