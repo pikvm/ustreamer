@@ -120,12 +120,16 @@ struct device_t *device_init(void) {
 	dev->height = 480;
 	dev->format = V4L2_PIX_FMT_YUYV;
 	dev->standard = V4L2_STD_UNKNOWN;
+	dev->io_method = V4L2_MEMORY_MMAP;
 	dev->n_buffers = cores_available + 1;
 	dev->n_workers = min_u(cores_available, dev->n_buffers);
 	dev->min_frame_size = 128;
 	dev->timeout = 1;
-	dev->error_delay = 1;
-	dev->io_method = V4L2_MEMORY_MMAP;
+	dev->error_delay = 1; // XXX: not device param
+#	ifdef WITH_RAWSINK // XXX: not device param
+	dev->rawsink_name = "";
+	dev->rawsink_mode = 0660;
+#	endif
 	dev->run = run;
 	return dev;
 }

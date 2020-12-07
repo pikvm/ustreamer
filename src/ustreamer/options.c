@@ -104,6 +104,12 @@ enum _OPT_VALUES {
 	_O_TCP_NODELAY,
 	_O_SERVER_TIMEOUT,
 
+#ifdef WITH_RAWSINK
+	_O_RAWSINK,
+	_O_RAWSINK_MODE,
+	_O_RAWSINK_RM,
+#endif
+
 #ifdef WITH_GPIO
 	_O_GPIO_DEVICE,
 	_O_GPIO_CONSUMER_PREFIX,
@@ -181,6 +187,12 @@ static const struct option _LONG_OPTS[] = {
 	{"fake-resolution",			required_argument,	NULL,	_O_FAKE_RESOLUTION},
 	{"tcp-nodelay",				no_argument,		NULL,	_O_TCP_NODELAY},
 	{"server-timeout",			required_argument,	NULL,	_O_SERVER_TIMEOUT},
+
+#ifdef WITH_RAWSINK
+	{"raw-sink",				required_argument,	NULL,	_O_RAWSINK},
+	{"raw-sink-mode",			required_argument,	NULL,	_O_RAWSINK_MODE},
+	{"raw-sink-rm",				no_argument,		NULL,	_O_RAWSINK_RM},
+#endif
 
 #ifdef WITH_GPIO
 	{"gpio-device",				required_argument,	NULL,	_O_GPIO_DEVICE},
@@ -405,6 +417,12 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 			case _O_TCP_NODELAY:		OPT_SET(server->tcp_nodelay, true);
 			case _O_SERVER_TIMEOUT:		OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
+#			ifdef WITH_RAWSINK
+			case _O_RAWSINK:		OPT_SET(dev->rawsink_name, optarg);
+			case _O_RAWSINK_MODE:	OPT_NUMBER("--raw-sink-mode", dev->rawsink_mode, INT_MIN, INT_MAX, 8);
+			case _O_RAWSINK_RM:		OPT_SET(dev->rawsink_rm, true);
+#			endif
+
 #			ifdef WITH_GPIO
 			case _O_GPIO_DEVICE:			OPT_SET(gpio.path, optarg);
 			case _O_GPIO_CONSUMER_PREFIX:	OPT_SET(gpio.consumer_prefix, optarg);
@@ -534,6 +552,12 @@ static void _features(void) {
 	puts("- WITH_OMX");
 #	endif
 
+#	ifdef WITH_RAWSINK
+	puts("+ WITH_RAWSINK");
+#	else
+	puts("- WITH_RAWSINK");
+#	endif
+
 #	ifdef WITH_GPIO
 	puts("+ WITH_GPIO");
 #	else
@@ -651,6 +675,14 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                  Default: disabled.\n\n");
 	printf("    --allow-origin <str>  ─────── Set Access-Control-Allow-Origin header. Default: disabled.\n\n");
 	printf("    --server-timeout <sec>  ───── Timeout for client connections. Default: %u.\n\n", server->timeout);
+#ifdef WITH_RAWSINK
+	printf("RAW sink options:\n");
+	printf("═════════════════\n");
+	printf("    --raw-sink <name>  ────── Use the shared memory to sink RAW frames before encoding.\n");
+	printf("                              Most likely you will never need it. Default: disabled.\n\n");
+	printf("    --raw-sink-mode <mode>  ─ Set RAW sink permissions (like 777). Default: %o.\n\n", dev->rawsink_mode);
+	printf("    --raw-sink-rm  ────────── Remove shared memory on stop. Default: disabled.\n\n");
+#endif
 #ifdef WITH_GPIO
 	printf("GPIO options:\n");
 	printf("═════════════\n");

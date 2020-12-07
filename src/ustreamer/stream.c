@@ -38,6 +38,9 @@
 #include "picture.h"
 #include "device.h"
 #include "encoder.h"
+#ifdef WITH_RAWSINK
+#	include "../rawsink/rawsink.h"
+#endif
 #ifdef WITH_GPIO
 #	include "gpio/gpio.h"
 #endif
@@ -128,10 +131,18 @@ void stream_destroy(struct stream_t *stream) {
 }
 
 void stream_loop(struct stream_t *stream) {
+#	define DEV(_next) stream->dev->_next
 	struct _workers_pool_t *pool;
 
-	LOG_INFO("Using V4L2 device: %s", stream->dev->path);
-	LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
+	LOG_INFO("Using V4L2 device: %s", DEV(path));
+	LOG_INFO("Using desired FPS: %u", DEV(desired_fps));
+
+#	ifdef WITH_RAWSINK
+	struct rawsink_t *rawsink = NULL;
+	if (DEV(rawsink_name[0]) != '\0') {
+		rawsink = rawsink_init(DEV(rawsink_name), DEV(rawsink_mode), DEV(rawsink_rm));
+	}
+#	endif
 
 	while ((pool = _stream_init_loop(stream)) != NULL) {
 		long double grab_after = 0;
@@ -143,7 +154,7 @@ void stream_loop(struct stream_t *stream) {
 		LOG_INFO("Capturing ...");
 
 		LOG_DEBUG("Pre-allocating memory for stream picture ...");
-		picture_realloc_data(stream->picture, picture_get_generous_size(stream->dev->run->width, stream->dev->run->height));
+		picture_realloc_data(stream->picture, picture_get_generous_size(DEV(run->width), DEV(run->height)));
 
 		while (!atomic_load(&stream->proc->stop)) {
 			struct _worker_t *ready_worker;
@@ -201,7 +212,8 @@ void stream_loop(struct stream_t *stream) {
 					if (buf_index >= 0) {
 						if (now < grab_after) {
 							fluency_passed += 1;
-							LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf", fluency_passed, now, grab_after);
+							LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf",
+								fluency_passed, now, grab_after);
 							if (device_release_buffer(stream->dev, buf_index) < 0) {
 								break;
 							}
@@ -220,6 +232,20 @@ void stream_loop(struct stream_t *stream) {
 
 							grab_after = now + fluency_delay;
 							LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
+
+#							ifdef WITH_RAWSINK
+							if (rawsink) {
+								rawsink_put(
+									rawsink,
+									DEV(run->hw_buffers[buf_index].data),
+									DEV(run->hw_buffers[buf_index].used),
+									DEV(run->format),
+									DEV(run->width),
+									DEV(run->height),
+									DEV(run->pictures[buf_index]->grab_ts)
+								);
+							}
+#							endif
 
 							_workers_pool_assign(pool, ready_worker, buf_index);
 						}
@@ -255,6 +281,14 @@ void stream_loop(struct stream_t *stream) {
 		gpio_set_stream_online(false);
 #		endif
 	}
+
+#	ifdef WITH_RAWSINK
+	if (rawsink) {
+		rawsink_destroy(rawsink);
+	}
+#	endif
+
+#	undef DEV
 }
 
 void stream_loop_break(struct stream_t *stream) {

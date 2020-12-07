@@ -153,9 +153,9 @@ Bind to this TCP port. Default: 8080.
 .TP
 .BR \-U\ \fIpath ", " \-\-unix\ \fIpath
 Bind to UNIX domain socket. Default: disabled.
-.TP
-.BR \-D ", " \-\-unix\-rm
-Try to remove old UNIX socket file before binding. Default: disabled.
+.tp
+.br \-d ", " \-\-unix\-rm
+try to remove old unix socket file before binding. default: disabled.
 .TP
 .BR \-M\ \fImode ", " \-\-unix\-mode\ \fImode
 Set UNIX socket file permissions (like 777). Default: disabled.
@@ -193,6 +193,19 @@ Set Access\-Control\-Allow\-Origin header. Default: disabled.
 .TP
 .BR \-\-server\-timeout\ \fIsec
 Timeout for client connections. Default: 10.
+
+.SS "RAW sink options"
+Available only if \fBWITH_RAWSINK\fR feature enabled.
+.TP
+.BR \-\-raw\-sink\ \fIname
+Use the specified shared memory object to sink RAW frames before encoding.
+Most likely you will never need it. Default: disabled.
+.TP
+.BR \-\-raw\-sink\-mode\ \fImode
+Set RAW sink permissions (like 777). Default: 660.
+.TP
+.BR \-\-raw\-sink\-rm
+Remove shared memory on stop. Default: disabled.
 
 .SS "Process options"
 .BR \-\-exit\-on\-parent\-death

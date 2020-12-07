@@ -28,6 +28,10 @@
 #include <pthread.h>
 #include <linux/videodev2.h>
 
+#ifdef WITH_RAWSINK
+#	include "../rawsink/rawsink.h"
+#endif
+
 #include "picture.h"
 
 
@@ -116,7 +120,12 @@ struct device_t {
 	size_t			min_frame_size;
 	bool			persistent;
 	unsigned		timeout;
-	unsigned		error_delay;
+	unsigned		error_delay; // XXX: not device param
+#	ifdef WITH_RAWSINK // XXX: not device params
+	char			*rawsink_name;
+	mode_t			rawsink_mode;
+	bool			rawsink_rm;
+#	endif
 
 	struct controls_t ctl;
 

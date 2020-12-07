@@ -28,6 +28,13 @@ $(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
 endef
 
 
+ifneq ($(call optbool,$(WITH_RAWSINK)),)
+_LIBS += -lrt
+override CFLAGS += -DWITH_RAWSINK
+_SRCS += $(shell ls src/rawsink/*.c)
+endif
+
+
 ifneq ($(call optbool,$(WITH_OMX)),)
 _LIBS += -lbcm_host -lvcos -lopenmaxil -L$(RPI_VC_LIBS)
 override CFLAGS += -DWITH_OMX -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
