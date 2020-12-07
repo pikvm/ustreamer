@@ -91,14 +91,21 @@ static void _device_open_alloc_picbufs(struct device_t *dev);
 static int _device_apply_resolution(struct device_t *dev, unsigned width, unsigned height);
 
 static void _device_apply_controls(struct device_t *dev);
-static int _device_query_control(struct device_t *dev, struct v4l2_queryctrl *query, const char *name, unsigned cid, bool quiet);
-static void _device_set_control(struct device_t *dev, struct v4l2_queryctrl *query, const char *name, unsigned cid, int value, bool quiet);
+static int _device_query_control(
+	struct device_t *dev, struct v4l2_queryctrl *query,
+	const char *name, unsigned cid, bool quiet);
+static void _device_set_control(
+	struct device_t *dev, struct v4l2_queryctrl *query,
+	const char *name, unsigned cid, int value, bool quiet);
 
 static const char *_format_to_string_fourcc(char *buf, size_t size, unsigned format);
 static const char *_format_to_string_nullable(unsigned format);
 static const char *_format_to_string_supported(unsigned format);
 static const char *_standard_to_string(v4l2_std_id standard);
 static const char *_io_method_to_string_supported(enum v4l2_memory io_method);
+
+
+#	define RUN(_next) dev->run->_next
 
 
 struct device_t *device_init(void) {
@@ -167,11 +174,11 @@ int device_parse_io_method(const char *str) {
 }
 
 int device_open(struct device_t *dev) {
-	if ((dev->run->fd = open(dev->path, O_RDWR|O_NONBLOCK)) < 0) {
+	if ((RUN(fd) = open(dev->path, O_RDWR|O_NONBLOCK)) < 0) {
 		LOG_PERROR("Can't open device");
 		goto error;
 	}
-	LOG_INFO("Device fd=%d opened", dev->run->fd);
+	LOG_INFO("Device fd=%d opened", RUN(fd));
 
 	if (_device_open_check_cap(dev) < 0) {
 		goto error;
@@ -192,9 +199,9 @@ int device_open(struct device_t *dev) {
 	_device_open_alloc_picbufs(dev);
 	_device_apply_controls(dev);
 
-	dev->run->n_workers = min_u(dev->run->n_buffers, dev->n_workers);
+	RUN(n_workers) = min_u(RUN(n_buffers), dev->n_workers);
 
-	LOG_DEBUG("Device fd=%d initialized", dev->run->fd);
+	LOG_DEBUG("Device fd=%d initialized", RUN(fd));
 	return 0;
 
 	error:
@@ -203,67 +210,67 @@ int device_open(struct device_t *dev) {
 }
 
 void device_close(struct device_t *dev) {
-	dev->run->persistent_timeout_reported = false;
-	dev->run->n_workers = 0;
+	RUN(persistent_timeout_reported) = false;
+	RUN(n_workers) = 0;
 
-	if (dev->run->pictures) {
+	if (RUN(pictures)) {
 		LOG_DEBUG("Releasing picture buffers ...");
-		for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
-			picture_destroy(dev->run->pictures[index]);
+		for (unsigned index = 0; index < RUN(n_buffers); ++index) {
+			picture_destroy(RUN(pictures[index]));
 		}
-		free(dev->run->pictures);
-		dev->run->pictures = NULL;
+		free(RUN(pictures));
+		RUN(pictures) = NULL;
 	}
 
-	if (dev->run->hw_buffers) {
+	if (RUN(hw_buffers)) {
 		LOG_DEBUG("Releasing device buffers ...");
-		for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
-#			define HW_BUFFER(_next) dev->run->hw_buffers[index]._next
+		for (unsigned index = 0; index < RUN(n_buffers); ++index) {
+#			define HW(_next) RUN(hw_buffers)[index]._next
 
 			if (dev->io_method == V4L2_MEMORY_MMAP) {
-				if (HW_BUFFER(allocated) > 0 && HW_BUFFER(data) != MAP_FAILED) {
-					if (munmap(HW_BUFFER(data), HW_BUFFER(allocated)) < 0) {
+				if (HW(allocated) > 0 && HW(data) != MAP_FAILED) {
+					if (munmap(HW(data), HW(allocated)) < 0) {
 						LOG_PERROR("Can't unmap device buffer %u", index);
 					}
 				}
 			} else { // V4L2_MEMORY_USERPTR
-				if (HW_BUFFER(data)) {
-					free(HW_BUFFER(data));
+				if (HW(data)) {
+					free(HW(data));
 				}
 			}
-			A_MUTEX_DESTROY(&HW_BUFFER(grabbed_mutex));
+			A_MUTEX_DESTROY(&HW(grabbed_mutex));
 
-#			undef HW_BUFFER
+#			undef HW
 		}
-		dev->run->n_buffers = 0;
-		free(dev->run->hw_buffers);
-		dev->run->hw_buffers = NULL;
+		RUN(n_buffers) = 0;
+		free(RUN(hw_buffers));
+		RUN(hw_buffers) = NULL;
 	}
 
-	if (dev->run->fd >= 0) {
+	if (RUN(fd) >= 0) {
 		LOG_DEBUG("Closing device ...");
-		if (close(dev->run->fd) < 0) {
-			LOG_PERROR("Can't close device fd=%d", dev->run->fd);
+		if (close(RUN(fd)) < 0) {
+			LOG_PERROR("Can't close device fd=%d", RUN(fd));
 		} else {
-			LOG_INFO("Device fd=%d closed", dev->run->fd);
+			LOG_INFO("Device fd=%d closed", RUN(fd));
 		}
-		dev->run->fd = -1;
+		RUN(fd) = -1;
 	}
 }
 
 int device_switch_capturing(struct device_t *dev, bool enable) {
-	if (enable != dev->run->capturing) {
+	if (enable != RUN(capturing)) {
 		enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
 		LOG_DEBUG("Calling ioctl(%s) ...", (enable ? "VIDIOC_STREAMON" : "VIDIOC_STREAMOFF"));
-		if (xioctl(dev->run->fd, (enable ? VIDIOC_STREAMON : VIDIOC_STREAMOFF), &type) < 0) {
+		if (xioctl(RUN(fd), (enable ? VIDIOC_STREAMON : VIDIOC_STREAMOFF), &type) < 0) {
 			LOG_PERROR("Unable to %s capturing", (enable ? "start" : "stop"));
 			if (enable) {
 				return -1;
 			}
 		}
 
-		dev->run->capturing = enable;
+		RUN(capturing) = enable;
 		LOG_INFO("Capturing %s", (enable ? "started" : "stopped"));
 	}
     return 0;
@@ -274,7 +281,7 @@ int device_select(struct device_t *dev, bool *has_read, bool *has_write, bool *h
 	int retval;
 
 #	define INIT_FD_SET(_set) \
-		fd_set _set; FD_ZERO(&_set); FD_SET(dev->run->fd, &_set);
+		fd_set _set; FD_ZERO(&_set); FD_SET(RUN(fd), &_set);
 
 	INIT_FD_SET(read_fds);
 	INIT_FD_SET(write_fds);
@@ -287,11 +294,11 @@ int device_select(struct device_t *dev, bool *has_read, bool *has_write, bool *h
 
 	LOG_DEBUG("Calling select() on video device ...");
 
-	retval = select(dev->run->fd + 1, &read_fds, &write_fds, &error_fds, &timeout);
+	retval = select(RUN(fd) + 1, &read_fds, &write_fds, &error_fds, &timeout);
 	if (retval > 0) {
-		*has_read = FD_ISSET(dev->run->fd, &read_fds);
-		*has_write = FD_ISSET(dev->run->fd, &write_fds);
-		*has_error = FD_ISSET(dev->run->fd, &error_fds);
+		*has_read = FD_ISSET(RUN(fd), &read_fds);
+		*has_write = FD_ISSET(RUN(fd), &write_fds);
+		*has_error = FD_ISSET(RUN(fd), &error_fds);
 	} else {
 		*has_read = false;
 		*has_write = false;
@@ -300,12 +307,12 @@ int device_select(struct device_t *dev, bool *has_read, bool *has_write, bool *h
 	LOG_DEBUG("Device select() --> %d", retval);
 
 	if (retval > 0) {
-		dev->run->persistent_timeout_reported = false;
+		RUN(persistent_timeout_reported) = false;
 	} else if (retval == 0) {
 		if (dev->persistent) {
-			if (!dev->run->persistent_timeout_reported) {
+			if (!RUN(persistent_timeout_reported)) {
 				LOG_ERROR("Persistent device timeout (unplugged)");
-				dev->run->persistent_timeout_reported = true;
+				RUN(persistent_timeout_reported) = true;
 			}
 		} else {
 			// Если устройство не персистентное, то таймаут является ошибкой
@@ -323,7 +330,7 @@ int device_grab_buffer(struct device_t *dev) {
 	buf_info.memory = dev->io_method;
 
 	LOG_DEBUG("Grabbing device buffer ...");
-	if (xioctl(dev->run->fd, VIDIOC_DQBUF, &buf_info) < 0) {
+	if (xioctl(RUN(fd), VIDIOC_DQBUF, &buf_info) < 0) {
 		LOG_PERROR("Unable to grab device buffer");
 		return -1;
 	}
@@ -331,9 +338,9 @@ int device_grab_buffer(struct device_t *dev) {
 	LOG_DEBUG("Grabbed new frame in device buffer: index=%u, bytesused=%u",
 		buf_info.index, buf_info.bytesused);
 
-	if (buf_info.index >= dev->run->n_buffers) {
+	if (buf_info.index >= RUN(n_buffers)) {
 		LOG_ERROR("V4L2 error: grabbed invalid device buffer: index=%u, nbuffers=%u",
-			buf_info.index, dev->run->n_buffers);
+			buf_info.index, RUN(n_buffers));
 		return -1;
 	}
 
@@ -345,49 +352,49 @@ int device_grab_buffer(struct device_t *dev) {
 	if (buf_info.bytesused < dev->min_frame_size) {
 		LOG_DEBUG("Dropped too small frame sized %d bytes, assuming it was broken", buf_info.bytesused);
 		LOG_DEBUG("Releasing device buffer index=%u (broken frame) ...", buf_info.index);
-		if (xioctl(dev->run->fd, VIDIOC_QBUF, &buf_info) < 0) {
+		if (xioctl(RUN(fd), VIDIOC_QBUF, &buf_info) < 0) {
 			LOG_PERROR("Unable to release device buffer index=%u (broken frame)", buf_info.index);
 			return -1;
 		}
 		return -2;
 	}
 
-#	define HW_BUFFER(_next) dev->run->hw_buffers[buf_info.index]._next
+#	define HW(_next) RUN(hw_buffers)[buf_info.index]._next
 
-	A_MUTEX_LOCK(&HW_BUFFER(grabbed_mutex));
-	if (HW_BUFFER(grabbed)) {
+	A_MUTEX_LOCK(&HW(grabbed_mutex));
+	if (HW(grabbed)) {
 		LOG_ERROR("V4L2 error: grabbed device buffer is already used: index=%u, bytesused=%u",
 			buf_info.index, buf_info.bytesused);
-		A_MUTEX_UNLOCK(&HW_BUFFER(grabbed_mutex));
+		A_MUTEX_UNLOCK(&HW(grabbed_mutex));
 		return -1;
 	}
-	HW_BUFFER(grabbed) = true;
-	A_MUTEX_UNLOCK(&HW_BUFFER(grabbed_mutex));
+	HW(grabbed) = true;
+	A_MUTEX_UNLOCK(&HW(grabbed_mutex));
 
-	HW_BUFFER(used) = buf_info.bytesused;
-	memcpy(&HW_BUFFER(buf_info), &buf_info, sizeof(struct v4l2_buffer));
-	dev->run->pictures[buf_info.index]->grab_ts = get_now_monotonic();
+	HW(used) = buf_info.bytesused;
+	memcpy(&HW(buf_info), &buf_info, sizeof(struct v4l2_buffer));
+	RUN(pictures)[buf_info.index]->grab_ts = get_now_monotonic();
 
-#	undef HW_BUFFER
+#	undef HW
 	return buf_info.index;
 }
 
 int device_release_buffer(struct device_t *dev, unsigned index) {
-#	define HW_BUFFER(_next) dev->run->hw_buffers[index]._next
+#	define HW(_next) RUN(hw_buffers)[index]._next
 
 	LOG_DEBUG("Releasing device buffer index=%u ...", index);
 
-	A_MUTEX_LOCK(&HW_BUFFER(grabbed_mutex));
-	if (xioctl(dev->run->fd, VIDIOC_QBUF, &HW_BUFFER(buf_info)) < 0) {
+	A_MUTEX_LOCK(&HW(grabbed_mutex));
+	if (xioctl(RUN(fd), VIDIOC_QBUF, &HW(buf_info)) < 0) {
 		LOG_PERROR("Unable to release device buffer index=%u", index);
-		A_MUTEX_UNLOCK(&HW_BUFFER(grabbed_mutex));
+		A_MUTEX_UNLOCK(&HW(grabbed_mutex));
 		return -1;
 	}
-	HW_BUFFER(grabbed) = false;
-	A_MUTEX_UNLOCK(&HW_BUFFER(grabbed_mutex));
-	HW_BUFFER(used) = 0;
+	HW(grabbed) = false;
+	A_MUTEX_UNLOCK(&HW(grabbed_mutex));
+	HW(used) = 0;
 
-#	undef HW_BUFFER
+#	undef HW
 	return 0;
 }
 
@@ -395,7 +402,7 @@ int device_consume_event(struct device_t *dev) {
 	struct v4l2_event event;
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_DQEVENT) ...");
-	if (xioctl(dev->run->fd, VIDIOC_DQEVENT, &event) == 0) {
+	if (xioctl(RUN(fd), VIDIOC_DQEVENT, &event) == 0) {
 		switch (event.type) {
 			case V4L2_EVENT_SOURCE_CHANGE:
 				LOG_INFO("Got V4L2_EVENT_SOURCE_CHANGE: source changed");
@@ -417,7 +424,7 @@ static int _device_open_check_cap(struct device_t *dev) {
 	MEMSET_ZERO(cap);
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_QUERYCAP) ...");
-	if (xioctl(dev->run->fd, VIDIOC_QUERYCAP, &cap) < 0) {
+	if (xioctl(RUN(fd), VIDIOC_QUERYCAP, &cap) < 0) {
 		LOG_PERROR("Can't query device (VIDIOC_QUERYCAP)");
 		return -1;
 	}
@@ -433,14 +440,14 @@ static int _device_open_check_cap(struct device_t *dev) {
 	}
 
 	LOG_INFO("Using input channel: %d", input);
-	if (xioctl(dev->run->fd, VIDIOC_S_INPUT, &input) < 0) {
+	if (xioctl(RUN(fd), VIDIOC_S_INPUT, &input) < 0) {
 		LOG_ERROR("Can't set input channel");
 		return -1;
 	}
 
 	if (dev->standard != V4L2_STD_UNKNOWN) {
 		LOG_INFO("Using TV standard: %s", _standard_to_string(dev->standard));
-		if (xioctl(dev->run->fd, VIDIOC_S_STD, &dev->standard) < 0) {
+		if (xioctl(RUN(fd), VIDIOC_S_STD, &dev->standard) < 0) {
 			LOG_ERROR("Can't set video standard");
 			return -1;
 		}
@@ -465,7 +472,7 @@ static int _device_open_dv_timings(struct device_t *dev) {
 		sub.type = V4L2_EVENT_SOURCE_CHANGE;
 
 		LOG_DEBUG("Calling ioctl(VIDIOC_SUBSCRIBE_EVENT) ...");
-		if (xioctl(dev->run->fd, VIDIOC_SUBSCRIBE_EVENT, &sub) < 0) {
+		if (xioctl(RUN(fd), VIDIOC_SUBSCRIBE_EVENT, &sub) < 0) {
 			LOG_PERROR("Can't subscribe to V4L2_EVENT_SOURCE_CHANGE");
 			return -1;
 		}
@@ -479,12 +486,12 @@ static int _device_apply_dv_timings(struct device_t *dev) {
 	MEMSET_ZERO(dv);
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_QUERY_DV_TIMINGS) ...");
-	if (xioctl(dev->run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv) == 0) {
+	if (xioctl(RUN(fd), VIDIOC_QUERY_DV_TIMINGS, &dv) == 0) {
 		LOG_INFO("Got new DV timings: resolution=%ux%u, pixclk=%llu",
 			dv.bt.width, dv.bt.height, (unsigned long long)dv.bt.pixelclock); // Issue #11
 
 		LOG_DEBUG("Calling ioctl(VIDIOC_S_DV_TIMINGS) ...");
-		if (xioctl(dev->run->fd, VIDIOC_S_DV_TIMINGS, &dv) < 0) {
+		if (xioctl(RUN(fd), VIDIOC_S_DV_TIMINGS, &dv) < 0) {
 			LOG_PERROR("Failed to set DV timings");
 			return -1;
 		}
@@ -495,9 +502,9 @@ static int _device_apply_dv_timings(struct device_t *dev) {
 
 	} else {
 		LOG_DEBUG("Calling ioctl(VIDIOC_QUERYSTD) ...");
-		if (xioctl(dev->run->fd, VIDIOC_QUERYSTD, &dev->standard) == 0) {
+		if (xioctl(RUN(fd), VIDIOC_QUERYSTD, &dev->standard) == 0) {
 			LOG_INFO("Applying the new VIDIOC_S_STD: %s ...", _standard_to_string(dev->standard));
-			if (xioctl(dev->run->fd, VIDIOC_S_STD, &dev->standard) < 0) {
+			if (xioctl(RUN(fd), VIDIOC_S_STD, &dev->standard) < 0) {
 				LOG_PERROR("Can't set video standard");
 				return -1;
 			}
@@ -511,29 +518,27 @@ static int _device_open_format(struct device_t *dev) {
 
 	MEMSET_ZERO(fmt);
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	fmt.fmt.pix.width = dev->run->width;
-	fmt.fmt.pix.height = dev->run->height;
+	fmt.fmt.pix.width = RUN(width);
+	fmt.fmt.pix.height = RUN(height);
 	fmt.fmt.pix.pixelformat = dev->format;
 	fmt.fmt.pix.field = V4L2_FIELD_ANY;
 
 	// Set format
 	LOG_DEBUG("Calling ioctl(VIDIOC_S_FMT) ...");
-	if (xioctl(dev->run->fd, VIDIOC_S_FMT, &fmt) < 0) {
+	if (xioctl(RUN(fd), VIDIOC_S_FMT, &fmt) < 0) {
 		LOG_PERROR("Unable to set pixelformat=%s, resolution=%ux%u",
-			_format_to_string_supported(dev->format),
-			dev->run->width,
-			dev->run->height);
+			_format_to_string_supported(dev->format), RUN(width), RUN(height));
 		return -1;
 	}
 
 	// Check resolution
-	if (fmt.fmt.pix.width != dev->run->width || fmt.fmt.pix.height != dev->run->height) {
-		LOG_ERROR("Requested resolution=%ux%u is unavailable", dev->run->width, dev->run->height);
+	if (fmt.fmt.pix.width != RUN(width) || fmt.fmt.pix.height != RUN(height)) {
+		LOG_ERROR("Requested resolution=%ux%u is unavailable", RUN(width), RUN(height));
 	}
 	if (_device_apply_resolution(dev, fmt.fmt.pix.width, fmt.fmt.pix.height) < 0) {
 		return -1;
 	}
-	LOG_INFO("Using resolution: %ux%u", dev->run->width, dev->run->height);
+	LOG_INFO("Using resolution: %ux%u", RUN(width), RUN(height));
 
 	// Check format
 	if (fmt.fmt.pix.pixelformat != dev->format) {
@@ -553,23 +558,23 @@ static int _device_open_format(struct device_t *dev) {
 		}
 	}
 
-	dev->run->format = fmt.fmt.pix.pixelformat;
-	LOG_INFO("Using pixelformat: %s", _format_to_string_supported(dev->run->format));
+	RUN(format) = fmt.fmt.pix.pixelformat;
+	LOG_INFO("Using pixelformat: %s", _format_to_string_supported(RUN(format)));
 
-	dev->run->raw_size = fmt.fmt.pix.sizeimage; // Only for userptr
+	RUN(raw_size) = fmt.fmt.pix.sizeimage; // Only for userptr
 	return 0;
 }
 
 static void _device_open_hw_fps(struct device_t *dev) {
 	struct v4l2_streamparm setfps;
 
-	dev->run->hw_fps = 0;
+	RUN(hw_fps) = 0;
 
 	MEMSET_ZERO(setfps);
 	setfps.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_G_PARM) ...");
-	if (xioctl(dev->run->fd, VIDIOC_G_PARM, &setfps) < 0) {
+	if (xioctl(RUN(fd), VIDIOC_G_PARM, &setfps) < 0) {
 		if (errno == ENOTTY) { // Quiet message for Auvidea B101
 			LOG_INFO("Querying HW FPS changing is not supported");
 		} else {
@@ -590,7 +595,7 @@ static void _device_open_hw_fps(struct device_t *dev) {
 	SETFPS_TPF(numerator) = 1;
 	SETFPS_TPF(denominator) = (dev->desired_fps == 0 ? 255 : dev->desired_fps);
 
-	if (xioctl(dev->run->fd, VIDIOC_S_PARM, &setfps) < 0) {
+	if (xioctl(RUN(fd), VIDIOC_S_PARM, &setfps) < 0) {
 		LOG_PERROR("Unable to set HW FPS");
 		return;
 	}
@@ -605,11 +610,11 @@ static void _device_open_hw_fps(struct device_t *dev) {
 		return;
 	}
 
-	dev->run->hw_fps = SETFPS_TPF(denominator);
-	if (dev->desired_fps != dev->run->hw_fps) {
-		LOG_INFO("Using HW FPS: %u -> %u (coerced)", dev->desired_fps, dev->run->hw_fps);
+	RUN(hw_fps) = SETFPS_TPF(denominator);
+	if (dev->desired_fps != RUN(hw_fps)) {
+		LOG_INFO("Using HW FPS: %u -> %u (coerced)", dev->desired_fps, RUN(hw_fps));
 	} else {
-		LOG_INFO("Using HW FPS: %u", dev->run->hw_fps);
+		LOG_INFO("Using HW FPS: %u", RUN(hw_fps));
 	}
 
 #	undef SETFPS_TPF
@@ -634,7 +639,7 @@ static int _device_open_io_method_mmap(struct device_t *dev) {
 	req.memory = V4L2_MEMORY_MMAP;
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_REQBUFS) for V4L2_MEMORY_MMAP ...");
-	if (xioctl(dev->run->fd, VIDIOC_REQBUFS, &req) < 0) {
+	if (xioctl(RUN(fd), VIDIOC_REQBUFS, &req) < 0) {
 		LOG_PERROR("Device '%s' doesn't support V4L2_MEMORY_MMAP", dev->path);
 		return -1;
 	}
@@ -648,34 +653,40 @@ static int _device_open_io_method_mmap(struct device_t *dev) {
 
 	LOG_DEBUG("Allocating device buffers ...");
 
-	A_CALLOC(dev->run->hw_buffers, req.count);
-	for (dev->run->n_buffers = 0; dev->run->n_buffers < req.count; ++dev->run->n_buffers) {
+	A_CALLOC(RUN(hw_buffers), req.count);
+	for (RUN(n_buffers) = 0; RUN(n_buffers) < req.count; ++RUN(n_buffers)) {
 		struct v4l2_buffer buf_info;
 
 		MEMSET_ZERO(buf_info);
 		buf_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		buf_info.memory = V4L2_MEMORY_MMAP;
-		buf_info.index = dev->run->n_buffers;
+		buf_info.index = RUN(n_buffers);
 
-		LOG_DEBUG("Calling ioctl(VIDIOC_QUERYBUF) for device buffer %u ...", dev->run->n_buffers);
-		if (xioctl(dev->run->fd, VIDIOC_QUERYBUF, &buf_info) < 0) {
+		LOG_DEBUG("Calling ioctl(VIDIOC_QUERYBUF) for device buffer %u ...", RUN(n_buffers));
+		if (xioctl(RUN(fd), VIDIOC_QUERYBUF, &buf_info) < 0) {
 			LOG_PERROR("Can't VIDIOC_QUERYBUF");
 			return -1;
 		}
 
-#		define HW_BUFFER(_next) dev->run->hw_buffers[dev->run->n_buffers]._next
+#		define HW(_next) RUN(hw_buffers)[RUN(n_buffers)]._next
 
-		A_MUTEX_INIT(&HW_BUFFER(grabbed_mutex));
+		A_MUTEX_INIT(&HW(grabbed_mutex));
 
-		LOG_DEBUG("Mapping device buffer %u ...", dev->run->n_buffers);
-		HW_BUFFER(data) = mmap(NULL, buf_info.length, PROT_READ|PROT_WRITE, MAP_SHARED, dev->run->fd, buf_info.m.offset);
-		if (HW_BUFFER(data) == MAP_FAILED) {
-			LOG_PERROR("Can't map device buffer %u", dev->run->n_buffers);
+		LOG_DEBUG("Mapping device buffer %u ...", RUN(n_buffers));
+		if ((HW(data) = mmap(
+			NULL,
+			buf_info.length,
+			PROT_READ | PROT_WRITE,
+			MAP_SHARED,
+			RUN(fd),
+			buf_info.m.offset
+		)) == MAP_FAILED) {
+			LOG_PERROR("Can't map device buffer %u", RUN(n_buffers));
 			return -1;
 		}
-		HW_BUFFER(allocated) = buf_info.length;
+		HW(allocated) = buf_info.length;
 
-#		undef HW_BUFFER
+#		undef HW
 	}
 	return 0;
 }
@@ -683,7 +694,7 @@ static int _device_open_io_method_mmap(struct device_t *dev) {
 static int _device_open_io_method_userptr(struct device_t *dev) {
 	struct v4l2_requestbuffers req;
 	unsigned page_size = getpagesize();
-	unsigned buf_size = align_size(dev->run->raw_size, page_size);
+	unsigned buf_size = align_size(RUN(raw_size), page_size);
 
 	MEMSET_ZERO(req);
 	req.count = dev->n_buffers;
@@ -691,7 +702,7 @@ static int _device_open_io_method_userptr(struct device_t *dev) {
 	req.memory = V4L2_MEMORY_USERPTR;
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_REQBUFS) for V4L2_MEMORY_USERPTR ...");
-	if (xioctl(dev->run->fd, VIDIOC_REQBUFS, &req) < 0) {
+	if (xioctl(RUN(fd), VIDIOC_REQBUFS, &req) < 0) {
 		LOG_PERROR("Device '%s' doesn't support V4L2_MEMORY_USERPTR", dev->path);
 		return -1;
 	}
@@ -705,21 +716,21 @@ static int _device_open_io_method_userptr(struct device_t *dev) {
 
 	LOG_DEBUG("Allocating device buffers ...");
 
-	A_CALLOC(dev->run->hw_buffers, req.count);
-	for (dev->run->n_buffers = 0; dev->run->n_buffers < req.count; ++dev->run->n_buffers) {
-#       define HW_BUFFER(_next) dev->run->hw_buffers[dev->run->n_buffers]._next
+	A_CALLOC(RUN(hw_buffers), req.count);
+	for (RUN(n_buffers) = 0; RUN(n_buffers) < req.count; ++RUN(n_buffers)) {
+#       define HW(_next) RUN(hw_buffers)[RUN(n_buffers)]._next
 
-		assert(HW_BUFFER(data) = aligned_alloc(page_size, buf_size));
-		memset(HW_BUFFER(data), 0, buf_size);
-		HW_BUFFER(allocated) = buf_size;
+		assert(HW(data) = aligned_alloc(page_size, buf_size));
+		memset(HW(data), 0, buf_size);
+		HW(allocated) = buf_size;
 
-#		undef HW_BUFFER
+#		undef HW
 	}
 	return 0;
 }
 
 static int _device_open_queue_buffers(struct device_t *dev) {
-	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
+	for (unsigned index = 0; index < RUN(n_buffers); ++index) {
 		struct v4l2_buffer buf_info;
 
 		MEMSET_ZERO(buf_info);
@@ -727,12 +738,12 @@ static int _device_open_queue_buffers(struct device_t *dev) {
 		buf_info.memory = dev->io_method;
 		buf_info.index = index;
 		if (dev->io_method == V4L2_MEMORY_USERPTR) {
-			buf_info.m.userptr = (unsigned long)dev->run->hw_buffers[index].data;
-			buf_info.length = dev->run->hw_buffers[index].allocated;
+			buf_info.m.userptr = (unsigned long)RUN(hw_buffers)[index].data;
+			buf_info.length = RUN(hw_buffers)[index].allocated;
 		}
 
 		LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) for buffer %u ...", index);
-		if (xioctl(dev->run->fd, VIDIOC_QBUF, &buf_info) < 0) {
+		if (xioctl(RUN(fd), VIDIOC_QBUF, &buf_info) < 0) {
 			LOG_PERROR("Can't VIDIOC_QBUF");
 			return -1;
 		}
@@ -741,15 +752,15 @@ static int _device_open_queue_buffers(struct device_t *dev) {
 }
 
 static void _device_open_alloc_picbufs(struct device_t *dev) {
-	size_t picture_size = picture_get_generous_size(dev->run->width, dev->run->height);
+	size_t picture_size = picture_get_generous_size(RUN(width), RUN(height));
 
 	LOG_DEBUG("Allocating picture buffers ...");
-	A_CALLOC(dev->run->pictures, dev->run->n_buffers);
+	A_CALLOC(RUN(pictures), RUN(n_buffers));
 
-	for (unsigned index = 0; index < dev->run->n_buffers; ++index) {
-		dev->run->pictures[index] = picture_init();
+	for (unsigned index = 0; index < RUN(n_buffers); ++index) {
+		RUN(pictures)[index] = picture_init();
 		LOG_DEBUG("Pre-allocating picture buffer %u sized %zu bytes... ", index, picture_size);
-		picture_realloc_data(dev->run->pictures[index], picture_size);
+		picture_realloc_data(RUN(pictures)[index], picture_size);
 	}
 }
 
@@ -764,8 +775,8 @@ static int _device_apply_resolution(struct device_t *dev, unsigned width, unsign
 			width, height, VIDEO_MAX_WIDTH, VIDEO_MAX_HEIGHT);
 		return -1;
 	}
-	dev->run->width = width;
-	dev->run->height = height;
+	RUN(width) = width;
+	RUN(height) = height;
 	return 0;
 }
 
@@ -824,12 +835,15 @@ static void _device_apply_controls(struct device_t *dev) {
 #	undef SET_CID_VALUE
 }
 
-static int _device_query_control(struct device_t *dev, struct v4l2_queryctrl *query, const char *name, unsigned cid, bool quiet) {
+static int _device_query_control(
+	struct device_t *dev, struct v4l2_queryctrl *query,
+	const char *name, unsigned cid, bool quiet) {
+
 	// cppcheck-suppress redundantPointerOp
 	MEMSET_ZERO(*query);
 	query->id = cid;
 
-	if (xioctl(dev->run->fd, VIDIOC_QUERYCTRL, query) < 0 || query->flags & V4L2_CTRL_FLAG_DISABLED) {
+	if (xioctl(RUN(fd), VIDIOC_QUERYCTRL, query) < 0 || query->flags & V4L2_CTRL_FLAG_DISABLED) {
 		if (!quiet) {
 			LOG_ERROR("Changing control %s is unsupported", name);
 		}
@@ -838,7 +852,10 @@ static int _device_query_control(struct device_t *dev, struct v4l2_queryctrl *qu
 	return 0;
 }
 
-static void _device_set_control(struct device_t *dev, struct v4l2_queryctrl *query, const char *name, unsigned cid, int value, bool quiet) {
+static void _device_set_control(
+	struct device_t *dev, struct v4l2_queryctrl *query,
+	const char *name, unsigned cid, int value, bool quiet) {
+
 	struct v4l2_control ctl;
 
 	if (value < query->minimum || value > query->maximum || value % query->step != 0) {
@@ -853,7 +870,7 @@ static void _device_set_control(struct device_t *dev, struct v4l2_queryctrl *que
 	ctl.id = cid;
 	ctl.value = value;
 
-	if (xioctl(dev->run->fd, VIDIOC_S_CTRL, &ctl) < 0) {
+	if (xioctl(RUN(fd), VIDIOC_S_CTRL, &ctl) < 0) {
 		if (!quiet) {
 			LOG_PERROR("Can't set control %s", name);
 		}
@@ -910,3 +927,5 @@ static const char *_io_method_to_string_supported(enum v4l2_memory io_method) {
 	}
 	return "unsupported";
 }
+
+#	undef RUN

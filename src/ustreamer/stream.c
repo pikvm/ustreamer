@@ -76,8 +76,8 @@ struct _worker_t {
 struct _workers_pool_t {
 	unsigned			n_workers;
 	struct _worker_t	*workers;
-	struct _worker_t	*oldest_worker;
-	struct _worker_t	*latest_worker;
+	struct _worker_t	*oldest_wr;
+	struct _worker_t	*latest_wr;
 
 	long double			approx_comp_time;
 
@@ -101,8 +101,8 @@ static void _workers_pool_destroy(struct _workers_pool_t *pool);
 static void *_worker_thread(void *v_worker);
 
 static struct _worker_t *_workers_pool_wait(struct _workers_pool_t *pool);
-static void _workers_pool_assign(struct _workers_pool_t *pool, struct _worker_t *ready_worker, unsigned buf_index);
-static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool, struct _worker_t *ready_worker);
+static void _workers_pool_assign(struct _workers_pool_t *pool, struct _worker_t *ready_wr, unsigned buf_index);
+static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool, struct _worker_t *ready_wr);
 
 
 struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
@@ -157,19 +157,19 @@ void stream_loop(struct stream_t *stream) {
 		picture_realloc_data(stream->picture, picture_get_generous_size(DEV(run->width), DEV(run->height)));
 
 		while (!atomic_load(&stream->proc->stop)) {
-			struct _worker_t *ready_worker;
+			struct _worker_t *ready_wr;
 
 			SEP_DEBUG('-');
 			LOG_DEBUG("Waiting for worker ...");
 
-			ready_worker = _workers_pool_wait(pool);
+			ready_wr = _workers_pool_wait(pool);
 
-			if (!ready_worker->job_failed) {
-				if (ready_worker->job_timely) {
-					_stream_expose_picture(stream, ready_worker->buf_index, captured_fps);
-					LOG_PERF("##### Encoded picture exposed; worker=%u", ready_worker->number);
+			if (!ready_wr->job_failed) {
+				if (ready_wr->job_timely) {
+					_stream_expose_picture(stream, ready_wr->buf_index, captured_fps);
+					LOG_PERF("##### Encoded picture exposed; worker=%u", ready_wr->number);
 				} else {
-					LOG_PERF("----- Encoded picture dropped; worker=%u", ready_worker->number);
+					LOG_PERF("----- Encoded picture dropped; worker=%u", ready_wr->number);
 				}
 			} else {
 				break;
@@ -228,7 +228,7 @@ void stream_loop(struct stream_t *stream) {
 							}
 							captured_fps_accum += 1;
 
-							long double fluency_delay = _workers_pool_get_fluency_delay(pool, ready_worker);
+							long double fluency_delay = _workers_pool_get_fluency_delay(pool, ready_wr);
 
 							grab_after = now + fluency_delay;
 							LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
@@ -247,7 +247,7 @@ void stream_loop(struct stream_t *stream) {
 							}
 #							endif
 
-							_workers_pool_assign(pool, ready_worker, buf_index);
+							_workers_pool_assign(pool, ready_wr, buf_index);
 						}
 					} else if (buf_index != -2) { // -2 for broken frame
 						break;
@@ -384,28 +384,28 @@ static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
 #	undef DEV
 
 	for (unsigned number = 0; number < pool->n_workers; ++number) {
-#		define WORKER(_next) pool->workers[number]._next
+#		define WR(_next) pool->workers[number]._next
 
-		A_MUTEX_INIT(&WORKER(has_job_mutex));
-		atomic_init(&WORKER(has_job), false);
-		A_COND_INIT(&WORKER(has_job_cond));
+		A_MUTEX_INIT(&WR(has_job_mutex));
+		atomic_init(&WR(has_job), false);
+		A_COND_INIT(&WR(has_job_cond));
 
-		WORKER(number) = number;
-		WORKER(proc_stop) = &stream->proc->stop;
-		WORKER(workers_stop) = &pool->workers_stop;
+		WR(number) = number;
+		WR(proc_stop) = &stream->proc->stop;
+		WR(workers_stop) = &pool->workers_stop;
 
-		WORKER(free_workers_mutex) = &pool->free_workers_mutex;
-		WORKER(free_workers) = &pool->free_workers;
-		WORKER(free_workers_cond) = &pool->free_workers_cond;
+		WR(free_workers_mutex) = &pool->free_workers_mutex;
+		WR(free_workers) = &pool->free_workers;
+		WR(free_workers_cond) = &pool->free_workers_cond;
 
-		WORKER(dev) = stream->dev;
-		WORKER(encoder) = stream->encoder;
+		WR(dev) = stream->dev;
+		WR(encoder) = stream->encoder;
 
-		A_THREAD_CREATE(&WORKER(tid), _worker_thread, (void *)&(pool->workers[number]));
+		A_THREAD_CREATE(&WR(tid), _worker_thread, (void *)&(pool->workers[number]));
 
 		pool->free_workers += 1;
 
-#		undef WORKER
+#		undef WR
 	}
 	return pool;
 }
@@ -415,18 +415,18 @@ static void _workers_pool_destroy(struct _workers_pool_t *pool) {
 
 	atomic_store(&pool->workers_stop, true);
 	for (unsigned number = 0; number < pool->n_workers; ++number) {
-#		define WORKER(_next) pool->workers[number]._next
+#		define WR(_next) pool->workers[number]._next
 
-		A_MUTEX_LOCK(&WORKER(has_job_mutex));
-		atomic_store(&WORKER(has_job), true); // Final job: die
-		A_MUTEX_UNLOCK(&WORKER(has_job_mutex));
-		A_COND_SIGNAL(&WORKER(has_job_cond));
+		A_MUTEX_LOCK(&WR(has_job_mutex));
+		atomic_store(&WR(has_job), true); // Final job: die
+		A_MUTEX_UNLOCK(&WR(has_job_mutex));
+		A_COND_SIGNAL(&WR(has_job_cond));
 
-		A_THREAD_JOIN(WORKER(tid));
-		A_MUTEX_DESTROY(&WORKER(has_job_mutex));
-		A_COND_DESTROY(&WORKER(has_job_cond));
+		A_THREAD_JOIN(WR(tid));
+		A_MUTEX_DESTROY(&WR(has_job_mutex));
+		A_COND_DESTROY(&WR(has_job_cond));
 
-#		undef WORKER
+#		undef WR
 	}
 
 	A_MUTEX_DESTROY(&pool->free_workers_mutex);
@@ -437,121 +437,121 @@ static void _workers_pool_destroy(struct _workers_pool_t *pool) {
 }
 
 static void *_worker_thread(void *v_worker) {
-	struct _worker_t *worker = (struct _worker_t *)v_worker;
+	struct _worker_t *wr = (struct _worker_t *)v_worker;
 
-	A_THREAD_RENAME("worker-%u", worker->number);
-	LOG_DEBUG("Hello! I am a worker #%u ^_^", worker->number);
+	A_THREAD_RENAME("worker-%u", wr->number);
+	LOG_DEBUG("Hello! I am a worker #%u ^_^", wr->number);
 
-	while (!atomic_load(worker->proc_stop) && !atomic_load(worker->workers_stop)) {
-		LOG_DEBUG("Worker %u waiting for a new job ...", worker->number);
+	while (!atomic_load(wr->proc_stop) && !atomic_load(wr->workers_stop)) {
+		LOG_DEBUG("Worker %u waiting for a new job ...", wr->number);
 
-		A_MUTEX_LOCK(&worker->has_job_mutex);
-		A_COND_WAIT_TRUE(atomic_load(&worker->has_job), &worker->has_job_cond, &worker->has_job_mutex);
-		A_MUTEX_UNLOCK(&worker->has_job_mutex);
+		A_MUTEX_LOCK(&wr->has_job_mutex);
+		A_COND_WAIT_TRUE(atomic_load(&wr->has_job), &wr->has_job_cond, &wr->has_job_mutex);
+		A_MUTEX_UNLOCK(&wr->has_job_mutex);
 
-		if (!atomic_load(worker->workers_stop)) {
-#			define PICTURE(_next) worker->dev->run->pictures[worker->buf_index]->_next
+		if (!atomic_load(wr->workers_stop)) {
+#			define PIC(_next) wr->dev->run->pictures[wr->buf_index]->_next
 
-			LOG_DEBUG("Worker %u compressing JPEG from buffer %u ...", worker->number, worker->buf_index);
+			LOG_DEBUG("Worker %u compressing JPEG from buffer %u ...", wr->number, wr->buf_index);
 
-			worker->job_failed = (bool)encoder_compress_buffer(worker->encoder, worker->dev, worker->number, worker->buf_index);
+			wr->job_failed = (bool)encoder_compress_buffer(wr->encoder, wr->dev, wr->number, wr->buf_index);
 
-			if (device_release_buffer(worker->dev, worker->buf_index) == 0) {
-				if (!worker->job_failed) {
-					worker->job_start_ts = PICTURE(encode_begin_ts);
-					worker->last_comp_time = PICTURE(encode_end_ts) - worker->job_start_ts;
+			if (device_release_buffer(wr->dev, wr->buf_index) == 0) {
+				if (!wr->job_failed) {
+					wr->job_start_ts = PIC(encode_begin_ts);
+					wr->last_comp_time = PIC(encode_end_ts) - wr->job_start_ts;
 
 					LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%u, buffer=%u",
-						PICTURE(used), worker->last_comp_time, worker->number, worker->buf_index);
+						PIC(used), wr->last_comp_time, wr->number, wr->buf_index);
 				} else {
-					LOG_VERBOSE("Compression failed: worker=%u, buffer=%u", worker->number, worker->buf_index);
+					LOG_VERBOSE("Compression failed: worker=%u, buffer=%u", wr->number, wr->buf_index);
 				}
 			} else {
-				worker->job_failed = true;
+				wr->job_failed = true;
 			}
 
-			atomic_store(&worker->has_job, false);
+			atomic_store(&wr->has_job, false);
 
-#			undef PICTURE
+#			undef PIC
 		}
 
-		A_MUTEX_LOCK(worker->free_workers_mutex);
-		*worker->free_workers += 1;
-		A_MUTEX_UNLOCK(worker->free_workers_mutex);
-		A_COND_SIGNAL(worker->free_workers_cond);
+		A_MUTEX_LOCK(wr->free_workers_mutex);
+		*wr->free_workers += 1;
+		A_MUTEX_UNLOCK(wr->free_workers_mutex);
+		A_COND_SIGNAL(wr->free_workers_cond);
 	}
 
-	LOG_DEBUG("Bye-bye (worker %u)", worker->number);
+	LOG_DEBUG("Bye-bye (worker %u)", wr->number);
 	return NULL;
 }
 
 static struct _worker_t *_workers_pool_wait(struct _workers_pool_t *pool) {
-	struct _worker_t *ready_worker = NULL;
+	struct _worker_t *ready_wr = NULL;
 
 	A_MUTEX_LOCK(&pool->free_workers_mutex);
 	A_COND_WAIT_TRUE(pool->free_workers, &pool->free_workers_cond, &pool->free_workers_mutex);
 	A_MUTEX_UNLOCK(&pool->free_workers_mutex);
 
-	if (pool->oldest_worker && !atomic_load(&pool->oldest_worker->has_job)) {
-		ready_worker = pool->oldest_worker;
-		ready_worker->job_timely = true;
-		pool->oldest_worker = pool->oldest_worker->order_next;
+	if (pool->oldest_wr && !atomic_load(&pool->oldest_wr->has_job)) {
+		ready_wr = pool->oldest_wr;
+		ready_wr->job_timely = true;
+		pool->oldest_wr = pool->oldest_wr->order_next;
 	} else {
 		for (unsigned number = 0; number < pool->n_workers; ++number) {
 			if (
 				!atomic_load(&pool->workers[number].has_job) && (
-					ready_worker == NULL
-					|| ready_worker->job_start_ts < pool->workers[number].job_start_ts
+					ready_wr == NULL
+					|| ready_wr->job_start_ts < pool->workers[number].job_start_ts
 				)
 			) {
-				ready_worker = &pool->workers[number];
+				ready_wr = &pool->workers[number];
 				break;
 			}
 		}
-		assert(ready_worker != NULL);
-		ready_worker->job_timely = false; // Освободился воркер, получивший задание позже (или самый первый при самом первом захвате)
+		assert(ready_wr != NULL);
+		ready_wr->job_timely = false; // Освободился воркер, получивший задание позже (или самый первый при самом первом захвате)
 	}
-	return ready_worker;
+	return ready_wr;
 }
 
-static void _workers_pool_assign(struct _workers_pool_t *pool, struct _worker_t *ready_worker, unsigned buf_index) {
-	if (pool->oldest_worker == NULL) {
-		pool->oldest_worker = ready_worker;
-		pool->latest_worker = pool->oldest_worker;
+static void _workers_pool_assign(struct _workers_pool_t *pool, struct _worker_t *ready_wr, unsigned buf_index) {
+	if (pool->oldest_wr == NULL) {
+		pool->oldest_wr = ready_wr;
+		pool->latest_wr = pool->oldest_wr;
 	} else {
-		if (ready_worker->order_next) {
-			ready_worker->order_next->order_prev = ready_worker->order_prev;
+		if (ready_wr->order_next) {
+			ready_wr->order_next->order_prev = ready_wr->order_prev;
 		}
-		if (ready_worker->order_prev) {
-			ready_worker->order_prev->order_next = ready_worker->order_next;
+		if (ready_wr->order_prev) {
+			ready_wr->order_prev->order_next = ready_wr->order_next;
 		}
-		ready_worker->order_prev = pool->latest_worker;
-		pool->latest_worker->order_next = ready_worker;
-		pool->latest_worker = ready_worker;
+		ready_wr->order_prev = pool->latest_wr;
+		pool->latest_wr->order_next = ready_wr;
+		pool->latest_wr = ready_wr;
 	}
-	pool->latest_worker->order_next = NULL;
+	pool->latest_wr->order_next = NULL;
 
-	A_MUTEX_LOCK(&ready_worker->has_job_mutex);
-	ready_worker->buf_index = buf_index;
-	atomic_store(&ready_worker->has_job, true);
-	A_MUTEX_UNLOCK(&ready_worker->has_job_mutex);
-	A_COND_SIGNAL(&ready_worker->has_job_cond);
+	A_MUTEX_LOCK(&ready_wr->has_job_mutex);
+	ready_wr->buf_index = buf_index;
+	atomic_store(&ready_wr->has_job, true);
+	A_MUTEX_UNLOCK(&ready_wr->has_job_mutex);
+	A_COND_SIGNAL(&ready_wr->has_job_cond);
 
 	A_MUTEX_LOCK(&pool->free_workers_mutex);
 	pool->free_workers -= 1;
 	A_MUTEX_UNLOCK(&pool->free_workers_mutex);
 
-	LOG_DEBUG("Assigned new frame in buffer %u to worker %u", buf_index, ready_worker->number);
+	LOG_DEBUG("Assigned new frame in buffer %u to worker %u", buf_index, ready_wr->number);
 }
 
-static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool, struct _worker_t *ready_worker) {
+static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool, struct _worker_t *ready_wr) {
 	long double approx_comp_time;
 	long double min_delay;
 
-	approx_comp_time = pool->approx_comp_time * 0.9 + ready_worker->last_comp_time * 0.1;
+	approx_comp_time = pool->approx_comp_time * 0.9 + ready_wr->last_comp_time * 0.1;
 
 	LOG_VERBOSE("Correcting approx_comp_time: %.3Lf -> %.3Lf (last_comp_time=%.3Lf)",
-		pool->approx_comp_time, approx_comp_time, ready_worker->last_comp_time);
+		pool->approx_comp_time, approx_comp_time, ready_wr->last_comp_time);
 
 	pool->approx_comp_time = approx_comp_time;
 

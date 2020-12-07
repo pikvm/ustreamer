@@ -166,14 +166,14 @@ void rawsink_put(
 			goto error;
 		}
 
-#		define PICTURE(_next) rawsink->picture->_next
-		PICTURE(format) = format;
-		PICTURE(width) = width;
-		PICTURE(height) = height;
-		PICTURE(grab_ts) = grab_ts;
-		PICTURE(used) = size;
-		memcpy(PICTURE(data), data, size);
-#		undef PICTURE
+#		define PIC(_next) rawsink->picture->_next
+		PIC(format) = format;
+		PIC(width) = width;
+		PIC(height) = height;
+		PIC(grab_ts) = grab_ts;
+		PIC(used) = size;
+		memcpy(PIC(data), data, size);
+#		undef PIC
 
 		if (sem_post(rawsink->signal_sem) < 0) {
 			LOG_PERROR("RAWSINK: Can't post %s", rawsink->signal_name);
