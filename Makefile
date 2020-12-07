@@ -18,9 +18,9 @@ LINTERS_IMAGE ?= $(PROG)-linters
 
 
 # =====
-_LIBS = -lm -ljpeg -pthread -levent -levent_pthreads -luuid
+_PROG_LIBS = -lm -ljpeg -pthread -levent -levent_pthreads -luuid
 override CFLAGS += -c -std=c11 -Wall -Wextra -D_GNU_SOURCE
-_SRCS = $(shell ls src/common/*.c src/ustreamer/*.c src/ustreamer/http/*.c src/ustreamer/encoders/cpu/*.c src/ustreamer/encoders/hw/*.c)
+_PROG_SRCS = $(shell ls src/common/*.c src/ustreamer/*.c src/ustreamer/http/*.c src/ustreamer/encoders/cpu/*.c src/ustreamer/encoders/hw/*.c)
 
 
 define optbool
@@ -29,23 +29,23 @@ endef
 
 
 ifneq ($(call optbool,$(WITH_RAWSINK)),)
-_LIBS += -lrt
+_PROG_LIBS += -lrt
 override CFLAGS += -DWITH_RAWSINK
-_SRCS += $(shell ls src/rawsink/*.c)
+_PROG_SRCS += $(shell ls src/rawsink/*.c)
 endif
 
 
 ifneq ($(call optbool,$(WITH_OMX)),)
-_LIBS += -lbcm_host -lvcos -lopenmaxil -L$(RPI_VC_LIBS)
+_PROG_LIBS += -lbcm_host -lvcos -lopenmaxil -L$(RPI_VC_LIBS)
 override CFLAGS += -DWITH_OMX -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
-_SRCS += $(shell ls src/ustreamer/encoders/omx/*.c)
+_PROG_SRCS += $(shell ls src/ustreamer/encoders/omx/*.c)
 endif
 
 
 ifneq ($(call optbool,$(WITH_GPIO)),)
-_LIBS += -lgpiod
+_PROG_LIBS += -lgpiod
 override CFLAGS += -DWITH_GPIO
-_SRCS += $(shell ls src/ustreamer/gpio/*.c)
+_PROG_SRCS += $(shell ls src/ustreamer/gpio/*.c)
 endif
 
 
@@ -58,7 +58,7 @@ endif
 WITH_SETPROCTITLE ?= 1
 ifneq ($(call optbool,$(WITH_SETPROCTITLE)),)
 ifeq ($(shell uname -s | tr A-Z a-z),linux)
-_LIBS += -lbsd
+_PROG_LIBS += -lbsd
 endif
 override CFLAGS += -DWITH_SETPROCTITLE
 endif
@@ -87,12 +87,12 @@ regen:
 	tools/make-html-h.py src/ustreamer/http/data/index.html src/ustreamer/http/data/index_html.h INDEX
 
 
-$(PROG): $(_SRCS:%.c=$(BUILD)/%.o)
+$(PROG): $(_PROG_SRCS:%.c=$(BUILD)/%.o)
 	$(info -- LD $@)
-	@ $(CC) $^ -o $@ $(LDFLAGS) $(_LIBS)
+	@ $(CC) $^ -o $@ $(LDFLAGS) $(_PROG_LIBS)
 	$(info ===== Build complete =====)
 	$(info == CC      = $(CC))
-	$(info == LIBS    = $(_LIBS))
+	$(info == LIBS    = $(_PROG_LIBS))
 	$(info == CFLAGS  = $(CFLAGS))
 	$(info == LDFLAGS = $(LDFLAGS))
 
