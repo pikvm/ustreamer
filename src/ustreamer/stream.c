@@ -140,7 +140,7 @@ void stream_loop(struct stream_t *stream) {
 #	ifdef WITH_RAWSINK
 	struct rawsink_t *rawsink = NULL;
 	if (DEV(rawsink_name[0]) != '\0') {
-		rawsink = rawsink_init(DEV(rawsink_name), DEV(rawsink_mode), DEV(rawsink_rm));
+		rawsink = rawsink_init(DEV(rawsink_name), DEV(rawsink_mode), DEV(rawsink_rm), true);
 	}
 #	endif
 

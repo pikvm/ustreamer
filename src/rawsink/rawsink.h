@@ -40,7 +40,7 @@ struct rawsink_picture_t {
 	unsigned        width;
 	unsigned        height;
 	long double		grab_ts;
-	size_t          used;
+	size_t          size;
 	unsigned char   data[RAWSINK_MAX_DATA];
 };
 
@@ -56,11 +56,13 @@ struct rawsink_t {
 	sem_t	*lock_sem;
 
 	bool	rm;
-	bool	failed;
+	bool	master;
+
+	bool	master_failed;
 };
 
 
-struct rawsink_t *rawsink_init(const char *name, mode_t mode, bool rm);
+struct rawsink_t *rawsink_init(const char *name, mode_t mode, bool rm, bool master);
 void rawsink_destroy(struct rawsink_t *rawsink);
 
 void rawsink_put(
@@ -68,3 +70,10 @@ void rawsink_put(
 	const unsigned char *data, size_t size,
 	unsigned format, unsigned witdh, unsigned height,
 	long double grab_ts);
+
+int rawsink_get(
+	struct rawsink_t *rawsink,
+	char *data, size_t *size,
+	unsigned *format, unsigned *width, unsigned *height,
+	long double *grab_ts,
+	long double timeout);
