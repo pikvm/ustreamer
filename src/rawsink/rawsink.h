@@ -35,7 +35,7 @@
 #define RAWSINK_MAX_DATA ((size_t)(CFG_RAWSINK_MAX_DATA))
 
 
-struct rawsink_picture_t {
+struct rawsink_shared_t {
 	unsigned        format;
 	unsigned        width;
 	unsigned        height;
@@ -50,7 +50,7 @@ struct rawsink_t {
 	char	*lock_name;
 
 	int		fd;
-	struct rawsink_picture_t *picture;
+	struct rawsink_shared_t *shared;
 
 	sem_t	*signal_sem;
 	sem_t	*lock_sem;

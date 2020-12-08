@@ -46,7 +46,7 @@ struct rawsink_t *rawsink_init(const char *name, mode_t mode, bool rm, bool mast
 
 	A_CALLOC(rawsink, 1);
 	rawsink->fd = -1;
-	rawsink->picture = MAP_FAILED;
+	rawsink->shared = MAP_FAILED;
 	rawsink->signal_sem = SEM_FAILED;
 	rawsink->lock_sem = SEM_FAILED;
 	rawsink->rm = rm;
@@ -80,14 +80,14 @@ struct rawsink_t *rawsink_init(const char *name, mode_t mode, bool rm, bool mast
 			goto error;
 		}
 
-		if (ftruncate(rawsink->fd, sizeof(struct rawsink_picture_t)) < 0) {
+		if (ftruncate(rawsink->fd, sizeof(struct rawsink_shared_t)) < 0) {
 			LOG_PERROR("Can't truncate RAW sink memory");
 			goto error;
 		}
 
-		if ((rawsink->picture = mmap(
+		if ((rawsink->shared = mmap(
 			NULL,
-			sizeof(struct rawsink_picture_t),
+			sizeof(struct rawsink_shared_t),
 			PROT_READ | PROT_WRITE,
 			MAP_SHARED,
 			rawsink->fd,
@@ -131,8 +131,8 @@ void rawsink_destroy(struct rawsink_t *rawsink) {
 
 #	undef CLOSE_SEM
 
-	if (rawsink->picture != MAP_FAILED) {
-		if (munmap(rawsink->picture, sizeof(struct rawsink_picture_t)) < 0) {
+	if (rawsink->shared != MAP_FAILED) {
+		if (munmap(rawsink->shared, sizeof(struct rawsink_shared_t)) < 0) {
 			LOG_PERROR("Can't unmap RAW sink memory");
 		}
 	}
@@ -181,14 +181,14 @@ void rawsink_put(
 			goto error;
 		}
 
-#		define PIC(_next) rawsink->picture->_next
-		PIC(format) = format;
-		PIC(width) = width;
-		PIC(height) = height;
-		PIC(grab_ts) = grab_ts;
-		PIC(size) = size;
-		memcpy(PIC(data), data, size);
-#		undef PIC
+#		define SH(_field) rawsink->shared->_field = _field
+		SH(format);
+		SH(width);
+		SH(height);
+		SH(grab_ts);
+		SH(size);
+		memcpy(rawsink->shared->data, data, size);
+#		undef SH
 
 		if (sem_post(rawsink->signal_sem) < 0) {
 			LOG_PERROR("RAWSINK: Can't post %s", rawsink->signal_name);
@@ -237,14 +237,14 @@ int rawsink_get(
 	WAIT_SEM(signal);
 	WAIT_SEM(lock);
 
-#	define PIC(_next) rawsink->picture->_next
-	*format = PIC(format);
-	*width = PIC(width);
-	*height = PIC(height);
-	*grab_ts = PIC(grab_ts);
-	*size = PIC(size);
-	memcpy(data, PIC(data), *size);
-#	undef PIC
+#	define SH(_field) *_field = rawsink->shared->_field
+	SH(format);
+	SH(width);
+	SH(height);
+	SH(grab_ts);
+	SH(size);
+	memcpy(data, rawsink->shared->data, *size);
+#	undef SH
 
 	if (sem_post(rawsink->lock_sem) < 0) {
 		LOG_PERROR("RAWSINK: Can't post %s", rawsink->lock_name);
