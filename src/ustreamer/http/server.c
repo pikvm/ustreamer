@@ -805,14 +805,14 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	bool picture_updated = false;
 
 #	define UNLOCK_STREAM { \
-			atomic_store(&STREAM(updated), false); \
-			A_MUTEX_UNLOCK(&STREAM(mutex)); \
+			atomic_store(&STREAM(video->updated), false); \
+			A_MUTEX_UNLOCK(&STREAM(video->mutex)); \
 		}
 
-	if (atomic_load(&STREAM(updated))) {
+	if (atomic_load(&STREAM(video->updated))) {
 		LOG_DEBUG("Refreshing HTTP exposed ...");
-		A_MUTEX_LOCK(&STREAM(mutex));
-		if (STREAM(online)) {
+		A_MUTEX_LOCK(&STREAM(video->mutex));
+		if (STREAM(video->online)) {
 			picture_updated = _expose_new_picture_unsafe(server);
 			UNLOCK_STREAM;
 		} else {
@@ -847,14 +847,14 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 }
 
 static bool _expose_new_picture_unsafe(struct http_server_t *server) {
-	EX(captured_fps) = STREAM(captured_fps);
+	EX(captured_fps) = STREAM(video->captured_fps);
 	EX(expose_begin_ts) = get_now_monotonic();
 
 	if (server->drop_same_frames) {
 		if (
 			EX(online)
 			&& EX(dropped) < server->drop_same_frames
-			&& picture_compare(EX(picture), STREAM(picture))
+			&& picture_compare(EX(picture), STREAM(video->picture))
 		) {
 			EX(expose_cmp_ts) = get_now_monotonic();
 			EX(expose_end_ts) = EX(expose_cmp_ts);
@@ -869,7 +869,7 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 		}
 	}
 
-	picture_copy(STREAM(picture), EX(picture));
+	picture_copy(STREAM(video->picture), EX(picture));
 
 	EX(online) = true;
 	EX(dropped) = 0;

@@ -84,32 +84,35 @@ static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool,
 
 struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
 	struct process_t *proc;
+	struct video_t *video;
 	struct stream_t *stream;
 
 	A_CALLOC(proc, 1);
 	atomic_init(&proc->stop, false);
 	atomic_init(&proc->slowdown, false);
 
+	A_CALLOC(video, 1);
+	video->picture = picture_init();
+	atomic_init(&video->updated, false);
+	A_MUTEX_INIT(&video->mutex);
+
 	A_CALLOC(stream, 1);
-	// FIXME
 	stream->error_delay = 1;
 #	ifdef WITH_RAWSINK
 	stream->rawsink_name = "";
 	stream->rawsink_mode = 0660;
 #	endif
-	// end-of-fixme
-	stream->picture = picture_init();
+	stream->proc = proc;
+	stream->video = video;
 	stream->dev = dev;
 	stream->encoder = encoder;
-	atomic_init(&stream->updated, false);
-	A_MUTEX_INIT(&stream->mutex);
-	stream->proc = proc;
 	return stream;
 }
 
 void stream_destroy(struct stream_t *stream) {
-	A_MUTEX_DESTROY(&stream->mutex);
-	picture_destroy(stream->picture);
+	A_MUTEX_DESTROY(&stream->video->mutex);
+	picture_destroy(stream->video->picture);
+	free(stream->video);
 	free(stream->proc);
 	free(stream);
 }
@@ -138,7 +141,7 @@ void stream_loop(struct stream_t *stream) {
 		LOG_INFO("Capturing ...");
 
 		LOG_DEBUG("Pre-allocating memory for stream picture ...");
-		picture_realloc_data(stream->picture, picture_get_generous_size(DEV(run->width), DEV(run->height)));
+		picture_realloc_data(stream->video->picture, picture_get_generous_size(DEV(run->width), DEV(run->height)));
 
 		while (!atomic_load(&stream->proc->stop)) {
 			struct _worker_t *ready_wr;
@@ -252,10 +255,10 @@ void stream_loop(struct stream_t *stream) {
 			}
 		}
 
-		A_MUTEX_LOCK(&stream->mutex);
-		stream->online = false;
-		atomic_store(&stream->updated, true);
-		A_MUTEX_UNLOCK(&stream->mutex);
+		A_MUTEX_LOCK(&stream->video->mutex);
+		stream->video->online = false;
+		atomic_store(&stream->video->updated, true);
+		A_MUTEX_UNLOCK(&stream->video->mutex);
 
 		_workers_pool_destroy(pool);
 		device_switch_capturing(stream->dev, false);
@@ -331,15 +334,15 @@ static struct _workers_pool_t *_stream_init_one(struct stream_t *stream) {
 }
 
 static void _stream_expose_picture(struct stream_t *stream, struct picture_t *picture, unsigned captured_fps) {
-	A_MUTEX_LOCK(&stream->mutex);
+	A_MUTEX_LOCK(&stream->video->mutex);
 
-	picture_copy(picture, stream->picture);
+	picture_copy(picture, stream->video->picture);
 
-	stream->online = true;
-	stream->captured_fps = captured_fps;
-	atomic_store(&stream->updated, true);
+	stream->video->online = true;
+	stream->video->captured_fps = captured_fps;
+	atomic_store(&stream->video->updated, true);
 
-	A_MUTEX_UNLOCK(&stream->mutex);
+	A_MUTEX_UNLOCK(&stream->video->mutex);
 }
 
 static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {

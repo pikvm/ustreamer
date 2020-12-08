@@ -51,25 +51,27 @@ struct process_t {
 	atomic_bool slowdown;
 };
 
-struct stream_t {
+struct video_t {
 	struct picture_t	*picture;
 	bool				online;
 	unsigned			captured_fps;
 	atomic_bool			updated;
 	pthread_mutex_t		mutex;
+};
 
-	// FIXME: Config params, move other to runtime
+struct stream_t {
 	unsigned	error_delay;
 #	ifdef WITH_RAWSINK
 	char		*rawsink_name;
 	mode_t		rawsink_mode;
 	bool		rawsink_rm;
 #	endif
-	// end-of-fixme
 
-	struct process_t	*proc;
 	struct device_t		*dev;
 	struct encoder_t	*encoder;
+
+	struct process_t	*proc;
+	struct video_t		*video;
 };
 
 
