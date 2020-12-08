@@ -28,6 +28,7 @@
 #include <interface/vcos/vcos_semaphore.h>
 
 #include "../../device.h"
+#include "../../picture.h"
 
 #ifndef CFG_OMX_MAX_ENCODERS
 #	define CFG_OMX_MAX_ENCODERS 3 // Raspberry Pi limitation
@@ -55,4 +56,7 @@ struct omx_encoder_t *omx_encoder_init(void);
 void omx_encoder_destroy(struct omx_encoder_t *omx);
 
 int omx_encoder_prepare(struct omx_encoder_t *omx, struct device_t *dev, unsigned quality);
-int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, unsigned index);
+
+int omx_encoder_compress_buffer(
+	struct omx_encoder_t *omx, struct device_t *dev, unsigned index,
+	struct picture_t *picture);

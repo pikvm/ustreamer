@@ -23,7 +23,8 @@
 #pragma once
 
 #include "../../device.h"
+#include "../../picture.h"
 
 
 int hw_encoder_prepare(struct device_t *dev, unsigned quality);
-void hw_encoder_compress_buffer(struct device_t *dev, unsigned index);
+void hw_encoder_compress_buffer(struct device_t *dev, unsigned index, struct picture_t *picture);

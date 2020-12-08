@@ -44,7 +44,6 @@
 #include "../common/threading.h"
 
 #include "xioctl.h"
-#include "picture.h"
 
 
 static const struct {
@@ -87,7 +86,6 @@ static int _device_open_io_method(struct device_t *dev);
 static int _device_open_io_method_mmap(struct device_t *dev);
 static int _device_open_io_method_userptr(struct device_t *dev);
 static int _device_open_queue_buffers(struct device_t *dev);
-static void _device_open_alloc_picbufs(struct device_t *dev);
 static int _device_apply_resolution(struct device_t *dev, unsigned width, unsigned height);
 
 static void _device_apply_controls(struct device_t *dev);
@@ -111,12 +109,6 @@ static const char *_io_method_to_string_supported(enum v4l2_memory io_method);
 struct device_t *device_init(void) {
 	struct device_runtime_t *run;
 	struct device_t *dev;
-	long cores_sysconf;
-	unsigned cores_available;
-
-	cores_sysconf = sysconf(_SC_NPROCESSORS_ONLN);
-	cores_sysconf = (cores_sysconf < 0 ? 0 : cores_sysconf);
-	cores_available = max_u(min_u(cores_sysconf, 4), 1);
 
 	A_CALLOC(run, 1);
 	run->fd = -1;
@@ -128,15 +120,18 @@ struct device_t *device_init(void) {
 	dev->format = V4L2_PIX_FMT_YUYV;
 	dev->standard = V4L2_STD_UNKNOWN;
 	dev->io_method = V4L2_MEMORY_MMAP;
-	dev->n_buffers = cores_available + 1;
-	dev->n_workers = min_u(cores_available, dev->n_buffers);
+	dev->n_buffers = get_cores_available() + 1;
 	dev->min_frame_size = 128;
 	dev->timeout = 1;
-	dev->error_delay = 1; // XXX: not device param
-#	ifdef WITH_RAWSINK // XXX: not device param
+
+	// FIXME: Not device params
+	dev->error_delay = 1;
+#	ifdef WITH_RAWSINK
 	dev->rawsink_name = "";
 	dev->rawsink_mode = 0660;
 #	endif
+	// end-of-fixme
+
 	dev->run = run;
 	return dev;
 }
@@ -196,10 +191,7 @@ int device_open(struct device_t *dev) {
 	if (_device_open_queue_buffers(dev) < 0) {
 		goto error;
 	}
-	_device_open_alloc_picbufs(dev);
 	_device_apply_controls(dev);
-
-	RUN(n_workers) = min_u(RUN(n_buffers), dev->n_workers);
 
 	LOG_DEBUG("Device fd=%d initialized", RUN(fd));
 	return 0;
@@ -211,16 +203,6 @@ int device_open(struct device_t *dev) {
 
 void device_close(struct device_t *dev) {
 	RUN(persistent_timeout_reported) = false;
-	RUN(n_workers) = 0;
-
-	if (RUN(pictures)) {
-		LOG_DEBUG("Releasing picture buffers ...");
-		for (unsigned index = 0; index < RUN(n_buffers); ++index) {
-			picture_destroy(RUN(pictures[index]));
-		}
-		free(RUN(pictures));
-		RUN(pictures) = NULL;
-	}
 
 	if (RUN(hw_buffers)) {
 		LOG_DEBUG("Releasing device buffers ...");
@@ -373,7 +355,7 @@ int device_grab_buffer(struct device_t *dev) {
 
 	HW(used) = buf_info.bytesused;
 	memcpy(&HW(buf_info), &buf_info, sizeof(struct v4l2_buffer));
-	RUN(pictures)[buf_info.index]->grab_ts = get_now_monotonic();
+	HW(grab_ts) = get_now_monotonic();
 
 #	undef HW
 	return buf_info.index;
@@ -749,19 +731,6 @@ static int _device_open_queue_buffers(struct device_t *dev) {
 		}
 	}
 	return 0;
-}
-
-static void _device_open_alloc_picbufs(struct device_t *dev) {
-	size_t picture_size = picture_get_generous_size(RUN(width), RUN(height));
-
-	LOG_DEBUG("Allocating picture buffers ...");
-	A_CALLOC(RUN(pictures), RUN(n_buffers));
-
-	for (unsigned index = 0; index < RUN(n_buffers); ++index) {
-		RUN(pictures)[index] = picture_init();
-		LOG_DEBUG("Pre-allocating picture buffer %u sized %zu bytes... ", index, picture_size);
-		picture_realloc_data(RUN(pictures)[index], picture_size);
-	}
 }
 
 static int _device_apply_resolution(struct device_t *dev, unsigned width, unsigned height) {

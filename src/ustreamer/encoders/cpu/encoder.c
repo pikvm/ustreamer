@@ -70,7 +70,10 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
 static void _jpeg_term_destination(j_compress_ptr jpeg);
 
 
-void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned quality) {
+void cpu_encoder_compress_buffer(
+	struct device_t *dev, unsigned index, unsigned quality,
+	struct picture_t *picture) {
+
 	// This function based on compress_image_to_jpeg() from mjpg-streamer
 
 	struct jpeg_compress_struct jpeg;
@@ -79,7 +82,7 @@ void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned 
 	jpeg.err = jpeg_std_error(&jpeg_error);
 	jpeg_create_compress(&jpeg);
 
-	_jpeg_set_picture(&jpeg, dev->run->pictures[index]);
+	_jpeg_set_picture(&jpeg, picture);
 
 	jpeg.image_width = dev->run->width;
 	jpeg.image_height = dev->run->height;
@@ -108,7 +111,7 @@ void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned 
 	jpeg_finish_compress(&jpeg);
 	jpeg_destroy_compress(&jpeg);
 
-	assert(dev->run->pictures[index]->used > 0);
+	assert(picture->used > 0);
 }
 
 static void _jpeg_set_picture(j_compress_ptr jpeg, struct picture_t *picture) {

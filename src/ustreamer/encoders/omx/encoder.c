@@ -38,8 +38,8 @@
 
 #include "../../../common/logging.h"
 #include "../../../common/tools.h"
-#include "../../picture.h"
 #include "../../device.h"
+#include "../../picture.h"
 
 #include "formatters.h"
 #include "component.h"
@@ -176,7 +176,10 @@ int omx_encoder_prepare(struct omx_encoder_t *omx, struct device_t *dev, unsigne
 	return 0;
 }
 
-int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev, unsigned index) {
+int omx_encoder_compress_buffer(
+	struct omx_encoder_t *omx, struct device_t *dev, unsigned index,
+	struct picture_t *picture) {
+
 #	define HW(_next)	dev->run->hw_buffers[index]._next
 #	define IN(_next)	omx->input_buffer->_next
 #	define OUT(_next)	omx->output_buffer->_next
@@ -190,7 +193,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 		return -1;
 	}
 
-	dev->run->pictures[index]->used = 0;
+	picture->used = 0;
 	omx->output_available = false;
 	omx->input_required = true;
 
@@ -202,7 +205,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct device_t *dev,
 		if (omx->output_available) {
 			omx->output_available = false;
 
-			picture_append_data(dev->run->pictures[index], OUT(pBuffer) + OUT(nOffset), OUT(nFilledLen));
+			picture_append_data(picture, OUT(pBuffer) + OUT(nOffset), OUT(nFilledLen));
 
 			if (OUT(nFlags) & OMX_BUFFERFLAG_ENDOFFRAME) {
 				OUT(nFlags) = 0;

@@ -34,6 +34,7 @@
 #include "../common/logging.h"
 
 #include "device.h"
+#include "picture.h"
 
 #include "encoders/cpu/encoder.h"
 #include "encoders/hw/encoder.h"
@@ -57,6 +58,10 @@ static const struct {
 };
 
 
+#define ER(_next)	encoder->run->_next
+#define DR(_next)	dev->run->_next
+
+
 struct encoder_t *encoder_init(void) {
 	struct encoder_runtime_t *run;
 	struct encoder_t *encoder;
@@ -69,22 +74,23 @@ struct encoder_t *encoder_init(void) {
 	A_CALLOC(encoder, 1);
 	encoder->type = run->type;
 	encoder->quality = run->quality;
+	encoder->n_workers = get_cores_available();
 	encoder->run = run;
 	return encoder;
 }
 
 void encoder_destroy(struct encoder_t *encoder) {
 #	ifdef WITH_OMX
-	if (encoder->run->omxs) {
-		for (unsigned index = 0; index < encoder->run->n_omxs; ++index) {
-			if (encoder->run->omxs[index]) {
-				omx_encoder_destroy(encoder->run->omxs[index]);
+	if (ER(omxs)) {
+		for (unsigned index = 0; index < ER(n_omxs); ++index) {
+			if (ER(omxs[index])) {
+				omx_encoder_destroy(ER(omxs[index]));
 			}
 		}
-		free(encoder->run->omxs);
+		free(ER(omxs));
 	}
 #	endif
-	A_MUTEX_DESTROY(&encoder->run->mutex);
+	A_MUTEX_DESTROY(&ER(mutex));
 	free(encoder->run);
 	free(encoder);
 }
@@ -108,17 +114,19 @@ const char *encoder_type_to_string(enum encoder_type_t type) {
 }
 
 void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
-	enum encoder_type_t type = (encoder->run->cpu_forced ? ENCODER_TYPE_CPU : encoder->type);
+	enum encoder_type_t type = (ER(cpu_forced) ? ENCODER_TYPE_CPU : encoder->type);
 	unsigned quality = encoder->quality;
 	bool cpu_forced = false;
 
-	if ((dev->run->format == V4L2_PIX_FMT_MJPEG || dev->run->format == V4L2_PIX_FMT_JPEG) && type != ENCODER_TYPE_HW) {
+	ER(n_workers) = min_u(encoder->n_workers, DR(n_buffers));
+
+	if ((DR(format) == V4L2_PIX_FMT_MJPEG || DR(format) == V4L2_PIX_FMT_JPEG) && type != ENCODER_TYPE_HW) {
 		LOG_INFO("Switching to HW encoder because the input format is (M)JPEG");
 		type = ENCODER_TYPE_HW;
 	}
 
 	if (type == ENCODER_TYPE_HW) {
-		if (dev->run->format != V4L2_PIX_FMT_MJPEG && dev->run->format != V4L2_PIX_FMT_JPEG) {
+		if (DR(format) != V4L2_PIX_FMT_MJPEG && DR(format) != V4L2_PIX_FMT_JPEG) {
 			LOG_INFO("Switching to CPU encoder because the input format is not (M)JPEG");
 			goto use_cpu;
 		}
@@ -127,42 +135,42 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 			quality = 0;
 		}
 
-		dev->run->n_workers = 1;
+		ER(n_workers) = 1;
 	}
 #	ifdef WITH_OMX
 	else if (type == ENCODER_TYPE_OMX) {
 		for (unsigned index = 0; index < encoder->n_glitched_resolutions; ++index) {
 			if (
-				encoder->glitched_resolutions[index][0] == dev->run->width
-				&& encoder->glitched_resolutions[index][1] == dev->run->height
+				encoder->glitched_resolutions[index][0] == DR(width)
+				&& encoder->glitched_resolutions[index][1] == DR(height)
 			) {
 				LOG_INFO("Switching to CPU encoder the resolution %ux%u marked as glitchy for OMX",
-					dev->run->width, dev->run->height);
+					DR(width), DR(height));
 				goto use_cpu;
 			}
 		}
 
 		LOG_DEBUG("Preparing OMX encoder ...");
 
-		if (dev->run->n_workers > OMX_MAX_ENCODERS) {
+		if (ER(n_workers) > OMX_MAX_ENCODERS) {
 			LOG_INFO("OMX encoder sets limit for worker threads: %u", OMX_MAX_ENCODERS);
-			dev->run->n_workers = OMX_MAX_ENCODERS;
+			ER(n_workers) = OMX_MAX_ENCODERS;
 		}
 
-		if (encoder->run->omxs == NULL) {
-			A_CALLOC(encoder->run->omxs, OMX_MAX_ENCODERS);
+		if (ER(omxs) == NULL) {
+			A_CALLOC(ER(omxs), OMX_MAX_ENCODERS);
 		}
 
 		// Начинаем с нуля и доинициализируем на следующих заходах при необходимости
-		for (; encoder->run->n_omxs < dev->run->n_workers; ++encoder->run->n_omxs) {
-			if ((encoder->run->omxs[encoder->run->n_omxs] = omx_encoder_init()) == NULL) {
+		for (; ER(n_omxs) < ER(n_workers); ++ER(n_omxs)) {
+			if ((ER(omxs[ER(n_omxs)]) = omx_encoder_init()) == NULL) {
 				LOG_ERROR("Can't initialize OMX encoder, falling back to CPU");
 				goto force_cpu;
 			}
 		}
 
-		for (unsigned index = 0; index < encoder->run->n_omxs; ++index) {
-			if (omx_encoder_prepare(encoder->run->omxs[index], dev, quality) < 0) {
+		for (unsigned index = 0; index < ER(n_omxs); ++index) {
+			if (omx_encoder_prepare(ER(omxs[index]), dev, quality) < 0) {
 				LOG_ERROR("Can't prepare OMX encoder, falling back to CPU");
 				goto force_cpu;
 			}
@@ -194,51 +202,54 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 			LOG_INFO("Using JPEG quality: %u%%", quality);
 		}
 
-		A_MUTEX_LOCK(&encoder->run->mutex);
-		encoder->run->type = type;
-		encoder->run->quality = quality;
+		A_MUTEX_LOCK(&ER(mutex));
+		ER(type) = type;
+		ER(quality) = quality;
 		if (cpu_forced) {
-			encoder->run->cpu_forced = true;
+			ER(cpu_forced) = true;
 		}
-		A_MUTEX_UNLOCK(&encoder->run->mutex);
+		A_MUTEX_UNLOCK(&ER(mutex));
 }
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic push
-int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, unsigned worker_number, unsigned buf_index) {
+int encoder_compress_buffer(
+	struct encoder_t *encoder, struct device_t *dev,
+	unsigned worker_number, unsigned buf_index,
+	struct picture_t *picture) {
 #pragma GCC diagnostic pop
 
-	assert(encoder->run->type != ENCODER_TYPE_UNKNOWN);
-	assert(dev->run->hw_buffers[buf_index].used > 0);
+	assert(ER(type) != ENCODER_TYPE_UNKNOWN);
+	assert(DR(hw_buffers[buf_index].used) > 0);
 
-	dev->run->pictures[buf_index]->encode_begin_ts = get_now_monotonic();
+	picture->grab_ts = DR(hw_buffers[buf_index].grab_ts);
+	picture->encode_begin_ts = get_now_monotonic();
 
-	if (encoder->run->type == ENCODER_TYPE_CPU) {
+	if (ER(type) == ENCODER_TYPE_CPU) {
 		LOG_VERBOSE("Compressing buffer %u using CPU", buf_index);
-		cpu_encoder_compress_buffer(dev, buf_index, encoder->run->quality);
-	} else if (encoder->run->type == ENCODER_TYPE_HW) {
+		cpu_encoder_compress_buffer(dev, buf_index, ER(quality), picture);
+	} else if (ER(type) == ENCODER_TYPE_HW) {
 		LOG_VERBOSE("Compressing buffer %u using HW (just copying)", buf_index);
-		hw_encoder_compress_buffer(dev, buf_index);
+		hw_encoder_compress_buffer(dev, buf_index, picture);
 	}
 #	ifdef WITH_OMX
-	else if (encoder->run->type == ENCODER_TYPE_OMX) {
+	else if (ER(type) == ENCODER_TYPE_OMX) {
 		LOG_VERBOSE("Compressing buffer %u using OMX", buf_index);
-		if (omx_encoder_compress_buffer(encoder->run->omxs[worker_number], dev, buf_index) < 0) {
+		if (omx_encoder_compress_buffer(ER(omxs[worker_number]), dev, buf_index, picture) < 0) {
 			goto error;
 		}
 	}
 #	endif
 #	ifdef WITH_RAWSINK
-	else if (encoder->run->type == ENCODER_TYPE_NOOP) {
+	else if (ER(type) == ENCODER_TYPE_NOOP) {
 		LOG_VERBOSE("Compressing buffer %u using NOOP (do nothing)", buf_index);
 	}
 #	endif
 
+	picture->encode_end_ts = get_now_monotonic();
 
-	dev->run->pictures[buf_index]->encode_end_ts = get_now_monotonic();
-
-	dev->run->pictures[buf_index]->width = dev->run->width;
-	dev->run->pictures[buf_index]->height = dev->run->height;
+	picture->width = DR(width);
+	picture->height = DR(height);
 
 	return 0;
 
@@ -247,9 +258,12 @@ int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, uns
 	// cppcheck-suppress unusedLabel
 	error:
 		LOG_INFO("Error while compressing buffer, falling back to CPU");
-		A_MUTEX_LOCK(&encoder->run->mutex);
-		encoder->run->cpu_forced = true;
-		A_MUTEX_UNLOCK(&encoder->run->mutex);
+		A_MUTEX_LOCK(&ER(mutex));
+		ER(cpu_forced) = true;
+		A_MUTEX_UNLOCK(&ER(mutex));
 		return -1;
 #	pragma GCC diagnostic pop
 }
+
+#undef DR
+#undef ER

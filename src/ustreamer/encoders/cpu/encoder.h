@@ -23,6 +23,9 @@
 #pragma once
 
 #include "../../device.h"
+#include "../../picture.h"
 
 
-void cpu_encoder_compress_buffer(struct device_t *dev, unsigned index, unsigned quality);
+void cpu_encoder_compress_buffer(
+	struct device_t *dev, unsigned index, unsigned quality,
+	struct picture_t *picture);

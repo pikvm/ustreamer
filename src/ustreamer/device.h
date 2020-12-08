@@ -32,8 +32,6 @@
 #	include "../rawsink/rawsink.h"
 #endif
 
-#include "picture.h"
-
 
 #define VIDEO_MIN_WIDTH		((unsigned)160)
 #define VIDEO_MAX_WIDTH		((unsigned)10240)
@@ -57,6 +55,8 @@ struct hw_buffer_t {
 	unsigned char		*data;
 	size_t				used;
 	size_t				allocated;
+	long double			grab_ts;
+
 	struct v4l2_buffer	buf_info;
 
 	pthread_mutex_t grabbed_mutex;
@@ -71,9 +71,7 @@ struct device_runtime_t {
 	unsigned			hw_fps;
 	size_t				raw_size;
 	unsigned			n_buffers;
-	unsigned			n_workers;
 	struct hw_buffer_t	*hw_buffers;
-	struct picture_t	**pictures;
 	bool				capturing;
 	bool				persistent_timeout_reported;
 };
@@ -115,17 +113,19 @@ struct device_t {
 	enum v4l2_memory	io_method;
 	bool			dv_timings;
 	unsigned		n_buffers;
-	unsigned		n_workers;
 	unsigned		desired_fps;
 	size_t			min_frame_size;
 	bool			persistent;
 	unsigned		timeout;
-	unsigned		error_delay; // XXX: not device param
-#	ifdef WITH_RAWSINK // XXX: not device params
+
+	// FIXME: Not device params
+	unsigned		error_delay;
+#	ifdef WITH_RAWSINK
 	char			*rawsink_name;
 	mode_t			rawsink_mode;
 	bool			rawsink_rm;
 #	endif
+	// end-of-fixme
 
 	struct controls_t ctl;
 

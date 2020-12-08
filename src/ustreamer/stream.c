@@ -53,6 +53,7 @@ struct _worker_t {
 	atomic_bool			*workers_stop;
 
 	long double			last_comp_time;
+	struct picture_t	*picture;
 
 	pthread_mutex_t		has_job_mutex;
 	unsigned			buf_index;
@@ -69,8 +70,7 @@ struct _worker_t {
 	struct _worker_t	*order_prev;
 	struct _worker_t	*order_next;
 
-	struct device_t		*dev;
-	struct encoder_t	*encoder;
+	struct stream_t		*stream;
 };
 
 struct _workers_pool_t {
@@ -93,7 +93,7 @@ struct _workers_pool_t {
 
 static struct _workers_pool_t *_stream_init_loop(struct stream_t *stream);
 static struct _workers_pool_t *_stream_init_one(struct stream_t *stream);
-static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index, unsigned captured_fps);
+static void _stream_expose_picture(struct stream_t *stream, struct picture_t *picture, unsigned captured_fps);
 
 static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream);
 static void _workers_pool_destroy(struct _workers_pool_t *pool);
@@ -166,7 +166,7 @@ void stream_loop(struct stream_t *stream) {
 
 			if (!ready_wr->job_failed) {
 				if (ready_wr->job_timely) {
-					_stream_expose_picture(stream, ready_wr->buf_index, captured_fps);
+					_stream_expose_picture(stream, ready_wr->picture, captured_fps);
 					LOG_PERF("##### Encoded picture exposed; worker=%u", ready_wr->number);
 				} else {
 					LOG_PERF("----- Encoded picture dropped; worker=%u", ready_wr->number);
@@ -242,7 +242,7 @@ void stream_loop(struct stream_t *stream) {
 									DEV(run->format),
 									DEV(run->width),
 									DEV(run->height),
-									DEV(run->pictures[buf_index]->grab_ts)
+									DEV(run->hw_buffers[buf_index].grab_ts)
 								);
 							}
 #							endif
@@ -346,10 +346,10 @@ static struct _workers_pool_t *_stream_init_one(struct stream_t *stream) {
 		return NULL;
 }
 
-static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index, unsigned captured_fps) {
+static void _stream_expose_picture(struct stream_t *stream, struct picture_t *picture, unsigned captured_fps) {
 	A_MUTEX_LOCK(&stream->mutex);
 
-	picture_copy(stream->dev->run->pictures[buf_index], stream->picture);
+	picture_copy(picture, stream->picture);
 
 	stream->online = true;
 	stream->captured_fps = captured_fps;
@@ -359,16 +359,17 @@ static void _stream_expose_picture(struct stream_t *stream, unsigned buf_index, 
 }
 
 static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
-	struct _workers_pool_t *pool;
-
 #	define DEV(_next) stream->dev->_next
 #	define RUN(_next) stream->dev->run->_next
 
-	LOG_INFO("Creating pool with %u workers ...", RUN(n_workers));
+	struct _workers_pool_t *pool;
+	size_t picture_size = picture_get_generous_size(RUN(width), RUN(height));
+
+	LOG_INFO("Creating pool with %u workers ...", stream->encoder->run->n_workers);
 
 	A_CALLOC(pool, 1);
 
-	pool->n_workers = RUN(n_workers);
+	pool->n_workers = stream->encoder->run->n_workers;
 	A_CALLOC(pool->workers, pool->n_workers);
 
 	A_MUTEX_INIT(&pool->free_workers_mutex);
@@ -386,6 +387,9 @@ static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
 	for (unsigned number = 0; number < pool->n_workers; ++number) {
 #		define WR(_next) pool->workers[number]._next
 
+		WR(picture) = picture_init();
+		picture_realloc_data(WR(picture), picture_size);
+
 		A_MUTEX_INIT(&WR(has_job_mutex));
 		atomic_init(&WR(has_job), false);
 		A_COND_INIT(&WR(has_job_cond));
@@ -398,8 +402,7 @@ static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
 		WR(free_workers) = &pool->free_workers;
 		WR(free_workers_cond) = &pool->free_workers_cond;
 
-		WR(dev) = stream->dev;
-		WR(encoder) = stream->encoder;
+		WR(stream) = stream;
 
 		A_THREAD_CREATE(&WR(tid), _worker_thread, (void *)&(pool->workers[number]));
 
@@ -426,6 +429,8 @@ static void _workers_pool_destroy(struct _workers_pool_t *pool) {
 		A_MUTEX_DESTROY(&WR(has_job_mutex));
 		A_COND_DESTROY(&WR(has_job_cond));
 
+		picture_destroy(WR(picture));
+
 #		undef WR
 	}
 
@@ -450,13 +455,19 @@ static void *_worker_thread(void *v_worker) {
 		A_MUTEX_UNLOCK(&wr->has_job_mutex);
 
 		if (!atomic_load(wr->workers_stop)) {
-#			define PIC(_next) wr->dev->run->pictures[wr->buf_index]->_next
+#			define PIC(_next) wr->picture->_next
 
 			LOG_DEBUG("Worker %u compressing JPEG from buffer %u ...", wr->number, wr->buf_index);
 
-			wr->job_failed = (bool)encoder_compress_buffer(wr->encoder, wr->dev, wr->number, wr->buf_index);
+			wr->job_failed = (bool)encoder_compress_buffer(
+				wr->stream->encoder,
+				wr->stream->dev,
+				wr->number,
+				wr->buf_index,
+				wr->picture
+			);
 
-			if (device_release_buffer(wr->dev, wr->buf_index) == 0) {
+			if (device_release_buffer(wr->stream->dev, wr->buf_index) == 0) {
 				if (!wr->job_failed) {
 					wr->job_start_ts = PIC(encode_begin_ts);
 					wr->last_comp_time = PIC(encode_end_ts) - wr->job_start_ts;

@@ -360,7 +360,7 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 			case _O_PERSISTENT:		OPT_SET(dev->persistent, true);
 			case _O_DV_TIMINGS:		OPT_SET(dev->dv_timings, true);
 			case _O_BUFFERS:		OPT_NUMBER("--buffers", dev->n_buffers, 1, 32, 0);
-			case _O_WORKERS:		OPT_NUMBER("--workers", dev->n_workers, 1, 32, 0);
+			case _O_WORKERS:		OPT_NUMBER("--workers", encoder->n_workers, 1, 32, 0);
 			case _O_QUALITY:		OPT_NUMBER("--quality", encoder->quality, 1, 100, 0);
 			case _O_ENCODER:		OPT_PARSE("encoder type", encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, ENCODER_TYPES_STR);
 #			ifdef WITH_OMX
@@ -610,7 +610,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("                                           Each buffer may processed using an independent thread.\n");
 	printf("                                           Default: %u (the number of CPU cores (but not more than 4) + 1).\n\n", dev->n_buffers);
 	printf("    -w|--workers <N>  ──────────────────── The number of worker threads but not more than buffers.\n");
-	printf("                                           Default: %u (the number of CPU cores (but not more than 4)).\n\n", dev->n_workers);
+	printf("                                           Default: %u (the number of CPU cores (but not more than 4)).\n\n", encoder->n_workers);
 	printf("    -q|--quality <N>  ──────────────────── Set quality of JPEG encoding from 1 to 100 (best). Default: %u.\n", encoder->quality);
 	printf("                                           Note: If HW encoding is used (JPEG source format selected),\n");
 	printf("                                           this parameter attempts to configure the camera\n");

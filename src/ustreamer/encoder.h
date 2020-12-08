@@ -27,6 +27,7 @@
 #include <pthread.h>
 
 #include "device.h"
+#include "picture.h"
 
 #ifdef WITH_OMX
 #	include "encoders/omx/encoder.h"
@@ -71,6 +72,8 @@ struct encoder_runtime_t {
 	bool				cpu_forced;
 	pthread_mutex_t		mutex;
 
+	unsigned			n_workers;
+
 #	ifdef WITH_OMX
 	unsigned				n_omxs;
 	struct omx_encoder_t	**omxs;
@@ -80,6 +83,7 @@ struct encoder_runtime_t {
 struct encoder_t {
 	enum encoder_type_t	type;
 	unsigned			quality;
+	unsigned			n_workers;
 #	ifdef WITH_OMX
 	unsigned	n_glitched_resolutions;
 	unsigned	glitched_resolutions[2][MAX_GLITCHED_RESOLUTIONS];
@@ -96,4 +100,8 @@ enum encoder_type_t encoder_parse_type(const char *str);
 const char *encoder_type_to_string(enum encoder_type_t type);
 
 void encoder_prepare(struct encoder_t *encoder, struct device_t *dev);
-int encoder_compress_buffer(struct encoder_t *encoder, struct device_t *dev, unsigned worker_number, unsigned buf_index);
+
+int encoder_compress_buffer(
+	struct encoder_t *encoder, struct device_t *dev,
+	unsigned worker_number, unsigned buf_index,
+	struct picture_t *picture);

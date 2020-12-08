@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <errno.h>
 #include <math.h>
 #include <time.h>
@@ -94,4 +95,12 @@ INLINE long double get_now_real(void) {
 
 	get_now(CLOCK_REALTIME, &sec, &msec);
 	return (long double)sec + ((long double)msec) / 1000;
+}
+
+INLINE unsigned get_cores_available(void) {
+	long cores_sysconf;
+
+	cores_sysconf = sysconf(_SC_NPROCESSORS_ONLN);
+	cores_sysconf = (cores_sysconf < 0 ? 0 : cores_sysconf);
+	return max_u(min_u(cores_sysconf, 4), 1);
 }
