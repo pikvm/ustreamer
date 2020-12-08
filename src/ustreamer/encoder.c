@@ -160,6 +160,7 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 #	ifdef WITH_RAWSINK
 	else if (type == ENCODER_TYPE_NOOP) {
 		ER(n_workers) = 1;
+		quality = 0;
 	}
 #	endif
 
@@ -177,12 +178,13 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 		quality = encoder->quality;
 
 	ok:
+#		ifdef WITH_RAWSINK
+		if (type == ENCODER_TYPE_NOOP) {
+			LOG_INFO("Using JPEG NOOP encoder");
+		} else
+#		endif
 		if (quality == 0) {
 			LOG_INFO("Using JPEG quality: encoder default");
-#		ifdef WITH_RAWSINK
-		} else if (type == ENCODER_TYPE_NOOP) {
-			LOG_INFO("Using JPEG NOOP encoder");
-#		endif
 		} else {
 			LOG_INFO("Using JPEG quality: %u%%", quality);
 		}
