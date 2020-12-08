@@ -70,10 +70,7 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
 static void _jpeg_term_destination(j_compress_ptr jpeg);
 
 
-void cpu_encoder_compress_buffer(
-	struct device_t *dev, unsigned index, unsigned quality,
-	struct picture_t *picture) {
-
+void cpu_encoder_compress_buffer(struct hw_buffer_t *hw, struct picture_t *picture, unsigned quality) {
 	// This function based on compress_image_to_jpeg() from mjpg-streamer
 
 	struct jpeg_compress_struct jpeg;
@@ -84,8 +81,8 @@ void cpu_encoder_compress_buffer(
 
 	_jpeg_set_picture(&jpeg, picture);
 
-	jpeg.image_width = dev->run->width;
-	jpeg.image_height = dev->run->height;
+	jpeg.image_width = hw->width;
+	jpeg.image_height = hw->height;
 	jpeg.input_components = 3;
 	jpeg.in_color_space = JCS_RGB;
 
@@ -95,9 +92,9 @@ void cpu_encoder_compress_buffer(
 	jpeg_start_compress(&jpeg, TRUE);
 
 #	define WRITE_SCANLINES(_format, _func) \
-		case _format: { _func(&jpeg, dev->run->hw_buffers[index].data, dev->run->width, dev->run->height); break; }
+		case _format: { _func(&jpeg, hw->data, hw->width, hw->height); break; }
 
-	switch (dev->run->format) {
+	switch (hw->format) {
 		// https://www.fourcc.org/yuv.php
 		WRITE_SCANLINES(V4L2_PIX_FMT_YUYV, _jpeg_write_scanlines_yuyv);
 		WRITE_SCANLINES(V4L2_PIX_FMT_UYVY, _jpeg_write_scanlines_uyvy);

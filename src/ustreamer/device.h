@@ -55,6 +55,9 @@ struct hw_buffer_t {
 	unsigned char		*data;
 	size_t				used;
 	size_t				allocated;
+	unsigned			width;
+	unsigned			height;
+	unsigned			format;
 	long double			grab_ts;
 
 	struct v4l2_buffer	buf_info;

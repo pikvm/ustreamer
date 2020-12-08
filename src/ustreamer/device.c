@@ -103,7 +103,7 @@ static const char *_standard_to_string(v4l2_std_id standard);
 static const char *_io_method_to_string_supported(enum v4l2_memory io_method);
 
 
-#	define RUN(_next) dev->run->_next
+#define RUN(_next) dev->run->_next
 
 
 struct device_t *device_init(void) {
@@ -354,6 +354,9 @@ int device_grab_buffer(struct device_t *dev) {
 	A_MUTEX_UNLOCK(&HW(grabbed_mutex));
 
 	HW(used) = buf_info.bytesused;
+	HW(width) = RUN(width);
+	HW(height) = RUN(height);
+	HW(format) = RUN(format);
 	memcpy(&HW(buf_info), &buf_info, sizeof(struct v4l2_buffer));
 	HW(grab_ts) = get_now_monotonic();
 
@@ -374,7 +377,6 @@ int device_release_buffer(struct device_t *dev, unsigned index) {
 	}
 	HW(grabbed) = false;
 	A_MUTEX_UNLOCK(&HW(grabbed_mutex));
-	HW(used) = 0;
 
 #	undef HW
 	return 0;

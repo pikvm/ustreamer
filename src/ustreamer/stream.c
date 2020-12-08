@@ -239,9 +239,9 @@ void stream_loop(struct stream_t *stream) {
 									rawsink,
 									DEV(run->hw_buffers[buf_index].data),
 									DEV(run->hw_buffers[buf_index].used),
-									DEV(run->format),
-									DEV(run->width),
-									DEV(run->height),
+									DEV(run->hw_buffers[buf_index].format),
+									DEV(run->hw_buffers[buf_index].width),
+									DEV(run->hw_buffers[buf_index].height),
 									DEV(run->hw_buffers[buf_index].grab_ts)
 								);
 							}
@@ -461,9 +461,8 @@ static void *_worker_thread(void *v_worker) {
 
 			wr->job_failed = (bool)encoder_compress_buffer(
 				wr->stream->encoder,
-				wr->stream->dev,
 				wr->number,
-				wr->buf_index,
+				&wr->stream->dev->run->hw_buffers[wr->buf_index],
 				wr->picture
 			);
 

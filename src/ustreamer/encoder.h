@@ -102,6 +102,5 @@ const char *encoder_type_to_string(enum encoder_type_t type);
 void encoder_prepare(struct encoder_t *encoder, struct device_t *dev);
 
 int encoder_compress_buffer(
-	struct encoder_t *encoder, struct device_t *dev,
-	unsigned worker_number, unsigned buf_index,
-	struct picture_t *picture);
+	struct encoder_t *encoder, unsigned worker_number,
+	struct hw_buffer_t *hw, struct picture_t *picture);

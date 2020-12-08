@@ -26,6 +26,4 @@
 #include "../../picture.h"
 
 
-void cpu_encoder_compress_buffer(
-	struct device_t *dev, unsigned index, unsigned quality,
-	struct picture_t *picture);
+void cpu_encoder_compress_buffer(struct hw_buffer_t *hw, struct picture_t *picture, unsigned quality);

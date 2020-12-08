@@ -214,42 +214,41 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic push
 int encoder_compress_buffer(
-	struct encoder_t *encoder, struct device_t *dev,
-	unsigned worker_number, unsigned buf_index,
-	struct picture_t *picture) {
+	struct encoder_t *encoder, unsigned worker_number,
+	struct hw_buffer_t *hw, struct picture_t *picture) {
 #pragma GCC diagnostic pop
 
 	assert(ER(type) != ENCODER_TYPE_UNKNOWN);
-	assert(DR(hw_buffers[buf_index].used) > 0);
+	assert(hw->used > 0);
 
-	picture->grab_ts = DR(hw_buffers[buf_index].grab_ts);
+	picture->grab_ts = hw->grab_ts;
 	picture->encode_begin_ts = get_now_monotonic();
 
 	if (ER(type) == ENCODER_TYPE_CPU) {
-		LOG_VERBOSE("Compressing buffer %u using CPU", buf_index);
-		cpu_encoder_compress_buffer(dev, buf_index, ER(quality), picture);
+		LOG_VERBOSE("Compressing buffer using CPU");
+		cpu_encoder_compress_buffer(hw, picture, ER(quality));
 	} else if (ER(type) == ENCODER_TYPE_HW) {
-		LOG_VERBOSE("Compressing buffer %u using HW (just copying)", buf_index);
-		hw_encoder_compress_buffer(dev, buf_index, picture);
+		LOG_VERBOSE("Compressing buffer using HW (just copying)");
+		hw_encoder_compress_buffer(hw, picture);
 	}
 #	ifdef WITH_OMX
 	else if (ER(type) == ENCODER_TYPE_OMX) {
-		LOG_VERBOSE("Compressing buffer %u using OMX", buf_index);
-		if (omx_encoder_compress_buffer(ER(omxs[worker_number]), dev, buf_index, picture) < 0) {
+		LOG_VERBOSE("Compressing buffer using OMX");
+		if (omx_encoder_compress_buffer(ER(omxs[worker_number]), hw, picture) < 0) {
 			goto error;
 		}
 	}
 #	endif
 #	ifdef WITH_RAWSINK
 	else if (ER(type) == ENCODER_TYPE_NOOP) {
-		LOG_VERBOSE("Compressing buffer %u using NOOP (do nothing)", buf_index);
+		LOG_VERBOSE("Compressing buffer using NOOP (do nothing)");
 	}
 #	endif
 
 	picture->encode_end_ts = get_now_monotonic();
 
-	picture->width = DR(width);
-	picture->height = DR(height);
+	picture->width = hw->width;
+	picture->height = hw->height;
 
 	return 0;
 

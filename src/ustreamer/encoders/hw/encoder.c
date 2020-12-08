@@ -63,11 +63,11 @@ int hw_encoder_prepare(struct device_t *dev, unsigned quality) {
 	return 0;
 }
 
-void hw_encoder_compress_buffer(struct device_t *dev, unsigned index, struct picture_t *picture) {
-	if (dev->run->format != V4L2_PIX_FMT_MJPEG && dev->run->format != V4L2_PIX_FMT_JPEG) {
+void hw_encoder_compress_buffer(struct hw_buffer_t *hw, struct picture_t *picture) {
+	if (hw->format != V4L2_PIX_FMT_MJPEG && hw->format != V4L2_PIX_FMT_JPEG) {
 		assert(0 && "Unsupported input format for HW encoder");
 	}
-	_copy_plus_huffman(&dev->run->hw_buffers[index], picture);
+	_copy_plus_huffman(hw, picture);
 }
 
 void _copy_plus_huffman(const struct hw_buffer_t *src, struct picture_t *dest) {

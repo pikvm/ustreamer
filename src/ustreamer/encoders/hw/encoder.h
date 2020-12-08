@@ -27,4 +27,4 @@
 
 
 int hw_encoder_prepare(struct device_t *dev, unsigned quality);
-void hw_encoder_compress_buffer(struct device_t *dev, unsigned index, struct picture_t *picture);
+void hw_encoder_compress_buffer(struct hw_buffer_t *hw, struct picture_t *picture);
