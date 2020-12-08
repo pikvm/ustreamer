@@ -157,6 +157,11 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 		}
 	}
 #	endif
+#	ifdef WITH_RAWSINK
+	else if (type == ENCODER_TYPE_NOOP) {
+		ER(n_workers) = 1;
+	}
+#	endif
 
 	goto ok;
 
