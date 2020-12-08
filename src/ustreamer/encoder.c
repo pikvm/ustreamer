@@ -236,6 +236,7 @@ int encoder_compress_buffer(
 #	ifdef WITH_RAWSINK
 	else if (ER(type) == ENCODER_TYPE_NOOP) {
 		LOG_VERBOSE("Compressing buffer using NOOP (do nothing)");
+		usleep(5000); // Просто чтобы работала логика desired_fps
 	}
 #	endif
 
