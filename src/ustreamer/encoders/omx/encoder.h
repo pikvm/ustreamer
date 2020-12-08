@@ -71,4 +71,4 @@ struct omx_encoder_t *omx_encoder_init(void);
 void omx_encoder_destroy(struct omx_encoder_t *omx);
 
 int omx_encoder_prepare(struct omx_encoder_t *omx, struct device_t *dev, unsigned quality);
-int omx_encoder_compress_buffer(struct hw_buffer_t *hw, struct picture_t *picture);
+int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct hw_buffer_t *hw, struct picture_t *picture);

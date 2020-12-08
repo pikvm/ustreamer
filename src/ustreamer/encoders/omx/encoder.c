@@ -154,7 +154,7 @@ int omx_encoder_prepare(struct omx_encoder_t *omx, struct device_t *dev, unsigne
 	return 0;
 }
 
-int omx_encoder_compress_buffer(struct hw_buffer_t *hw, struct picture_t *picture) {
+int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct hw_buffer_t *hw, struct picture_t *picture) {
 #	define IN(_next)	omx->input_buffer->_next
 #	define OUT(_next)	omx->output_buffer->_next
 
