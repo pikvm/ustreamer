@@ -31,8 +31,8 @@
 #include <linux/videodev2.h>
 
 #include "../../../common/tools.h"
-#include "../../picture.h"
+#include "../../frame.h"
 #include "../../device.h"
 
 
-void cpu_encoder_compress_buffer(struct hw_buffer_t *hw, struct picture_t *picture, unsigned quality);
+void cpu_encoder_compress_buffer(struct hw_buffer_t *hw, struct frame_t *frame, unsigned quality);

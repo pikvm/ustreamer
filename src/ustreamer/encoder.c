@@ -209,26 +209,26 @@ void encoder_get_runtime_params(struct encoder_t *encoder, enum encoder_type_t *
 #pragma GCC diagnostic push
 int encoder_compress_buffer(
 	struct encoder_t *encoder, unsigned worker_number,
-	struct hw_buffer_t *hw, struct picture_t *picture) {
+	struct hw_buffer_t *hw, struct frame_t *frame) {
 #pragma GCC diagnostic pop
 
 	assert(ER(type) != ENCODER_TYPE_UNKNOWN);
 	assert(hw->used > 0);
 
-	picture->grab_ts = hw->grab_ts;
-	picture->encode_begin_ts = get_now_monotonic();
+	frame->grab_ts = hw->grab_ts;
+	frame->encode_begin_ts = get_now_monotonic();
 
 	if (ER(type) == ENCODER_TYPE_CPU) {
 		LOG_VERBOSE("Compressing buffer using CPU");
-		cpu_encoder_compress_buffer(hw, picture, ER(quality));
+		cpu_encoder_compress_buffer(hw, frame, ER(quality));
 	} else if (ER(type) == ENCODER_TYPE_HW) {
 		LOG_VERBOSE("Compressing buffer using HW (just copying)");
-		hw_encoder_compress_buffer(hw, picture);
+		hw_encoder_compress_buffer(hw, frame);
 	}
 #	ifdef WITH_OMX
 	else if (ER(type) == ENCODER_TYPE_OMX) {
 		LOG_VERBOSE("Compressing buffer using OMX");
-		if (omx_encoder_compress_buffer(ER(omxs[worker_number]), hw, picture) < 0) {
+		if (omx_encoder_compress_buffer(ER(omxs[worker_number]), hw, frame) < 0) {
 			goto error;
 		}
 	}
@@ -240,10 +240,10 @@ int encoder_compress_buffer(
 	}
 #	endif
 
-	picture->encode_end_ts = get_now_monotonic();
+	frame->encode_end_ts = get_now_monotonic();
 
-	picture->width = hw->width;
-	picture->height = hw->height;
+	frame->width = hw->width;
+	frame->height = hw->height;
 
 	return 0;
 

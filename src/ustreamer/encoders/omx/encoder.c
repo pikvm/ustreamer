@@ -154,7 +154,7 @@ int omx_encoder_prepare(struct omx_encoder_t *omx, struct device_t *dev, unsigne
 	return 0;
 }
 
-int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct hw_buffer_t *hw, struct picture_t *picture) {
+int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct hw_buffer_t *hw, struct frame_t *frame) {
 #	define IN(_next)	omx->input_buffer->_next
 #	define OUT(_next)	omx->output_buffer->_next
 
@@ -167,7 +167,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct hw_buffer_t *h
 		return -1;
 	}
 
-	picture->used = 0;
+	frame->used = 0;
 	omx->output_available = false;
 	omx->input_required = true;
 
@@ -179,7 +179,7 @@ int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct hw_buffer_t *h
 		if (omx->output_available) {
 			omx->output_available = false;
 
-			picture_append_data(picture, OUT(pBuffer) + OUT(nOffset), OUT(nFilledLen));
+			frame_append_data(frame, OUT(pBuffer) + OUT(nOffset), OUT(nFilledLen));
 
 			if (OUT(nFlags) & OMX_BUFFERFLAG_ENDOFFRAME) {
 				OUT(nFlags) = 0;
@@ -322,7 +322,7 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 	portdef.format.image.nSliceHeight = align_size(dev->run->height, 16);
 	portdef.format.image.bFlagErrorConcealment = OMX_FALSE;
 	portdef.format.image.eCompressionFormat = OMX_IMAGE_CodingUnused;
-	portdef.nBufferSize = picture_get_generous_size(dev->run->width, dev->run->height);
+	portdef.nBufferSize = frame_get_generous_size(dev->run->width, dev->run->height);
 
 #	define MAP_FORMAT(_v4l2_format, _omx_format) \
 		case _v4l2_format: { portdef.format.image.eColorFormat = _omx_format; break; }

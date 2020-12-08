@@ -31,11 +31,11 @@
 struct _jpeg_dest_manager_t {
 	struct				jpeg_destination_mgr mgr; // Default manager
 	JOCTET				*buffer; // Start of buffer
-	struct picture_t	*picture;
+	struct frame_t	*frame;
 };
 
 
-static void _jpeg_set_picture(j_compress_ptr jpeg, struct picture_t *picture);
+static void _jpeg_set_picture(j_compress_ptr jpeg, struct frame_t *frame);
 
 static void _jpeg_write_scanlines_yuyv(
 	struct jpeg_compress_struct *jpeg, const unsigned char *data,
@@ -58,7 +58,7 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
 static void _jpeg_term_destination(j_compress_ptr jpeg);
 
 
-void cpu_encoder_compress_buffer(struct hw_buffer_t *hw, struct picture_t *picture, unsigned quality) {
+void cpu_encoder_compress_buffer(struct hw_buffer_t *hw, struct frame_t *frame, unsigned quality) {
 	// This function based on compress_image_to_jpeg() from mjpg-streamer
 
 	struct jpeg_compress_struct jpeg;
@@ -67,7 +67,7 @@ void cpu_encoder_compress_buffer(struct hw_buffer_t *hw, struct picture_t *pictu
 	jpeg.err = jpeg_std_error(&jpeg_error);
 	jpeg_create_compress(&jpeg);
 
-	_jpeg_set_picture(&jpeg, picture);
+	_jpeg_set_picture(&jpeg, frame);
 
 	jpeg.image_width = hw->width;
 	jpeg.image_height = hw->height;
@@ -96,10 +96,10 @@ void cpu_encoder_compress_buffer(struct hw_buffer_t *hw, struct picture_t *pictu
 	jpeg_finish_compress(&jpeg);
 	jpeg_destroy_compress(&jpeg);
 
-	assert(picture->used > 0);
+	assert(frame->used > 0);
 }
 
-static void _jpeg_set_picture(j_compress_ptr jpeg, struct picture_t *picture) {
+static void _jpeg_set_picture(j_compress_ptr jpeg, struct frame_t *frame) {
 	struct _jpeg_dest_manager_t *dest;
 
 	if (jpeg->dest == NULL) {
@@ -112,9 +112,9 @@ static void _jpeg_set_picture(j_compress_ptr jpeg, struct picture_t *picture) {
 	dest->mgr.init_destination = _jpeg_init_destination;
 	dest->mgr.empty_output_buffer = _jpeg_empty_output_buffer;
 	dest->mgr.term_destination = _jpeg_term_destination;
-	dest->picture = picture;
+	dest->frame = frame;
 
-	picture->used = 0;
+	frame->used = 0;
 }
 
 #define YUV_R(_y, _, _v)	(((_y) + (359 * (_v))) >> 8)
@@ -265,7 +265,7 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg) {
 
 	struct _jpeg_dest_manager_t *dest = (struct _jpeg_dest_manager_t *)jpeg->dest;
 
-	picture_append_data(dest->picture, dest->buffer, JPEG_OUTPUT_BUFFER_SIZE);
+	frame_append_data(dest->frame, dest->buffer, JPEG_OUTPUT_BUFFER_SIZE);
 
 	dest->mgr.next_output_byte = dest->buffer;
 	dest->mgr.free_in_buffer = JPEG_OUTPUT_BUFFER_SIZE;
@@ -281,7 +281,7 @@ static void _jpeg_term_destination(j_compress_ptr jpeg) {
 	size_t final = JPEG_OUTPUT_BUFFER_SIZE - dest->mgr.free_in_buffer;
 
 	// Write any data remaining in the buffer.
-	picture_append_data(dest->picture, dest->buffer, final);
+	frame_append_data(dest->frame, dest->buffer, final);
 }
 
 #undef JPEG_OUTPUT_BUFFER_SIZE

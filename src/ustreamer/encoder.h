@@ -35,7 +35,7 @@
 #include "../common/logging.h"
 
 #include "device.h"
-#include "picture.h"
+#include "frame.h"
 
 #include "encoders/cpu/encoder.h"
 #include "encoders/hw/encoder.h"
@@ -113,4 +113,4 @@ void encoder_get_runtime_params(struct encoder_t *encoder, enum encoder_type_t *
 
 int encoder_compress_buffer(
 	struct encoder_t *encoder, unsigned worker_number,
-	struct hw_buffer_t *hw, struct picture_t *picture);
+	struct hw_buffer_t *hw, struct frame_t *frame);

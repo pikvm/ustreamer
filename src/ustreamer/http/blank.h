@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include "../picture.h"
+#include "../frame.h"
 
 
-struct picture_t *blank_picture_init(const char *path);
+struct frame_t *blank_picture_init(const char *path);

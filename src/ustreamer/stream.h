@@ -35,7 +35,7 @@
 #include "../common/threading.h"
 #include "../common/logging.h"
 
-#include "picture.h"
+#include "frame.h"
 #include "device.h"
 #include "encoder.h"
 #ifdef WITH_RAWSINK
@@ -52,7 +52,7 @@ struct process_t {
 };
 
 struct video_t {
-	struct picture_t	*picture;
+	struct frame_t		*frame;
 	bool				online;
 	unsigned			captured_fps;
 	atomic_bool			updated;

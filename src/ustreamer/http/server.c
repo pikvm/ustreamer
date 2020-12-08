@@ -55,7 +55,7 @@
 #include "../../common/threading.h"
 #include "../../common/logging.h"
 #include "../../common/process.h"
-#include "../picture.h"
+#include "../frame.h"
 #include "../encoder.h"
 #include "../stream.h"
 #ifdef WITH_GPIO
@@ -84,7 +84,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 static void _http_callback_stream_error(struct bufferevent *buf_event, short what, void *v_ctx);
 
 static void _http_exposed_refresh(int fd, short event, void *v_server);
-static void _http_queue_send_stream(struct http_server_t *server, bool stream_updated, bool picture_updated);
+static void _http_queue_send_stream(struct http_server_t *server, bool stream_updated, bool frame_updated);
 
 static bool _expose_new_picture_unsafe(struct http_server_t *server);
 static bool _expose_blank_picture(struct http_server_t *server);
@@ -103,7 +103,7 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	struct exposed_t *exposed;
 
 	A_CALLOC(exposed, 1);
-	exposed->picture = picture_init();
+	exposed->frame = frame_init();
 
 	A_CALLOC(run, 1);
 	run->stream = stream;
@@ -158,10 +158,10 @@ void http_server_destroy(struct http_server_t *server) {
 	}
 
 	if (RUN(blank)) {
-		picture_destroy(RUN(blank));
+		frame_destroy(RUN(blank));
 	}
 
-	picture_destroy(EX(picture));
+	frame_destroy(EX(frame));
 	free(RUN(exposed));
 	free(server->run);
 	free(server);
@@ -184,13 +184,13 @@ int http_server_listen(struct http_server_t *server) {
 	RUN(blank) = blank_picture_init(server->blank_path);
 
 	// See _expose_blank_picture()
-	picture_copy(RUN(blank), EX(picture));
+	frame_copy(RUN(blank), EX(frame));
 	EX(expose_begin_ts) = get_now_monotonic();
 	EX(expose_cmp_ts) = EX(expose_begin_ts);
 	EX(expose_end_ts) = EX(expose_begin_ts);
 	// See _http_exposed_refresh()
-	EX(notify_last_width) = EX(picture->width);
-	EX(notify_last_height) = EX(picture->height);
+	EX(notify_last_width) = EX(frame->width);
+	EX(notify_last_height) = EX(frame->height);
 
 	{
 		struct timeval refresh_interval;
@@ -411,8 +411,8 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
 		encoder_type_to_string(encoder_type),
 		encoder_quality,
-		(server->fake_width ? server->fake_width : EX(picture->width)),
-		(server->fake_height ? server->fake_height : EX(picture->height)),
+		(server->fake_width ? server->fake_width : EX(frame->width)),
+		(server->fake_height ? server->fake_height : EX(frame->height)),
 		bool_to_string(EX(online)),
 		STREAM(dev->desired_fps),
 		EX(captured_fps),
@@ -447,7 +447,7 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	PREPROCESS_REQUEST;
 
 	assert((buf = evbuffer_new()));
-	assert(!evbuffer_add(buf, (const void *)EX(picture->data), EX(picture->used)));
+	assert(!evbuffer_add(buf, (const void *)EX(frame->data), EX(frame->used)));
 
 	if (server->allow_origin[0] != '\0') {
 		ADD_HEADER("Access-Control-Allow-Origin", server->allow_origin);
@@ -470,11 +470,11 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 
 	ADD_HEADER("X-UStreamer-Online",						bool_to_string(EX(online)));
 	ADD_UNSIGNED_HEADER("X-UStreamer-Dropped",				EX(dropped));
-	ADD_UNSIGNED_HEADER("X-UStreamer-Width",				EX(picture->width));
-	ADD_UNSIGNED_HEADER("X-UStreamer-Height",				EX(picture->height));
-	ADD_TIME_HEADER("X-UStreamer-Grab-Timestamp",			EX(picture->grab_ts));
-	ADD_TIME_HEADER("X-UStreamer-Encode-Begin-Timestamp",	EX(picture->encode_begin_ts));
-	ADD_TIME_HEADER("X-UStreamer-Encode-End-Timestamp",		EX(picture->encode_end_ts));
+	ADD_UNSIGNED_HEADER("X-UStreamer-Width",				EX(frame->width));
+	ADD_UNSIGNED_HEADER("X-UStreamer-Height",				EX(frame->height));
+	ADD_TIME_HEADER("X-UStreamer-Grab-Timestamp",			EX(frame->grab_ts));
+	ADD_TIME_HEADER("X-UStreamer-Encode-Begin-Timestamp",	EX(frame->encode_begin_ts));
+	ADD_TIME_HEADER("X-UStreamer-Encode-End-Timestamp",		EX(frame->encode_end_ts));
 	ADD_TIME_HEADER("X-UStreamer-Expose-Begin-Timestamp",	EX(expose_begin_ts));
 	ADD_TIME_HEADER("X-UStreamer-Expose-Cmp-Timestamp",		EX(expose_cmp_ts));
 	ADD_TIME_HEADER("X-UStreamer-Expose-End-Timestamp",		EX(expose_end_ts));
@@ -645,7 +645,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"Content-Length: %zu" RN
 			"X-Timestamp: %.06Lf" RN
 			"%s",
-			EX(picture->used),
+			EX(frame->used),
 			get_now_real(),
 			(client->extra_headers ? "" : RN)
 		));
@@ -666,12 +666,12 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				RN,
 				bool_to_string(EX(online)),
 				EX(dropped),
-				EX(picture->width),
-				EX(picture->height),
+				EX(frame->width),
+				EX(frame->height),
 				client->fps,
-				EX(picture->grab_ts),
-				EX(picture->encode_begin_ts),
-				EX(picture->encode_end_ts),
+				EX(frame->grab_ts),
+				EX(frame->encode_begin_ts),
+				EX(frame->encode_end_ts),
 				EX(expose_begin_ts),
 				EX(expose_cmp_ts),
 				EX(expose_end_ts),
@@ -680,7 +680,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 		}
 	}
 
-	assert(!evbuffer_add(buf, (void *)EX(picture->data), EX(picture->used)));
+	assert(!evbuffer_add(buf, (void *)EX(frame->data), EX(frame->used)));
 	assert(evbuffer_add_printf(buf, RN "--" BOUNDARY RN));
 
 	if (client->advance_headers) {
@@ -744,7 +744,7 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	free(client);
 }
 
-static void _http_queue_send_stream(struct http_server_t *server, bool stream_updated, bool picture_updated) {
+static void _http_queue_send_stream(struct http_server_t *server, bool stream_updated, bool frame_updated) {
 	struct evhttp_connection *conn;
 	struct bufferevent *buf_event;
 	long long now;
@@ -765,16 +765,16 @@ static void _http_queue_send_stream(struct http_server_t *server, bool stream_up
 				&& client->dual_final_frames
 				&& stream_updated
 				&& client->updated_prev
-				&& !picture_updated
+				&& !frame_updated
 			);
 
-			if (dual_update || picture_updated || client->need_first_frame) {
+			if (dual_update || frame_updated || client->need_first_frame) {
 				buf_event = evhttp_connection_get_bufferevent(conn);
 				bufferevent_setcb(buf_event, NULL, _http_callback_stream_write, _http_callback_stream_error, (void *)client);
 				bufferevent_enable(buf_event, EV_READ|EV_WRITE);
 
 				client->need_first_frame = false;
-				client->updated_prev = (picture_updated || client->need_first_frame); // Игнорировать dual
+				client->updated_prev = (frame_updated || client->need_first_frame); // Игнорировать dual
 				queued = true;
 			} else if (stream_updated) { // Для dual
 				client->updated_prev = false;
@@ -802,7 +802,7 @@ static void _http_queue_send_stream(struct http_server_t *server, bool stream_up
 static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_server) {
 	struct http_server_t *server = (struct http_server_t *)v_server;
 	bool stream_updated = false;
-	bool picture_updated = false;
+	bool frame_updated = false;
 
 #	define UNLOCK_STREAM { \
 			atomic_store(&STREAM(video->updated), false); \
@@ -813,35 +813,35 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 		LOG_DEBUG("Refreshing HTTP exposed ...");
 		A_MUTEX_LOCK(&STREAM(video->mutex));
 		if (STREAM(video->online)) {
-			picture_updated = _expose_new_picture_unsafe(server);
+			frame_updated = _expose_new_picture_unsafe(server);
 			UNLOCK_STREAM;
 		} else {
 			UNLOCK_STREAM;
-			picture_updated = _expose_blank_picture(server);
+			frame_updated = _expose_blank_picture(server);
 		}
 		stream_updated = true;
 	} else if (!EX(online)) {
 		LOG_DEBUG("Refreshing HTTP exposed (BLANK) ...");
-		picture_updated = _expose_blank_picture(server);
+		frame_updated = _expose_blank_picture(server);
 		stream_updated = true;
 	}
 
 #	undef UNLOCK_STREAM
 
-	_http_queue_send_stream(server, stream_updated, picture_updated);
+	_http_queue_send_stream(server, stream_updated, frame_updated);
 
 	if (
-		picture_updated
+		frame_updated
 		&& server->notify_parent
 		&& (
 			EX(notify_last_online) != EX(online)
-			|| EX(notify_last_width) != EX(picture->width)
-			|| EX(notify_last_height) != EX(picture->height)
+			|| EX(notify_last_width) != EX(frame->width)
+			|| EX(notify_last_height) != EX(frame->height)
 		)
 	) {
 		EX(notify_last_online) = EX(online);
-		EX(notify_last_width) = EX(picture->width);
-		EX(notify_last_height) = EX(picture->height);
+		EX(notify_last_width) = EX(frame->width);
+		EX(notify_last_height) = EX(frame->height);
 		process_notify_parent();
 	}
 }
@@ -854,7 +854,7 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 		if (
 			EX(online)
 			&& EX(dropped) < server->drop_same_frames
-			&& picture_compare(EX(picture), STREAM(video->picture))
+			&& frame_compare(EX(frame), STREAM(video->frame))
 		) {
 			EX(expose_cmp_ts) = get_now_monotonic();
 			EX(expose_end_ts) = EX(expose_cmp_ts);
@@ -869,7 +869,7 @@ static bool _expose_new_picture_unsafe(struct http_server_t *server) {
 		}
 	}
 
-	picture_copy(STREAM(video->picture), EX(picture));
+	frame_copy(STREAM(video->frame), EX(frame));
 
 	EX(online) = true;
 	EX(dropped) = 0;
@@ -886,11 +886,11 @@ static bool _expose_blank_picture(struct http_server_t *server) {
 	EX(expose_begin_ts) = get_now_monotonic();
 	EX(expose_cmp_ts) = EX(expose_begin_ts);
 
-#	define EXPOSE_BLANK picture_copy(RUN(blank), EX(picture))
+#	define EXPOSE_BLANK frame_copy(RUN(blank), EX(frame))
 
 	if (EX(online)) { // Если переходим из online в offline
 		if (server->last_as_blank < 0) { // Если last_as_blank выключено, просто покажем картинку
-			LOG_INFO("HTTP: Changed picture to BLANK");
+			LOG_INFO("HTTP: Changed frame to BLANK");
 			EXPOSE_BLANK;
 		} else if (server->last_as_blank > 0) { // Если нужен таймер - запустим
 			LOG_INFO("HTTP: Freezing last alive frame for %d seconds", server->last_as_blank);

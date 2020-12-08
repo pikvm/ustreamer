@@ -28,7 +28,7 @@
 #include "encoder.h"
 
 
-void _copy_plus_huffman(const struct hw_buffer_t *src, struct picture_t *dest);
+void _copy_plus_huffman(const struct hw_buffer_t *src, struct frame_t *dest);
 static bool _is_huffman(const unsigned char *data);
 
 
@@ -49,14 +49,14 @@ int hw_encoder_prepare(struct device_t *dev, unsigned quality) {
 	return 0;
 }
 
-void hw_encoder_compress_buffer(struct hw_buffer_t *hw, struct picture_t *picture) {
+void hw_encoder_compress_buffer(struct hw_buffer_t *hw, struct frame_t *frame) {
 	if (hw->format != V4L2_PIX_FMT_MJPEG && hw->format != V4L2_PIX_FMT_JPEG) {
 		assert(0 && "Unsupported input format for HW encoder");
 	}
-	_copy_plus_huffman(hw, picture);
+	_copy_plus_huffman(hw, frame);
 }
 
-void _copy_plus_huffman(const struct hw_buffer_t *src, struct picture_t *dest) {
+void _copy_plus_huffman(const struct hw_buffer_t *src, struct frame_t *dest) {
 	if (!_is_huffman(src->data)) {
 		const unsigned char *src_ptr = src->data;
 		const unsigned char *src_end = src->data + src->used;
@@ -71,11 +71,11 @@ void _copy_plus_huffman(const struct hw_buffer_t *src, struct picture_t *dest) {
 		}
 		paste = src_ptr - src->data;
 
-		picture_set_data(dest, src->data, paste);
-		picture_append_data(dest, HUFFMAN_TABLE, sizeof(HUFFMAN_TABLE));
-		picture_append_data(dest, src_ptr, src->used - paste);
+		frame_set_data(dest, src->data, paste);
+		frame_append_data(dest, HUFFMAN_TABLE, sizeof(HUFFMAN_TABLE));
+		frame_append_data(dest, src_ptr, src->used - paste);
 	} else {
-		picture_set_data(dest, src->data, src->used);
+		frame_set_data(dest, src->data, src->used);
 	}
 }
 

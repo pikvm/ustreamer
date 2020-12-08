@@ -39,7 +39,7 @@
 #include "../../../common/logging.h"
 #include "../../../common/tools.h"
 #include "../../device.h"
-#include "../../picture.h"
+#include "../../frame.h"
 
 #include "formatters.h"
 #include "component.h"
@@ -71,4 +71,4 @@ struct omx_encoder_t *omx_encoder_init(void);
 void omx_encoder_destroy(struct omx_encoder_t *omx);
 
 int omx_encoder_prepare(struct omx_encoder_t *omx, struct device_t *dev, unsigned quality);
-int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct hw_buffer_t *hw, struct picture_t *picture);
+int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct hw_buffer_t *hw, struct frame_t *frame);

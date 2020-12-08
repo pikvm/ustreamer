@@ -30,7 +30,7 @@
 #include <event2/http.h>
 #include <event2/util.h>
 
-#include "../picture.h"
+#include "../frame.h"
 #include "../stream.h"
 
 
@@ -56,7 +56,7 @@ struct stream_client_t {
 };
 
 struct exposed_t {
-	struct picture_t	*picture;
+	struct frame_t	*frame;
 	unsigned			captured_fps;
 	unsigned			queued_fps;
 	bool				online;
@@ -81,7 +81,7 @@ struct http_server_runtime_t {
 	struct exposed_t		*exposed;
 	struct stream_client_t	*stream_clients;
 	unsigned				stream_clients_count;
-	struct picture_t		*blank;
+	struct frame_t			*blank;
 	unsigned				drop_same_frames_blank;
 };
 

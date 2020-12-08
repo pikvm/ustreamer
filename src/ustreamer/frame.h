@@ -32,7 +32,7 @@
 #include "../common/logging.h"
 
 
-struct picture_t {
+struct frame_t {
 	unsigned char	*data;
 	size_t			used;
 	size_t			allocated;
@@ -44,14 +44,14 @@ struct picture_t {
 };
 
 
-struct picture_t *picture_init(void);
-void picture_destroy(struct picture_t *picture);
+struct frame_t *frame_init(void);
+void frame_destroy(struct frame_t *frame);
 
-size_t picture_get_generous_size(unsigned width, unsigned height);
+size_t frame_get_generous_size(unsigned width, unsigned height);
 
-void picture_realloc_data(struct picture_t *picture, size_t size);
-void picture_set_data(struct picture_t *picture, const unsigned char *data, size_t size);
-void picture_append_data(struct picture_t *picture, const unsigned char *data, size_t size);
+void frame_realloc_data(struct frame_t *frame, size_t size);
+void frame_set_data(struct frame_t *frame, const unsigned char *data, size_t size);
+void frame_append_data(struct frame_t *frame, const unsigned char *data, size_t size);
 
-void picture_copy(const struct picture_t *src, struct picture_t *dest);
-bool picture_compare(const struct picture_t *a, const struct picture_t *b);
+void frame_copy(const struct frame_t *src, struct frame_t *dest);
+bool frame_compare(const struct frame_t *a, const struct frame_t *b);

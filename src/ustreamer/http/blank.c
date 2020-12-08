@@ -30,7 +30,7 @@
 
 #include "../../common/tools.h"
 #include "../../common/logging.h"
-#include "../picture.h"
+#include "../frame.h"
 
 #include "data/blank_jpeg.h"
 
@@ -41,15 +41,15 @@ struct _jpeg_error_manager_t {
 };
 
 
-static struct picture_t *_init_internal(void);
-static struct picture_t *_init_external(const char *path);
+static struct frame_t *_init_internal(void);
+static struct frame_t *_init_external(const char *path);
 
 static int _jpeg_read_geometry(FILE *fp, unsigned *width, unsigned *height);
 static void _jpeg_error_handler(j_common_ptr jpeg);
 
 
-struct picture_t *blank_picture_init(const char *path) {
-	struct picture_t *blank = NULL;
+struct frame_t *blank_picture_init(const char *path) {
+	struct frame_t *blank = NULL;
 
 	if (path) {
 		blank = _init_external(path);
@@ -64,21 +64,21 @@ struct picture_t *blank_picture_init(const char *path) {
 	return blank;
 }
 
-static struct picture_t *_init_internal(void) {
-	struct picture_t *blank;
+static struct frame_t *_init_internal(void) {
+	struct frame_t *blank;
 
-	blank = picture_init();
-	picture_set_data(blank, BLANK_JPEG_DATA, ARRAY_LEN(BLANK_JPEG_DATA));
+	blank = frame_init();
+	frame_set_data(blank, BLANK_JPEG_DATA, ARRAY_LEN(BLANK_JPEG_DATA));
 	blank->width = BLANK_JPEG_WIDTH;
 	blank->height = BLANK_JPEG_HEIGHT;
 	return blank;
 }
 
-static struct picture_t *_init_external(const char *path) {
+static struct frame_t *_init_external(const char *path) {
 	FILE *fp = NULL;
-	struct picture_t *blank;
+	struct frame_t *blank;
 
-	blank = picture_init();
+	blank = frame_init();
 
 	if ((fp = fopen(path, "rb")) == NULL) {
 		LOG_PERROR("Can't open blank placeholder '%s'", path);
@@ -97,7 +97,7 @@ static struct picture_t *_init_external(const char *path) {
 #	define CHUNK_SIZE ((size_t)(100 * 1024))
 	while (true) {
 		if (blank->used + CHUNK_SIZE >= blank->allocated) {
-			picture_realloc_data(blank, blank->used + CHUNK_SIZE * 2);
+			frame_realloc_data(blank, blank->used + CHUNK_SIZE * 2);
 		}
 
 		size_t readed = fread(blank->data + blank->used, 1, CHUNK_SIZE, fp);
@@ -115,7 +115,7 @@ static struct picture_t *_init_external(const char *path) {
 #	undef CHUNK_SIZE
 
 	error:
-		picture_destroy(blank);
+		frame_destroy(blank);
 		blank = NULL;
 
 	ok:
