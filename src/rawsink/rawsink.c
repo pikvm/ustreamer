@@ -22,20 +22,6 @@
 
 #include "rawsink.h"
 
-#include <stdbool.h>
-#include <string.h>
-#include <fcntl.h>
-#include <semaphore.h>
-#include <errno.h>
-#include <assert.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-
-#include "../common/tools.h"
-#include "../common/logging.h"
-
 
 static int _sem_wait_monotonic(sem_t *sem, long double timeout);
 
@@ -181,14 +167,14 @@ void rawsink_put(
 			goto error;
 		}
 
-#		define SH(_field) rawsink->shared->_field = _field
-		SH(format);
-		SH(width);
-		SH(height);
-		SH(grab_ts);
-		SH(size);
+#		define COPY(_field) rawsink->shared->_field = _field
+		COPY(format);
+		COPY(width);
+		COPY(height);
+		COPY(grab_ts);
+		COPY(size);
 		memcpy(rawsink->shared->data, data, size);
-#		undef SH
+#		undef COPY
 
 		if (sem_post(rawsink->signal_sem) < 0) {
 			LOG_PERROR("RAWSINK: Can't post %s", rawsink->signal_name);
@@ -237,14 +223,14 @@ int rawsink_get(
 	WAIT_SEM(signal);
 	WAIT_SEM(lock);
 
-#	define SH(_field) *_field = rawsink->shared->_field
-	SH(format);
-	SH(width);
-	SH(height);
-	SH(grab_ts);
-	SH(size);
+#	define COPY(_field) *_field = rawsink->shared->_field
+	COPY(format);
+	COPY(width);
+	COPY(height);
+	COPY(grab_ts);
+	COPY(size);
 	memcpy(data, rawsink->shared->data, *size);
-#	undef SH
+#	undef COPY
 
 	if (sem_post(rawsink->lock_sem) < 0) {
 		LOG_PERROR("RAWSINK: Can't post %s", rawsink->lock_name);

@@ -22,11 +22,29 @@
 
 #pragma once
 
+#include <stdlib.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <string.h>
+#include <strings.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <assert.h>
+
+#include <sys/select.h>
+#include <sys/mman.h>
+#include <sys/time.h>
 
 #include <pthread.h>
 #include <linux/videodev2.h>
+#include <linux/v4l2-controls.h>
+
+#include "../common/tools.h"
+#include "../common/logging.h"
+#include "../common/threading.h"
+
+#include "xioctl.h"
 
 #ifdef WITH_RAWSINK
 #	include "../rawsink/rawsink.h"

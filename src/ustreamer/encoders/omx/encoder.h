@@ -22,13 +22,28 @@
 
 #pragma once
 
+#include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
+#include <unistd.h>
+#include <assert.h>
 
+#include <linux/videodev2.h>
+
+#include <bcm_host.h>
+#include <IL/OMX_Core.h>
 #include <IL/OMX_Component.h>
+#include <IL/OMX_Broadcom.h>
 #include <interface/vcos/vcos_semaphore.h>
 
+#include "../../../common/logging.h"
+#include "../../../common/tools.h"
 #include "../../device.h"
 #include "../../picture.h"
+
+#include "formatters.h"
+#include "component.h"
+
 
 #ifndef CFG_OMX_MAX_ENCODERS
 #	define CFG_OMX_MAX_ENCODERS 3 // Raspberry Pi limitation

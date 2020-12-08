@@ -22,14 +22,28 @@
 
 #pragma once
 
+#include <stdlib.h>
 #include <stdbool.h>
 #include <stdatomic.h>
+#include <unistd.h>
+#include <errno.h>
+#include <assert.h>
 
 #include <pthread.h>
+
+#include "../common/tools.h"
+#include "../common/threading.h"
+#include "../common/logging.h"
 
 #include "picture.h"
 #include "device.h"
 #include "encoder.h"
+#ifdef WITH_RAWSINK
+#	include "../rawsink/rawsink.h"
+#endif
+#ifdef WITH_GPIO
+#	include "gpio/gpio.h"
+#endif
 
 
 struct process_t {

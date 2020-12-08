@@ -23,10 +23,18 @@
 #pragma once
 
 #include <stdbool.h>
+#include <string.h>
+#include <fcntl.h>
 #include <semaphore.h>
+#include <errno.h>
+#include <assert.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
+
+#include "../common/tools.h"
+#include "../common/logging.h"
 
 
 #ifndef CFG_RAWSINK_MAX_DATA

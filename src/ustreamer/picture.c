@@ -22,14 +22,6 @@
 
 #include "picture.h"
 
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-#include <assert.h>
-
-#include "../common/tools.h"
-#include "../common/logging.h"
-
 
 struct picture_t *picture_init(void) {
 	struct picture_t *picture;

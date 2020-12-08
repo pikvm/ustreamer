@@ -22,10 +22,14 @@
 
 #pragma once
 
+#include <stdio.h>
+#include <assert.h>
+
 #include <IL/OMX_IVCommon.h>
 #include <IL/OMX_Core.h>
 #include <IL/OMX_Image.h>
 
+#include "../../../common/tools.h"
 #include "../../../common/logging.h"
 
 

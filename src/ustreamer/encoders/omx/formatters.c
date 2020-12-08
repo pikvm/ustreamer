@@ -22,14 +22,6 @@
 
 #include "formatters.h"
 
-#include <stdio.h>
-#include <assert.h>
-
-#include <IL/OMX_IVCommon.h>
-#include <IL/OMX_Core.h>
-
-#include "../../../common/tools.h"
-
 
 #define CASE_TO_STRING(_value) \
 	case _value: { return #_value; }

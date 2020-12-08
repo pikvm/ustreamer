@@ -24,6 +24,12 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+
+#include "../common/tools.h"
+#include "../common/logging.h"
 
 
 struct picture_t {

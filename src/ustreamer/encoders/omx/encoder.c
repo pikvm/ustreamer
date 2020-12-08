@@ -22,28 +22,6 @@
 
 #include "encoder.h"
 
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-#include <unistd.h>
-#include <assert.h>
-
-#include <linux/videodev2.h>
-
-#include <bcm_host.h>
-#include <IL/OMX_Core.h>
-#include <IL/OMX_Component.h>
-#include <IL/OMX_Broadcom.h>
-#include <interface/vcos/vcos_semaphore.h>
-
-#include "../../../common/logging.h"
-#include "../../../common/tools.h"
-#include "../../device.h"
-#include "../../picture.h"
-
-#include "formatters.h"
-#include "component.h"
-
 
 static const OMX_U32 _INPUT_PORT = 340;
 static const OMX_U32 _OUTPUT_PORT = 341;

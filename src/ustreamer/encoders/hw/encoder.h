@@ -22,8 +22,19 @@
 
 #pragma once
 
-#include "../../device.h"
+#include <stdbool.h>
+#include <string.h>
+#include <assert.h>
+
+#include <linux/videodev2.h>
+
+#include "../../../common/tools.h"
+#include "../../../common/logging.h"
+#include "../../xioctl.h"
 #include "../../picture.h"
+#include "../../device.h"
+
+#include "huffman.h"
 
 
 int hw_encoder_prepare(struct device_t *dev, unsigned quality);

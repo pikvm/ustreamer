@@ -22,13 +22,17 @@
 
 #pragma once
 
+#include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
+#include <assert.h>
 
 #include <pthread.h>
 #include <gpiod.h>
 
 #include "../../common/tools.h"
 #include "../../common/logging.h"
+#include "../../common/threading.h"
 
 
 struct gpio_output_t {

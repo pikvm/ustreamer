@@ -22,28 +22,6 @@
 
 #include "options.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-#include <strings.h>
-#include <ctype.h>
-#include <limits.h>
-#include <getopt.h>
-#include <errno.h>
-#include <assert.h>
-
-#include "../common/config.h"
-#include "../common/logging.h"
-#include "../common/process.h"
-
-#include "device.h"
-#include "encoder.h"
-#include "http/server.h"
-#ifdef WITH_GPIO
-#	include "gpio/gpio.h"
-#endif
-
 
 enum _OPT_VALUES {
 	_O_DEVICE = 'd',

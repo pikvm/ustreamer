@@ -27,18 +27,6 @@
 
 #include "encoder.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-
-#include <jpeglib.h>
-
-#include <linux/videodev2.h>
-
-#include "../../../common/tools.h"
-#include "../../picture.h"
-#include "../../device.h"
-
 
 struct _jpeg_dest_manager_t {
 	struct				jpeg_destination_mgr mgr; // Default manager

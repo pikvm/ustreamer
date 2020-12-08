@@ -27,20 +27,6 @@
 
 #include "encoder.h"
 
-#include <stdbool.h>
-#include <string.h>
-#include <assert.h>
-
-#include <linux/videodev2.h>
-
-#include "../../../common/tools.h"
-#include "../../../common/logging.h"
-#include "../../xioctl.h"
-#include "../../picture.h"
-#include "../../device.h"
-
-#include "huffman.h"
-
 
 void _copy_plus_huffman(const struct hw_buffer_t *src, struct picture_t *dest);
 static bool _is_huffman(const unsigned char *data);

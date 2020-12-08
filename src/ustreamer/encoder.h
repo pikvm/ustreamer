@@ -22,18 +22,27 @@
 
 #pragma once
 
+#include <stdlib.h>
 #include <stdbool.h>
+#include <strings.h>
+#include <assert.h>
 
 #include <pthread.h>
+#include <linux/videodev2.h>
+
+#include "../common/tools.h"
+#include "../common/threading.h"
+#include "../common/logging.h"
 
 #include "device.h"
 #include "picture.h"
 
+#include "encoders/cpu/encoder.h"
+#include "encoders/hw/encoder.h"
+
 #ifdef WITH_OMX
 #	include "encoders/omx/encoder.h"
-
 #	define ENCODER_TYPES_OMX_HINT ", OMX"
-
 #	ifndef CFG_MAX_GLITCHED_RESOLUTIONS
 #		define CFG_MAX_GLITCHED_RESOLUTIONS 1024
 #	endif

@@ -22,8 +22,17 @@
 
 #pragma once
 
-#include "../../device.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+
+#include <jpeglib.h>
+
+#include <linux/videodev2.h>
+
+#include "../../../common/tools.h"
 #include "../../picture.h"
+#include "../../device.h"
 
 
 void cpu_encoder_compress_buffer(struct hw_buffer_t *hw, struct picture_t *picture, unsigned quality);

@@ -23,9 +23,14 @@
 #pragma once
 
 #include <string.h>
+#include <unistd.h>
 
 #include <IL/OMX_Core.h>
 #include <IL/OMX_Component.h>
+
+#include "../../../common/logging.h"
+
+#include "formatters.h"
 
 
 #define OMX_INIT_STRUCTURE(_var) { \
