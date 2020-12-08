@@ -394,17 +394,12 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 static void _http_callback_state(struct evhttp_request *request, void *v_server) {
 	struct http_server_t *server = (struct http_server_t *)v_server;
 	struct evbuffer *buf;
-	enum encoder_type_t encoder_run_type;
-	unsigned encoder_run_quality;
+	enum encoder_type_t encoder_type;
+	unsigned encoder_quality;
 
 	PREPROCESS_REQUEST;
 
-#	define ER(_next) STREAM(encoder->run->_next)
-	A_MUTEX_LOCK(&ER(mutex));
-	encoder_run_type = ER(type);
-	encoder_run_quality = ER(quality);
-	A_MUTEX_UNLOCK(&ER(mutex));
-#	undef ER
+	encoder_get_runtime_params(STREAM(encoder), &encoder_type, &encoder_quality);
 
 	assert((buf = evbuffer_new()));
 
@@ -414,8 +409,8 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		" \"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
 		" \"online\": %s, \"desired_fps\": %u, \"captured_fps\": %u},"
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
-		encoder_type_to_string(encoder_run_type),
-		encoder_run_quality,
+		encoder_type_to_string(encoder_type),
+		encoder_quality,
 		(server->fake_width ? server->fake_width : EX(picture->width)),
 		(server->fake_height ? server->fake_height : EX(picture->height)),
 		bool_to_string(EX(online)),

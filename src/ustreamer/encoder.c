@@ -191,6 +191,13 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 		A_MUTEX_UNLOCK(&ER(mutex));
 }
 
+void encoder_get_runtime_params(struct encoder_t *encoder, enum encoder_type_t *type, unsigned *quality) {
+	A_MUTEX_LOCK(&ER(mutex));
+	*type = ER(type);
+	*quality = ER(quality);
+	A_MUTEX_UNLOCK(&ER(mutex));
+}
+
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic push
 int encoder_compress_buffer(
