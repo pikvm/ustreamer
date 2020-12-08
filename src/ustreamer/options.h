@@ -39,6 +39,7 @@
 
 #include "device.h"
 #include "encoder.h"
+#include "stream.h"
 #include "http/server.h"
 #ifdef WITH_GPIO
 #	include "gpio/gpio.h"
@@ -55,4 +56,6 @@ struct options_t {
 struct options_t *options_init(int argc, char *argv[]);
 void options_destroy(struct options_t *options);
 
-int options_parse(struct options_t *options, struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server);
+int options_parse(
+	struct options_t *options, struct device_t *dev, struct encoder_t *encoder,
+	struct stream_t *stream, struct http_server_t *server);

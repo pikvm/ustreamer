@@ -100,15 +100,6 @@ struct device_t *device_init(void) {
 	dev->n_buffers = get_cores_available() + 1;
 	dev->min_frame_size = 128;
 	dev->timeout = 1;
-
-	// FIXME: Not device params
-	dev->error_delay = 1;
-#	ifdef WITH_RAWSINK
-	dev->rawsink_name = "";
-	dev->rawsink_mode = 0660;
-#	endif
-	// end-of-fixme
-
 	dev->run = run;
 	return dev;
 }

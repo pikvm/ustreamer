@@ -91,6 +91,13 @@ struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
 	atomic_init(&proc->slowdown, false);
 
 	A_CALLOC(stream, 1);
+	// FIXME
+	stream->error_delay = 1;
+#	ifdef WITH_RAWSINK
+	stream->rawsink_name = "";
+	stream->rawsink_mode = 0660;
+#	endif
+	// end-of-fixme
 	stream->picture = picture_init();
 	stream->dev = dev;
 	stream->encoder = encoder;
@@ -116,8 +123,8 @@ void stream_loop(struct stream_t *stream) {
 
 #	ifdef WITH_RAWSINK
 	struct rawsink_t *rawsink = NULL;
-	if (DEV(rawsink_name[0]) != '\0') {
-		rawsink = rawsink_init(DEV(rawsink_name), DEV(rawsink_mode), DEV(rawsink_rm), true);
+	if (stream->rawsink_name[0] != '\0') {
+		rawsink = rawsink_init(stream->rawsink_name, stream->rawsink_mode, stream->rawsink_rm, true);
 	}
 #	endif
 
@@ -290,7 +297,7 @@ static struct _workers_pool_t *_stream_init_loop(struct stream_t *stream) {
 				LOG_INFO("Waiting for the device access ...");
 				access_error = errno;
 			}
-			sleep(stream->dev->error_delay);
+			sleep(stream->error_delay);
 			continue;
 		} else {
 			SEP_INFO('=');
@@ -298,8 +305,8 @@ static struct _workers_pool_t *_stream_init_loop(struct stream_t *stream) {
 		}
 
 		if ((pool = _stream_init_one(stream)) == NULL) {
-			LOG_INFO("Sleeping %u seconds before new stream init ...", stream->dev->error_delay);
-			sleep(stream->dev->error_delay);
+			LOG_INFO("Sleeping %u seconds before new stream init ...", stream->error_delay);
+			sleep(stream->error_delay);
 		} else {
 			break;
 		}

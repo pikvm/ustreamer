@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
 	stream = stream_init(dev, encoder);
 	server = http_server_init(stream);
 
-	if ((exit_code = options_parse(options, dev, encoder, server)) == 0) {
+	if ((exit_code = options_parse(options, dev, encoder, stream, server)) == 0) {
 #		ifdef WITH_GPIO
 		gpio_init();
 #		endif

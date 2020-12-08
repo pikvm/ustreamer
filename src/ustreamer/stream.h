@@ -58,6 +58,15 @@ struct stream_t {
 	atomic_bool			updated;
 	pthread_mutex_t		mutex;
 
+	// FIXME: Config params, move other to runtime
+	unsigned	error_delay;
+#	ifdef WITH_RAWSINK
+	char		*rawsink_name;
+	mode_t		rawsink_mode;
+	bool		rawsink_rm;
+#	endif
+	// end-of-fixme
+
 	struct process_t	*proc;
 	struct device_t		*dev;
 	struct encoder_t	*encoder;

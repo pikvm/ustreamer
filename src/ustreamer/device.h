@@ -139,15 +139,6 @@ struct device_t {
 	bool			persistent;
 	unsigned		timeout;
 
-	// FIXME: Not device params
-	unsigned		error_delay;
-#	ifdef WITH_RAWSINK
-	char			*rawsink_name;
-	mode_t			rawsink_mode;
-	bool			rawsink_rm;
-#	endif
-	// end-of-fixme
-
 	struct controls_t ctl;
 
 	struct device_runtime_t *run;

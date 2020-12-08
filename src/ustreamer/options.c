@@ -209,7 +209,10 @@ static int _parse_glitched_resolutions(const char *str, struct encoder_t *encode
 #endif
 
 static void _features(void);
-static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server);
+
+static void _help(
+	struct device_t *dev, struct encoder_t *encoder,
+	struct stream_t *stream, struct http_server_t *server);
 
 
 struct options_t *options_init(int argc, char *argv[]) {
@@ -236,7 +239,10 @@ void options_destroy(struct options_t *options) {
 }
 
 
-int options_parse(struct options_t *options, struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server) {
+int options_parse(
+	struct options_t *options, struct device_t *dev, struct encoder_t *encoder,
+	struct stream_t *stream, struct http_server_t *server) {
+
 #	define OPT_SET(_dest, _value) { \
 			_dest = _value; \
 			break; \
@@ -349,7 +355,7 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 				break;
 #			endif
 			case _O_DEVICE_TIMEOUT:		OPT_NUMBER("--device-timeout", dev->timeout, 1, 60, 0);
-			case _O_DEVICE_ERROR_DELAY:	OPT_NUMBER("--device-error-delay", dev->error_delay, 1, 60, 0);
+			case _O_DEVICE_ERROR_DELAY:	OPT_NUMBER("--device-error-delay", stream->error_delay, 1, 60, 0);
 
 			case _O_IMAGE_DEFAULT:
 				OPT_CTL_DEFAULT_NOBREAK(brightness);
@@ -396,9 +402,9 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 			case _O_SERVER_TIMEOUT:		OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
 #			ifdef WITH_RAWSINK
-			case _O_RAWSINK:		OPT_SET(dev->rawsink_name, optarg);
-			case _O_RAWSINK_MODE:	OPT_NUMBER("--raw-sink-mode", dev->rawsink_mode, INT_MIN, INT_MAX, 8);
-			case _O_RAWSINK_RM:		OPT_SET(dev->rawsink_rm, true);
+			case _O_RAWSINK:		OPT_SET(stream->rawsink_name, optarg);
+			case _O_RAWSINK_MODE:	OPT_NUMBER("--raw-sink-mode", stream->rawsink_mode, INT_MIN, INT_MAX, 8);
+			case _O_RAWSINK_RM:		OPT_SET(stream->rawsink_rm, true);
 #			endif
 
 #			ifdef WITH_GPIO
@@ -428,12 +434,12 @@ int options_parse(struct options_t *options, struct device_t *dev, struct encode
 			case _O_FORCE_LOG_COLORS:	OPT_SET(log_colored, true);
 			case _O_NO_LOG_COLORS:		OPT_SET(log_colored, false);
 
-			case _O_HELP:		_help(dev, encoder, server); return 1;
+			case _O_HELP:		_help(dev, encoder, stream, server); return 1;
 			case _O_VERSION:	puts(VERSION); return 1;
 			case _O_FEATURES:	_features(); return 1;
 
 			case 0:		break;
-			default:	_help(dev, encoder, server); return -1;
+			default:	_help(dev, encoder, stream, server); return -1;
 		}
 	}
 
@@ -561,7 +567,10 @@ static void _features(void) {
 #	endif
 }
 
-static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_server_t *server) {
+static void _help(
+	struct device_t *dev, struct encoder_t *encoder,
+	struct stream_t *stream, struct http_server_t *server) {
+
 	printf("\nuStreamer - Lightweight and fast MJPG-HTTP streamer\n");
 	printf("═══════════════════════════════════════════════════\n\n");
 	printf("Version: %s; license: GPLv3\n", VERSION);
@@ -611,7 +620,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 #	endif
 	printf("    --device-timeout <sec>  ────────────── Timeout for device querying. Default: %u.\n\n", dev->timeout);
 	printf("    --device-error-delay <sec>  ────────── Delay before trying to connect to the device again\n");
-	printf("                                           after an error (timeout for example). Default: %u.\n\n", dev->error_delay);
+	printf("                                           after an error (timeout for example). Default: %u.\n\n", stream->error_delay);
 	printf("Image control options:\n");
 	printf("══════════════════════\n");
 	printf("    --image-default  ────────────────────── Reset all image settings below to default. Default: no change.\n\n");
@@ -661,7 +670,7 @@ static void _help(struct device_t *dev, struct encoder_t *encoder, struct http_s
 	printf("═════════════════\n");
 	printf("    --raw-sink <name>  ────── Use the shared memory to sink RAW frames before encoding.\n");
 	printf("                              Most likely you will never need it. Default: disabled.\n\n");
-	printf("    --raw-sink-mode <mode>  ─ Set RAW sink permissions (like 777). Default: %o.\n\n", dev->rawsink_mode);
+	printf("    --raw-sink-mode <mode>  ─ Set RAW sink permissions (like 777). Default: %o.\n\n", stream->rawsink_mode);
 	printf("    --raw-sink-rm  ────────── Remove shared memory on stop. Default: disabled.\n\n");
 #endif
 #ifdef WITH_GPIO
