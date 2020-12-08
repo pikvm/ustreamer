@@ -22,7 +22,17 @@
 
 #pragma once
 
+#include <stdio.h>
+#include <stdbool.h>
+#include <setjmp.h>
+
+#include <jpeglib.h>
+
+#include "../../common/tools.h"
+#include "../../common/logging.h"
 #include "../frame.h"
+
+#include "data/blank_jpeg.h"
 
 
 struct frame_t *blank_picture_init(const char *path);

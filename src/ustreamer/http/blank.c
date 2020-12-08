@@ -22,18 +22,6 @@
 
 #include "blank.h"
 
-#include <stdio.h>
-#include <stdbool.h>
-#include <setjmp.h>
-
-#include <jpeglib.h>
-
-#include "../../common/tools.h"
-#include "../../common/logging.h"
-#include "../frame.h"
-
-#include "data/blank_jpeg.h"
-
 
 struct _jpeg_error_manager_t {
 	struct jpeg_error_mgr	mgr; // Default manager
@@ -68,7 +56,7 @@ static struct frame_t *_init_internal(void) {
 	struct frame_t *blank;
 
 	blank = frame_init();
-	frame_set_data(blank, BLANK_JPEG_DATA, ARRAY_LEN(BLANK_JPEG_DATA));
+	frame_set_data(blank, BLANK_JPEG_DATA, BLANK_JPEG_DATA_SIZE);
 	blank->width = BLANK_JPEG_WIDTH;
 	blank->height = BLANK_JPEG_HEIGHT;
 	return blank;

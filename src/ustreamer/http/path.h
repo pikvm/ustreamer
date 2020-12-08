@@ -22,5 +22,13 @@
 
 #pragma once
 
+#ifdef TEST_HTTP_PATH
+#	include <stdio.h>
+#	include <stdlib.h>
+#endif
+#include <string.h>
+
+#include "../../common/tools.h"
+
 
 char *simplify_request_path(const char *str);

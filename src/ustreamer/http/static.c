@@ -22,18 +22,6 @@
 
 #include "static.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-#include <sys/stat.h>
-
-#include "../../common/tools.h"
-#include "../../common/logging.h"
-
-#include "path.h"
-
 
 char *find_static_file_path(const char *root_path, const char *request_path) {
 	char *simplified_path;

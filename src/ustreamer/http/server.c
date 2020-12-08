@@ -22,55 +22,6 @@
 
 #include "server.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdatomic.h>
-#include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <assert.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <netinet/tcp.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-
-#include <event2/event.h>
-#include <event2/thread.h>
-#include <event2/http.h>
-#include <event2/buffer.h>
-#include <event2/bufferevent.h>
-#include <event2/keyvalq_struct.h>
-
-#include <uuid/uuid.h>
-
-#ifndef EVTHREAD_USE_PTHREADS_IMPLEMENTED
-#	error Required libevent-pthreads support
-#endif
-
-#include "../../common/tools.h"
-#include "../../common/threading.h"
-#include "../../common/logging.h"
-#include "../../common/process.h"
-#include "../frame.h"
-#include "../encoder.h"
-#include "../stream.h"
-#ifdef WITH_GPIO
-#	include "../gpio/gpio.h"
-#endif
-
-#include "unix.h"
-#include "uri.h"
-#include "base64.h"
-#include "mime.h"
-#include "static.h"
-#include "blank.h"
-
-#include "data/index_html.h"
-
 
 static int _http_preprocess_request(struct evhttp_request *request, struct http_server_t *server);
 

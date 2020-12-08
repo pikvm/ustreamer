@@ -22,6 +22,7 @@
 
 
 import sys
+import os
 import textwrap
 
 import common
@@ -29,9 +30,10 @@ import common
 
 # =====
 def main() -> None:
-    assert len(sys.argv) == 4, f"{sys.argv[0]} <file.html> <file.h> <name>"
+    assert len(sys.argv) == 4, f"{sys.argv[0]} <file.html> <file.c> <name>"
     html_path = sys.argv[1]
-    header_path = sys.argv[2]
+    c_path = sys.argv[2]
+    h_path = os.path.basename(c_path[:-2] + ".h")
     name = sys.argv[3]
 
     with open(html_path, "r") as html_file:
@@ -46,11 +48,11 @@ def main() -> None:
         for line in html.split("\n")
     )
 
-    text = f"{common.C_PREPEND}\n#include \"../../../common/config.h\"\n\n\n"
-    text += f"const char HTML_{name}_PAGE[] = \" \\\n{html}\n\";\n"
+    text = f"{common.C_PREPEND}\n#include \"{h_path}\"\n\n\n"
+    text += f"const char *const HTML_{name}_PAGE = \" \\\n{html}\n\";\n"
 
-    with open(header_path, "w") as header_file:
-        header_file.write(text)
+    with open(c_path, "w") as c_file:
+        c_file.write(text)
 
 
 # =====

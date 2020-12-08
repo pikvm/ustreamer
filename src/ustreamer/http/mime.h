@@ -22,5 +22,11 @@
 
 #pragma once
 
+#include <string.h>
+
+#include <event2/util.h>
+
+#include "../../common/tools.h"
+
 
 const char *guess_mime_type(const char *str);

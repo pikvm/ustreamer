@@ -22,11 +22,6 @@
 
 #include "base64.h"
 
-#include <stdlib.h>
-#include <string.h>
-
-#include "../../common/tools.h"
-
 
 static const char _ENCODING_TABLE[] = {
 	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',

@@ -22,5 +22,10 @@
 
 #pragma once
 
+#include <stdlib.h>
+#include <string.h>
+
+#include "../../common/tools.h"
+
 
 char *base64_encode(const unsigned char *str);

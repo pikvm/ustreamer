@@ -22,22 +22,6 @@
 
 #include "unix.h"
 
-#include <stdbool.h>
-#include <string.h>
-#include <unistd.h>
-#include <errno.h>
-#include <assert.h>
-
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/stat.h>
-
-#include <event2/http.h>
-#include <event2/util.h>
-
-#include "../../common/tools.h"
-#include "../../common/logging.h"
-
 
 evutil_socket_t evhttp_my_bind_unix(struct evhttp *http, const char *path, bool rm, mode_t mode) {
 	evutil_socket_t fd = -1;

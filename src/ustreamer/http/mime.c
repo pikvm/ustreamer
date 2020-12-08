@@ -22,12 +22,6 @@
 
 #include "mime.h"
 
-#include <string.h>
-
-#include <event2/util.h>
-
-#include "../../common/tools.h"
-
 
 static const struct {
 	const char *ext;
