@@ -354,7 +354,7 @@ static void _stream_expose_frame(struct stream_t *stream, struct frame_t *frame,
 			}
 		} else if (stream->last_as_blank < 0) {
 			new = stream->blank;
-			LOG_INFO("Changed video frame to BLANK");
+			// LOG_INFO("Changed video frame to BLANK");
 		}
 
 		if ( // Если уже оффлайн, включена фича last_as_blank с таймером и он запущен
