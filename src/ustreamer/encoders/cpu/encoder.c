@@ -38,19 +38,19 @@ struct _jpeg_dest_manager_t {
 static void _jpeg_set_picture(j_compress_ptr jpeg, struct frame_t *frame);
 
 static void _jpeg_write_scanlines_yuyv(
-	struct jpeg_compress_struct *jpeg, const unsigned char *data,
+	struct jpeg_compress_struct *jpeg, const uint8_t *data,
 	unsigned width, unsigned height);
 
 static void _jpeg_write_scanlines_uyvy(
-	struct jpeg_compress_struct *jpeg, const unsigned char *data,
+	struct jpeg_compress_struct *jpeg, const uint8_t *data,
 	unsigned width, unsigned height);
 
 static void _jpeg_write_scanlines_rgb565(
-	struct jpeg_compress_struct *jpeg, const unsigned char *data,
+	struct jpeg_compress_struct *jpeg, const uint8_t *data,
 	unsigned width, unsigned height);
 
 static void _jpeg_write_scanlines_rgb24(
-	struct jpeg_compress_struct *jpeg, const unsigned char *data,
+	struct jpeg_compress_struct *jpeg, const uint8_t *data,
 	unsigned width, unsigned height);
 
 static void _jpeg_init_destination(j_compress_ptr jpeg);
@@ -123,17 +123,17 @@ static void _jpeg_set_picture(j_compress_ptr jpeg, struct frame_t *frame) {
 #define NORM_COMPONENT(_x)	(((_x) > 255) ? 255 : (((_x) < 0) ? 0 : (_x)))
 
 static void _jpeg_write_scanlines_yuyv(
-	struct jpeg_compress_struct *jpeg, const unsigned char *data,
+	struct jpeg_compress_struct *jpeg, const uint8_t *data,
 	unsigned width, unsigned height) {
 
-	unsigned char *line_buffer;
+	uint8_t *line_buffer;
 	JSAMPROW scanlines[1];
 	unsigned z = 0;
 
 	A_CALLOC(line_buffer, width * 3);
 
 	while (jpeg->next_scanline < height) {
-		unsigned char *ptr = line_buffer;
+		uint8_t *ptr = line_buffer;
 
 		for (unsigned x = 0; x < width; ++x) {
 			int y = (!z ? data[0] << 8 : data[2] << 8);
@@ -162,17 +162,17 @@ static void _jpeg_write_scanlines_yuyv(
 }
 
 static void _jpeg_write_scanlines_uyvy(
-	struct jpeg_compress_struct *jpeg, const unsigned char *data,
+	struct jpeg_compress_struct *jpeg, const uint8_t *data,
 	unsigned width, unsigned height) {
 
-	unsigned char *line_buffer;
+	uint8_t *line_buffer;
 	JSAMPROW scanlines[1];
 	unsigned z = 0;
 
 	A_CALLOC(line_buffer, width * 3);
 
 	while (jpeg->next_scanline < height) {
-		unsigned char *ptr = line_buffer;
+		uint8_t *ptr = line_buffer;
 
 		for(unsigned x = 0; x < width; ++x) {
 			int y = (!z ? data[1] << 8 : data[3] << 8);
@@ -206,22 +206,22 @@ static void _jpeg_write_scanlines_uyvy(
 #undef YUV_R
 
 static void _jpeg_write_scanlines_rgb565(
-	struct jpeg_compress_struct *jpeg, const unsigned char *data,
+	struct jpeg_compress_struct *jpeg, const uint8_t *data,
 	unsigned width, unsigned height) {
 
-	unsigned char *line_buffer;
+	uint8_t *line_buffer;
 	JSAMPROW scanlines[1];
 
 	A_CALLOC(line_buffer, width * 3);
 
 	while (jpeg->next_scanline < height) {
-		unsigned char *ptr = line_buffer;
+		uint8_t *ptr = line_buffer;
 
 		for(unsigned x = 0; x < width; ++x) {
 			unsigned int two_byte = (data[1] << 8) + data[0];
 
 			*(ptr++) = data[1] & 248; // Red
-			*(ptr++) = (unsigned char)((two_byte & 2016) >> 3); // Green
+			*(ptr++) = (uint8_t)((two_byte & 2016) >> 3); // Green
 			*(ptr++) = (data[0] & 31) * 8; // Blue
 
 			data += 2;
@@ -235,13 +235,13 @@ static void _jpeg_write_scanlines_rgb565(
 }
 
 static void _jpeg_write_scanlines_rgb24(
-	struct jpeg_compress_struct *jpeg, const unsigned char *data,
+	struct jpeg_compress_struct *jpeg, const uint8_t *data,
 	unsigned width, unsigned height) {
 
 	JSAMPROW scanlines[1];
 
 	while (jpeg->next_scanline < height) {
-		scanlines[0] = (unsigned char *)(data + jpeg->next_scanline * width * 3);
+		scanlines[0] = (uint8_t *)(data + jpeg->next_scanline * width * 3);
 		jpeg_write_scanlines(jpeg, scanlines, 1);
 	}
 }

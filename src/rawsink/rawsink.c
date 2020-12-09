@@ -142,7 +142,7 @@ void rawsink_destroy(struct rawsink_t *rawsink) {
 
 void rawsink_put(
 	struct rawsink_t *rawsink,
-	const unsigned char *data, size_t size,
+	const uint8_t *data, size_t size,
 	unsigned format, unsigned width, unsigned height,
 	long double grab_ts) {
 

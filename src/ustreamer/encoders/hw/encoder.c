@@ -29,7 +29,7 @@
 
 
 void _copy_plus_huffman(const struct hw_buffer_t *src, struct frame_t *dest);
-static bool _is_huffman(const unsigned char *data);
+static bool _is_huffman(const uint8_t *data);
 
 
 int hw_encoder_prepare(struct device_t *dev, unsigned quality) {
@@ -58,8 +58,8 @@ void hw_encoder_compress_buffer(struct hw_buffer_t *hw, struct frame_t *frame) {
 
 void _copy_plus_huffman(const struct hw_buffer_t *src, struct frame_t *dest) {
 	if (!_is_huffman(src->data)) {
-		const unsigned char *src_ptr = src->data;
-		const unsigned char *src_end = src->data + src->used;
+		const uint8_t *src_ptr = src->data;
+		const uint8_t *src_end = src->data + src->used;
 		size_t paste;
 
 		while ((((src_ptr[0] << 8) | src_ptr[1]) != 0xFFC0) && (src_ptr < src_end)) {
@@ -79,14 +79,14 @@ void _copy_plus_huffman(const struct hw_buffer_t *src, struct frame_t *dest) {
 	}
 }
 
-static bool _is_huffman(const unsigned char *data) {
+static bool _is_huffman(const uint8_t *data) {
 	unsigned count = 0;
 
-	while (((data[0] << 8) | data[1]) != 0xFFDA) {
+	while ((((uint16_t)data[0] << 8) | data[1]) != 0xFFDA) {
 		if (count++ > 2048) {
 			return false;
 		}
-		if (((data[0] << 8) | data[1]) == 0xFFC4) {
+		if ((((uint16_t)data[0] << 8) | data[1]) == 0xFFC4) {
 			return true;
 		}
 		data += 1;

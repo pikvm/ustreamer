@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
 #include <strings.h>
@@ -70,13 +71,13 @@
 
 
 struct hw_buffer_t {
-	unsigned char		*data;
-	size_t				used;
-	size_t				allocated;
-	unsigned			width;
-	unsigned			height;
-	unsigned			format;
-	long double			grab_ts;
+	uint8_t		*data;
+	size_t		used;
+	size_t		allocated;
+	unsigned	width;
+	unsigned	height;
+	unsigned	format;
+	long double	grab_ts;
 
 	struct v4l2_buffer	buf_info;
 

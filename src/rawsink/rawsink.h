@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
 #include <fcntl.h>
@@ -44,12 +45,12 @@
 
 
 struct rawsink_shared_t {
-	unsigned        format;
-	unsigned        width;
-	unsigned        height;
-	long double		grab_ts;
-	size_t          size;
-	unsigned char   data[RAWSINK_MAX_DATA];
+	unsigned	format;
+	unsigned	width;
+	unsigned	height;
+	long double	grab_ts;
+	size_t		size;
+	uint8_t		data[RAWSINK_MAX_DATA];
 };
 
 struct rawsink_t {
@@ -75,7 +76,7 @@ void rawsink_destroy(struct rawsink_t *rawsink);
 
 void rawsink_put(
 	struct rawsink_t *rawsink,
-	const unsigned char *data, size_t size,
+	const uint8_t *data, size_t size,
 	unsigned format, unsigned witdh, unsigned height,
 	long double grab_ts);
 

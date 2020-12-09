@@ -48,13 +48,13 @@ void frame_realloc_data(struct frame_t *frame, size_t size) {
 	}
 }
 
-void frame_set_data(struct frame_t *frame, const unsigned char *data, size_t size) {
+void frame_set_data(struct frame_t *frame, const uint8_t *data, size_t size) {
 	frame_realloc_data(frame, size);
 	memcpy(frame->data, data, size);
 	frame->used = size;
 }
 
-void frame_append_data(struct frame_t *frame, const unsigned char *data, size_t size) {
+void frame_append_data(struct frame_t *frame, const uint8_t *data, size_t size) {
 	size_t new_used = frame->used + size;
 
 	frame_realloc_data(frame, new_used);

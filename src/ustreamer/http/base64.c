@@ -37,7 +37,7 @@ static const char _ENCODING_TABLE[] = {
 static const unsigned _MOD_TABLE[] = {0, 2, 1};
 
 
-char *base64_encode(const unsigned char *str) {
+char *base64_encode(const uint8_t *str) {
 	size_t str_len = strlen((const char *)str);
 	size_t encoded_size = 4 * ((str_len + 2) / 3) + 1; // +1 for '\0'
 	char *encoded;
@@ -45,9 +45,9 @@ char *base64_encode(const unsigned char *str) {
 	A_CALLOC(encoded, encoded_size);
 
 	for (unsigned str_index = 0, encoded_index = 0; str_index < str_len;) {
-		unsigned octet_a = (str_index < str_len ? (unsigned char)str[str_index++] : 0);
-		unsigned octet_b = (str_index < str_len ? (unsigned char)str[str_index++] : 0);
-		unsigned octet_c = (str_index < str_len ? (unsigned char)str[str_index++] : 0);
+		unsigned octet_a = (str_index < str_len ? (uint8_t)str[str_index++] : 0);
+		unsigned octet_b = (str_index < str_len ? (uint8_t)str[str_index++] : 0);
+		unsigned octet_c = (str_index < str_len ? (uint8_t)str[str_index++] : 0);
 
 		unsigned triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
 

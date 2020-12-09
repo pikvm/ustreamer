@@ -157,7 +157,7 @@ int http_server_listen(struct http_server_t *server) {
 
 		A_CALLOC(raw_token, strlen(server->user) + strlen(server->passwd) + 2);
 		sprintf(raw_token, "%s:%s", server->user, server->passwd);
-		encoded_token = base64_encode((unsigned char *)raw_token);
+		encoded_token = base64_encode((uint8_t *)raw_token);
 		free(raw_token);
 
 		A_CALLOC(RUN(auth_token), strlen(encoded_token) + 16);
