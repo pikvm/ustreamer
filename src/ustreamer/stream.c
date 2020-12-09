@@ -30,6 +30,7 @@ struct _worker_t {
 	atomic_bool			*workers_stop;
 
 	long double			last_comp_time;
+	char				*frame_role;
 	struct frame_t		*frame;
 
 	pthread_mutex_t		has_job_mutex;
@@ -70,7 +71,7 @@ struct _workers_pool_t {
 
 static struct _workers_pool_t *_stream_init_loop(struct stream_t *stream);
 static struct _workers_pool_t *_stream_init_one(struct stream_t *stream);
-static void _stream_expose_picture(struct stream_t *stream, struct frame_t *frame, unsigned captured_fps);
+static void _stream_expose_frame(struct stream_t *stream, struct frame_t *frame, unsigned captured_fps);
 
 static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream);
 static void _workers_pool_destroy(struct _workers_pool_t *pool);
@@ -92,11 +93,12 @@ struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
 	atomic_init(&proc->slowdown, false);
 
 	A_CALLOC(video, 1);
-	video->frame = frame_init();
+	video->frame = frame_init("stream_video");
 	atomic_init(&video->updated, false);
 	A_MUTEX_INIT(&video->mutex);
 
 	A_CALLOC(stream, 1);
+	stream->last_as_blank = -1;
 	stream->error_delay = 1;
 #	ifdef WITH_RAWSINK
 	stream->rawsink_name = "";
@@ -140,9 +142,6 @@ void stream_loop(struct stream_t *stream) {
 
 		LOG_INFO("Capturing ...");
 
-		LOG_DEBUG("Pre-allocating memory for stream frame ...");
-		frame_realloc_data(stream->video->frame, frame_get_generous_size(DEV(run->width), DEV(run->height)));
-
 		while (!atomic_load(&stream->proc->stop)) {
 			struct _worker_t *ready_wr;
 
@@ -153,7 +152,7 @@ void stream_loop(struct stream_t *stream) {
 
 			if (!ready_wr->job_failed) {
 				if (ready_wr->job_timely) {
-					_stream_expose_picture(stream, ready_wr->frame, captured_fps);
+					_stream_expose_frame(stream, ready_wr->frame, captured_fps);
 					LOG_PERF("##### Encoded frame exposed; worker=%u", ready_wr->number);
 				} else {
 					LOG_PERF("----- Encoded frame dropped; worker=%u", ready_wr->number);
@@ -255,11 +254,6 @@ void stream_loop(struct stream_t *stream) {
 			}
 		}
 
-		A_MUTEX_LOCK(&stream->video->mutex);
-		stream->video->online = false;
-		atomic_store(&stream->video->updated, true);
-		A_MUTEX_UNLOCK(&stream->video->mutex);
-
 		_workers_pool_destroy(pool);
 		device_switch_capturing(stream->dev, false);
 		device_close(stream->dev);
@@ -293,6 +287,8 @@ static struct _workers_pool_t *_stream_init_loop(struct stream_t *stream) {
 	LOG_DEBUG("%s: stream->proc->stop=%d", __FUNCTION__, atomic_load(&stream->proc->stop));
 
 	while (!atomic_load(&stream->proc->stop)) {
+		_stream_expose_frame(stream, NULL, 0);
+
 		if (access(stream->dev->path, R_OK|W_OK) < 0) {
 			if (access_error != errno) {
 				SEP_INFO('=');
@@ -333,16 +329,57 @@ static struct _workers_pool_t *_stream_init_one(struct stream_t *stream) {
 		return NULL;
 }
 
-static void _stream_expose_picture(struct stream_t *stream, struct frame_t *frame, unsigned captured_fps) {
-	A_MUTEX_LOCK(&stream->video->mutex);
+static void _stream_expose_frame(struct stream_t *stream, struct frame_t *frame, unsigned captured_fps) {
+#	define VID(_next) stream->video->_next
 
-	frame_copy(frame, stream->video->frame);
+	struct frame_t *new = NULL;
 
-	stream->video->online = true;
-	stream->video->captured_fps = captured_fps;
-	atomic_store(&stream->video->updated, true);
+	A_MUTEX_LOCK(&VID(mutex));
 
-	A_MUTEX_UNLOCK(&stream->video->mutex);
+	if (frame) {
+		new = frame;
+		VID(last_as_blank_ts) = 0; // Останавливаем таймер
+		LOG_DEBUG("Exposed ALIVE video frame");
+
+	} else {
+		if (VID(online)) { // Если переходим из online в offline
+			if (stream->last_as_blank < 0) { // Если last_as_blank выключен, просто покажем старую картинку
+				new = stream->blank;
+				LOG_INFO("Changed video frame to BLANK");
+			} else if (stream->last_as_blank > 0) { // // Если нужен таймер - запустим
+				VID(last_as_blank_ts) = get_now_monotonic() + stream->last_as_blank;
+				LOG_INFO("Freezed last ALIVE video frame for %d seconds", stream->last_as_blank);
+			} else {  // last_as_blank == 0 - показываем последний фрейм вечно
+				LOG_INFO("Freezed last ALIVE video frame forever");
+			}
+		} else if (stream->last_as_blank < 0) {
+			new = stream->blank;
+			LOG_INFO("Changed video frame to BLANK");
+		}
+
+		if ( // Если уже оффлайн, включена фича last_as_blank с таймером и он запущен
+			stream->last_as_blank > 0
+			&& VID(last_as_blank_ts) != 0
+			&& VID(last_as_blank_ts) < get_now_monotonic()
+		) {
+			new = stream->blank;
+			VID(last_as_blank_ts) = 0; // // Останавливаем таймер
+			LOG_INFO("Changed last ALIVE video frame to BLANK");
+		}
+	}
+
+	if (new) {
+		frame_copy(new, VID(frame));
+	} else if (VID(frame->used) == 0) { // Инициализация
+		frame_copy(stream->blank, VID(frame));
+		frame = NULL;
+	}
+	VID(online) = frame;
+	VID(captured_fps) = captured_fps;
+	atomic_store(&VID(updated), true);
+	A_MUTEX_UNLOCK(&VID(mutex));
+
+#	undef VID
 }
 
 static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
@@ -350,7 +387,6 @@ static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
 #	define RUN(_next) stream->dev->run->_next
 
 	struct _workers_pool_t *pool;
-	size_t frame_size = frame_get_generous_size(RUN(width), RUN(height));
 
 	LOG_INFO("Creating pool with %u workers ...", stream->encoder->run->n_workers);
 
@@ -374,8 +410,9 @@ static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
 	for (unsigned number = 0; number < pool->n_workers; ++number) {
 #		define WR(_next) pool->workers[number]._next
 
-		WR(frame) = frame_init();
-		frame_realloc_data(WR(frame), frame_size);
+		A_CALLOC(WR(frame_role), 32);
+		sprintf(WR(frame_role), "worker_dest_%u", number);
+		WR(frame) = frame_init(WR(frame_role));
 
 		A_MUTEX_INIT(&WR(has_job_mutex));
 		atomic_init(&WR(has_job), false);
@@ -417,6 +454,7 @@ static void _workers_pool_destroy(struct _workers_pool_t *pool) {
 		A_COND_DESTROY(&WR(has_job_cond));
 
 		frame_destroy(WR(frame));
+		free(WR(frame_role));
 
 #		undef WR
 	}

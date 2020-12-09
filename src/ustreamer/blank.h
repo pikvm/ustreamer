@@ -28,11 +28,11 @@
 
 #include <jpeglib.h>
 
-#include "../../common/tools.h"
-#include "../../common/logging.h"
-#include "../frame.h"
+#include "../common/tools.h"
+#include "../common/logging.h"
+#include "frame.h"
 
 #include "data/blank_jpeg.h"
 
 
-struct frame_t *blank_picture_init(const char *path);
+struct frame_t *blank_frame_init(const char *path);

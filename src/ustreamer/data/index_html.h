@@ -24,7 +24,7 @@
 
 #include <sys/types.h>
 
-#include "../../../common/config.h"
+#include "../../common/config.h"
 
 
 extern const char *const HTML_INDEX_PAGE;

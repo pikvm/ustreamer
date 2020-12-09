@@ -37,8 +37,7 @@ static void _http_callback_stream_error(struct bufferevent *buf_event, short wha
 static void _http_exposed_refresh(int fd, short event, void *v_server);
 static void _http_queue_send_stream(struct http_server_t *server, bool stream_updated, bool frame_updated);
 
-static bool _expose_new_picture_unsafe(struct http_server_t *server);
-static bool _expose_blank_picture(struct http_server_t *server);
+static bool _expose_new_frame(struct http_server_t *server);
 
 static void _format_bufferevent_reason(short what, char *reason);
 
@@ -54,12 +53,11 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	struct exposed_t *exposed;
 
 	A_CALLOC(exposed, 1);
-	exposed->frame = frame_init();
+	exposed->frame = frame_init("http_exposed");
 
 	A_CALLOC(run, 1);
 	run->stream = stream;
 	run->exposed = exposed;
-	run->drop_same_frames_blank = 10;
 
 	A_CALLOC(server, 1);
 	server->host = "127.0.0.1";
@@ -70,7 +68,6 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	server->static_path = "";
 	server->allow_origin = "";
 	server->timeout = 10;
-	server->last_as_blank = -1;
 	server->run = run;
 
 	assert(!evthread_use_pthreads());
@@ -108,10 +105,6 @@ void http_server_destroy(struct http_server_t *server) {
 		free(RUN(auth_token));
 	}
 
-	if (RUN(blank)) {
-		frame_destroy(RUN(blank));
-	}
-
 	frame_destroy(EX(frame));
 	free(RUN(exposed));
 	free(server->run);
@@ -131,15 +124,10 @@ int http_server_listen(struct http_server_t *server) {
 		assert(!evhttp_set_cb(RUN(http), "/stream", _http_callback_stream, (void *)server));
 	}
 
-	RUN(drop_same_frames_blank) = max_u(server->drop_same_frames, RUN(drop_same_frames_blank));
-	RUN(blank) = blank_picture_init(server->blank_path);
-
-	// See _expose_blank_picture()
-	frame_copy(RUN(blank), EX(frame));
-	EX(expose_begin_ts) = get_now_monotonic();
-	EX(expose_cmp_ts) = EX(expose_begin_ts);
-	EX(expose_end_ts) = EX(expose_begin_ts);
-	// See _http_exposed_refresh()
+	frame_copy(STREAM(blank), EX(frame));
+	EX(expose_begin_ts) = 0;
+	EX(expose_cmp_ts) = 0;
+	EX(expose_end_ts) = 0;
 	EX(notify_last_width) = EX(frame->width);
 	EX(notify_last_height) = EX(frame->height);
 
@@ -755,29 +743,17 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	bool stream_updated = false;
 	bool frame_updated = false;
 
-#	define UNLOCK_STREAM { \
-			atomic_store(&STREAM(video->updated), false); \
-			A_MUTEX_UNLOCK(&STREAM(video->mutex)); \
-		}
-
 	if (atomic_load(&STREAM(video->updated))) {
-		LOG_DEBUG("Refreshing HTTP exposed ...");
-		A_MUTEX_LOCK(&STREAM(video->mutex));
-		if (STREAM(video->online)) {
-			frame_updated = _expose_new_picture_unsafe(server);
-			UNLOCK_STREAM;
-		} else {
-			UNLOCK_STREAM;
-			frame_updated = _expose_blank_picture(server);
-		}
+		frame_updated = _expose_new_frame(server);
 		stream_updated = true;
-	} else if (!EX(online)) {
-		LOG_DEBUG("Refreshing HTTP exposed (BLANK) ...");
-		frame_updated = _expose_blank_picture(server);
+	} else if (EX(expose_end_ts) + 1 < get_now_monotonic()) {
+		LOG_DEBUG("HTTP: Repeating exposed ...");
+		EX(expose_begin_ts) = get_now_monotonic();
+		EX(expose_cmp_ts) = EX(expose_begin_ts);
+		EX(expose_end_ts) = EX(expose_begin_ts);
+		frame_updated = true;
 		stream_updated = true;
 	}
-
-#	undef UNLOCK_STREAM
 
 	_http_queue_send_stream(server, stream_updated, frame_updated);
 
@@ -797,87 +773,51 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	}
 }
 
-static bool _expose_new_picture_unsafe(struct http_server_t *server) {
+static bool _expose_new_frame(struct http_server_t *server) {
+	bool updated = false;
+
+	A_MUTEX_LOCK(&STREAM(video->mutex));
+
+	LOG_DEBUG("HTTP: Updating exposed frame (online=%d) ...", STREAM(video->online));
+
 	EX(captured_fps) = STREAM(video->captured_fps);
 	EX(expose_begin_ts) = get_now_monotonic();
 
-	if (server->drop_same_frames) {
+	if (server->drop_same_frames && STREAM(video->online)) {
+		bool need_drop = false;
+		bool maybe_same = false;
 		if (
-			EX(online)
-			&& EX(dropped) < server->drop_same_frames
-			&& frame_compare(EX(frame), STREAM(video->frame))
+			(need_drop = (EX(dropped) < server->drop_same_frames))
+			&& (maybe_same = frame_compare(EX(frame), STREAM(video->frame)))
 		) {
 			EX(expose_cmp_ts) = get_now_monotonic();
 			EX(expose_end_ts) = EX(expose_cmp_ts);
 			LOG_VERBOSE("HTTP: Dropped same frame number %u; cmp_time=%.06Lf",
 				EX(dropped), EX(expose_cmp_ts) - EX(expose_begin_ts));
 			EX(dropped) += 1;
-			return false; // Not updated
+			goto not_updated;
 		} else {
 			EX(expose_cmp_ts) = get_now_monotonic();
-			LOG_VERBOSE("HTTP: Passed same frame check (frames are differ); cmp_time=%.06Lf",
-				EX(expose_cmp_ts) - EX(expose_begin_ts));
+			LOG_VERBOSE("HTTP: Passed same frame check (need_drop=%d, maybe_same=%d); cmp_time=%.06Lf",
+				need_drop, maybe_same, (EX(expose_cmp_ts) - EX(expose_begin_ts)));
 		}
 	}
 
 	frame_copy(STREAM(video->frame), EX(frame));
 
-	EX(online) = true;
+	EX(online) = STREAM(video->online);
 	EX(dropped) = 0;
 	EX(expose_cmp_ts) = EX(expose_begin_ts);
 	EX(expose_end_ts) = get_now_monotonic();
 
-	LOG_VERBOSE("HTTP: Exposed new frame; full exposition time = %.06Lf",
-		 EX(expose_end_ts) - EX(expose_begin_ts));
+	LOG_VERBOSE("HTTP: Exposed frame: online=%d, exp_time=%.06Lf",
+		 EX(online), EX(expose_end_ts) - EX(expose_begin_ts));
 
-	return true; // Updated
-}
-
-static bool _expose_blank_picture(struct http_server_t *server) {
-	EX(expose_begin_ts) = get_now_monotonic();
-	EX(expose_cmp_ts) = EX(expose_begin_ts);
-
-#	define EXPOSE_BLANK frame_copy(RUN(blank), EX(frame))
-
-	if (EX(online)) { // Если переходим из online в offline
-		if (server->last_as_blank < 0) { // Если last_as_blank выключено, просто покажем картинку
-			LOG_INFO("HTTP: Changed frame to BLANK");
-			EXPOSE_BLANK;
-		} else if (server->last_as_blank > 0) { // Если нужен таймер - запустим
-			LOG_INFO("HTTP: Freezing last alive frame for %d seconds", server->last_as_blank);
-			EX(last_as_blank_ts) = get_now_monotonic();
-		} else { // last_as_blank == 0 - показываем последний фрейм вечно
-			LOG_INFO("HTTP: Freezing last alive frame forever");
-		}
-		goto updated;
-	}
-
-	if ( // Если уже оффлайн, включена фича last_as_blank с таймером и он запущен
-		server->last_as_blank > 0
-		&& EX(last_as_blank_ts) > 0
-		&& EX(last_as_blank_ts) + server->last_as_blank < EX(expose_begin_ts)
-	) {
-		LOG_INFO("HTTP: Changed last alive frame to BLANK");
-		EXPOSE_BLANK;
-		EX(last_as_blank_ts) = 0; // Останавливаем таймер
-		goto updated;
-	}
-
-#	undef EXPOSE_BLANK
-
-	if (EX(dropped) < RUN(drop_same_frames_blank)) {
-		LOG_PERF("HTTP: Dropped same frame (BLANK) number %u", EX(dropped));
-		EX(dropped) += 1;
-		EX(expose_end_ts) = get_now_monotonic();
-		return false; // Not updated
-	}
-
-	updated:
-		EX(captured_fps) = 0;
-		EX(online) = false;
-		EX(dropped) = 0;
-		EX(expose_end_ts) = get_now_monotonic();
-		return true; // Updated
+	updated = true;
+	not_updated:
+		atomic_store(&STREAM(video->updated), false);
+		A_MUTEX_UNLOCK(&STREAM(video->mutex));
+		return updated;
 }
 
 static void _format_bufferevent_reason(short what, char *reason) {

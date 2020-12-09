@@ -132,6 +132,8 @@ static const struct option _LONG_OPTS[] = {
 #	ifdef WITH_OMX
 	{"glitched-resolutions",	required_argument,	NULL,	_O_GLITCHED_RESOLUTIONS},
 #	endif
+	{"blank",					required_argument,	NULL,	_O_BLANK},
+	{"last-as-blank",			required_argument,	NULL,	_O_LAST_AS_BLANK},
 	{"device-timeout",			required_argument,	NULL,	_O_DEVICE_TIMEOUT},
 	{"device-error-delay",		required_argument,	NULL,	_O_DEVICE_ERROR_DELAY},
 
@@ -157,8 +159,6 @@ static const struct option _LONG_OPTS[] = {
 	{"user",					required_argument,	NULL,	_O_USER},
 	{"passwd",					required_argument,	NULL,	_O_PASSWD},
 	{"static",					required_argument,	NULL,	_O_STATIC},
-	{"blank",					required_argument,	NULL,	_O_BLANK},
-	{"last-as-blank",			required_argument,	NULL,	_O_LAST_AS_BLANK},
 	{"drop-same-frames",		required_argument,	NULL,	_O_DROP_SAME_FRAMES},
 	{"slowdown",				no_argument,		NULL,	_O_SLOWDOWN},
 	{"allow-origin",			required_argument,	NULL,	_O_ALLOW_ORIGIN},
@@ -231,6 +231,9 @@ struct options_t *options_init(int argc, char *argv[]) {
 }
 
 void options_destroy(struct options_t *options) {
+	if (options->blank) {
+		frame_destroy(options->blank);
+	}
 	for (int index = 0; index < options->argc; ++index) {
 		free(options->argv_copy[index]);
 	}
@@ -313,6 +316,7 @@ int options_parse(
 	int short_index;
 	int opt_index;
 	char short_opts[1024] = {0};
+	char *blank_path = NULL;
 #	ifdef WITH_SETPROCTITLE
 	char *process_name_prefix = NULL;
 #	endif
@@ -354,6 +358,8 @@ int options_parse(
 				}
 				break;
 #			endif
+			case _O_BLANK:				OPT_SET(blank_path, optarg);
+			case _O_LAST_AS_BLANK:		OPT_NUMBER("--last-as-blank", stream->last_as_blank, 0, 86400, 0);
 			case _O_DEVICE_TIMEOUT:		OPT_NUMBER("--device-timeout", dev->timeout, 1, 60, 0);
 			case _O_DEVICE_ERROR_DELAY:	OPT_NUMBER("--device-error-delay", stream->error_delay, 1, 60, 0);
 
@@ -392,8 +398,6 @@ int options_parse(
 			case _O_USER:				OPT_SET(server->user, optarg);
 			case _O_PASSWD:				OPT_SET(server->passwd, optarg);
 			case _O_STATIC:				OPT_SET(server->static_path, optarg);
-			case _O_BLANK:				OPT_SET(server->blank_path, optarg);
-			case _O_LAST_AS_BLANK:		OPT_NUMBER("--last-as-blank", server->last_as_blank, 0, 86400, 0);
 			case _O_DROP_SAME_FRAMES:	OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, VIDEO_MAX_FPS, 0);
 			case _O_SLOWDOWN:			OPT_SET(server->slowdown, true);
 			case _O_FAKE_RESOLUTION:	OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, false);
@@ -442,6 +446,9 @@ int options_parse(
 			default:	_help(dev, encoder, stream, server); return -1;
 		}
 	}
+
+	options->blank = blank_frame_init(blank_path);
+	stream->blank = options->blank;
 
 #	ifdef WITH_SETPROCTITLE
 	if (process_name_prefix != NULL) {
@@ -618,6 +625,12 @@ static void _help(
 	printf("    -g|--glitched-resolutions <WxH,...>  ─ Comma-separated list of resolutions that require forced\n");
 	printf("                                           encoding on CPU instead of OMX. Default: disabled.\n\n");
 #	endif
+	printf("    -k|--blank <path>  ─────────────────── Path to JPEG file that will be shown when the device is disconnected\n");
+	printf("                                           during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.\n\n");
+	printf("    -K|--last-as-blank <sec>  ──────────── Show the last frame received from the camera after it was disconnected,\n");
+	printf("                                           but no more than specified time (or endlessly if 0 is specified).\n");
+	printf("                                           If the device has not yet been online, display 'NO SIGNAL' or the image\n");
+	printf("                                           specified by option --blank. Default: disabled.\n\n");
 	printf("    --device-timeout <sec>  ────────────── Timeout for device querying. Default: %u.\n\n", dev->timeout);
 	printf("    --device-error-delay <sec>  ────────── Delay before trying to connect to the device again\n");
 	printf("                                           after an error (timeout for example). Default: %u.\n\n", stream->error_delay);
@@ -648,12 +661,6 @@ static void _help(
 	printf("    --passwd <str>  ───────────── HTTP basic auth passwd. Default: empty.\n\n");
 	printf("    --static <path> ───────────── Path to dir with static files instead of embedded root index page.\n");
 	printf("                                  Symlinks are not supported for security reasons. Default: disabled.\n\n");
-	printf("    -k|--blank <path>  ────────── Path to JPEG file that will be shown when the device is disconnected\n");
-	printf("                                  during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.\n\n");
-	printf("    -K|--last-as-blank <sec>  ─── Show the last frame received from the camera after it was disconnected,\n");
-	printf("                                  but no more than specified time (or endlessly if 0 is specified).\n");
-	printf("                                  If the device has not yet been online, display 'NO SIGNAL' or the image\n");
-	printf("                                  specified by option --blank. Default: disabled.\n\n");
 	printf("    -e|--drop-same-frames <N>  ── Don't send identical frames to clients, but no more than specified number.\n");
 	printf("                                  It can significantly reduce the outgoing traffic, but will increase\n");
 	printf("                                  the CPU loading. Don't use this option with analog signal sources\n");

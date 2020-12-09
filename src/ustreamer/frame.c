@@ -23,10 +23,12 @@
 #include "frame.h"
 
 
-struct frame_t *frame_init(void) {
+struct frame_t *frame_init(const char *role) {
 	struct frame_t *frame;
 
 	A_CALLOC(frame, 1);
+	frame->role = role;
+	frame_realloc_data(frame, 500 * 1024);
 	return frame;
 }
 
@@ -37,14 +39,10 @@ void frame_destroy(struct frame_t *frame) {
 	free(frame);
 }
 
-size_t frame_get_generous_size(unsigned width, unsigned height) {
-	return ((width * height) << 1) * 2;
-}
-
 void frame_realloc_data(struct frame_t *frame, size_t size) {
 	if (frame->allocated < size) {
-		LOG_DEBUG("Increasing frame %p buffer: %zu -> %zu (+%zu)",
-			frame, frame->allocated, size, size - frame->allocated);
+		LOG_DEBUG("Increasing frame buffer '%s': %zu -> %zu (+%zu)",
+			frame->role, frame->allocated, size, size - frame->allocated);
 		A_REALLOC(frame->data, size);
 		frame->allocated = size;
 	}
@@ -69,6 +67,7 @@ void frame_copy(const struct frame_t *src, struct frame_t *dest) {
 
 #	define COPY(_field) dest->_field = src->_field
 
+	// Don't copy the role
 	COPY(used);
 
 	COPY(width);

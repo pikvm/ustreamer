@@ -322,7 +322,7 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 	portdef.format.image.nSliceHeight = align_size(dev->run->height, 16);
 	portdef.format.image.bFlagErrorConcealment = OMX_FALSE;
 	portdef.format.image.eCompressionFormat = OMX_IMAGE_CodingUnused;
-	portdef.nBufferSize = frame_get_generous_size(dev->run->width, dev->run->height);
+	portdef.nBufferSize = ((dev->run->width * dev->run->height) << 1) * 2;
 
 #	define MAP_FORMAT(_v4l2_format, _omx_format) \
 		case _v4l2_format: { portdef.format.image.eColorFormat = _omx_format; break; }

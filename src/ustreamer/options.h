@@ -38,7 +38,9 @@
 #include "../common/process.h"
 
 #include "device.h"
+#include "frame.h"
 #include "encoder.h"
+#include "blank.h"
 #include "stream.h"
 #include "http/server.h"
 #ifdef WITH_GPIO
@@ -47,9 +49,10 @@
 
 
 struct options_t {
-	int		argc;
-	char	**argv;
-	char	**argv_copy;
+	int				argc;
+	char			**argv;
+	char			**argv_copy;
+	struct frame_t	*blank;
 };
 
 

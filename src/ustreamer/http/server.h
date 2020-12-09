@@ -56,6 +56,7 @@
 #include "../../common/threading.h"
 #include "../../common/logging.h"
 #include "../../common/process.h"
+#include "../data/index_html.h"
 #include "../frame.h"
 #include "../encoder.h"
 #include "../stream.h"
@@ -68,9 +69,6 @@
 #include "base64.h"
 #include "mime.h"
 #include "static.h"
-#include "blank.h"
-
-#include "data/index_html.h"
 
 
 struct stream_client_t {
@@ -96,14 +94,13 @@ struct stream_client_t {
 
 struct exposed_t {
 	struct frame_t	*frame;
-	unsigned			captured_fps;
-	unsigned			queued_fps;
-	bool				online;
-	unsigned			dropped;
-	long double			expose_begin_ts;
-	long double			expose_cmp_ts;
-	long double			expose_end_ts;
-	long double			last_as_blank_ts;
+	unsigned		captured_fps;
+	unsigned		queued_fps;
+	bool			online;
+	unsigned		dropped;
+	long double		expose_begin_ts;
+	long double		expose_cmp_ts;
+	long double		expose_end_ts;
 
 	bool		notify_last_online;
 	unsigned	notify_last_width;
@@ -120,8 +117,6 @@ struct http_server_runtime_t {
 	struct exposed_t		*exposed;
 	struct stream_client_t	*stream_clients;
 	unsigned				stream_clients_count;
-	struct frame_t			*blank;
-	unsigned				drop_same_frames_blank;
 };
 
 struct http_server_t {
@@ -138,8 +133,6 @@ struct http_server_t {
 	char		*static_path;
 	char		*allow_origin;
 
-	char		*blank_path;
-	int			last_as_blank;
 	unsigned	drop_same_frames;
 	bool		slowdown;
 	unsigned	fake_width;

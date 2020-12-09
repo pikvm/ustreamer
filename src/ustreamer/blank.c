@@ -36,7 +36,7 @@ static int _jpeg_read_geometry(FILE *fp, unsigned *width, unsigned *height);
 static void _jpeg_error_handler(j_common_ptr jpeg);
 
 
-struct frame_t *blank_picture_init(const char *path) {
+struct frame_t *blank_frame_init(const char *path) {
 	struct frame_t *blank = NULL;
 
 	if (path) {
@@ -55,7 +55,7 @@ struct frame_t *blank_picture_init(const char *path) {
 static struct frame_t *_init_internal(void) {
 	struct frame_t *blank;
 
-	blank = frame_init();
+	blank = frame_init("blank_internal");
 	frame_set_data(blank, BLANK_JPEG_DATA, BLANK_JPEG_DATA_SIZE);
 	blank->width = BLANK_JPEG_WIDTH;
 	blank->height = BLANK_JPEG_HEIGHT;
@@ -66,7 +66,7 @@ static struct frame_t *_init_external(const char *path) {
 	FILE *fp = NULL;
 	struct frame_t *blank;
 
-	blank = frame_init();
+	blank = frame_init("blank_external");
 
 	if ((fp = fopen(path, "rb")) == NULL) {
 		LOG_PERROR("Can't open blank placeholder '%s'", path);

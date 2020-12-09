@@ -35,6 +35,8 @@
 #include "../common/threading.h"
 #include "../common/logging.h"
 
+#include "blank.h"
+
 #include "frame.h"
 #include "device.h"
 #include "encoder.h"
@@ -56,10 +58,12 @@ struct video_t {
 	bool				online;
 	unsigned			captured_fps;
 	atomic_bool			updated;
+	long double			last_as_blank_ts;
 	pthread_mutex_t		mutex;
 };
 
 struct stream_t {
+	int			last_as_blank;
 	unsigned	error_delay;
 #	ifdef WITH_RAWSINK
 	char		*rawsink_name;
@@ -69,6 +73,7 @@ struct stream_t {
 
 	struct device_t		*dev;
 	struct encoder_t	*encoder;
+	struct frame_t		*blank;
 
 	struct process_t	*proc;
 	struct video_t		*video;

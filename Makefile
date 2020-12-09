@@ -24,7 +24,7 @@ _PROG_SRCS = $(shell ls \
 	src/common/*.c \
 	src/ustreamer/*.c \
 	src/ustreamer/http/*.c \
-	src/ustreamer/http/data/*.c \
+	src/ustreamer/data/*.c \
 	src/ustreamer/encoders/cpu/*.c \
 	src/ustreamer/encoders/hw/*.c \
 )
@@ -90,8 +90,8 @@ uninstall:
 
 
 regen:
-	tools/make-jpeg-h.py src/ustreamer/http/data/blank.jpeg src/ustreamer/http/data/blank_jpeg.c BLANK
-	tools/make-html-h.py src/ustreamer/http/data/index.html src/ustreamer/http/data/index_html.c INDEX
+	tools/make-jpeg-h.py src/ustreamer/data/blank.jpeg src/ustreamer/data/blank_jpeg.c BLANK
+	tools/make-html-h.py src/ustreamer/data/index.html src/ustreamer/data/index_html.c INDEX
 
 
 $(PROG): $(_PROG_SRCS:%.c=$(BUILD)/%.o)

@@ -33,6 +33,7 @@
 
 
 struct frame_t {
+	const char		*role;
 	unsigned char	*data;
 	size_t			used;
 	size_t			allocated;
@@ -44,10 +45,8 @@ struct frame_t {
 };
 
 
-struct frame_t *frame_init(void);
+struct frame_t *frame_init(const char *role);
 void frame_destroy(struct frame_t *frame);
-
-size_t frame_get_generous_size(unsigned width, unsigned height);
 
 void frame_realloc_data(struct frame_t *frame, size_t size);
 void frame_set_data(struct frame_t *frame, const unsigned char *data, size_t size);
