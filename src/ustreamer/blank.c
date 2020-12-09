@@ -39,7 +39,7 @@ static void _jpeg_error_handler(j_common_ptr jpeg);
 struct frame_t *blank_frame_init(const char *path) {
 	struct frame_t *blank = NULL;
 
-	if (path) {
+	if (path && path[0] != '\0') {
 		blank = _init_external(path);
 	}
 
