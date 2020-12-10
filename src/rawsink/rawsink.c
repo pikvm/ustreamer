@@ -26,9 +26,9 @@
 static int _sem_wait_monotonic(sem_t *sem, long double timeout);
 
 
-rawsink_s *rawsink_init(const char *name, mode_t mode, bool rm, bool master) {
+rawsink_s *rawsink_init(const char *name, mode_t mode, bool rm, bool server) {
 	rawsink_s *rawsink;
-	int flags = (master ? O_RDWR | O_CREAT : O_RDWR);
+	int flags = (server ? O_RDWR | O_CREAT : O_RDWR);
 
 	A_CALLOC(rawsink, 1);
 	rawsink->fd = -1;
@@ -36,7 +36,7 @@ rawsink_s *rawsink_init(const char *name, mode_t mode, bool rm, bool master) {
 	rawsink->signal_sem = SEM_FAILED;
 	rawsink->lock_sem = SEM_FAILED;
 	rawsink->rm = rm;
-	rawsink->master = master;
+	rawsink->server = server;
 
 	A_CALLOC(rawsink->mem_name, strlen(name) + 8);
 	A_CALLOC(rawsink->signal_name, strlen(name) + 8);
@@ -55,7 +55,7 @@ rawsink_s *rawsink_init(const char *name, mode_t mode, bool rm, bool master) {
 			} \
 		}
 
-	if (!master) {
+	if (!server) {
 		OPEN_SEM(lock, 1);
 		OPEN_SEM(signal, 0);
 	}
@@ -84,7 +84,7 @@ rawsink_s *rawsink_init(const char *name, mode_t mode, bool rm, bool master) {
 		}
 	}
 
-	if (master) {
+	if (server) {
 		OPEN_SEM(signal, 0);
 		OPEN_SEM(lock, 1);
 	}
@@ -140,7 +140,7 @@ void rawsink_destroy(rawsink_s *rawsink) {
 	free(rawsink);
 }
 
-void rawsink_put(
+void rawsink_server_put(
 	rawsink_s *rawsink,
 	const uint8_t *data, size_t size,
 	unsigned format, unsigned width, unsigned height,
@@ -148,9 +148,9 @@ void rawsink_put(
 
 	long double now = get_now_monotonic();
 
-	assert(rawsink->master); // Master only
+	assert(rawsink->server);
 
-	if (rawsink->master_failed) {
+	if (rawsink->server_failed) {
 		return;
 	}
 
@@ -198,17 +198,17 @@ void rawsink_put(
 
 	error:
 		LOG_ERROR("RAW sink completely disabled due error");
-		rawsink->master_failed = true;
+		rawsink->server_failed = true;
 }
 
-int rawsink_get(
+int rawsink_client_get(
 	rawsink_s *rawsink,
 	char *data, size_t *size,
 	unsigned *format, unsigned *width, unsigned *height,
 	long double *grab_ts,
 	long double timeout) {
 
-	assert(!rawsink->master); // Slave only
+	assert(!rawsink->server); // Client only
 
 #	define WAIT_SEM(_role) { \
 			if (_sem_wait_monotonic(rawsink->_role##_sem, timeout) < 0) { \

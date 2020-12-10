@@ -65,22 +65,22 @@ typedef struct {
 	sem_t	*lock_sem;
 
 	bool	rm;
-	bool	master;
+	bool	server;
 
-	bool	master_failed;
+	bool	server_failed;
 } rawsink_s;
 
 
-rawsink_s *rawsink_init(const char *name, mode_t mode, bool rm, bool master);
+rawsink_s *rawsink_init(const char *name, mode_t mode, bool rm, bool server);
 void rawsink_destroy(rawsink_s *rawsink);
 
-void rawsink_put(
+void rawsink_server_put(
 	rawsink_s *rawsink,
 	const uint8_t *data, size_t size,
 	unsigned format, unsigned witdh, unsigned height,
 	long double grab_ts);
 
-int rawsink_get(
+int rawsink_client_get(
 	rawsink_s *rawsink,
 	char *data, size_t *size,
 	unsigned *format, unsigned *width, unsigned *height,

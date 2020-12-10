@@ -220,17 +220,11 @@ void stream_loop(stream_s *stream) {
 							LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
 
 #							ifdef WITH_RAWSINK
+#							define HW(_next) DEV(run->hw_buffers[buf_index]._next)
 							if (rawsink) {
-								rawsink_put(
-									rawsink,
-									DEV(run->hw_buffers[buf_index].data),
-									DEV(run->hw_buffers[buf_index].used),
-									DEV(run->hw_buffers[buf_index].format),
-									DEV(run->hw_buffers[buf_index].width),
-									DEV(run->hw_buffers[buf_index].height),
-									DEV(run->hw_buffers[buf_index].grab_ts)
-								);
+								rawsink_server_put(rawsink, HW(data), HW(used), HW(format), HW(width), HW(height), HW(grab_ts));
 							}
+#							undef HW
 #							endif
 
 							_workers_pool_assign(pool, ready_wr, buf_index);
