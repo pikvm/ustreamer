@@ -23,7 +23,7 @@
 #include "server.h"
 
 
-static int _http_preprocess_request(struct evhttp_request *request, struct http_server_t *server);
+static int _http_preprocess_request(struct evhttp_request *request, server_s *server);
 
 static void _http_callback_root(struct evhttp_request *request, void *v_server);
 static void _http_callback_static(struct evhttp_request *request, void *v_server);
@@ -35,9 +35,9 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 static void _http_callback_stream_error(struct bufferevent *buf_event, short what, void *v_ctx);
 
 static void _http_exposed_refresh(int fd, short event, void *v_server);
-static void _http_queue_send_stream(struct http_server_t *server, bool stream_updated, bool frame_updated);
+static void _http_queue_send_stream(server_s *server, bool stream_updated, bool frame_updated);
 
-static bool _expose_new_frame(struct http_server_t *server);
+static bool _expose_new_frame(server_s *server);
 
 static void _format_bufferevent_reason(short what, char *reason);
 
@@ -47,10 +47,10 @@ static void _format_bufferevent_reason(short what, char *reason);
 #define EX(_next)		RUN(exposed->_next)
 
 
-struct http_server_t *http_server_init(struct stream_t *stream) {
-	struct http_server_runtime_t *run;
-	struct http_server_t *server;
-	struct exposed_t *exposed;
+server_s *server_init(stream_s *stream) {
+	server_runtime_s *run;
+	server_s *server;
+	exposed_s *exposed;
 
 	A_CALLOC(exposed, 1);
 	exposed->frame = frame_init("http_exposed");
@@ -77,7 +77,7 @@ struct http_server_t *http_server_init(struct stream_t *stream) {
 	return server;
 }
 
-void http_server_destroy(struct http_server_t *server) {
+void server_destroy(server_s *server) {
 	if (RUN(refresh)) {
 		event_del(RUN(refresh));
 		event_free(RUN(refresh));
@@ -93,8 +93,8 @@ void http_server_destroy(struct http_server_t *server) {
 	libevent_global_shutdown();
 #	endif
 
-	for (struct stream_client_t *client = RUN(stream_clients); client != NULL;) {
-		struct stream_client_t *next = client->next;
+	for (stream_client_s *client = RUN(stream_clients); client != NULL;) {
+		stream_client_s *next = client->next;
 
 		free(client->key);
 		free(client);
@@ -111,7 +111,7 @@ void http_server_destroy(struct http_server_t *server) {
 	free(server);
 }
 
-int http_server_listen(struct http_server_t *server) {
+int server_listen(server_s *server) {
 	{
 		if (server->static_path[0] != '\0') {
 			LOG_INFO("Enabling HTTP file server: %s", server->static_path);
@@ -193,20 +193,20 @@ int http_server_listen(struct http_server_t *server) {
 	return 0;
 }
 
-void http_server_loop(struct http_server_t *server) {
+void server_loop(server_s *server) {
 	LOG_INFO("Starting HTTP eventloop ...");
 	event_base_dispatch(RUN(base));
 	LOG_INFO("HTTP eventloop stopped");
 }
 
-void http_server_loop_break(struct http_server_t *server) {
+void server_loop_break(server_s *server) {
 	event_base_loopbreak(RUN(base));
 }
 
 #define ADD_HEADER(_key, _value) \
 	assert(!evhttp_add_header(evhttp_request_get_output_headers(request), _key, _value))
 
-static int _http_preprocess_request(struct evhttp_request *request, struct http_server_t *server) {
+static int _http_preprocess_request(struct evhttp_request *request, server_s *server) {
 	if (RUN(auth_token)) {
 		const char *token = evhttp_find_header(evhttp_request_get_input_headers(request), "Authorization");
 
@@ -232,7 +232,7 @@ static int _http_preprocess_request(struct evhttp_request *request, struct http_
 	}
 
 static void _http_callback_root(struct evhttp_request *request, void *v_server) {
-	struct http_server_t *server = (struct http_server_t *)v_server;
+	server_s *server = (server_s *)v_server;
 	struct evbuffer *buf;
 	struct evkeyvalq params; // For mjpg-streamer compatibility
 	const char *action; // Ditto
@@ -258,7 +258,7 @@ static void _http_callback_root(struct evhttp_request *request, void *v_server) 
 }
 
 static void _http_callback_static(struct evhttp_request *request, void *v_server) {
-	struct http_server_t *server = (struct http_server_t *)v_server;
+	server_s *server = (server_s *)v_server;
 	struct evbuffer *buf = NULL;
 	struct evhttp_uri *uri = NULL;
 	char *uri_path;
@@ -331,9 +331,9 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 }
 
 static void _http_callback_state(struct evhttp_request *request, void *v_server) {
-	struct http_server_t *server = (struct http_server_t *)v_server;
+	server_s *server = (server_s *)v_server;
 	struct evbuffer *buf;
-	enum encoder_type_t encoder_type;
+	encoder_type_e encoder_type;
 	unsigned encoder_quality;
 
 	PREPROCESS_REQUEST;
@@ -359,7 +359,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		RUN(stream_clients_count)
 	));
 
-	for (struct stream_client_t * client = RUN(stream_clients); client != NULL; client = client->next) {
+	for (stream_client_s * client = RUN(stream_clients); client != NULL; client = client->next) {
 		assert(evbuffer_add_printf(buf,
 			"\"%s\": {\"fps\": %u, \"extra_headers\": %s, \"advance_headers\": %s, \"dual_final_frames\": %s}%s",
 			client->id,
@@ -379,7 +379,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 }
 
 static void _http_callback_snapshot(struct evhttp_request *request, void *v_server) {
-	struct http_server_t *server = (struct http_server_t *)v_server;
+	server_s *server = (server_s *)v_server;
 	struct evbuffer *buf;
 	char header_buf[64];
 
@@ -437,11 +437,11 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 	// https://github.com/libevent/libevent/blob/29cc8386a2f7911eaa9336692a2c5544d8b4734f/http.c#L791
 	// https://github.com/libevent/libevent/blob/29cc8386a2f7911eaa9336692a2c5544d8b4734f/http.c#L1458
 
-	struct http_server_t *server = (struct http_server_t *)v_server;
+	server_s *server = (server_s *)v_server;
 	struct evhttp_connection *conn;
 	struct evkeyvalq params;
 	struct bufferevent *buf_event;
-	struct stream_client_t *client;
+	stream_client_s *client;
 	char *client_addr;
 	unsigned short client_port;
 	uuid_t uuid;
@@ -469,7 +469,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		if (RUN(stream_clients) == NULL) {
 			RUN(stream_clients) = client;
 		} else {
-			struct stream_client_t *last = RUN(stream_clients);
+			stream_client_s *last = RUN(stream_clients);
 
 			for (; last->next != NULL; last = last->next);
 			client->prev = last;
@@ -515,8 +515,8 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 #	define BOUNDARY "boundarydonotcross"
 #	define RN "\r\n"
 
-	struct stream_client_t *client = (struct stream_client_t *)v_client;
-	struct http_server_t *server = client->server;
+	stream_client_s *client = (stream_client_s *)v_client;
+	server_s *server = client->server;
 	struct evbuffer *buf;
 	long double now = get_now_monotonic();
 	long long now_second = floor_ms(now);
@@ -638,8 +638,8 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 }
 
 static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UNUSED short what, void *v_client) {
-	struct stream_client_t *client = (struct stream_client_t *)v_client;
-	struct http_server_t *server = client->server;
+	stream_client_s *client = (stream_client_s *)v_client;
+	server_s *server = client->server;
 	struct evhttp_connection *conn;
 	char *client_addr = "???";
 	unsigned short client_port = 0;
@@ -683,14 +683,14 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	free(client);
 }
 
-static void _http_queue_send_stream(struct http_server_t *server, bool stream_updated, bool frame_updated) {
+static void _http_queue_send_stream(server_s *server, bool stream_updated, bool frame_updated) {
 	struct evhttp_connection *conn;
 	struct bufferevent *buf_event;
 	long long now;
 	bool has_clients = false;
 	bool queued = false;
 
-	for (struct stream_client_t *client = RUN(stream_clients); client != NULL; client = client->next) {
+	for (stream_client_s *client = RUN(stream_clients); client != NULL; client = client->next) {
 		conn = evhttp_request_get_connection(client->request);
 		if (conn) {
 			// Фикс для бага WebKit. При включенной опции дропа одинаковых фреймов,
@@ -739,7 +739,7 @@ static void _http_queue_send_stream(struct http_server_t *server, bool stream_up
 }
 
 static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_server) {
-	struct http_server_t *server = (struct http_server_t *)v_server;
+	server_s *server = (server_s *)v_server;
 	bool stream_updated = false;
 	bool frame_updated = false;
 
@@ -773,7 +773,7 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	}
 }
 
-static bool _expose_new_frame(struct http_server_t *server) {
+static bool _expose_new_frame(server_s *server) {
 	bool updated = false;
 
 	A_MUTEX_LOCK(&STREAM(video->mutex));

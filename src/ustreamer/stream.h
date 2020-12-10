@@ -48,21 +48,21 @@
 #endif
 
 
-struct process_t {
+typedef struct {
 	atomic_bool stop;
 	atomic_bool slowdown;
-};
+} process_s;
 
-struct video_t {
-	struct frame_t		*frame;
-	bool				online;
-	unsigned			captured_fps;
-	atomic_bool			updated;
-	long double			last_as_blank_ts;
-	pthread_mutex_t		mutex;
-};
+typedef struct {
+	frame_s			*frame;
+	bool			online;
+	unsigned		captured_fps;
+	atomic_bool		updated;
+	long double		last_as_blank_ts;
+	pthread_mutex_t	mutex;
+} video_s;
 
-struct stream_t {
+typedef struct {
 	int			last_as_blank;
 	unsigned	error_delay;
 #	ifdef WITH_RAWSINK
@@ -71,18 +71,18 @@ struct stream_t {
 	bool		rawsink_rm;
 #	endif
 
-	struct device_t		*dev;
-	struct encoder_t	*encoder;
-	struct frame_t		*blank;
+	device_s	*dev;
+	encoder_s	*encoder;
+	frame_s		*blank;
 
-	struct process_t	*proc;
-	struct video_t		*video;
-};
+	process_s	*proc;
+	video_s		*video;
+} stream_s;
 
 
-struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder);
-void stream_destroy(struct stream_t *stream);
+stream_s *stream_init(device_s *dev, encoder_s *encoder);
+void stream_destroy(stream_s *stream);
 
-void stream_loop(struct stream_t *stream);
-void stream_loop_break(struct stream_t *stream);
-void stream_switch_slowdown(struct stream_t *stream, bool slowdown);
+void stream_loop(stream_s *stream);
+void stream_loop_break(stream_s *stream);
+void stream_switch_slowdown(stream_s *stream, bool slowdown);

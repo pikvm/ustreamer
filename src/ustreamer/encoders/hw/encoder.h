@@ -38,5 +38,5 @@
 #include "huffman.h"
 
 
-int hw_encoder_prepare(struct device_t *dev, unsigned quality);
-void hw_encoder_compress_buffer(struct hw_buffer_t *hw, struct frame_t *frame);
+int hw_encoder_prepare(device_s *dev, unsigned quality);
+void hw_encoder_compress_buffer(hw_buffer_s *hw, frame_s *frame);

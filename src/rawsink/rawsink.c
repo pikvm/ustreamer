@@ -26,8 +26,8 @@
 static int _sem_wait_monotonic(sem_t *sem, long double timeout);
 
 
-struct rawsink_t *rawsink_init(const char *name, mode_t mode, bool rm, bool master) {
-	struct rawsink_t *rawsink;
+rawsink_s *rawsink_init(const char *name, mode_t mode, bool rm, bool master) {
+	rawsink_s *rawsink;
 	int flags = (master ? O_RDWR | O_CREAT : O_RDWR);
 
 	A_CALLOC(rawsink, 1);
@@ -66,14 +66,14 @@ struct rawsink_t *rawsink_init(const char *name, mode_t mode, bool rm, bool mast
 			goto error;
 		}
 
-		if (ftruncate(rawsink->fd, sizeof(struct rawsink_shared_t)) < 0) {
+		if (ftruncate(rawsink->fd, sizeof(rawsink_shared_s)) < 0) {
 			LOG_PERROR("Can't truncate RAW sink memory");
 			goto error;
 		}
 
 		if ((rawsink->shared = mmap(
 			NULL,
-			sizeof(struct rawsink_shared_t),
+			sizeof(rawsink_shared_s),
 			PROT_READ | PROT_WRITE,
 			MAP_SHARED,
 			rawsink->fd,
@@ -98,7 +98,7 @@ struct rawsink_t *rawsink_init(const char *name, mode_t mode, bool rm, bool mast
 		return NULL;
 }
 
-void rawsink_destroy(struct rawsink_t *rawsink) {
+void rawsink_destroy(rawsink_s *rawsink) {
 #	define CLOSE_SEM(_role) { \
 			if (rawsink->_role##_sem != SEM_FAILED) { \
 				if (sem_close(rawsink->_role##_sem) < 0) { \
@@ -118,7 +118,7 @@ void rawsink_destroy(struct rawsink_t *rawsink) {
 #	undef CLOSE_SEM
 
 	if (rawsink->shared != MAP_FAILED) {
-		if (munmap(rawsink->shared, sizeof(struct rawsink_shared_t)) < 0) {
+		if (munmap(rawsink->shared, sizeof(rawsink_shared_s)) < 0) {
 			LOG_PERROR("Can't unmap RAW sink memory");
 		}
 	}
@@ -141,7 +141,7 @@ void rawsink_destroy(struct rawsink_t *rawsink) {
 }
 
 void rawsink_put(
-	struct rawsink_t *rawsink,
+	rawsink_s *rawsink,
 	const uint8_t *data, size_t size,
 	unsigned format, unsigned width, unsigned height,
 	long double grab_ts) {
@@ -202,7 +202,7 @@ void rawsink_put(
 }
 
 int rawsink_get(
-	struct rawsink_t *rawsink,
+	rawsink_s *rawsink,
 	char *data, size_t *size,
 	unsigned *format, unsigned *width, unsigned *height,
 	long double *grab_ts,

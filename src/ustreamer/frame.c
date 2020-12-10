@@ -23,8 +23,8 @@
 #include "frame.h"
 
 
-struct frame_t *frame_init(const char *role) {
-	struct frame_t *frame;
+frame_s *frame_init(const char *role) {
+	frame_s *frame;
 
 	A_CALLOC(frame, 1);
 	frame->role = role;
@@ -32,14 +32,14 @@ struct frame_t *frame_init(const char *role) {
 	return frame;
 }
 
-void frame_destroy(struct frame_t *frame) {
+void frame_destroy(frame_s *frame) {
 	if (frame->data) {
 		free(frame->data);
 	}
 	free(frame);
 }
 
-void frame_realloc_data(struct frame_t *frame, size_t size) {
+void frame_realloc_data(frame_s *frame, size_t size) {
 	if (frame->allocated < size) {
 		LOG_DEBUG("Increasing frame buffer '%s': %zu -> %zu (+%zu)",
 			frame->role, frame->allocated, size, size - frame->allocated);
@@ -48,13 +48,13 @@ void frame_realloc_data(struct frame_t *frame, size_t size) {
 	}
 }
 
-void frame_set_data(struct frame_t *frame, const uint8_t *data, size_t size) {
+void frame_set_data(frame_s *frame, const uint8_t *data, size_t size) {
 	frame_realloc_data(frame, size);
 	memcpy(frame->data, data, size);
 	frame->used = size;
 }
 
-void frame_append_data(struct frame_t *frame, const uint8_t *data, size_t size) {
+void frame_append_data(frame_s *frame, const uint8_t *data, size_t size) {
 	size_t new_used = frame->used + size;
 
 	frame_realloc_data(frame, new_used);
@@ -62,7 +62,7 @@ void frame_append_data(struct frame_t *frame, const uint8_t *data, size_t size) 
 	frame->used = new_used;
 }
 
-void frame_copy(const struct frame_t *src, struct frame_t *dest) {
+void frame_copy(const frame_s *src, frame_s *dest) {
 	frame_set_data(dest, src->data, src->used);
 
 #	define COPY(_field) dest->_field = src->_field
@@ -80,7 +80,7 @@ void frame_copy(const struct frame_t *src, struct frame_t *dest) {
 #	undef COPY
 }
 
-bool frame_compare(const struct frame_t *a, const struct frame_t *b) {
+bool frame_compare(const frame_s *a, const frame_s *b) {
 	return (
 		a->allocated && b->allocated
 		&& a->used == b->used

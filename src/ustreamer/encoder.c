@@ -25,7 +25,7 @@
 
 static const struct {
 	const char *name;
-	const enum encoder_type_t type;
+	const encoder_type_e type;
 } _ENCODER_TYPES[] = {
 	{"CPU",		ENCODER_TYPE_CPU},
 	{"HW",		ENCODER_TYPE_HW},
@@ -42,9 +42,9 @@ static const struct {
 #define DR(_next)	dev->run->_next
 
 
-struct encoder_t *encoder_init(void) {
-	struct encoder_runtime_t *run;
-	struct encoder_t *encoder;
+encoder_s *encoder_init(void) {
+	encoder_runtime_s *run;
+	encoder_s *encoder;
 
 	A_CALLOC(run, 1);
 	run->type = ENCODER_TYPE_CPU;
@@ -59,7 +59,7 @@ struct encoder_t *encoder_init(void) {
 	return encoder;
 }
 
-void encoder_destroy(struct encoder_t *encoder) {
+void encoder_destroy(encoder_s *encoder) {
 #	ifdef WITH_OMX
 	if (ER(omxs)) {
 		for (unsigned index = 0; index < ER(n_omxs); ++index) {
@@ -75,7 +75,7 @@ void encoder_destroy(struct encoder_t *encoder) {
 	free(encoder);
 }
 
-enum encoder_type_t encoder_parse_type(const char *str) {
+encoder_type_e encoder_parse_type(const char *str) {
 	for (unsigned index = 0; index < ARRAY_LEN(_ENCODER_TYPES); ++index) {
 		if (!strcasecmp(str, _ENCODER_TYPES[index].name)) {
 			return _ENCODER_TYPES[index].type;
@@ -84,7 +84,7 @@ enum encoder_type_t encoder_parse_type(const char *str) {
 	return ENCODER_TYPE_UNKNOWN;
 }
 
-const char *encoder_type_to_string(enum encoder_type_t type) {
+const char *encoder_type_to_string(encoder_type_e type) {
 	for (unsigned index = 0; index < ARRAY_LEN(_ENCODER_TYPES); ++index) {
 		if (_ENCODER_TYPES[index].type == type) {
 			return _ENCODER_TYPES[index].name;
@@ -93,8 +93,8 @@ const char *encoder_type_to_string(enum encoder_type_t type) {
 	return _ENCODER_TYPES[0].name;
 }
 
-void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
-	enum encoder_type_t type = (ER(cpu_forced) ? ENCODER_TYPE_CPU : encoder->type);
+void encoder_prepare(encoder_s *encoder, device_s *dev) {
+	encoder_type_e type = (ER(cpu_forced) ? ENCODER_TYPE_CPU : encoder->type);
 	unsigned quality = encoder->quality;
 	bool cpu_forced = false;
 
@@ -198,7 +198,7 @@ void encoder_prepare(struct encoder_t *encoder, struct device_t *dev) {
 		A_MUTEX_UNLOCK(&ER(mutex));
 }
 
-void encoder_get_runtime_params(struct encoder_t *encoder, enum encoder_type_t *type, unsigned *quality) {
+void encoder_get_runtime_params(encoder_s *encoder, encoder_type_e *type, unsigned *quality) {
 	A_MUTEX_LOCK(&ER(mutex));
 	*type = ER(type);
 	*quality = ER(quality);
@@ -207,9 +207,7 @@ void encoder_get_runtime_params(struct encoder_t *encoder, enum encoder_type_t *
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic push
-int encoder_compress_buffer(
-	struct encoder_t *encoder, unsigned worker_number,
-	struct hw_buffer_t *hw, struct frame_t *frame) {
+int encoder_compress_buffer(encoder_s *encoder, unsigned worker_number, hw_buffer_s *hw, frame_s *frame) {
 #pragma GCC diagnostic pop
 
 	assert(ER(type) != ENCODER_TYPE_UNKNOWN);

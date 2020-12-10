@@ -72,29 +72,29 @@
 #include "static.h"
 
 
-struct stream_client_t {
-	struct http_server_t	*server;
-	struct evhttp_request	*request;
+typedef struct stream_client_sx {
+	struct server_sx *server;
+	struct evhttp_request *request;
 
-	char					*key;
-	bool					extra_headers;
-	bool					advance_headers;
-	bool					dual_final_frames;
+	char			*key;
+	bool			extra_headers;
+	bool			advance_headers;
+	bool			dual_final_frames;
 
-	char					id[37]; // ex. "1b4e28ba-2fa1-11d2-883f-0016d3cca427" + "\0"
-	bool					need_initial;
-	bool					need_first_frame;
-	bool					updated_prev;
-	unsigned				fps;
-	unsigned				fps_accum;
-	long long				fps_accum_second;
+	char			id[37]; // ex. "1b4e28ba-2fa1-11d2-883f-0016d3cca427" + "\0"
+	bool			need_initial;
+	bool			need_first_frame;
+	bool			updated_prev;
+	unsigned		fps;
+	unsigned		fps_accum;
+	long long		fps_accum_second;
 
-	struct stream_client_t	*prev;
-	struct stream_client_t	*next;
-};
+	struct stream_client_sx *prev;
+	struct stream_client_sx *next;
+} stream_client_s;
 
-struct exposed_t {
-	struct frame_t	*frame;
+typedef struct {
+	frame_s	*frame;
 	unsigned		captured_fps;
 	unsigned		queued_fps;
 	bool			online;
@@ -106,21 +106,21 @@ struct exposed_t {
 	bool		notify_last_online;
 	unsigned	notify_last_width;
 	unsigned	notify_last_height;
-};
+} exposed_s;
 
-struct http_server_runtime_t {
-	struct event_base		*base;
-	struct evhttp			*http;
-	evutil_socket_t			unix_fd;
-	char					*auth_token;
-	struct event			*refresh;
-	struct stream_t			*stream;
-	struct exposed_t		*exposed;
-	struct stream_client_t	*stream_clients;
-	unsigned				stream_clients_count;
-};
+typedef struct {
+	struct event_base	*base;
+	struct evhttp		*http;
+	evutil_socket_t		unix_fd;
+	char				*auth_token;
+	struct event		*refresh;
+	stream_s			*stream;
+	exposed_s			*exposed;
+	stream_client_s		*stream_clients;
+	unsigned			stream_clients_count;
+} server_runtime_s;
 
-struct http_server_t {
+typedef struct server_sx {
 	char		*host;
 	unsigned	port;
 	char		*unix_path;
@@ -141,13 +141,13 @@ struct http_server_t {
 
 	bool		notify_parent;
 
-	struct http_server_runtime_t *run;
-};
+	server_runtime_s *run;
+} server_s;
 
 
-struct http_server_t *http_server_init(struct stream_t *stream);
-void http_server_destroy(struct http_server_t *server);
+server_s *server_init(stream_s *stream);
+void server_destroy(server_s *server);
 
-int http_server_listen(struct http_server_t *server);
-void http_server_loop(struct http_server_t *server);
-void http_server_loop_break(struct http_server_t *server);
+int server_listen(server_s *server);
+void server_loop(server_s *server);
+void server_loop_break(server_s *server);

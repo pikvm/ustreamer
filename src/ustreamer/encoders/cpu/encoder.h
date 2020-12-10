@@ -36,4 +36,4 @@
 #include "../../device.h"
 
 
-void cpu_encoder_compress_buffer(struct hw_buffer_t *hw, struct frame_t *frame, unsigned quality);
+void cpu_encoder_compress_buffer(hw_buffer_s *hw, frame_s *frame, unsigned quality);

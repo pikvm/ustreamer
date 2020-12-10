@@ -28,14 +28,14 @@
 #include "encoder.h"
 
 
-struct _jpeg_dest_manager_t {
-	struct				jpeg_destination_mgr mgr; // Default manager
-	JOCTET				*buffer; // Start of buffer
-	struct frame_t	*frame;
-};
+typedef struct {
+	struct	jpeg_destination_mgr mgr; // Default manager
+	JOCTET	*buffer; // Start of buffer
+	frame_s	*frame;
+} _jpeg_dest_manager_s;
 
 
-static void _jpeg_set_picture(j_compress_ptr jpeg, struct frame_t *frame);
+static void _jpeg_set_picture(j_compress_ptr jpeg, frame_s *frame);
 
 static void _jpeg_write_scanlines_yuyv(
 	struct jpeg_compress_struct *jpeg, const uint8_t *data,
@@ -58,7 +58,7 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
 static void _jpeg_term_destination(j_compress_ptr jpeg);
 
 
-void cpu_encoder_compress_buffer(struct hw_buffer_t *hw, struct frame_t *frame, unsigned quality) {
+void cpu_encoder_compress_buffer(hw_buffer_s *hw, frame_s *frame, unsigned quality) {
 	// This function based on compress_image_to_jpeg() from mjpg-streamer
 
 	struct jpeg_compress_struct jpeg;
@@ -99,16 +99,16 @@ void cpu_encoder_compress_buffer(struct hw_buffer_t *hw, struct frame_t *frame, 
 	assert(frame->used > 0);
 }
 
-static void _jpeg_set_picture(j_compress_ptr jpeg, struct frame_t *frame) {
-	struct _jpeg_dest_manager_t *dest;
+static void _jpeg_set_picture(j_compress_ptr jpeg, frame_s *frame) {
+	_jpeg_dest_manager_s *dest;
 
 	if (jpeg->dest == NULL) {
 		assert((jpeg->dest = (struct jpeg_destination_mgr *)(*jpeg->mem->alloc_small)(
-			(j_common_ptr) jpeg, JPOOL_PERMANENT, sizeof(struct _jpeg_dest_manager_t)
+			(j_common_ptr) jpeg, JPOOL_PERMANENT, sizeof(_jpeg_dest_manager_s)
 		)));
 	}
 
-	dest = (struct _jpeg_dest_manager_t *)jpeg->dest;
+	dest = (_jpeg_dest_manager_s *)jpeg->dest;
 	dest->mgr.init_destination = _jpeg_init_destination;
 	dest->mgr.empty_output_buffer = _jpeg_empty_output_buffer;
 	dest->mgr.term_destination = _jpeg_term_destination;
@@ -249,7 +249,7 @@ static void _jpeg_write_scanlines_rgb24(
 #define JPEG_OUTPUT_BUFFER_SIZE ((size_t)4096)
 
 static void _jpeg_init_destination(j_compress_ptr jpeg) {
-	struct _jpeg_dest_manager_t *dest = (struct _jpeg_dest_manager_t *)jpeg->dest;
+	_jpeg_dest_manager_s *dest = (_jpeg_dest_manager_s *)jpeg->dest;
 
 	// Allocate the output buffer - it will be released when done with image
 	assert((dest->buffer = (JOCTET *)(*jpeg->mem->alloc_small)(
@@ -263,7 +263,7 @@ static void _jpeg_init_destination(j_compress_ptr jpeg) {
 static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg) {
 	// Called whenever local jpeg buffer fills up
 
-	struct _jpeg_dest_manager_t *dest = (struct _jpeg_dest_manager_t *)jpeg->dest;
+	_jpeg_dest_manager_s *dest = (_jpeg_dest_manager_s *)jpeg->dest;
 
 	frame_append_data(dest->frame, dest->buffer, JPEG_OUTPUT_BUFFER_SIZE);
 
@@ -277,7 +277,7 @@ static void _jpeg_term_destination(j_compress_ptr jpeg) {
 	// Called by jpeg_finish_compress after all data has been written.
 	// Usually needs to flush buffer.
 
-	struct _jpeg_dest_manager_t *dest = (struct _jpeg_dest_manager_t *)jpeg->dest;
+	_jpeg_dest_manager_s *dest = (_jpeg_dest_manager_s *)jpeg->dest;
 	size_t final = JPEG_OUTPUT_BUFFER_SIZE - dest->mgr.free_in_buffer;
 
 	// Write any data remaining in the buffer.

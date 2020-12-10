@@ -44,22 +44,22 @@
 #define RAWSINK_MAX_DATA ((size_t)(CFG_RAWSINK_MAX_DATA))
 
 
-struct rawsink_shared_t {
+typedef struct {
 	unsigned	format;
 	unsigned	width;
 	unsigned	height;
 	long double	grab_ts;
 	size_t		size;
 	uint8_t		data[RAWSINK_MAX_DATA];
-};
+} rawsink_shared_s;
 
-struct rawsink_t {
+typedef struct {
 	char	*mem_name;
 	char	*signal_name;
 	char	*lock_name;
 
 	int		fd;
-	struct rawsink_shared_t *shared;
+	rawsink_shared_s *shared;
 
 	sem_t	*signal_sem;
 	sem_t	*lock_sem;
@@ -68,20 +68,20 @@ struct rawsink_t {
 	bool	master;
 
 	bool	master_failed;
-};
+} rawsink_s;
 
 
-struct rawsink_t *rawsink_init(const char *name, mode_t mode, bool rm, bool master);
-void rawsink_destroy(struct rawsink_t *rawsink);
+rawsink_s *rawsink_init(const char *name, mode_t mode, bool rm, bool master);
+void rawsink_destroy(rawsink_s *rawsink);
 
 void rawsink_put(
-	struct rawsink_t *rawsink,
+	rawsink_s *rawsink,
 	const uint8_t *data, size_t size,
 	unsigned format, unsigned witdh, unsigned height,
 	long double grab_ts);
 
 int rawsink_get(
-	struct rawsink_t *rawsink,
+	rawsink_s *rawsink,
 	char *data, size_t *size,
 	unsigned *format, unsigned *width, unsigned *height,
 	long double *grab_ts,

@@ -35,4 +35,4 @@
 #include "data/blank_jpeg.h"
 
 
-struct frame_t *blank_frame_init(const char *path);
+frame_s *blank_frame_init(const char *path);

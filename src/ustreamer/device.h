@@ -70,7 +70,7 @@
 #define IO_METHODS_STR		"MMAP, USERPTR"
 
 
-struct hw_buffer_t {
+typedef struct {
 	uint8_t		*data;
 	size_t		used;
 	size_t		allocated;
@@ -79,85 +79,85 @@ struct hw_buffer_t {
 	unsigned	format;
 	long double	grab_ts;
 
-	struct v4l2_buffer	buf_info;
+	struct v4l2_buffer buf_info;
 
 	pthread_mutex_t grabbed_mutex;
 	bool			grabbed;
-};
+} hw_buffer_s;
 
-struct device_runtime_t {
-	int					fd;
-	unsigned			width;
-	unsigned			height;
-	unsigned			format;
-	unsigned			hw_fps;
-	size_t				raw_size;
-	unsigned			n_buffers;
-	struct hw_buffer_t	*hw_buffers;
-	bool				capturing;
-	bool				persistent_timeout_reported;
-};
+typedef struct {
+	int			fd;
+	unsigned	width;
+	unsigned	height;
+	unsigned	format;
+	unsigned	hw_fps;
+	size_t		raw_size;
+	unsigned	n_buffers;
+	hw_buffer_s	*hw_buffers;
+	bool		capturing;
+	bool		persistent_timeout_reported;
+} device_runtime_s;
 
-enum control_mode_t {
+typedef enum {
 	CTL_MODE_NONE = 0,
 	CTL_MODE_VALUE,
 	CTL_MODE_AUTO,
 	CTL_MODE_DEFAULT,
-};
+} control_mode_e;
 
-struct control_t {
-	enum control_mode_t	mode;
-	int					value;
-};
+typedef struct {
+	control_mode_e	mode;
+	int				value;
+} control_s;
 
-struct controls_t {
-	struct control_t brightness;
-	struct control_t contrast;
-	struct control_t saturation;
-	struct control_t hue;
-	struct control_t gamma;
-	struct control_t sharpness;
-	struct control_t backlight_compensation;
-	struct control_t white_balance;
-	struct control_t gain;
-	struct control_t color_effect;
-	struct control_t flip_vertical;
-	struct control_t flip_horizontal;
-};
+typedef struct {
+	control_s brightness;
+	control_s contrast;
+	control_s saturation;
+	control_s hue;
+	control_s gamma;
+	control_s sharpness;
+	control_s backlight_compensation;
+	control_s white_balance;
+	control_s gain;
+	control_s color_effect;
+	control_s flip_vertical;
+	control_s flip_horizontal;
+} controls_s;
 
-struct device_t {
-	char			*path;
-	unsigned		input;
-	unsigned		width;
-	unsigned		height;
-	unsigned		format;
-	v4l2_std_id		standard;
+typedef struct {
+	char				*path;
+	unsigned			input;
+	unsigned			width;
+	unsigned			height;
+	unsigned			format;
+	v4l2_std_id			standard;
 	enum v4l2_memory	io_method;
-	bool			dv_timings;
-	unsigned		n_buffers;
-	unsigned		desired_fps;
-	size_t			min_frame_size;
-	bool			persistent;
-	unsigned		timeout;
+	bool				dv_timings;
+	unsigned			n_buffers;
+	unsigned			desired_fps;
+	size_t				min_frame_size;
+	bool				persistent;
+	unsigned			timeout;
 
-	struct controls_t ctl;
+	controls_s ctl;
 
-	struct device_runtime_t *run;
-};
+	device_runtime_s *run;
+} device_s;
 
 
-struct device_t *device_init(void);
-void device_destroy(struct device_t *dev);
+device_s *device_init(void);
+void device_destroy(device_s *dev);
 
 int device_parse_format(const char *str);
 v4l2_std_id device_parse_standard(const char *str);
 int device_parse_io_method(const char *str);
 
-int device_open(struct device_t *dev);
-void device_close(struct device_t *dev);
+int device_open(device_s *dev);
+void device_close(device_s *dev);
 
-int device_switch_capturing(struct device_t *dev, bool enable);
-int device_select(struct device_t *dev, bool *has_read, bool *has_write, bool *has_error);
-int device_grab_buffer(struct device_t *dev);
-int device_release_buffer(struct device_t *dev, unsigned index);
-int device_consume_event(struct device_t *dev);
+int device_switch_capturing(device_s *dev, bool enable);
+int device_select(device_s *dev, bool *has_read, bool *has_write, bool *has_error);
+int device_grab_buffer(device_s *dev);
+int device_release_buffer(device_s *dev, unsigned index);
+int device_consume_event(device_s *dev);

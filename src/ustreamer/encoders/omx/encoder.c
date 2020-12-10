@@ -31,11 +31,11 @@ static int _i_omx = 0;
 
 
 static int _vcos_semwait(VCOS_SEMAPHORE_T *sem);
-static int _omx_init_component(struct omx_encoder_t *omx);
-static int _omx_init_disable_ports(struct omx_encoder_t *omx);
-static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev);
-static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality);
-static int _omx_encoder_clear_ports(struct omx_encoder_t *omx);
+static int _omx_init_component(omx_encoder_s *omx);
+static int _omx_init_disable_ports(omx_encoder_s *omx);
+static int _omx_setup_input(omx_encoder_s *omx, device_s *dev);
+static int _omx_setup_output(omx_encoder_s *omx, unsigned quality);
+static int _omx_encoder_clear_ports(omx_encoder_s *omx);
 
 static OMX_ERRORTYPE _omx_event_handler(
 	UNUSED OMX_HANDLETYPE encoder,
@@ -51,7 +51,7 @@ static OMX_ERRORTYPE _omx_output_available_handler(
 	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buffer);
 
 
-struct omx_encoder_t *omx_encoder_init(void) {
+omx_encoder_s *omx_encoder_init(void) {
 	// Some theory:
 	//   - http://www.fourcc.org/yuv.php
 	//   - https://kwasi-ich.de/blog/2017/11/26/omx/
@@ -62,7 +62,7 @@ struct omx_encoder_t *omx_encoder_init(void) {
 	//   - https://bitbucket.org/bensch128/omxjpegencode/src/master/jpeg_encoder.cpp
 	//   - http://home.nouwen.name/RaspberryPi/documentation/ilcomponents/image_encode.html
 
-	struct omx_encoder_t *omx;
+	omx_encoder_s *omx;
 	OMX_ERRORTYPE error;
 
 	A_CALLOC(omx, 1);
@@ -103,7 +103,7 @@ struct omx_encoder_t *omx_encoder_init(void) {
 		return NULL;
 }
 
-void omx_encoder_destroy(struct omx_encoder_t *omx) {
+void omx_encoder_destroy(omx_encoder_s *omx) {
 	OMX_ERRORTYPE error;
 
 	LOG_INFO("Destroying OMX encoder ...");
@@ -135,7 +135,7 @@ void omx_encoder_destroy(struct omx_encoder_t *omx) {
 	free(omx);
 }
 
-int omx_encoder_prepare(struct omx_encoder_t *omx, struct device_t *dev, unsigned quality) {
+int omx_encoder_prepare(omx_encoder_s *omx, device_s *dev, unsigned quality) {
 	if (component_set_state(&omx->encoder, OMX_StateIdle) < 0) {
 		return -1;
 	}
@@ -154,7 +154,7 @@ int omx_encoder_prepare(struct omx_encoder_t *omx, struct device_t *dev, unsigne
 	return 0;
 }
 
-int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct hw_buffer_t *hw, struct frame_t *frame) {
+int omx_encoder_compress_buffer(omx_encoder_s *omx, hw_buffer_s *hw, frame_s *frame) {
 #	define IN(_next)	omx->input_buffer->_next
 #	define OUT(_next)	omx->output_buffer->_next
 
@@ -259,7 +259,7 @@ static int _vcos_semwait(VCOS_SEMAPHORE_T *sem) {
 #	endif
 }
 
-static int _omx_init_component(struct omx_encoder_t *omx) {
+static int _omx_init_component(omx_encoder_s *omx) {
 	OMX_ERRORTYPE error;
 
 	OMX_CALLBACKTYPE callbacks;
@@ -277,7 +277,7 @@ static int _omx_init_component(struct omx_encoder_t *omx) {
 	return 0;
 }
 
-static int _omx_init_disable_ports(struct omx_encoder_t *omx) {
+static int _omx_init_disable_ports(omx_encoder_s *omx) {
 	OMX_ERRORTYPE error;
 	OMX_INDEXTYPE types[] = {
 		OMX_IndexParamAudioInit, OMX_IndexParamVideoInit,
@@ -305,7 +305,7 @@ static int _omx_init_disable_ports(struct omx_encoder_t *omx) {
 	return 0;
 }
 
-static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
+static int _omx_setup_input(omx_encoder_s *omx, device_s *dev) {
 	OMX_ERRORTYPE error;
 	OMX_PARAM_PORTDEFINITIONTYPE portdef;
 
@@ -364,7 +364,7 @@ static int _omx_setup_input(struct omx_encoder_t *omx, struct device_t *dev) {
 	return 0;
 }
 
-static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality) {
+static int _omx_setup_output(omx_encoder_s *omx, unsigned quality) {
 	OMX_ERRORTYPE error;
 	OMX_PARAM_PORTDEFINITIONTYPE portdef;
 
@@ -438,7 +438,7 @@ static int _omx_setup_output(struct omx_encoder_t *omx, unsigned quality) {
 	return 0;
 }
 
-static int _omx_encoder_clear_ports(struct omx_encoder_t *omx) {
+static int _omx_encoder_clear_ports(omx_encoder_s *omx) {
 	OMX_ERRORTYPE error;
 	int retval = 0;
 
@@ -475,7 +475,7 @@ static OMX_ERRORTYPE _omx_event_handler(
 
 	// OMX calls this handler for all the events it emits
 
-	struct omx_encoder_t *omx = (struct omx_encoder_t *)v_omx;
+	omx_encoder_s *omx = (omx_encoder_s *)v_omx;
 
 	if (event == OMX_EventError) {
 		LOG_ERROR_OMX((OMX_ERRORTYPE)data1, "OMX error event received");
@@ -492,7 +492,7 @@ static OMX_ERRORTYPE _omx_input_required_handler(
 	// Called by OMX when the encoder component requires
 	// the input buffer to be filled with RAW image data
 
-	struct omx_encoder_t *omx = (struct omx_encoder_t *)v_omx;
+	omx_encoder_s *omx = (omx_encoder_s *)v_omx;
 
 	omx->input_required = true;
 	assert(vcos_semaphore_post(&omx->handler_sem) == VCOS_SUCCESS);
@@ -506,7 +506,7 @@ static OMX_ERRORTYPE _omx_output_available_handler(
 	// Called by OMX when the encoder component has filled
 	// the output buffer with JPEG data
 
-	struct omx_encoder_t *omx = (struct omx_encoder_t *)v_omx;
+	omx_encoder_s *omx = (omx_encoder_s *)v_omx;
 
 	omx->output_available = true;
 	assert(vcos_semaphore_post(&omx->handler_sem) == VCOS_SUCCESS);

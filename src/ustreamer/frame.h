@@ -33,7 +33,7 @@
 #include "../common/logging.h"
 
 
-struct frame_t {
+typedef struct {
 	const char	*role;
 	uint8_t		*data;
 	size_t		used;
@@ -43,15 +43,15 @@ struct frame_t {
 	long double	grab_ts;
 	long double	encode_begin_ts;
 	long double	encode_end_ts;
-};
+} frame_s;
 
 
-struct frame_t *frame_init(const char *role);
-void frame_destroy(struct frame_t *frame);
+frame_s *frame_init(const char *role);
+void frame_destroy(frame_s *frame);
 
-void frame_realloc_data(struct frame_t *frame, size_t size);
-void frame_set_data(struct frame_t *frame, const uint8_t *data, size_t size);
-void frame_append_data(struct frame_t *frame, const uint8_t *data, size_t size);
+void frame_realloc_data(frame_s *frame, size_t size);
+void frame_set_data(frame_s *frame, const uint8_t *data, size_t size);
+void frame_append_data(frame_s *frame, const uint8_t *data, size_t size);
 
-void frame_copy(const struct frame_t *src, struct frame_t *dest);
-bool frame_compare(const struct frame_t *a, const struct frame_t *b);
+void frame_copy(const frame_s *src, frame_s *dest);
+bool frame_compare(const frame_s *a, const frame_s *b);

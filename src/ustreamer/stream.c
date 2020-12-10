@@ -23,70 +23,70 @@
 #include "stream.h"
 
 
-struct _worker_t {
-	pthread_t			tid;
-	unsigned			number;
-	atomic_bool			*proc_stop;
-	atomic_bool			*workers_stop;
+typedef struct _worker_sx {
+	pthread_t		tid;
+	unsigned		number;
+	atomic_bool		*proc_stop;
+	atomic_bool		*workers_stop;
 
-	long double			last_comp_time;
-	char				*frame_role;
-	struct frame_t		*frame;
+	long double		last_comp_time;
+	char			*frame_role;
+	frame_s			*frame;
 
-	pthread_mutex_t		has_job_mutex;
-	unsigned			buf_index;
-	atomic_bool			has_job;
-	bool				job_timely;
-	bool				job_failed;
-	long double			job_start_ts;
-	pthread_cond_t		has_job_cond;
+	pthread_mutex_t	has_job_mutex;
+	unsigned		buf_index;
+	atomic_bool		has_job;
+	bool			job_timely;
+	bool			job_failed;
+	long double		job_start_ts;
+	pthread_cond_t	has_job_cond;
 
-	pthread_mutex_t		*free_workers_mutex;
-	unsigned			*free_workers;
-	pthread_cond_t		*free_workers_cond;
+	pthread_mutex_t	*free_workers_mutex;
+	unsigned		*free_workers;
+	pthread_cond_t	*free_workers_cond;
 
-	struct _worker_t	*order_prev;
-	struct _worker_t	*order_next;
+	struct _worker_sx *order_prev;
+	struct _worker_sx *order_next;
 
-	struct stream_t		*stream;
-};
+	stream_s		*stream;
+} _worker_s;
 
-struct _workers_pool_t {
-	unsigned			n_workers;
-	struct _worker_t	*workers;
-	struct _worker_t	*oldest_wr;
-	struct _worker_t	*latest_wr;
+typedef struct {
+	unsigned		n_workers;
+	_worker_s		*workers;
+	_worker_s		*oldest_wr;
+	_worker_s		*latest_wr;
 
-	long double			approx_comp_time;
+	long double		approx_comp_time;
 
-	pthread_mutex_t		free_workers_mutex;
-	unsigned			free_workers;
-	pthread_cond_t		free_workers_cond;
+	pthread_mutex_t	free_workers_mutex;
+	unsigned		free_workers;
+	pthread_cond_t	free_workers_cond;
 
-	atomic_bool			workers_stop;
+	atomic_bool		workers_stop;
 
-	long double			desired_frames_interval;
-};
+	long double		desired_frames_interval;
+} _pool_s;
 
 
-static struct _workers_pool_t *_stream_init_loop(struct stream_t *stream);
-static struct _workers_pool_t *_stream_init_one(struct stream_t *stream);
-static void _stream_expose_frame(struct stream_t *stream, struct frame_t *frame, unsigned captured_fps);
+static _pool_s *_stream_init_loop(stream_s *stream);
+static _pool_s *_stream_init_one(stream_s *stream);
+static void _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps);
 
-static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream);
-static void _workers_pool_destroy(struct _workers_pool_t *pool);
+static _pool_s *_workers_pool_init(stream_s *stream);
+static void _workers_pool_destroy(_pool_s *pool);
 
 static void *_worker_thread(void *v_worker);
 
-static struct _worker_t *_workers_pool_wait(struct _workers_pool_t *pool);
-static void _workers_pool_assign(struct _workers_pool_t *pool, struct _worker_t *ready_wr, unsigned buf_index);
-static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool, struct _worker_t *ready_wr);
+static _worker_s *_workers_pool_wait(_pool_s *pool);
+static void _workers_pool_assign(_pool_s *pool, _worker_s *ready_wr, unsigned buf_index);
+static long double _workers_pool_get_fluency_delay(_pool_s *pool, _worker_s *ready_wr);
 
 
-struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
-	struct process_t *proc;
-	struct video_t *video;
-	struct stream_t *stream;
+stream_s *stream_init(device_s *dev, encoder_s *encoder) {
+	process_s *proc;
+	video_s *video;
+	stream_s *stream;
 
 	A_CALLOC(proc, 1);
 	atomic_init(&proc->stop, false);
@@ -111,7 +111,7 @@ struct stream_t *stream_init(struct device_t *dev, struct encoder_t *encoder) {
 	return stream;
 }
 
-void stream_destroy(struct stream_t *stream) {
+void stream_destroy(stream_s *stream) {
 	A_MUTEX_DESTROY(&stream->video->mutex);
 	frame_destroy(stream->video->frame);
 	free(stream->video);
@@ -119,15 +119,15 @@ void stream_destroy(struct stream_t *stream) {
 	free(stream);
 }
 
-void stream_loop(struct stream_t *stream) {
+void stream_loop(stream_s *stream) {
 #	define DEV(_next) stream->dev->_next
-	struct _workers_pool_t *pool;
+	_pool_s *pool;
 
 	LOG_INFO("Using V4L2 device: %s", DEV(path));
 	LOG_INFO("Using desired FPS: %u", DEV(desired_fps));
 
 #	ifdef WITH_RAWSINK
-	struct rawsink_t *rawsink = NULL;
+	rawsink_s *rawsink = NULL;
 	if (stream->rawsink_name[0] != '\0') {
 		rawsink = rawsink_init(stream->rawsink_name, stream->rawsink_mode, stream->rawsink_rm, true);
 	}
@@ -143,7 +143,7 @@ void stream_loop(struct stream_t *stream) {
 		LOG_INFO("Capturing ...");
 
 		while (!atomic_load(&stream->proc->stop)) {
-			struct _worker_t *ready_wr;
+			_worker_s *ready_wr;
 
 			SEP_DEBUG('-');
 			LOG_DEBUG("Waiting for worker ...");
@@ -272,16 +272,16 @@ void stream_loop(struct stream_t *stream) {
 #	undef DEV
 }
 
-void stream_loop_break(struct stream_t *stream) {
+void stream_loop_break(stream_s *stream) {
 	atomic_store(&stream->proc->stop, true);
 }
 
-void stream_switch_slowdown(struct stream_t *stream, bool slowdown) {
+void stream_switch_slowdown(stream_s *stream, bool slowdown) {
 	atomic_store(&stream->proc->slowdown, slowdown);
 }
 
-static struct _workers_pool_t *_stream_init_loop(struct stream_t *stream) {
-	struct _workers_pool_t *pool = NULL;
+static _pool_s *_stream_init_loop(stream_s *stream) {
+	_pool_s *pool = NULL;
 	int access_error = 0;
 
 	LOG_DEBUG("%s: stream->proc->stop=%d", __FUNCTION__, atomic_load(&stream->proc->stop));
@@ -313,7 +313,7 @@ static struct _workers_pool_t *_stream_init_loop(struct stream_t *stream) {
 	return pool;
 }
 
-static struct _workers_pool_t *_stream_init_one(struct stream_t *stream) {
+static _pool_s *_stream_init_one(stream_s *stream) {
 	if (device_open(stream->dev) < 0) {
 		goto error;
 	}
@@ -329,10 +329,10 @@ static struct _workers_pool_t *_stream_init_one(struct stream_t *stream) {
 		return NULL;
 }
 
-static void _stream_expose_frame(struct stream_t *stream, struct frame_t *frame, unsigned captured_fps) {
+static void _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps) {
 #	define VID(_next) stream->video->_next
 
-	struct frame_t *new = NULL;
+	frame_s *new = NULL;
 
 	A_MUTEX_LOCK(&VID(mutex));
 
@@ -382,11 +382,11 @@ static void _stream_expose_frame(struct stream_t *stream, struct frame_t *frame,
 #	undef VID
 }
 
-static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
+static _pool_s *_workers_pool_init(stream_s *stream) {
 #	define DEV(_next) stream->dev->_next
 #	define RUN(_next) stream->dev->run->_next
 
-	struct _workers_pool_t *pool;
+	_pool_s *pool;
 
 	LOG_INFO("Creating pool with %u workers ...", stream->encoder->run->n_workers);
 
@@ -437,7 +437,7 @@ static struct _workers_pool_t *_workers_pool_init(struct stream_t *stream) {
 	return pool;
 }
 
-static void _workers_pool_destroy(struct _workers_pool_t *pool) {
+static void _workers_pool_destroy(_pool_s *pool) {
 	LOG_INFO("Destroying workers pool ...");
 
 	atomic_store(&pool->workers_stop, true);
@@ -467,7 +467,7 @@ static void _workers_pool_destroy(struct _workers_pool_t *pool) {
 }
 
 static void *_worker_thread(void *v_worker) {
-	struct _worker_t *wr = (struct _worker_t *)v_worker;
+	_worker_s *wr = (_worker_s *)v_worker;
 
 	A_THREAD_RENAME("worker-%u", wr->number);
 	LOG_DEBUG("Hello! I am a worker #%u ^_^", wr->number);
@@ -520,8 +520,8 @@ static void *_worker_thread(void *v_worker) {
 	return NULL;
 }
 
-static struct _worker_t *_workers_pool_wait(struct _workers_pool_t *pool) {
-	struct _worker_t *ready_wr = NULL;
+static _worker_s *_workers_pool_wait(_pool_s *pool) {
+	_worker_s *ready_wr = NULL;
 
 	A_MUTEX_LOCK(&pool->free_workers_mutex);
 	A_COND_WAIT_TRUE(pool->free_workers, &pool->free_workers_cond, &pool->free_workers_mutex);
@@ -549,7 +549,7 @@ static struct _worker_t *_workers_pool_wait(struct _workers_pool_t *pool) {
 	return ready_wr;
 }
 
-static void _workers_pool_assign(struct _workers_pool_t *pool, struct _worker_t *ready_wr, unsigned buf_index) {
+static void _workers_pool_assign(_pool_s *pool, _worker_s *ready_wr, unsigned buf_index) {
 	if (pool->oldest_wr == NULL) {
 		pool->oldest_wr = ready_wr;
 		pool->latest_wr = pool->oldest_wr;
@@ -579,7 +579,7 @@ static void _workers_pool_assign(struct _workers_pool_t *pool, struct _worker_t 
 	LOG_DEBUG("Assigned new frame in buffer %u to worker %u", buf_index, ready_wr->number);
 }
 
-static long double _workers_pool_get_fluency_delay(struct _workers_pool_t *pool, struct _worker_t *ready_wr) {
+static long double _workers_pool_get_fluency_delay(_pool_s *pool, _worker_s *ready_wr) {
 	long double approx_comp_time;
 	long double min_delay;
 

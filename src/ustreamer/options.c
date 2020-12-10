@@ -205,18 +205,15 @@ static const struct option _LONG_OPTS[] = {
 
 static int _parse_resolution(const char *str, unsigned *width, unsigned *height, bool limited);
 #ifdef WITH_OMX
-static int _parse_glitched_resolutions(const char *str, struct encoder_t *encoder);
+static int _parse_glitched_resolutions(const char *str, encoder_s *encoder);
 #endif
 
 static void _features(void);
-
-static void _help(
-	struct device_t *dev, struct encoder_t *encoder,
-	struct stream_t *stream, struct http_server_t *server);
+static void _help(device_s *dev, encoder_s *encoder, stream_s *stream, server_s *server);
 
 
-struct options_t *options_init(int argc, char *argv[]) {
-	struct options_t *options;
+options_s *options_init(int argc, char *argv[]) {
+	options_s *options;
 
 	A_CALLOC(options, 1);
 	options->argc = argc;
@@ -230,7 +227,7 @@ struct options_t *options_init(int argc, char *argv[]) {
 	return options;
 }
 
-void options_destroy(struct options_t *options) {
+void options_destroy(options_s *options) {
 	if (options->blank) {
 		frame_destroy(options->blank);
 	}
@@ -242,10 +239,7 @@ void options_destroy(struct options_t *options) {
 }
 
 
-int options_parse(
-	struct options_t *options, struct device_t *dev, struct encoder_t *encoder,
-	struct stream_t *stream, struct http_server_t *server) {
-
+int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_s *stream, server_s *server) {
 #	define OPT_SET(_dest, _value) { \
 			_dest = _value; \
 			break; \
@@ -487,7 +481,7 @@ static int _parse_resolution(const char *str, unsigned *width, unsigned *height,
 }
 
 #ifdef WITH_OMX
-static int _parse_glitched_resolutions(const char *str, struct encoder_t *encoder) {
+static int _parse_glitched_resolutions(const char *str, encoder_s *encoder) {
 	char *str_copy;
 	char *ptr;
 	unsigned count = 0;
@@ -574,10 +568,7 @@ static void _features(void) {
 #	endif
 }
 
-static void _help(
-	struct device_t *dev, struct encoder_t *encoder,
-	struct stream_t *stream, struct http_server_t *server) {
-
+static void _help(device_s *dev, encoder_s *encoder, stream_s *stream, server_s *server) {
 	printf("\nuStreamer - Lightweight and fast MJPG-HTTP streamer\n");
 	printf("═══════════════════════════════════════════════════\n\n");
 	printf("Version: %s; license: GPLv3\n", VERSION);

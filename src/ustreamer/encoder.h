@@ -63,7 +63,7 @@
 	ENCODER_TYPES_OMX_HINT \
 	ENCODER_TYPES_NOOP_HINT
 
-enum encoder_type_t {
+typedef enum {
 	ENCODER_TYPE_UNKNOWN, // Only for encoder_parse_type() and main()
 	ENCODER_TYPE_CPU,
 	ENCODER_TYPE_HW,
@@ -73,44 +73,42 @@ enum encoder_type_t {
 #	ifdef WITH_RAWSINK
 	ENCODER_TYPE_NOOP,
 #	endif
-};
+} encoder_type_e;
 
-struct encoder_runtime_t {
-	enum encoder_type_t	type;
-	unsigned			quality;
-	bool				cpu_forced;
-	pthread_mutex_t		mutex;
+typedef struct {
+	encoder_type_e	type;
+	unsigned		quality;
+	bool			cpu_forced;
+	pthread_mutex_t	mutex;
 
-	unsigned			n_workers;
+	unsigned n_workers;
 
 #	ifdef WITH_OMX
 	unsigned				n_omxs;
-	struct omx_encoder_t	**omxs;
+	omx_encoder_s	**omxs;
 #	endif
-};
+} encoder_runtime_s;
 
-struct encoder_t {
-	enum encoder_type_t	type;
-	unsigned			quality;
-	unsigned			n_workers;
+typedef struct {
+	encoder_type_e	type;
+	unsigned		quality;
+	unsigned		n_workers;
 #	ifdef WITH_OMX
 	unsigned	n_glitched_resolutions;
 	unsigned	glitched_resolutions[2][MAX_GLITCHED_RESOLUTIONS];
 #	endif
 
-	struct encoder_runtime_t *run;
-};
+	encoder_runtime_s *run;
+} encoder_s;
 
 
-struct encoder_t *encoder_init(void);
-void encoder_destroy(struct encoder_t *encoder);
+encoder_s *encoder_init(void);
+void encoder_destroy(encoder_s *encoder);
 
-enum encoder_type_t encoder_parse_type(const char *str);
-const char *encoder_type_to_string(enum encoder_type_t type);
+encoder_type_e encoder_parse_type(const char *str);
+const char *encoder_type_to_string(encoder_type_e type);
 
-void encoder_prepare(struct encoder_t *encoder, struct device_t *dev);
-void encoder_get_runtime_params(struct encoder_t *encoder, enum encoder_type_t *type, unsigned *quality);
+void encoder_prepare(encoder_s *encoder, device_s *dev);
+void encoder_get_runtime_params(encoder_s *encoder, encoder_type_e *type, unsigned *quality);
 
-int encoder_compress_buffer(
-	struct encoder_t *encoder, unsigned worker_number,
-	struct hw_buffer_t *hw, struct frame_t *frame);
+int encoder_compress_buffer(encoder_s *encoder, unsigned worker_number, hw_buffer_s *hw, frame_s *frame);

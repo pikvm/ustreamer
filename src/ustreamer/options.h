@@ -48,17 +48,15 @@
 #endif
 
 
-struct options_t {
-	int				argc;
-	char			**argv;
-	char			**argv_copy;
-	struct frame_t	*blank;
-};
+typedef struct {
+	int		argc;
+	char	**argv;
+	char	**argv_copy;
+	frame_s	*blank;
+} options_s;
 
 
-struct options_t *options_init(int argc, char *argv[]);
-void options_destroy(struct options_t *options);
+options_s *options_init(int argc, char *argv[]);
+void options_destroy(options_s *options);
 
-int options_parse(
-	struct options_t *options, struct device_t *dev, struct encoder_t *encoder,
-	struct stream_t *stream, struct http_server_t *server);
+int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_s *stream, server_s *server);

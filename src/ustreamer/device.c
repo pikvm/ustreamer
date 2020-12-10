@@ -54,23 +54,23 @@ static const struct {
 };
 
 
-static int _device_open_check_cap(struct device_t *dev);
-static int _device_open_dv_timings(struct device_t *dev);
-static int _device_apply_dv_timings(struct device_t *dev);
-static int _device_open_format(struct device_t *dev);
-static void _device_open_hw_fps(struct device_t *dev);
-static int _device_open_io_method(struct device_t *dev);
-static int _device_open_io_method_mmap(struct device_t *dev);
-static int _device_open_io_method_userptr(struct device_t *dev);
-static int _device_open_queue_buffers(struct device_t *dev);
-static int _device_apply_resolution(struct device_t *dev, unsigned width, unsigned height);
+static int _device_open_check_cap(device_s *dev);
+static int _device_open_dv_timings(device_s *dev);
+static int _device_apply_dv_timings(device_s *dev);
+static int _device_open_format(device_s *dev);
+static void _device_open_hw_fps(device_s *dev);
+static int _device_open_io_method(device_s *dev);
+static int _device_open_io_method_mmap(device_s *dev);
+static int _device_open_io_method_userptr(device_s *dev);
+static int _device_open_queue_buffers(device_s *dev);
+static int _device_apply_resolution(device_s *dev, unsigned width, unsigned height);
 
-static void _device_apply_controls(struct device_t *dev);
+static void _device_apply_controls(device_s *dev);
 static int _device_query_control(
-	struct device_t *dev, struct v4l2_queryctrl *query,
+	device_s *dev, struct v4l2_queryctrl *query,
 	const char *name, unsigned cid, bool quiet);
 static void _device_set_control(
-	struct device_t *dev, struct v4l2_queryctrl *query,
+	device_s *dev, struct v4l2_queryctrl *query,
 	const char *name, unsigned cid, int value, bool quiet);
 
 static const char *_format_to_string_fourcc(char *buf, size_t size, unsigned format);
@@ -83,9 +83,9 @@ static const char *_io_method_to_string_supported(enum v4l2_memory io_method);
 #define RUN(_next) dev->run->_next
 
 
-struct device_t *device_init(void) {
-	struct device_runtime_t *run;
-	struct device_t *dev;
+device_s *device_init(void) {
+	device_runtime_s *run;
+	device_s *dev;
 
 	A_CALLOC(run, 1);
 	run->fd = -1;
@@ -104,7 +104,7 @@ struct device_t *device_init(void) {
 	return dev;
 }
 
-void device_destroy(struct device_t *dev) {
+void device_destroy(device_s *dev) {
 	free(dev->run);
 	free(dev);
 }
@@ -136,7 +136,7 @@ int device_parse_io_method(const char *str) {
 	return IO_METHOD_UNKNOWN;
 }
 
-int device_open(struct device_t *dev) {
+int device_open(device_s *dev) {
 	if ((RUN(fd) = open(dev->path, O_RDWR|O_NONBLOCK)) < 0) {
 		LOG_PERROR("Can't open device");
 		goto error;
@@ -169,7 +169,7 @@ int device_open(struct device_t *dev) {
 		return -1;
 }
 
-void device_close(struct device_t *dev) {
+void device_close(device_s *dev) {
 	RUN(persistent_timeout_reported) = false;
 
 	if (RUN(hw_buffers)) {
@@ -208,7 +208,7 @@ void device_close(struct device_t *dev) {
 	}
 }
 
-int device_switch_capturing(struct device_t *dev, bool enable) {
+int device_switch_capturing(device_s *dev, bool enable) {
 	if (enable != RUN(capturing)) {
 		enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
@@ -226,7 +226,7 @@ int device_switch_capturing(struct device_t *dev, bool enable) {
     return 0;
 }
 
-int device_select(struct device_t *dev, bool *has_read, bool *has_write, bool *has_error) {
+int device_select(device_s *dev, bool *has_read, bool *has_write, bool *has_error) {
 	struct timeval timeout;
 	int retval;
 
@@ -272,7 +272,7 @@ int device_select(struct device_t *dev, bool *has_read, bool *has_write, bool *h
 	return retval;
 }
 
-int device_grab_buffer(struct device_t *dev) {
+int device_grab_buffer(device_s *dev) {
 	struct v4l2_buffer buf_info;
 
 	MEMSET_ZERO(buf_info);
@@ -332,7 +332,7 @@ int device_grab_buffer(struct device_t *dev) {
 	return buf_info.index;
 }
 
-int device_release_buffer(struct device_t *dev, unsigned index) {
+int device_release_buffer(device_s *dev, unsigned index) {
 #	define HW(_next) RUN(hw_buffers)[index]._next
 
 	LOG_DEBUG("Releasing device buffer index=%u ...", index);
@@ -350,7 +350,7 @@ int device_release_buffer(struct device_t *dev, unsigned index) {
 	return 0;
 }
 
-int device_consume_event(struct device_t *dev) {
+int device_consume_event(device_s *dev) {
 	struct v4l2_event event;
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_DQEVENT) ...");
@@ -369,7 +369,7 @@ int device_consume_event(struct device_t *dev) {
 	return 0;
 }
 
-static int _device_open_check_cap(struct device_t *dev) {
+static int _device_open_check_cap(device_s *dev) {
 	struct v4l2_capability cap;
 	int input = dev->input; // Needs pointer to int for ioctl()
 
@@ -409,7 +409,7 @@ static int _device_open_check_cap(struct device_t *dev) {
 	return 0;
 }
 
-static int _device_open_dv_timings(struct device_t *dev) {
+static int _device_open_dv_timings(device_s *dev) {
 	_device_apply_resolution(dev, dev->width, dev->height);
 	if (dev->dv_timings) {
 		LOG_DEBUG("Using DV timings");
@@ -432,7 +432,7 @@ static int _device_open_dv_timings(struct device_t *dev) {
 	return 0;
 }
 
-static int _device_apply_dv_timings(struct device_t *dev) {
+static int _device_apply_dv_timings(device_s *dev) {
 	struct v4l2_dv_timings dv;
 
 	MEMSET_ZERO(dv);
@@ -465,7 +465,7 @@ static int _device_apply_dv_timings(struct device_t *dev) {
 	return 0;
 }
 
-static int _device_open_format(struct device_t *dev) {
+static int _device_open_format(device_s *dev) {
 	struct v4l2_format fmt;
 
 	MEMSET_ZERO(fmt);
@@ -517,7 +517,7 @@ static int _device_open_format(struct device_t *dev) {
 	return 0;
 }
 
-static void _device_open_hw_fps(struct device_t *dev) {
+static void _device_open_hw_fps(device_s *dev) {
 	struct v4l2_streamparm setfps;
 
 	RUN(hw_fps) = 0;
@@ -572,7 +572,7 @@ static void _device_open_hw_fps(struct device_t *dev) {
 #	undef SETFPS_TPF
 }
 
-static int _device_open_io_method(struct device_t *dev) {
+static int _device_open_io_method(device_s *dev) {
 	LOG_INFO("Using IO method: %s", _io_method_to_string_supported(dev->io_method));
 	switch (dev->io_method) {
 		case V4L2_MEMORY_MMAP: return _device_open_io_method_mmap(dev);
@@ -582,7 +582,7 @@ static int _device_open_io_method(struct device_t *dev) {
 	return -1;
 }
 
-static int _device_open_io_method_mmap(struct device_t *dev) {
+static int _device_open_io_method_mmap(device_s *dev) {
 	struct v4l2_requestbuffers req;
 
 	MEMSET_ZERO(req);
@@ -643,7 +643,7 @@ static int _device_open_io_method_mmap(struct device_t *dev) {
 	return 0;
 }
 
-static int _device_open_io_method_userptr(struct device_t *dev) {
+static int _device_open_io_method_userptr(device_s *dev) {
 	struct v4l2_requestbuffers req;
 	unsigned page_size = getpagesize();
 	unsigned buf_size = align_size(RUN(raw_size), page_size);
@@ -681,7 +681,7 @@ static int _device_open_io_method_userptr(struct device_t *dev) {
 	return 0;
 }
 
-static int _device_open_queue_buffers(struct device_t *dev) {
+static int _device_open_queue_buffers(device_s *dev) {
 	for (unsigned index = 0; index < RUN(n_buffers); ++index) {
 		struct v4l2_buffer buf_info;
 
@@ -703,7 +703,7 @@ static int _device_open_queue_buffers(struct device_t *dev) {
 	return 0;
 }
 
-static int _device_apply_resolution(struct device_t *dev, unsigned width, unsigned height) {
+static int _device_apply_resolution(device_s *dev, unsigned width, unsigned height) {
 	// Тут VIDEO_MIN_* не используются из-за странностей минимального разрешения при отсутствии сигнала
 	// у некоторых устройств, например Auvidea B101
 	if (
@@ -719,7 +719,7 @@ static int _device_apply_resolution(struct device_t *dev, unsigned width, unsign
 	return 0;
 }
 
-static void _device_apply_controls(struct device_t *dev) {
+static void _device_apply_controls(device_s *dev) {
 #	define SET_CID_VALUE(_cid, _field, _value, _quiet) { \
 			struct v4l2_queryctrl query; \
 			if (_device_query_control(dev, &query, #_field, _cid, _quiet) == 0) { \
@@ -775,7 +775,7 @@ static void _device_apply_controls(struct device_t *dev) {
 }
 
 static int _device_query_control(
-	struct device_t *dev, struct v4l2_queryctrl *query,
+	device_s *dev, struct v4l2_queryctrl *query,
 	const char *name, unsigned cid, bool quiet) {
 
 	// cppcheck-suppress redundantPointerOp
@@ -792,7 +792,7 @@ static int _device_query_control(
 }
 
 static void _device_set_control(
-	struct device_t *dev, struct v4l2_queryctrl *query,
+	device_s *dev, struct v4l2_queryctrl *query,
 	const char *name, unsigned cid, int value, bool quiet) {
 
 	struct v4l2_control ctl;

@@ -51,7 +51,7 @@
 #define OMX_MAX_ENCODERS ((unsigned)(CFG_OMX_MAX_ENCODERS))
 
 
-struct omx_encoder_t {
+typedef struct {
 	OMX_HANDLETYPE			encoder;
 	OMX_BUFFERHEADERTYPE	*input_buffer;
 	OMX_BUFFERHEADERTYPE	*output_buffer;
@@ -64,11 +64,11 @@ struct omx_encoder_t {
 	bool	i_encoder;
 	bool	i_input_port_enabled;
 	bool	i_output_port_enabled;
-};
+} omx_encoder_s;
 
 
-struct omx_encoder_t *omx_encoder_init(void);
-void omx_encoder_destroy(struct omx_encoder_t *omx);
+omx_encoder_s *omx_encoder_init(void);
+void omx_encoder_destroy(omx_encoder_s *omx);
 
-int omx_encoder_prepare(struct omx_encoder_t *omx, struct device_t *dev, unsigned quality);
-int omx_encoder_compress_buffer(struct omx_encoder_t *omx, struct hw_buffer_t *hw, struct frame_t *frame);
+int omx_encoder_prepare(omx_encoder_s *omx, device_s *dev, unsigned quality);
+int omx_encoder_compress_buffer(omx_encoder_s *omx, hw_buffer_s *hw, frame_s *frame);

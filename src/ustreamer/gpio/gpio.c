@@ -23,7 +23,7 @@
 #include "gpio.h"
 
 
-struct gpio_t gpio = {
+gpio_s gpio = {
 	.path = "/dev/gpiochip0",
 	.consumer_prefix = "ustreamer",
 
@@ -46,8 +46,8 @@ struct gpio_t gpio = {
 };
 
 
-static void _gpio_output_init(struct gpio_output_t *output);
-static void _gpio_output_destroy(struct gpio_output_t *output);
+static void _gpio_output_init(gpio_output_s *output);
+static void _gpio_output_destroy(gpio_output_s *output);
 
 
 void gpio_init(void) {
@@ -80,7 +80,7 @@ void gpio_destroy(void) {
 	}
 }
 
-int gpio_inner_set(struct gpio_output_t *output, bool state) {
+int gpio_inner_set(gpio_output_s *output, bool state) {
 	int retval = 0;
 
 	assert(gpio.chip);
@@ -98,7 +98,7 @@ int gpio_inner_set(struct gpio_output_t *output, bool state) {
 	return retval;
 }
 
-static void _gpio_output_init(struct gpio_output_t *output) {
+static void _gpio_output_init(gpio_output_s *output) {
 	assert(gpio.chip);
 	assert(output->line == NULL);
 
@@ -117,7 +117,7 @@ static void _gpio_output_init(struct gpio_output_t *output) {
 	}
 }
 
-static void _gpio_output_destroy(struct gpio_output_t *output) {
+static void _gpio_output_destroy(gpio_output_s *output) {
 	if (output->line) {
 		gpiod_line_release(output->line);
 		output->line = NULL;

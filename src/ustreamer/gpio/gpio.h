@@ -35,33 +35,33 @@
 #include "../../common/threading.h"
 
 
-struct gpio_output_t {
+typedef struct {
 	int					pin;
 	const char			*role;
 	char 				*consumer;
 	struct gpiod_line	*line;
 	bool				state;
-};
+} gpio_output_s;
 
-struct gpio_t {
+typedef struct {
 	char *path;
 	char *consumer_prefix;
 
-	struct gpio_output_t prog_running;
-	struct gpio_output_t stream_online;
-	struct gpio_output_t has_http_clients;
+	gpio_output_s prog_running;
+	gpio_output_s stream_online;
+	gpio_output_s has_http_clients;
 
 	pthread_mutex_t		mutex;
 	struct gpiod_chip	*chip;
-};
+} gpio_s;
 
 
-extern struct gpio_t gpio;
+extern gpio_s gpio;
 
 
 void gpio_init(void);
 void gpio_destroy(void);
-int gpio_inner_set(struct gpio_output_t *output, bool state);
+int gpio_inner_set(gpio_output_s *output, bool state);
 
 
 #define SET_STATE(_output, _state) { \

@@ -23,21 +23,21 @@
 #include "blank.h"
 
 
-struct _jpeg_error_manager_t {
+typedef struct {
 	struct jpeg_error_mgr	mgr; // Default manager
 	jmp_buf					jmp;
-};
+} _jpeg_error_manager_s;
 
 
-static struct frame_t *_init_internal(void);
-static struct frame_t *_init_external(const char *path);
+static frame_s *_init_internal(void);
+static frame_s *_init_external(const char *path);
 
 static int _jpeg_read_geometry(FILE *fp, unsigned *width, unsigned *height);
 static void _jpeg_error_handler(j_common_ptr jpeg);
 
 
-struct frame_t *blank_frame_init(const char *path) {
-	struct frame_t *blank = NULL;
+frame_s *blank_frame_init(const char *path) {
+	frame_s *blank = NULL;
 
 	if (path && path[0] != '\0') {
 		blank = _init_external(path);
@@ -52,8 +52,8 @@ struct frame_t *blank_frame_init(const char *path) {
 	return blank;
 }
 
-static struct frame_t *_init_internal(void) {
-	struct frame_t *blank;
+static frame_s *_init_internal(void) {
+	frame_s *blank;
 
 	blank = frame_init("blank_internal");
 	frame_set_data(blank, BLANK_JPEG_DATA, BLANK_JPEG_DATA_SIZE);
@@ -62,9 +62,9 @@ static struct frame_t *_init_internal(void) {
 	return blank;
 }
 
-static struct frame_t *_init_external(const char *path) {
+static frame_s *_init_external(const char *path) {
 	FILE *fp = NULL;
-	struct frame_t *blank;
+	frame_s *blank;
 
 	blank = frame_init("blank_external");
 
@@ -116,7 +116,7 @@ static struct frame_t *_init_external(const char *path) {
 
 static int _jpeg_read_geometry(FILE *fp, unsigned *width, unsigned *height) {
 	struct jpeg_decompress_struct jpeg;
-	struct _jpeg_error_manager_t jpeg_error;
+	_jpeg_error_manager_s jpeg_error;
 
 	jpeg_create_decompress(&jpeg);
 
@@ -140,7 +140,7 @@ static int _jpeg_read_geometry(FILE *fp, unsigned *width, unsigned *height) {
 }
 
 static void _jpeg_error_handler(j_common_ptr jpeg) {
-	struct _jpeg_error_manager_t *jpeg_error = (struct _jpeg_error_manager_t *)jpeg->err;
+	_jpeg_error_manager_s *jpeg_error = (_jpeg_error_manager_s *)jpeg->err;
 	char msg[JMSG_LENGTH_MAX];
 
 	(*jpeg_error->mgr.format_message)(jpeg, msg);

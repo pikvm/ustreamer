@@ -50,12 +50,12 @@
 #endif
 
 
-struct _main_context_t {
-	struct stream_t			*stream;
-	struct http_server_t	*server;
-};
+typedef struct {
+	stream_s			*stream;
+	server_s	*server;
+} _main_context_s;
 
-static struct _main_context_t *_ctx;
+static _main_context_s *_ctx;
 
 static void _block_thread_signals(void) {
 	sigset_t mask;
@@ -75,14 +75,14 @@ static void *_stream_loop_thread(UNUSED void *arg) {
 static void *_server_loop_thread(UNUSED void *arg) {
 	A_THREAD_RENAME("http");
 	_block_thread_signals();
-	http_server_loop(_ctx->server);
+	server_loop(_ctx->server);
 	return NULL;
 }
 
 static void _signal_handler(int signum) {
 	LOG_INFO_NOLOCK("===== Stopping by %s =====", (signum == SIGTERM ? "SIGTERM" : "SIGINT"));
 	stream_loop_break(_ctx->stream);
-	http_server_loop_break(_ctx->server);
+	server_loop_break(_ctx->server);
 }
 
 static void _install_signal_handlers(void) {
@@ -105,11 +105,11 @@ static void _install_signal_handlers(void) {
 }
 
 int main(int argc, char *argv[]) {
-	struct options_t *options;
-	struct device_t *dev;
-	struct encoder_t *encoder;
-	struct stream_t *stream;
-	struct http_server_t *server;
+	options_s *options;
+	device_s *dev;
+	encoder_s *encoder;
+	stream_s *stream;
+	server_s *server;
 	int exit_code = 0;
 
 	LOGGING_INIT;
@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
 	dev = device_init();
 	encoder = encoder_init();
 	stream = stream_init(dev, encoder);
-	server = http_server_init(stream);
+	server = server_init(stream);
 
 	if ((exit_code = options_parse(options, dev, encoder, stream, server)) == 0) {
 #		ifdef WITH_GPIO
@@ -130,13 +130,13 @@ int main(int argc, char *argv[]) {
 
 		pthread_t stream_loop_tid;
 		pthread_t server_loop_tid;
-		struct _main_context_t ctx;
+		_main_context_s ctx;
 
 		ctx.stream = stream;
 		ctx.server = server;
 		_ctx = &ctx;
 
-		if ((exit_code = http_server_listen(server)) == 0) {
+		if ((exit_code = server_listen(server)) == 0) {
 #			ifdef WITH_GPIO
 			gpio_set_prog_running(true);
 #			endif
@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
 #		endif
 	}
 
-	http_server_destroy(server);
+	server_destroy(server);
 	stream_destroy(stream);
 	encoder_destroy(encoder);
 	device_destroy(dev);
