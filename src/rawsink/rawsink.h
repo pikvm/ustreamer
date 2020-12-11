@@ -31,6 +31,7 @@
 #include <assert.h>
 
 #include <sys/types.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
@@ -54,24 +55,22 @@ typedef struct {
 } rawsink_shared_s;
 
 typedef struct {
-	char	*mem_name;
-	char	*signal_name;
-	char	*lock_name;
+	bool		server;
+	bool		rm;
+	unsigned	timeout;
 
-	int		fd;
-	rawsink_shared_s *shared;
+	char *mem_name;
+	char *sig_name;
 
-	sem_t	*signal_sem;
-	sem_t	*lock_sem;
+	int					fd;
+	rawsink_shared_s	*mem;
+	sem_t				*sig_sem;
 
-	bool	rm;
-	bool	server;
-
-	bool	server_failed;
+	bool server_failed;
 } rawsink_s;
 
 
-rawsink_s *rawsink_init(const char *name, mode_t mode, bool rm, bool server);
+rawsink_s *rawsink_init(const char *name, bool server, mode_t mode, bool rm, unsigned timeout);
 void rawsink_destroy(rawsink_s *rawsink);
 
 void rawsink_server_put(
@@ -84,5 +83,4 @@ int rawsink_client_get(
 	rawsink_s *rawsink,
 	char *data, size_t *size,
 	unsigned *format, unsigned *width, unsigned *height,
-	long double *grab_ts,
-	long double timeout);
+	long double *grab_ts);

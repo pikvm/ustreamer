@@ -86,6 +86,7 @@ enum _OPT_VALUES {
 	_O_RAWSINK,
 	_O_RAWSINK_MODE,
 	_O_RAWSINK_RM,
+	_O_RAWSINK_TIMEOUT,
 #endif
 
 #ifdef WITH_GPIO
@@ -170,6 +171,7 @@ static const struct option _LONG_OPTS[] = {
 	{"raw-sink",				required_argument,	NULL,	_O_RAWSINK},
 	{"raw-sink-mode",			required_argument,	NULL,	_O_RAWSINK_MODE},
 	{"raw-sink-rm",				no_argument,		NULL,	_O_RAWSINK_RM},
+	{"raw-sink-timeout",		required_argument,	NULL,	_O_RAWSINK_TIMEOUT},
 #endif
 
 #ifdef WITH_GPIO
@@ -400,9 +402,10 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 			case _O_SERVER_TIMEOUT:		OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
 #			ifdef WITH_RAWSINK
-			case _O_RAWSINK:		OPT_SET(stream->rawsink_name, optarg);
-			case _O_RAWSINK_MODE:	OPT_NUMBER("--raw-sink-mode", stream->rawsink_mode, INT_MIN, INT_MAX, 8);
-			case _O_RAWSINK_RM:		OPT_SET(stream->rawsink_rm, true);
+			case _O_RAWSINK:			OPT_SET(stream->rawsink_name, optarg);
+			case _O_RAWSINK_MODE:		OPT_NUMBER("--raw-sink-mode", stream->rawsink_mode, INT_MIN, INT_MAX, 8);
+			case _O_RAWSINK_RM:			OPT_SET(stream->rawsink_rm, true);
+			case _O_RAWSINK_TIMEOUT:	OPT_NUMBER("--raw-sink-timeout", server->timeout, 1, 60, 0);
 #			endif
 
 #			ifdef WITH_GPIO
@@ -666,10 +669,11 @@ static void _help(device_s *dev, encoder_s *encoder, stream_s *stream, server_s 
 #ifdef WITH_RAWSINK
 	printf("RAW sink options:\n");
 	printf("═════════════════\n");
-	printf("    --raw-sink <name>  ────── Use the shared memory to sink RAW frames before encoding.\n");
-	printf("                              Most likely you will never need it. Default: disabled.\n\n");
-	printf("    --raw-sink-mode <mode>  ─ Set RAW sink permissions (like 777). Default: %o.\n\n", stream->rawsink_mode);
-	printf("    --raw-sink-rm  ────────── Remove shared memory on stop. Default: disabled.\n\n");
+	printf("    --raw-sink <name>  ──────── Use the shared memory to sink RAW frames before encoding.\n");
+	printf("                                Most likely you will never need it. Default: disabled.\n\n");
+	printf("    --raw-sink-mode <mode>  ─── Set RAW sink permissions (like 777). Default: %o.\n\n", stream->rawsink_mode);
+	printf("    --raw-sink-rm  ──────────── Remove shared memory on stop. Default: disabled.\n\n");
+	printf("    --raw-sink-timeout <sec>  ─ Timeout for lock. Default: %u.\n\n", stream->rawsink_timeout);
 #endif
 #ifdef WITH_GPIO
 	printf("GPIO options:\n");

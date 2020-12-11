@@ -103,6 +103,7 @@ stream_s *stream_init(device_s *dev, encoder_s *encoder) {
 #	ifdef WITH_RAWSINK
 	stream->rawsink_name = "";
 	stream->rawsink_mode = 0660;
+	stream->rawsink_timeout = 1;
 #	endif
 	stream->proc = proc;
 	stream->video = video;
@@ -129,7 +130,13 @@ void stream_loop(stream_s *stream) {
 #	ifdef WITH_RAWSINK
 	rawsink_s *rawsink = NULL;
 	if (stream->rawsink_name[0] != '\0') {
-		rawsink = rawsink_init(stream->rawsink_name, stream->rawsink_mode, stream->rawsink_rm, true);
+		rawsink = rawsink_init(
+			stream->rawsink_name,
+			true,
+			stream->rawsink_mode,
+			stream->rawsink_rm,
+			stream->rawsink_timeout
+		);
 	}
 #	endif
 

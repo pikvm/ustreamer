@@ -69,6 +69,7 @@ typedef struct {
 	char		*rawsink_name;
 	mode_t		rawsink_mode;
 	bool		rawsink_rm;
+	unsigned	rawsink_timeout;
 #	endif
 
 	device_s	*dev;
