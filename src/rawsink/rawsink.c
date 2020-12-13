@@ -129,7 +129,7 @@ void rawsink_destroy(rawsink_s *rawsink) {
 	free(rawsink);
 }
 
-void rawsink_server_put(
+int rawsink_server_put(
 	rawsink_s *rawsink,
 	const uint8_t *data, size_t size,
 	unsigned format, unsigned width, unsigned height,
@@ -139,13 +139,9 @@ void rawsink_server_put(
 
 	assert(rawsink->server);
 
-	if (rawsink->server_failed) {
-		return;
-	}
-
 	if (size > RAWSINK_MAX_DATA) {
 		LOG_ERROR("RAWSINK: Can't put RAW frame: is too big (%zu > %zu)", size, RAWSINK_MAX_DATA);
-		return;
+		return 0; // -2
 	}
 
 	if (_flock_timedwait_monotonic(rawsink->fd, 1) == 0) {
@@ -153,7 +149,7 @@ void rawsink_server_put(
 
 		if (sem_trywait(rawsink->sig_sem) < 0 && errno != EAGAIN) {
 			LOG_PERROR("RAWSINK: Can't wait signal semaphore");
-			goto error;
+			return -1;
 		}
 
 #		define COPY(_field) rawsink->mem->_field = _field
@@ -167,11 +163,11 @@ void rawsink_server_put(
 
 		if (sem_post(rawsink->sig_sem) < 0) {
 			LOG_PERROR("RAWSINK: Can't post signal semaphore");
-			goto error;
+			return -1;
 		}
 		if (flock(rawsink->fd, LOCK_UN) < 0) {
 			LOG_PERROR("RAWSINK: Can't unlock memory");
-			goto error;
+			return -1;
 		}
 		LOG_VERBOSE("RAWSINK: Exposed new frame; full exposition time = %Lf", get_now_monotonic() - now);
 
@@ -180,14 +176,9 @@ void rawsink_server_put(
 
 	} else {
 		LOG_PERROR("RAWSINK: Can't lock memory");
-		goto error;
+		return -1;
 	}
-
-	return;
-
-	error:
-		LOG_ERROR("RAW sink completely disabled due error");
-		rawsink->server_failed = true;
+	return 0;
 }
 
 int rawsink_client_get(

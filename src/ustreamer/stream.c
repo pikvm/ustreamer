@@ -100,11 +100,6 @@ stream_s *stream_init(device_s *dev, encoder_s *encoder) {
 	A_CALLOC(stream, 1);
 	stream->last_as_blank = -1;
 	stream->error_delay = 1;
-#	ifdef WITH_RAWSINK
-	stream->rawsink_name = "";
-	stream->rawsink_mode = 0660;
-	stream->rawsink_timeout = 1;
-#	endif
 	stream->proc = proc;
 	stream->video = video;
 	stream->dev = dev;
@@ -126,19 +121,6 @@ void stream_loop(stream_s *stream) {
 
 	LOG_INFO("Using V4L2 device: %s", DEV(path));
 	LOG_INFO("Using desired FPS: %u", DEV(desired_fps));
-
-#	ifdef WITH_RAWSINK
-	rawsink_s *rawsink = NULL;
-	if (stream->rawsink_name[0] != '\0') {
-		rawsink = rawsink_init(
-			stream->rawsink_name,
-			true,
-			stream->rawsink_mode,
-			stream->rawsink_rm,
-			stream->rawsink_timeout
-		);
-	}
-#	endif
 
 	while ((pool = _stream_init_loop(stream)) != NULL) {
 		long double grab_after = 0;
@@ -228,8 +210,12 @@ void stream_loop(stream_s *stream) {
 
 #							ifdef WITH_RAWSINK
 #							define HW(_next) DEV(run->hw_buffers[buf_index]._next)
-							if (rawsink) {
-								rawsink_server_put(rawsink, HW(data), HW(used), HW(format), HW(width), HW(height), HW(grab_ts));
+							if (stream->rawsink && rawsink_server_put(
+								stream->rawsink, HW(data), HW(used), HW(format),
+								HW(width), HW(height), HW(grab_ts)
+							) < 0) {
+								stream->rawsink = NULL;
+								LOG_ERROR("RAW sink completely disabled due error");
 							}
 #							undef HW
 #							endif
@@ -263,12 +249,6 @@ void stream_loop(stream_s *stream) {
 		gpio_set_stream_online(false);
 #		endif
 	}
-
-#	ifdef WITH_RAWSINK
-	if (rawsink) {
-		rawsink_destroy(rawsink);
-	}
-#	endif
 
 #	undef DEV
 }

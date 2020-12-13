@@ -230,6 +230,11 @@ options_s *options_init(int argc, char *argv[]) {
 }
 
 void options_destroy(options_s *options) {
+#	ifdef WITH_RAWSINK
+	if (options->rawsink) {
+		rawsink_destroy(options->rawsink);
+	}
+#	endif
 	if (options->blank) {
 		frame_destroy(options->blank);
 	}
@@ -312,7 +317,16 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 	int short_index;
 	int opt_index;
 	char short_opts[1024] = {0};
+
 	char *blank_path = NULL;
+
+#	ifdef WITH_RAWSINK
+	char *rawsink_name = NULL;
+	mode_t rawsink_mode = 0660;
+	bool rawsink_rm = false;
+	unsigned rawsink_timeout = 1;
+#	endif
+
 #	ifdef WITH_SETPROCTITLE
 	char *process_name_prefix = NULL;
 #	endif
@@ -402,10 +416,10 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 			case _O_SERVER_TIMEOUT:		OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
 #			ifdef WITH_RAWSINK
-			case _O_RAWSINK:			OPT_SET(stream->rawsink_name, optarg);
-			case _O_RAWSINK_MODE:		OPT_NUMBER("--raw-sink-mode", stream->rawsink_mode, INT_MIN, INT_MAX, 8);
-			case _O_RAWSINK_RM:			OPT_SET(stream->rawsink_rm, true);
-			case _O_RAWSINK_TIMEOUT:	OPT_NUMBER("--raw-sink-timeout", server->timeout, 1, 60, 0);
+			case _O_RAWSINK:			OPT_SET(rawsink_name, optarg);
+			case _O_RAWSINK_MODE:		OPT_NUMBER("--raw-sink-mode", rawsink_mode, INT_MIN, INT_MAX, 8);
+			case _O_RAWSINK_RM:			OPT_SET(rawsink_rm, true);
+			case _O_RAWSINK_TIMEOUT:	OPT_NUMBER("--raw-sink-timeout", rawsink_timeout, 1, 60, 0);
 #			endif
 
 #			ifdef WITH_GPIO
@@ -446,6 +460,19 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 
 	options->blank = blank_frame_init(blank_path);
 	stream->blank = options->blank;
+
+#	ifdef WITH_RAWSINK
+	if (rawsink_name && rawsink_name[0] != '\0') {
+		options->rawsink = rawsink_init(
+			rawsink_name,
+			true,
+			rawsink_mode,
+			rawsink_rm,
+			rawsink_timeout
+		);
+	}
+	stream->rawsink = options->rawsink;
+#	endif
 
 #	ifdef WITH_SETPROCTITLE
 	if (process_name_prefix != NULL) {
@@ -671,9 +698,9 @@ static void _help(device_s *dev, encoder_s *encoder, stream_s *stream, server_s 
 	printf("═════════════════\n");
 	printf("    --raw-sink <name>  ──────── Use the shared memory to sink RAW frames before encoding.\n");
 	printf("                                Most likely you will never need it. Default: disabled.\n\n");
-	printf("    --raw-sink-mode <mode>  ─── Set RAW sink permissions (like 777). Default: %o.\n\n", stream->rawsink_mode);
+	printf("    --raw-sink-mode <mode>  ─── Set RAW sink permissions (like 777). Default: 660.\n\n");
 	printf("    --raw-sink-rm  ──────────── Remove shared memory on stop. Default: disabled.\n\n");
-	printf("    --raw-sink-timeout <sec>  ─ Timeout for lock. Default: %u.\n\n", stream->rawsink_timeout);
+	printf("    --raw-sink-timeout <sec>  ─ Timeout for lock. Default: 1.\n\n");
 #endif
 #ifdef WITH_GPIO
 	printf("GPIO options:\n");

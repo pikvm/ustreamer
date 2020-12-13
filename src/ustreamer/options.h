@@ -36,6 +36,9 @@
 #include "../common/config.h"
 #include "../common/logging.h"
 #include "../common/process.h"
+#ifdef WITH_RAWSINK
+#	include "../rawsink/rawsink.h"
+#endif
 
 #include "device.h"
 #include "frame.h"
@@ -49,10 +52,13 @@
 
 
 typedef struct {
-	int		argc;
-	char	**argv;
-	char	**argv_copy;
-	frame_s	*blank;
+	int			argc;
+	char		**argv;
+	char		**argv_copy;
+	frame_s		*blank;
+#	ifdef WITH_RAWSINK
+	rawsink_s	*rawsink;
+#	endif
 } options_s;
 
 

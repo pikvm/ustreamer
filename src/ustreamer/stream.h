@@ -65,16 +65,13 @@ typedef struct {
 typedef struct {
 	int			last_as_blank;
 	unsigned	error_delay;
-#	ifdef WITH_RAWSINK
-	char		*rawsink_name;
-	mode_t		rawsink_mode;
-	bool		rawsink_rm;
-	unsigned	rawsink_timeout;
-#	endif
 
 	device_s	*dev;
 	encoder_s	*encoder;
 	frame_s		*blank;
+#	ifdef WITH_RAWSINK
+	rawsink_s	*rawsink;
+#	endif
 
 	process_s	*proc;
 	video_s		*video;

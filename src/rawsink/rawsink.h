@@ -65,15 +65,13 @@ typedef struct {
 	int					fd;
 	rawsink_shared_s	*mem;
 	sem_t				*sig_sem;
-
-	bool server_failed;
 } rawsink_s;
 
 
 rawsink_s *rawsink_init(const char *name, bool server, mode_t mode, bool rm, unsigned timeout);
 void rawsink_destroy(rawsink_s *rawsink);
 
-void rawsink_server_put(
+int rawsink_server_put(
 	rawsink_s *rawsink,
 	const uint8_t *data, size_t size,
 	unsigned format, unsigned witdh, unsigned height,
