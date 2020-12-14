@@ -30,6 +30,7 @@
 #include <assert.h>
 
 #include <pthread.h>
+#include <linux/videodev2.h>
 
 #include "../common/tools.h"
 #include "../common/threading.h"

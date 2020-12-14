@@ -71,7 +71,7 @@ typedef struct {
 
 static _pool_s *_stream_init_loop(stream_s *stream);
 static _pool_s *_stream_init_one(stream_s *stream);
-static void _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps);
+static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps);
 
 static _pool_s *_workers_pool_init(stream_s *stream);
 static void _workers_pool_destroy(_pool_s *pool);
@@ -268,7 +268,19 @@ static _pool_s *_stream_init_loop(stream_s *stream) {
 	LOG_DEBUG("%s: stream->proc->stop=%d", __FUNCTION__, atomic_load(&stream->proc->stop));
 
 	while (!atomic_load(&stream->proc->stop)) {
-		_stream_expose_frame(stream, NULL, 0);
+		if (_stream_expose_frame(stream, NULL, 0)) {
+#			ifdef WITH_RAWSINK
+#			define BLANK(_next) stream->blank->_next
+			if (stream->rawsink && rawsink_server_put(
+				stream->rawsink, BLANK(data), BLANK(used), V4L2_PIX_FMT_JPEG,
+				BLANK(width), BLANK(height), BLANK(grab_ts)
+			) < 0) {
+				stream->rawsink = NULL;
+				LOG_ERROR("RAW sink completely disabled due error");
+			}
+#			undef BLANK
+#			endif
+		}
 
 		if (access(stream->dev->path, R_OK|W_OK) < 0) {
 			if (access_error != errno) {
@@ -310,10 +322,11 @@ static _pool_s *_stream_init_one(stream_s *stream) {
 		return NULL;
 }
 
-static void _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps) {
+static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps) {
 #	define VID(_next) stream->video->_next
 
 	frame_s *new = NULL;
+	bool changed = false;
 
 	A_MUTEX_LOCK(&VID(mutex));
 
@@ -351,14 +364,17 @@ static void _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 
 	if (new) {
 		frame_copy(new, VID(frame));
+		changed = true;
 	} else if (VID(frame->used) == 0) { // Инициализация
 		frame_copy(stream->blank, VID(frame));
 		frame = NULL;
+		changed = true;
 	}
 	VID(online) = frame;
 	VID(captured_fps) = captured_fps;
 	atomic_store(&VID(updated), true);
 	A_MUTEX_UNLOCK(&VID(mutex));
+	return changed;
 
 #	undef VID
 }
