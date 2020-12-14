@@ -133,7 +133,7 @@ int rawsink_server_put(
 	rawsink_s *rawsink,
 	const uint8_t *data, size_t size,
 	unsigned format, unsigned width, unsigned height,
-	long double grab_ts) {
+	long double grab_ts, bool online) {
 
 	long double now = get_now_monotonic();
 
@@ -157,6 +157,7 @@ int rawsink_server_put(
 		COPY(width);
 		COPY(height);
 		COPY(grab_ts);
+		COPY(online);
 		COPY(size);
 		memcpy(rawsink->mem->data, data, size);
 #		undef COPY
@@ -185,7 +186,7 @@ int rawsink_client_get(
 	rawsink_s *rawsink,
 	char *data, size_t *size,
 	unsigned *format, unsigned *width, unsigned *height,
-	long double *grab_ts) {
+	long double *grab_ts, bool *online) {
 
 	assert(!rawsink->server); // Client only
 
@@ -209,6 +210,7 @@ int rawsink_client_get(
 	COPY(width);
 	COPY(height);
 	COPY(grab_ts);
+	COPY(online);
 	COPY(size);
 	memcpy(data, rawsink->mem->data, *size);
 #	undef COPY

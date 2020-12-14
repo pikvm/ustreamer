@@ -50,6 +50,7 @@ typedef struct {
 	unsigned	width;
 	unsigned	height;
 	long double	grab_ts;
+	bool		online;
 	size_t		size;
 	uint8_t		data[RAWSINK_MAX_DATA];
 } rawsink_shared_s;
@@ -75,10 +76,10 @@ int rawsink_server_put(
 	rawsink_s *rawsink,
 	const uint8_t *data, size_t size,
 	unsigned format, unsigned witdh, unsigned height,
-	long double grab_ts);
+	long double grab_ts, bool online);
 
 int rawsink_client_get(
 	rawsink_s *rawsink,
 	char *data, size_t *size,
 	unsigned *format, unsigned *width, unsigned *height,
-	long double *grab_ts);
+	long double *grab_ts, bool *online);

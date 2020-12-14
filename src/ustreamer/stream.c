@@ -212,7 +212,7 @@ void stream_loop(stream_s *stream) {
 #							define HW(_next) DEV(run->hw_buffers[buf_index]._next)
 							if (stream->rawsink && rawsink_server_put(
 								stream->rawsink, HW(data), HW(used), HW(format),
-								HW(width), HW(height), HW(grab_ts)
+								HW(width), HW(height), HW(grab_ts), true
 							) < 0) {
 								stream->rawsink = NULL;
 								LOG_ERROR("RAW sink completely disabled due error");
@@ -273,7 +273,7 @@ static _pool_s *_stream_init_loop(stream_s *stream) {
 #			define BLANK(_next) stream->blank->_next
 			if (stream->rawsink && rawsink_server_put(
 				stream->rawsink, BLANK(data), BLANK(used), V4L2_PIX_FMT_JPEG,
-				BLANK(width), BLANK(height), BLANK(grab_ts)
+				BLANK(width), BLANK(height), BLANK(grab_ts), false
 			) < 0) {
 				stream->rawsink = NULL;
 				LOG_ERROR("RAW sink completely disabled due error");
