@@ -182,7 +182,7 @@ int rawsink_server_put(
 	return 0;
 }
 
-int rawsink_client_get(
+int rawsink_client_get( // cppcheck-suppress unusedFunction
 	rawsink_s *rawsink,
 	char *data, size_t *size,
 	unsigned *format, unsigned *width, unsigned *height,
