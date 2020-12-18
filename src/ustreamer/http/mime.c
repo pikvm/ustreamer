@@ -50,7 +50,8 @@ const char *guess_mime_type(const char *path) {
 	char *dot;
 	char *ext;
 
-	dot = strrchr(path, '.');
+	// FIXME: false-positive cppcheck
+	dot = strrchr(path, '.'); // cppcheck-suppress ctunullpointer
 	if (dot == NULL || strchr(dot, '/') != NULL) {
 		goto misc;
 	}
