@@ -57,8 +57,8 @@
 #include "../../common/threading.h"
 #include "../../common/logging.h"
 #include "../../common/process.h"
+#include "../../common/frame.h"
 #include "../data/index_html.h"
-#include "../frame.h"
 #include "../encoder.h"
 #include "../stream.h"
 #ifdef WITH_GPIO

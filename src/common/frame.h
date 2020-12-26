@@ -29,8 +29,8 @@
 #include <string.h>
 #include <assert.h>
 
-#include "../common/tools.h"
-#include "../common/logging.h"
+#include "tools.h"
+#include "logging.h"
 
 
 typedef struct {

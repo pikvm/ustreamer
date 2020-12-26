@@ -32,7 +32,7 @@
 #include <linux/videodev2.h>
 
 #include "../../../common/tools.h"
-#include "../../frame.h"
+#include "../../../common/frame.h"
 #include "../../device.h"
 
 

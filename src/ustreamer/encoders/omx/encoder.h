@@ -36,10 +36,10 @@
 #include <IL/OMX_Broadcom.h>
 #include <interface/vcos/vcos_semaphore.h>
 
-#include "../../../common/logging.h"
 #include "../../../common/tools.h"
+#include "../../../common/logging.h"
+#include "../../../common/frame.h"
 #include "../../device.h"
-#include "../../frame.h"
 
 #include "formatters.h"
 #include "component.h"

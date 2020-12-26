@@ -33,9 +33,9 @@
 #include "../common/tools.h"
 #include "../common/threading.h"
 #include "../common/logging.h"
+#include "../common/frame.h"
 
 #include "device.h"
-#include "frame.h"
 
 #include "encoders/cpu/encoder.h"
 #include "encoders/hw/encoder.h"

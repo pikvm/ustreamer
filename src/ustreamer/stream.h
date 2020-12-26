@@ -35,10 +35,9 @@
 #include "../common/tools.h"
 #include "../common/threading.h"
 #include "../common/logging.h"
+#include "../common/frame.h"
 
 #include "blank.h"
-
-#include "frame.h"
 #include "device.h"
 #include "encoder.h"
 #ifdef WITH_RAWSINK

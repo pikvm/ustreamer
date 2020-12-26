@@ -30,7 +30,7 @@
 
 #include "../common/tools.h"
 #include "../common/logging.h"
-#include "frame.h"
+#include "../common/frame.h"
 
 #include "data/blank_jpeg.h"
 

@@ -31,8 +31,8 @@
 
 #include "../../../common/tools.h"
 #include "../../../common/logging.h"
+#include "../../../common/frame.h"
 #include "../../xioctl.h"
-#include "../../frame.h"
 #include "../../device.h"
 
 #include "huffman.h"

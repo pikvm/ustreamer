@@ -36,12 +36,12 @@
 #include "../common/config.h"
 #include "../common/logging.h"
 #include "../common/process.h"
+#include "../common/frame.h"
 #ifdef WITH_RAWSINK
 #	include "../rawsink/rawsink.h"
 #endif
 
 #include "device.h"
-#include "frame.h"
 #include "encoder.h"
 #include "blank.h"
 #include "stream.h"
