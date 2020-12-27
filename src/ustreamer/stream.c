@@ -209,15 +209,10 @@ void stream_loop(stream_s *stream) {
 							LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
 
 #							ifdef WITH_RAWSINK
-#							define RAW(_next) DEV(run->hw_buffers[buf_index].raw._next)
-							if (stream->rawsink && rawsink_server_put(
-								stream->rawsink, RAW(data), RAW(used), RAW(format),
-								RAW(width), RAW(height), RAW(grab_ts), true
-							) < 0) {
+							if (stream->rawsink && rawsink_server_put(stream->rawsink, &DEV(run->hw_buffers[buf_index].raw)) < 0) {
 								stream->rawsink = NULL;
 								LOG_ERROR("RAW sink completely disabled due error");
 							}
-#							undef RAW
 #							endif
 
 							_workers_pool_assign(pool, ready_wr, buf_index);
@@ -270,15 +265,10 @@ static _pool_s *_stream_init_loop(stream_s *stream) {
 	while (!atomic_load(&stream->proc->stop)) {
 		if (_stream_expose_frame(stream, NULL, 0)) {
 #			ifdef WITH_RAWSINK
-#			define BLANK(_next) stream->blank->_next
-			if (stream->rawsink && rawsink_server_put(
-				stream->rawsink, BLANK(data), BLANK(used), V4L2_PIX_FMT_JPEG,
-				BLANK(width), BLANK(height), BLANK(grab_ts), false
-			) < 0) {
+			if (stream->rawsink && rawsink_server_put(stream->rawsink, stream->blank) < 0) {
 				stream->rawsink = NULL;
 				LOG_ERROR("RAW sink completely disabled due error");
 			}
-#			undef BLANK
 #			endif
 		}
 

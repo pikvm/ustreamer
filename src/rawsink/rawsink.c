@@ -129,18 +129,13 @@ void rawsink_destroy(rawsink_s *rawsink) {
 	free(rawsink);
 }
 
-int rawsink_server_put(
-	rawsink_s *rawsink,
-	const uint8_t *data, size_t size,
-	unsigned format, unsigned width, unsigned height,
-	long double grab_ts, bool online) {
-
+int rawsink_server_put(rawsink_s *rawsink, frame_s *raw) {
 	long double now = get_now_monotonic();
 
 	assert(rawsink->server);
 
-	if (size > RAWSINK_MAX_DATA) {
-		LOG_ERROR("RAWSINK: Can't put RAW frame: is too big (%zu > %zu)", size, RAWSINK_MAX_DATA);
+	if (raw->used > RAWSINK_MAX_DATA) {
+		LOG_ERROR("RAWSINK: Can't put RAW frame: is too big (%zu > %zu)", raw->used, RAWSINK_MAX_DATA);
 		return 0; // -2
 	}
 
@@ -152,14 +147,13 @@ int rawsink_server_put(
 			return -1;
 		}
 
-#		define COPY(_field) rawsink->mem->_field = _field
+#		define COPY(_field) rawsink->mem->_field = raw->_field
+		COPY(used);
 		COPY(format);
 		COPY(width);
 		COPY(height);
 		COPY(grab_ts);
-		COPY(online);
-		COPY(size);
-		memcpy(rawsink->mem->data, data, size);
+		memcpy(rawsink->mem->data, raw->data, raw->used);
 #		undef COPY
 
 		if (sem_post(rawsink->sig_sem) < 0) {
@@ -182,12 +176,7 @@ int rawsink_server_put(
 	return 0;
 }
 
-int rawsink_client_get( // cppcheck-suppress unusedFunction
-	rawsink_s *rawsink,
-	char *data, size_t *size,
-	unsigned *format, unsigned *width, unsigned *height,
-	long double *grab_ts, bool *online) {
-
+int rawsink_client_get(rawsink_s *rawsink, frame_s *raw) { // cppcheck-suppress unusedFunction
 	assert(!rawsink->server); // Client only
 
 	if (_sem_timedwait_monotonic(rawsink->sig_sem, rawsink->timeout) < 0) {
@@ -205,14 +194,12 @@ int rawsink_client_get( // cppcheck-suppress unusedFunction
 		return -1;
 	}
 
-#	define COPY(_field) *_field = rawsink->mem->_field
-	COPY(format);
+#	define COPY(_field) raw->_field = rawsink->mem->_field
 	COPY(width);
 	COPY(height);
+	COPY(format);
 	COPY(grab_ts);
-	COPY(online);
-	COPY(size);
-	memcpy(data, rawsink->mem->data, *size);
+	frame_set_data(raw, rawsink->mem->data, rawsink->mem->used);
 #	undef COPY
 
 	if (flock(rawsink->fd, LOCK_UN) < 0) {

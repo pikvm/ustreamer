@@ -37,6 +37,7 @@
 
 #include "../common/tools.h"
 #include "../common/logging.h"
+#include "../common/frame.h"
 
 
 #ifndef CFG_RAWSINK_MAX_DATA
@@ -46,12 +47,11 @@
 
 
 typedef struct {
-	unsigned	format;
+	size_t		used;
 	unsigned	width;
 	unsigned	height;
+	unsigned	format;
 	long double	grab_ts;
-	bool		online;
-	size_t		size;
 	uint8_t		data[RAWSINK_MAX_DATA];
 } rawsink_shared_s;
 
@@ -72,14 +72,5 @@ typedef struct {
 rawsink_s *rawsink_init(const char *name, bool server, mode_t mode, bool rm, unsigned timeout);
 void rawsink_destroy(rawsink_s *rawsink);
 
-int rawsink_server_put(
-	rawsink_s *rawsink,
-	const uint8_t *data, size_t size,
-	unsigned format, unsigned witdh, unsigned height,
-	long double grab_ts, bool online);
-
-int rawsink_client_get(
-	rawsink_s *rawsink,
-	char *data, size_t *size,
-	unsigned *format, unsigned *width, unsigned *height,
-	long double *grab_ts, bool *online);
+int rawsink_server_put(rawsink_s *rawsink, frame_s *raw);
+int rawsink_client_get(rawsink_s *rawsink, frame_s *raw);
