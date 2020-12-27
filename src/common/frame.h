@@ -35,14 +35,19 @@
 
 typedef struct {
 	const char	*role;
+
 	uint8_t		*data;
 	size_t		used;
 	size_t		allocated;
 	unsigned	width;
 	unsigned	height;
+	unsigned	format;
+
 	long double	grab_ts;
 	long double	encode_begin_ts;
 	long double	encode_end_ts;
+
+	bool managed;
 } frame_s;
 
 

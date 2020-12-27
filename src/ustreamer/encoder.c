@@ -207,26 +207,26 @@ void encoder_get_runtime_params(encoder_s *encoder, encoder_type_e *type, unsign
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic push
-int encoder_compress_buffer(encoder_s *encoder, unsigned worker_number, hw_buffer_s *hw, frame_s *frame) {
+int encoder_compress_buffer(encoder_s *encoder, unsigned worker_number, frame_s *raw, frame_s *frame) {
 #pragma GCC diagnostic pop
 
 	assert(ER(type) != ENCODER_TYPE_UNKNOWN);
-	assert(hw->used > 0);
+	assert(raw->used > 0);
 
-	frame->grab_ts = hw->grab_ts;
+	frame->grab_ts = raw->grab_ts;
 	frame->encode_begin_ts = get_now_monotonic();
 
 	if (ER(type) == ENCODER_TYPE_CPU) {
 		LOG_VERBOSE("Compressing buffer using CPU");
-		cpu_encoder_compress_buffer(hw, frame, ER(quality));
+		cpu_encoder_compress_buffer(raw, frame, ER(quality));
 	} else if (ER(type) == ENCODER_TYPE_HW) {
 		LOG_VERBOSE("Compressing buffer using HW (just copying)");
-		hw_encoder_compress_buffer(hw, frame);
+		hw_encoder_compress_buffer(raw, frame);
 	}
 #	ifdef WITH_OMX
 	else if (ER(type) == ENCODER_TYPE_OMX) {
 		LOG_VERBOSE("Compressing buffer using OMX");
-		if (omx_encoder_compress_buffer(ER(omxs[worker_number]), hw, frame) < 0) {
+		if (omx_encoder_compress_buffer(ER(omxs[worker_number]), raw, frame) < 0) {
 			goto error;
 		}
 	}
@@ -240,8 +240,9 @@ int encoder_compress_buffer(encoder_s *encoder, unsigned worker_number, hw_buffe
 
 	frame->encode_end_ts = get_now_monotonic();
 
-	frame->width = hw->width;
-	frame->height = hw->height;
+	frame->width = raw->width;
+	frame->height = raw->height;
+	// frame->format = V4L2_PIX_FMT_JPEG;
 
 	return 0;
 

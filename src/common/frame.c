@@ -28,11 +28,13 @@ frame_s *frame_init(const char *role) {
 
 	A_CALLOC(frame, 1);
 	frame->role = role;
+	frame->managed = true;
 	frame_realloc_data(frame, 500 * 1024);
 	return frame;
 }
 
 void frame_destroy(frame_s *frame) {
+	assert(frame->managed);
 	if (frame->data) {
 		free(frame->data);
 	}
@@ -40,6 +42,7 @@ void frame_destroy(frame_s *frame) {
 }
 
 void frame_realloc_data(frame_s *frame, size_t size) {
+	assert(frame->managed);
 	if (frame->allocated < size) {
 		LOG_DEBUG("Increasing frame buffer '%s': %zu -> %zu (+%zu)",
 			frame->role, frame->allocated, size, size - frame->allocated);
@@ -49,12 +52,15 @@ void frame_realloc_data(frame_s *frame, size_t size) {
 }
 
 void frame_set_data(frame_s *frame, const uint8_t *data, size_t size) {
+	assert(frame->managed);
 	frame_realloc_data(frame, size);
 	memcpy(frame->data, data, size);
 	frame->used = size;
 }
 
 void frame_append_data(frame_s *frame, const uint8_t *data, size_t size) {
+	assert(frame->managed);
+
 	size_t new_used = frame->used + size;
 
 	frame_realloc_data(frame, new_used);
@@ -63,6 +69,8 @@ void frame_append_data(frame_s *frame, const uint8_t *data, size_t size) {
 }
 
 void frame_copy(const frame_s *src, frame_s *dest) {
+	assert(dest->managed);
+
 	frame_set_data(dest, src->data, src->used);
 
 #	define COPY(_field) dest->_field = src->_field
@@ -72,6 +80,7 @@ void frame_copy(const frame_s *src, frame_s *dest) {
 
 	COPY(width);
 	COPY(height);
+	COPY(format);
 
 	COPY(grab_ts);
 	COPY(encode_begin_ts);

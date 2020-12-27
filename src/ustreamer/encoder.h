@@ -111,4 +111,4 @@ const char *encoder_type_to_string(encoder_type_e type);
 void encoder_prepare(encoder_s *encoder, device_s *dev);
 void encoder_get_runtime_params(encoder_s *encoder, encoder_type_e *type, unsigned *quality);
 
-int encoder_compress_buffer(encoder_s *encoder, unsigned worker_number, hw_buffer_s *hw, frame_s *frame);
+int encoder_compress_buffer(encoder_s *encoder, unsigned worker_number, frame_s *raw, frame_s *frame);

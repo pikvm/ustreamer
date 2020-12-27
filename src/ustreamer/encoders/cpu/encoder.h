@@ -33,7 +33,6 @@
 
 #include "../../../common/tools.h"
 #include "../../../common/frame.h"
-#include "../../device.h"
 
 
-void cpu_encoder_compress_buffer(hw_buffer_s *hw, frame_s *frame, unsigned quality);
+void cpu_encoder_compress_buffer(frame_s *raw, frame_s *frame, unsigned quality);

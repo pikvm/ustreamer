@@ -209,15 +209,15 @@ void stream_loop(stream_s *stream) {
 							LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
 
 #							ifdef WITH_RAWSINK
-#							define HW(_next) DEV(run->hw_buffers[buf_index]._next)
+#							define RAW(_next) DEV(run->hw_buffers[buf_index].raw._next)
 							if (stream->rawsink && rawsink_server_put(
-								stream->rawsink, HW(data), HW(used), HW(format),
-								HW(width), HW(height), HW(grab_ts), true
+								stream->rawsink, RAW(data), RAW(used), RAW(format),
+								RAW(width), RAW(height), RAW(grab_ts), true
 							) < 0) {
 								stream->rawsink = NULL;
 								LOG_ERROR("RAW sink completely disabled due error");
 							}
-#							undef HW
+#							undef RAW
 #							endif
 
 							_workers_pool_assign(pool, ready_wr, buf_index);
@@ -484,7 +484,7 @@ static void *_worker_thread(void *v_worker) {
 			wr->job_failed = (bool)encoder_compress_buffer(
 				wr->stream->encoder,
 				wr->number,
-				&wr->stream->dev->run->hw_buffers[wr->buf_index],
+				&wr->stream->dev->run->hw_buffers[wr->buf_index].raw,
 				wr->frame
 			);
 

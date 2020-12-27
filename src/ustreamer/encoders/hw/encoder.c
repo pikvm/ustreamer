@@ -28,7 +28,7 @@
 #include "encoder.h"
 
 
-void _copy_plus_huffman(const hw_buffer_s *src, frame_s *dest);
+void _copy_plus_huffman(const frame_s *src, frame_s *dest);
 static bool _is_huffman(const uint8_t *data);
 
 
@@ -49,14 +49,14 @@ int hw_encoder_prepare(device_s *dev, unsigned quality) {
 	return 0;
 }
 
-void hw_encoder_compress_buffer(hw_buffer_s *hw, frame_s *frame) {
-	if (hw->format != V4L2_PIX_FMT_MJPEG && hw->format != V4L2_PIX_FMT_JPEG) {
+void hw_encoder_compress_buffer(frame_s *raw, frame_s *frame) {
+	if (raw->format != V4L2_PIX_FMT_MJPEG && raw->format != V4L2_PIX_FMT_JPEG) {
 		assert(0 && "Unsupported input format for HW encoder");
 	}
-	_copy_plus_huffman(hw, frame);
+	_copy_plus_huffman(raw, frame);
 }
 
-void _copy_plus_huffman(const hw_buffer_s *src, frame_s *dest) {
+void _copy_plus_huffman(const frame_s *src, frame_s *dest) {
 	if (!_is_huffman(src->data)) {
 		const uint8_t *src_ptr = src->data;
 		const uint8_t *src_end = src->data + src->used;

@@ -178,14 +178,14 @@ void device_close(device_s *dev) {
 #			define HW(_next) RUN(hw_buffers)[index]._next
 
 			if (dev->io_method == V4L2_MEMORY_MMAP) {
-				if (HW(allocated) > 0 && HW(data) != MAP_FAILED) {
-					if (munmap(HW(data), HW(allocated)) < 0) {
+				if (HW(raw.allocated) > 0 && HW(raw.data) != MAP_FAILED) {
+					if (munmap(HW(raw.data), HW(raw.allocated)) < 0) {
 						LOG_PERROR("Can't unmap device buffer %u", index);
 					}
 				}
 			} else { // V4L2_MEMORY_USERPTR
-				if (HW(data)) {
-					free(HW(data));
+				if (HW(raw.data)) {
+					free(HW(raw.data));
 				}
 			}
 			A_MUTEX_DESTROY(&HW(grabbed_mutex));
@@ -321,12 +321,12 @@ int device_grab_buffer(device_s *dev) {
 	HW(grabbed) = true;
 	A_MUTEX_UNLOCK(&HW(grabbed_mutex));
 
-	HW(used) = buf_info.bytesused;
-	HW(width) = RUN(width);
-	HW(height) = RUN(height);
-	HW(format) = RUN(format);
+	HW(raw.used) = buf_info.bytesused;
+	HW(raw.width) = RUN(width);
+	HW(raw.height) = RUN(height);
+	HW(raw.format) = RUN(format);
 	memcpy(&HW(buf_info), &buf_info, sizeof(struct v4l2_buffer));
-	HW(grab_ts) = get_now_monotonic();
+	HW(raw.grab_ts) = get_now_monotonic();
 
 #	undef HW
 	return buf_info.index;
@@ -625,7 +625,7 @@ static int _device_open_io_method_mmap(device_s *dev) {
 		A_MUTEX_INIT(&HW(grabbed_mutex));
 
 		LOG_DEBUG("Mapping device buffer %u ...", RUN(n_buffers));
-		if ((HW(data) = mmap(
+		if ((HW(raw.data) = mmap(
 			NULL,
 			buf_info.length,
 			PROT_READ | PROT_WRITE,
@@ -636,7 +636,7 @@ static int _device_open_io_method_mmap(device_s *dev) {
 			LOG_PERROR("Can't map device buffer %u", RUN(n_buffers));
 			return -1;
 		}
-		HW(allocated) = buf_info.length;
+		HW(raw.allocated) = buf_info.length;
 
 #		undef HW
 	}
@@ -672,9 +672,9 @@ static int _device_open_io_method_userptr(device_s *dev) {
 	for (RUN(n_buffers) = 0; RUN(n_buffers) < req.count; ++RUN(n_buffers)) {
 #       define HW(_next) RUN(hw_buffers)[RUN(n_buffers)]._next
 
-		assert(HW(data) = aligned_alloc(page_size, buf_size));
-		memset(HW(data), 0, buf_size);
-		HW(allocated) = buf_size;
+		assert(HW(raw.data) = aligned_alloc(page_size, buf_size));
+		memset(HW(raw.data), 0, buf_size);
+		HW(raw.allocated) = buf_size;
 
 #		undef HW
 	}
@@ -690,8 +690,8 @@ static int _device_open_queue_buffers(device_s *dev) {
 		buf_info.memory = dev->io_method;
 		buf_info.index = index;
 		if (dev->io_method == V4L2_MEMORY_USERPTR) {
-			buf_info.m.userptr = (unsigned long)RUN(hw_buffers)[index].data;
-			buf_info.length = RUN(hw_buffers)[index].allocated;
+			buf_info.m.userptr = (unsigned long)RUN(hw_buffers)[index].raw.data;
+			buf_info.length = RUN(hw_buffers)[index].raw.allocated;
 		}
 
 		LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) for buffer %u ...", index);

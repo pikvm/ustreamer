@@ -44,6 +44,7 @@
 #include "../common/tools.h"
 #include "../common/logging.h"
 #include "../common/threading.h"
+#include "../common/frame.h"
 
 #include "xioctl.h"
 
@@ -71,13 +72,7 @@
 
 
 typedef struct {
-	uint8_t		*data;
-	size_t		used;
-	size_t		allocated;
-	unsigned	width;
-	unsigned	height;
-	unsigned	format;
-	long double	grab_ts;
+	frame_s raw;
 
 	struct v4l2_buffer buf_info;
 
