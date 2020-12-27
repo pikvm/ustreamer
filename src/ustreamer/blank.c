@@ -59,6 +59,7 @@ static frame_s *_init_internal(void) {
 	frame_set_data(blank, BLANK_JPEG_DATA, BLANK_JPEG_DATA_SIZE);
 	blank->width = BLANK_JPEG_WIDTH;
 	blank->height = BLANK_JPEG_HEIGHT;
+	blank->format = V4L2_PIX_FMT_JPEG;
 	return blank;
 }
 
@@ -67,6 +68,7 @@ static frame_s *_init_external(const char *path) {
 	frame_s *blank;
 
 	blank = frame_init("blank_external");
+	blank->format = V4L2_PIX_FMT_JPEG;
 
 	if ((fp = fopen(path, "rb")) == NULL) {
 		LOG_PERROR("Can't open blank placeholder '%s'", path);

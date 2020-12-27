@@ -242,7 +242,7 @@ int encoder_compress_buffer(encoder_s *encoder, unsigned worker_number, frame_s 
 
 	frame->width = raw->width;
 	frame->height = raw->height;
-	// frame->format = V4L2_PIX_FMT_JPEG;
+	frame->format = V4L2_PIX_FMT_JPEG;
 
 	return 0;
 

@@ -27,6 +27,7 @@
 #include <setjmp.h>
 
 #include <jpeglib.h>
+#include <linux/videodev2.h>
 
 #include "../common/tools.h"
 #include "../common/logging.h"
