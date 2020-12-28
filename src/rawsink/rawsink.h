@@ -72,5 +72,5 @@ typedef struct {
 rawsink_s *rawsink_init(const char *name, bool server, mode_t mode, bool rm, unsigned timeout);
 void rawsink_destroy(rawsink_s *rawsink);
 
-int rawsink_server_put(rawsink_s *rawsink, frame_s *raw);
-int rawsink_client_get(rawsink_s *rawsink, frame_s *raw);
+int rawsink_server_put(rawsink_s *rawsink, frame_s *frame);
+int rawsink_client_get(rawsink_s *rawsink, frame_s *frame);

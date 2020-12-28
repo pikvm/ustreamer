@@ -94,7 +94,7 @@ typedef struct stream_client_sx {
 } stream_client_s;
 
 typedef struct {
-	frame_s	*frame;
+	frame_s			*frame;
 	unsigned		captured_fps;
 	unsigned		queued_fps;
 	bool			online;

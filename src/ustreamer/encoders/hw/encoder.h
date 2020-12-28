@@ -39,4 +39,4 @@
 
 
 int hw_encoder_prepare(device_s *dev, unsigned quality);
-void hw_encoder_compress(frame_s *raw, frame_s *frame);
+void hw_encoder_compress(frame_s *src, frame_s *dest);

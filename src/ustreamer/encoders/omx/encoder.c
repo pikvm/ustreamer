@@ -154,12 +154,12 @@ int omx_encoder_prepare(omx_encoder_s *omx, device_s *dev, unsigned quality) {
 	return 0;
 }
 
-int omx_encoder_compress(omx_encoder_s *omx, frame_s *raw, frame_s *frame) {
+int omx_encoder_compress(omx_encoder_s *omx, frame_s *src, frame_s *dest) {
 #	define IN(_next)	omx->input_buffer->_next
 #	define OUT(_next)	omx->output_buffer->_next
 
 	OMX_ERRORTYPE error;
-	size_t slice_size = (IN(nAllocLen) < raw->used ? IN(nAllocLen) : raw->used);
+	size_t slice_size = (IN(nAllocLen) < src->used ? IN(nAllocLen) : src->used);
 	size_t pos = 0;
 
 	if ((error = OMX_FillThisBuffer(omx->encoder, omx->output_buffer)) != OMX_ErrorNone) {
@@ -167,7 +167,7 @@ int omx_encoder_compress(omx_encoder_s *omx, frame_s *raw, frame_s *frame) {
 		return -1;
 	}
 
-	frame->used = 0;
+	dest->used = 0;
 	omx->output_available = false;
 	omx->input_required = true;
 
@@ -179,7 +179,7 @@ int omx_encoder_compress(omx_encoder_s *omx, frame_s *raw, frame_s *frame) {
 		if (omx->output_available) {
 			omx->output_available = false;
 
-			frame_append_data(frame, OUT(pBuffer) + OUT(nOffset), OUT(nFilledLen));
+			frame_append_data(dest, OUT(pBuffer) + OUT(nOffset), OUT(nFilledLen));
 
 			if (OUT(nFlags) & OMX_BUFFERFLAG_ENDOFFRAME) {
 				OUT(nFlags) = 0;
@@ -195,18 +195,18 @@ int omx_encoder_compress(omx_encoder_s *omx, frame_s *raw, frame_s *frame) {
 		if (omx->input_required) {
 			omx->input_required = false;
 
-			if (pos == raw->used) {
+			if (pos == src->used) {
 				continue;
 			}
 
-			memcpy(IN(pBuffer), raw->data + pos, slice_size);
+			memcpy(IN(pBuffer), src->data + pos, slice_size);
 			IN(nOffset) = 0;
 			IN(nFilledLen) = slice_size;
 
 			pos += slice_size;
 
-			if (pos + slice_size > raw->used) {
-				slice_size = raw->used - pos;
+			if (pos + slice_size > src->used) {
+				slice_size = src->used - pos;
 			}
 
 			if ((error = OMX_EmptyThisBuffer(omx->encoder, omx->input_buffer)) != OMX_ErrorNone) {

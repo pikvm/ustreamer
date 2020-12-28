@@ -129,13 +129,13 @@ void rawsink_destroy(rawsink_s *rawsink) {
 	free(rawsink);
 }
 
-int rawsink_server_put(rawsink_s *rawsink, frame_s *raw) {
+int rawsink_server_put(rawsink_s *rawsink, frame_s *frame) {
 	long double now = get_now_monotonic();
 
 	assert(rawsink->server);
 
-	if (raw->used > RAWSINK_MAX_DATA) {
-		LOG_ERROR("RAWSINK: Can't put RAW frame: is too big (%zu > %zu)", raw->used, RAWSINK_MAX_DATA);
+	if (frame->used > RAWSINK_MAX_DATA) {
+		LOG_ERROR("RAWSINK: Can't put RAW frame: is too big (%zu > %zu)", frame->used, RAWSINK_MAX_DATA);
 		return 0; // -2
 	}
 
@@ -147,13 +147,13 @@ int rawsink_server_put(rawsink_s *rawsink, frame_s *raw) {
 			return -1;
 		}
 
-#		define COPY(_field) rawsink->mem->_field = raw->_field
+#		define COPY(_field) rawsink->mem->_field = frame->_field
 		COPY(used);
 		COPY(format);
 		COPY(width);
 		COPY(height);
 		COPY(grab_ts);
-		memcpy(rawsink->mem->data, raw->data, raw->used);
+		memcpy(rawsink->mem->data, frame->data, frame->used);
 #		undef COPY
 
 		if (sem_post(rawsink->sig_sem) < 0) {
@@ -176,7 +176,7 @@ int rawsink_server_put(rawsink_s *rawsink, frame_s *raw) {
 	return 0;
 }
 
-int rawsink_client_get(rawsink_s *rawsink, frame_s *raw) { // cppcheck-suppress unusedFunction
+int rawsink_client_get(rawsink_s *rawsink, frame_s *frame) { // cppcheck-suppress unusedFunction
 	assert(!rawsink->server); // Client only
 
 	if (_sem_timedwait_monotonic(rawsink->sig_sem, rawsink->timeout) < 0) {
@@ -194,12 +194,12 @@ int rawsink_client_get(rawsink_s *rawsink, frame_s *raw) { // cppcheck-suppress 
 		return -1;
 	}
 
-#	define COPY(_field) raw->_field = rawsink->mem->_field
+#	define COPY(_field) frame->_field = rawsink->mem->_field
 	COPY(width);
 	COPY(height);
 	COPY(format);
 	COPY(grab_ts);
-	frame_set_data(raw, rawsink->mem->data, rawsink->mem->used);
+	frame_set_data(frame, rawsink->mem->data, rawsink->mem->used);
 #	undef COPY
 
 	if (flock(rawsink->fd, LOCK_UN) < 0) {

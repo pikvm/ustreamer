@@ -49,11 +49,11 @@ int hw_encoder_prepare(device_s *dev, unsigned quality) {
 	return 0;
 }
 
-void hw_encoder_compress(frame_s *raw, frame_s *frame) {
-	if (raw->format != V4L2_PIX_FMT_MJPEG && raw->format != V4L2_PIX_FMT_JPEG) {
+void hw_encoder_compress(frame_s *src, frame_s *dest) {
+	if (src->format != V4L2_PIX_FMT_MJPEG && src->format != V4L2_PIX_FMT_JPEG) {
 		assert(0 && "Unsupported input format for HW encoder");
 	}
-	_copy_plus_huffman(raw, frame);
+	_copy_plus_huffman(src, dest);
 }
 
 void _copy_plus_huffman(const frame_s *src, frame_s *dest) {

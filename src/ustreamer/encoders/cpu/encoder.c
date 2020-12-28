@@ -35,7 +35,7 @@ typedef struct {
 } _jpeg_dest_manager_s;
 
 
-static void _jpeg_set_picture(j_compress_ptr jpeg, frame_s *frame);
+static void _jpeg_set_dest_frame(j_compress_ptr jpeg, frame_s *frame);
 
 static void _jpeg_write_scanlines_yuyv(
 	struct jpeg_compress_struct *jpeg, const uint8_t *data,
@@ -58,7 +58,7 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
 static void _jpeg_term_destination(j_compress_ptr jpeg);
 
 
-void cpu_encoder_compress(frame_s *raw, frame_s *frame, unsigned quality) {
+void cpu_encoder_compress(frame_s *src, frame_s *dest, unsigned quality) {
 	// This function based on compress_image_to_jpeg() from mjpg-streamer
 
 	struct jpeg_compress_struct jpeg;
@@ -67,10 +67,10 @@ void cpu_encoder_compress(frame_s *raw, frame_s *frame, unsigned quality) {
 	jpeg.err = jpeg_std_error(&jpeg_error);
 	jpeg_create_compress(&jpeg);
 
-	_jpeg_set_picture(&jpeg, frame);
+	_jpeg_set_dest_frame(&jpeg, dest);
 
-	jpeg.image_width = raw->width;
-	jpeg.image_height = raw->height;
+	jpeg.image_width = src->width;
+	jpeg.image_height = src->height;
 	jpeg.input_components = 3;
 	jpeg.in_color_space = JCS_RGB;
 
@@ -80,9 +80,9 @@ void cpu_encoder_compress(frame_s *raw, frame_s *frame, unsigned quality) {
 	jpeg_start_compress(&jpeg, TRUE);
 
 #	define WRITE_SCANLINES(_format, _func) \
-		case _format: { _func(&jpeg, raw->data, raw->width, raw->height); break; }
+		case _format: { _func(&jpeg, src->data, src->width, src->height); break; }
 
-	switch (raw->format) {
+	switch (src->format) {
 		// https://www.fourcc.org/yuv.php
 		WRITE_SCANLINES(V4L2_PIX_FMT_YUYV, _jpeg_write_scanlines_yuyv);
 		WRITE_SCANLINES(V4L2_PIX_FMT_UYVY, _jpeg_write_scanlines_uyvy);
@@ -96,10 +96,10 @@ void cpu_encoder_compress(frame_s *raw, frame_s *frame, unsigned quality) {
 	jpeg_finish_compress(&jpeg);
 	jpeg_destroy_compress(&jpeg);
 
-	assert(frame->used > 0);
+	assert(dest->used > 0);
 }
 
-static void _jpeg_set_picture(j_compress_ptr jpeg, frame_s *frame) {
+static void _jpeg_set_dest_frame(j_compress_ptr jpeg, frame_s *frame) {
 	_jpeg_dest_manager_s *dest;
 
 	if (jpeg->dest == NULL) {
