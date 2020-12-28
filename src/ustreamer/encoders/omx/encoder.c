@@ -154,7 +154,7 @@ int omx_encoder_prepare(omx_encoder_s *omx, device_s *dev, unsigned quality) {
 	return 0;
 }
 
-int omx_encoder_compress_buffer(omx_encoder_s *omx, frame_s *raw, frame_s *frame) {
+int omx_encoder_compress(omx_encoder_s *omx, frame_s *raw, frame_s *frame) {
 #	define IN(_next)	omx->input_buffer->_next
 #	define OUT(_next)	omx->output_buffer->_next
 

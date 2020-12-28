@@ -471,7 +471,7 @@ static void *_worker_thread(void *v_worker) {
 
 			LOG_DEBUG("Worker %u compressing JPEG from buffer %u ...", wr->number, wr->buf_index);
 
-			wr->job_failed = (bool)encoder_compress_buffer(
+			wr->job_failed = (bool)encoder_compress(
 				wr->stream->encoder,
 				wr->number,
 				&wr->stream->dev->run->hw_buffers[wr->buf_index].raw,

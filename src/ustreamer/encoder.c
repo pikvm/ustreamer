@@ -207,7 +207,7 @@ void encoder_get_runtime_params(encoder_s *encoder, encoder_type_e *type, unsign
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic push
-int encoder_compress_buffer(encoder_s *encoder, unsigned worker_number, frame_s *raw, frame_s *frame) {
+int encoder_compress(encoder_s *encoder, unsigned worker_number, frame_s *raw, frame_s *frame) {
 #pragma GCC diagnostic pop
 
 	assert(ER(type) != ENCODER_TYPE_UNKNOWN);
@@ -218,15 +218,15 @@ int encoder_compress_buffer(encoder_s *encoder, unsigned worker_number, frame_s 
 
 	if (ER(type) == ENCODER_TYPE_CPU) {
 		LOG_VERBOSE("Compressing buffer using CPU");
-		cpu_encoder_compress_buffer(raw, frame, ER(quality));
+		cpu_encoder_compress(raw, frame, ER(quality));
 	} else if (ER(type) == ENCODER_TYPE_HW) {
 		LOG_VERBOSE("Compressing buffer using HW (just copying)");
-		hw_encoder_compress_buffer(raw, frame);
+		hw_encoder_compress(raw, frame);
 	}
 #	ifdef WITH_OMX
 	else if (ER(type) == ENCODER_TYPE_OMX) {
 		LOG_VERBOSE("Compressing buffer using OMX");
-		if (omx_encoder_compress_buffer(ER(omxs[worker_number]), raw, frame) < 0) {
+		if (omx_encoder_compress(ER(omxs[worker_number]), raw, frame) < 0) {
 			goto error;
 		}
 	}

@@ -49,7 +49,7 @@ int hw_encoder_prepare(device_s *dev, unsigned quality) {
 	return 0;
 }
 
-void hw_encoder_compress_buffer(frame_s *raw, frame_s *frame) {
+void hw_encoder_compress(frame_s *raw, frame_s *frame) {
 	if (raw->format != V4L2_PIX_FMT_MJPEG && raw->format != V4L2_PIX_FMT_JPEG) {
 		assert(0 && "Unsupported input format for HW encoder");
 	}
