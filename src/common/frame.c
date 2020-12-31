@@ -68,26 +68,26 @@ void frame_append_data(frame_s *frame, const uint8_t *data, size_t size) {
 	frame->used = new_used;
 }
 
+#define COPY(_field) dest->_field = src->_field
+
 void frame_copy(const frame_s *src, frame_s *dest) {
 	assert(dest->managed);
-
 	frame_set_data(dest, src->data, src->used);
-
-#	define COPY(_field) dest->_field = src->_field
-
-	// Don't copy the role
 	COPY(used);
+	frame_copy_meta(src, dest);
+}
 
+void frame_copy_meta(const frame_s *src, frame_s *dest) {
+	// Don't copy the role
 	COPY(width);
 	COPY(height);
 	COPY(format);
-
 	COPY(grab_ts);
 	COPY(encode_begin_ts);
 	COPY(encode_end_ts);
-
-#	undef COPY
 }
+
+#undef COPY
 
 bool frame_compare(const frame_s *a, const frame_s *b) {
 	return (

@@ -59,4 +59,5 @@ void frame_set_data(frame_s *frame, const uint8_t *data, size_t size);
 void frame_append_data(frame_s *frame, const uint8_t *data, size_t size);
 
 void frame_copy(const frame_s *src, frame_s *dest);
+void frame_copy_meta(const frame_s *src, frame_s *dest);
 bool frame_compare(const frame_s *a, const frame_s *b);
