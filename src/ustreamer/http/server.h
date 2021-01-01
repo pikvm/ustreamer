@@ -97,7 +97,6 @@ typedef struct {
 	frame_s			*frame;
 	unsigned		captured_fps;
 	unsigned		queued_fps;
-	bool			online;
 	unsigned		dropped;
 	long double		expose_begin_ts;
 	long double		expose_cmp_ts;

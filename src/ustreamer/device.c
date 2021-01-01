@@ -73,7 +73,6 @@ static void _device_set_control(
 	device_s *dev, struct v4l2_queryctrl *query,
 	const char *name, unsigned cid, int value, bool quiet);
 
-static const char *_format_to_string_fourcc(char *buf, size_t size, unsigned format);
 static const char *_format_to_string_nullable(unsigned format);
 static const char *_format_to_string_supported(unsigned format);
 static const char *_standard_to_string(v4l2_std_id standard);
@@ -325,6 +324,7 @@ int device_grab_buffer(device_s *dev) {
 	HW(raw.width) = RUN(width);
 	HW(raw.height) = RUN(height);
 	HW(raw.format) = RUN(format);
+	HW(raw.online) = true;
 	memcpy(&HW(buf_info), &buf_info, sizeof(struct v4l2_buffer));
 	HW(raw.grab_ts) = get_now_monotonic();
 
@@ -505,7 +505,7 @@ static int _device_open_format(device_s *dev) {
 			LOG_INFO("Falling back to pixelformat=%s", format_str_nullable);
 		} else {
 			LOG_ERROR("Unsupported pixelformat=%s (fourcc)",
-				_format_to_string_fourcc(format_obtained_str, 8, fmt.fmt.pix.pixelformat));
+				fourcc_to_string(fmt.fmt.pix.pixelformat, format_obtained_str, 8));
 			return -1;
 		}
 	}
@@ -816,23 +816,6 @@ static void _device_set_control(
 	} else if (!quiet) {
 		LOG_INFO("Applying control %s: %d", name, ctl.value);
 	}
-}
-
-static const char *_format_to_string_fourcc(char *buf, size_t size, unsigned format) {
-	assert(size >= 8);
-	buf[0] = format & 0x7F;
-	buf[1] = (format >> 8) & 0x7F;
-	buf[2] = (format >> 16) & 0x7F;
-	buf[3] = (format >> 24) & 0x7F;
-	if (format & ((unsigned)1 << 31)) {
-		buf[4] = '-';
-		buf[5] = 'B';
-		buf[6] = 'E';
-		buf[7] = '\0';
-	} else {
-		buf[4] = '\0';
-	}
-	return buf;
 }
 
 static const char *_format_to_string_nullable(unsigned format) {

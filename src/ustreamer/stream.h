@@ -55,7 +55,6 @@ typedef struct {
 
 typedef struct {
 	frame_s			*frame;
-	bool			online;
 	unsigned		captured_fps;
 	atomic_bool		updated;
 	long double		last_as_blank_ts;

@@ -42,6 +42,7 @@ typedef struct {
 	unsigned	width;
 	unsigned	height;
 	unsigned	format;
+	bool		online;
 
 	long double	grab_ts;
 	long double	encode_begin_ts;
@@ -61,3 +62,5 @@ void frame_append_data(frame_s *frame, const uint8_t *data, size_t size);
 void frame_copy(const frame_s *src, frame_s *dest);
 void frame_copy_meta(const frame_s *src, frame_s *dest);
 bool frame_compare(const frame_s *a, const frame_s *b);
+
+const char *fourcc_to_string(unsigned format, char *buf, size_t size);

@@ -352,7 +352,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		encoder_quality,
 		(server->fake_width ? server->fake_width : EX(frame->width)),
 		(server->fake_height ? server->fake_height : EX(frame->height)),
-		bool_to_string(EX(online)),
+		bool_to_string(EX(frame->online)),
 		STREAM(dev->desired_fps),
 		EX(captured_fps),
 		EX(queued_fps),
@@ -407,7 +407,7 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 
 	ADD_TIME_HEADER("X-Timestamp", get_now_real());
 
-	ADD_HEADER("X-UStreamer-Online",						bool_to_string(EX(online)));
+	ADD_HEADER("X-UStreamer-Online",						bool_to_string(EX(frame->online)));
 	ADD_UNSIGNED_HEADER("X-UStreamer-Dropped",				EX(dropped));
 	ADD_UNSIGNED_HEADER("X-UStreamer-Width",				EX(frame->width));
 	ADD_UNSIGNED_HEADER("X-UStreamer-Height",				EX(frame->height));
@@ -603,7 +603,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				"X-UStreamer-Expose-End-Time: %.06Lf" RN
 				"X-UStreamer-Send-Time: %.06Lf" RN
 				RN,
-				bool_to_string(EX(online)),
+				bool_to_string(EX(frame->online)),
 				EX(dropped),
 				EX(frame->width),
 				EX(frame->height),
@@ -761,12 +761,12 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 		frame_updated
 		&& server->notify_parent
 		&& (
-			EX(notify_last_online) != EX(online)
+			EX(notify_last_online) != EX(frame->online)
 			|| EX(notify_last_width) != EX(frame->width)
 			|| EX(notify_last_height) != EX(frame->height)
 		)
 	) {
-		EX(notify_last_online) = EX(online);
+		EX(notify_last_online) = EX(frame->online);
 		EX(notify_last_width) = EX(frame->width);
 		EX(notify_last_height) = EX(frame->height);
 		process_notify_parent();
@@ -778,12 +778,12 @@ static bool _expose_new_frame(server_s *server) {
 
 	A_MUTEX_LOCK(&STREAM(video->mutex));
 
-	LOG_DEBUG("HTTP: Updating exposed frame (online=%d) ...", STREAM(video->online));
+	LOG_DEBUG("HTTP: Updating exposed frame (online=%d) ...", STREAM(video->frame->online));
 
 	EX(captured_fps) = STREAM(video->captured_fps);
 	EX(expose_begin_ts) = get_now_monotonic();
 
-	if (server->drop_same_frames && STREAM(video->online)) {
+	if (server->drop_same_frames && STREAM(video->frame->online)) {
 		bool need_drop = false;
 		bool maybe_same = false;
 		if (
@@ -805,13 +805,12 @@ static bool _expose_new_frame(server_s *server) {
 
 	frame_copy(STREAM(video->frame), EX(frame));
 
-	EX(online) = STREAM(video->online);
 	EX(dropped) = 0;
 	EX(expose_cmp_ts) = EX(expose_begin_ts);
 	EX(expose_end_ts) = get_now_monotonic();
 
 	LOG_VERBOSE("HTTP: Exposed frame: online=%d, exp_time=%.06Lf",
-		 EX(online), EX(expose_end_ts) - EX(expose_begin_ts));
+		 EX(frame->online), EX(expose_end_ts) - EX(expose_begin_ts));
 
 	updated = true;
 	not_updated:

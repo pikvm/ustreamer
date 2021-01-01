@@ -27,7 +27,7 @@ static int _sem_timedwait_monotonic(sem_t *sem, long double timeout);
 static int _flock_timedwait_monotonic(int fd, long double timeout);
 
 
-rawsink_s *rawsink_init(const char *name, bool server, mode_t mode, bool rm, unsigned timeout) {
+rawsink_s *rawsink_open(const char *name, bool server, mode_t mode, bool rm, unsigned timeout) {
 	rawsink_s *rawsink;
 	int flags = (server ? O_RDWR | O_CREAT : O_RDWR);
 
@@ -91,11 +91,11 @@ rawsink_s *rawsink_init(const char *name, bool server, mode_t mode, bool rm, uns
 	return rawsink;
 
 	error:
-		rawsink_destroy(rawsink);
+		rawsink_close(rawsink);
 		return NULL;
 }
 
-void rawsink_destroy(rawsink_s *rawsink) {
+void rawsink_close(rawsink_s *rawsink) {
 	if (rawsink->sig_sem != SEM_FAILED) {
 		if (sem_close(rawsink->sig_sem) < 0) {
 			LOG_PERROR("Can't close RAW sink signal semaphore");
@@ -149,9 +149,10 @@ int rawsink_server_put(rawsink_s *rawsink, frame_s *frame) {
 
 #		define COPY(_field) rawsink->mem->_field = frame->_field
 		COPY(used);
-		COPY(format);
 		COPY(width);
 		COPY(height);
+		COPY(format);
+		COPY(online);
 		COPY(grab_ts);
 		memcpy(rawsink->mem->data, frame->data, frame->used);
 #		undef COPY
@@ -198,6 +199,7 @@ int rawsink_client_get(rawsink_s *rawsink, frame_s *frame) { // cppcheck-suppres
 	COPY(width);
 	COPY(height);
 	COPY(format);
+	COPY(online);
 	COPY(grab_ts);
 	frame_set_data(frame, rawsink->mem->data, rawsink->mem->used);
 #	undef COPY

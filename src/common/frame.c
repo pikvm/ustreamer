@@ -82,6 +82,7 @@ void frame_copy_meta(const frame_s *src, frame_s *dest) {
 	COPY(width);
 	COPY(height);
 	COPY(format);
+	COPY(online);
 	COPY(grab_ts);
 	COPY(encode_begin_ts);
 	COPY(encode_end_ts);
@@ -95,4 +96,21 @@ bool frame_compare(const frame_s *a, const frame_s *b) {
 		&& a->used == b->used
 		&& !memcmp(a->data, b->data, b->used)
 	);
+}
+
+const char *fourcc_to_string(unsigned format, char *buf, size_t size) {
+	assert(size >= 8);
+	buf[0] = format & 0x7F;
+	buf[1] = (format >> 8) & 0x7F;
+	buf[2] = (format >> 16) & 0x7F;
+	buf[3] = (format >> 24) & 0x7F;
+	if (format & ((unsigned)1 << 31)) {
+		buf[4] = '-';
+		buf[5] = 'B';
+		buf[6] = 'E';
+		buf[7] = '\0';
+	} else {
+		buf[4] = '\0';
+	}
+	return buf;
 }

@@ -326,7 +326,7 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 		LOG_DEBUG("Exposed ALIVE video frame");
 
 	} else {
-		if (VID(online)) { // Если переходим из online в offline
+		if (VID(frame->online)) { // Если переходим из online в offline
 			if (stream->last_as_blank < 0) { // Если last_as_blank выключен, просто покажем старую картинку
 				new = stream->blank;
 				LOG_INFO("Changed video frame to BLANK");
@@ -360,7 +360,7 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 		frame = NULL;
 		changed = true;
 	}
-	VID(online) = frame;
+	VID(frame->online) = frame;
 	VID(captured_fps) = captured_fps;
 	atomic_store(&VID(updated), true);
 	A_MUTEX_UNLOCK(&VID(mutex));

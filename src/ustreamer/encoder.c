@@ -213,8 +213,10 @@ int encoder_compress(encoder_s *encoder, unsigned worker_number, frame_s *src, f
 	assert(ER(type) != ENCODER_TYPE_UNKNOWN);
 	assert(src->used > 0);
 
-	dest->grab_ts = src->grab_ts;
+	frame_copy_meta(src, dest);
+	dest->format = V4L2_PIX_FMT_JPEG;
 	dest->encode_begin_ts = get_now_monotonic();
+	dest->used = 0;
 
 	if (ER(type) == ENCODER_TYPE_CPU) {
 		LOG_VERBOSE("Compressing buffer using CPU");
@@ -239,11 +241,6 @@ int encoder_compress(encoder_s *encoder, unsigned worker_number, frame_s *src, f
 #	endif
 
 	dest->encode_end_ts = get_now_monotonic();
-
-	dest->width = src->width;
-	dest->height = src->height;
-	dest->format = V4L2_PIX_FMT_JPEG;
-
 	return 0;
 
 #	pragma GCC diagnostic ignored "-Wunused-label"

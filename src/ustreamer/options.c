@@ -232,7 +232,7 @@ options_s *options_init(int argc, char *argv[]) {
 void options_destroy(options_s *options) {
 #	ifdef WITH_RAWSINK
 	if (options->rawsink) {
-		rawsink_destroy(options->rawsink);
+		rawsink_close(options->rawsink);
 	}
 #	endif
 	if (options->blank) {
@@ -463,7 +463,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 
 #	ifdef WITH_RAWSINK
 	if (rawsink_name && rawsink_name[0] != '\0') {
-		options->rawsink = rawsink_init(
+		options->rawsink = rawsink_open(
 			rawsink_name,
 			true,
 			rawsink_mode,
