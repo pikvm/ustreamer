@@ -82,11 +82,11 @@ enum _OPT_VALUES {
 	_O_TCP_NODELAY,
 	_O_SERVER_TIMEOUT,
 
-#ifdef WITH_RAWSINK
-	_O_RAWSINK,
-	_O_RAWSINK_MODE,
-	_O_RAWSINK_RM,
-	_O_RAWSINK_TIMEOUT,
+#ifdef WITH_MEMSINK
+	_O_RAW_SINK,
+	_O_RAW_SINK_MODE,
+	_O_RAW_SINK_RM,
+	_O_RAW_SINK_TIMEOUT,
 #endif
 
 #ifdef WITH_GPIO
@@ -167,11 +167,11 @@ static const struct option _LONG_OPTS[] = {
 	{"tcp-nodelay",				no_argument,		NULL,	_O_TCP_NODELAY},
 	{"server-timeout",			required_argument,	NULL,	_O_SERVER_TIMEOUT},
 
-#ifdef WITH_RAWSINK
-	{"raw-sink",				required_argument,	NULL,	_O_RAWSINK},
-	{"raw-sink-mode",			required_argument,	NULL,	_O_RAWSINK_MODE},
-	{"raw-sink-rm",				no_argument,		NULL,	_O_RAWSINK_RM},
-	{"raw-sink-timeout",		required_argument,	NULL,	_O_RAWSINK_TIMEOUT},
+#ifdef WITH_MEMSINK
+	{"raw-sink",				required_argument,	NULL,	_O_RAW_SINK},
+	{"raw-sink-mode",			required_argument,	NULL,	_O_RAW_SINK_MODE},
+	{"raw-sink-rm",				no_argument,		NULL,	_O_RAW_SINK_RM},
+	{"raw-sink-timeout",		required_argument,	NULL,	_O_RAW_SINK_TIMEOUT},
 #endif
 
 #ifdef WITH_GPIO
@@ -230,9 +230,9 @@ options_s *options_init(int argc, char *argv[]) {
 }
 
 void options_destroy(options_s *options) {
-#	ifdef WITH_RAWSINK
-	if (options->rawsink) {
-		rawsink_close(options->rawsink);
+#	ifdef WITH_MEMSINK
+	if (options->raw_sink) {
+		memsink_close(options->raw_sink);
 	}
 #	endif
 	if (options->blank) {
@@ -320,11 +320,11 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 
 	char *blank_path = NULL;
 
-#	ifdef WITH_RAWSINK
-	char *rawsink_name = NULL;
-	mode_t rawsink_mode = 0660;
-	bool rawsink_rm = false;
-	unsigned rawsink_timeout = 1;
+#	ifdef WITH_MEMSINK
+	char *raw_sink_name = NULL;
+	mode_t raw_sink_mode = 0660;
+	bool raw_sink_rm = false;
+	unsigned raw_sink_timeout = 1;
 #	endif
 
 #	ifdef WITH_SETPROCTITLE
@@ -415,11 +415,11 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 			case _O_TCP_NODELAY:		OPT_SET(server->tcp_nodelay, true);
 			case _O_SERVER_TIMEOUT:		OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
-#			ifdef WITH_RAWSINK
-			case _O_RAWSINK:			OPT_SET(rawsink_name, optarg);
-			case _O_RAWSINK_MODE:		OPT_NUMBER("--raw-sink-mode", rawsink_mode, INT_MIN, INT_MAX, 8);
-			case _O_RAWSINK_RM:			OPT_SET(rawsink_rm, true);
-			case _O_RAWSINK_TIMEOUT:	OPT_NUMBER("--raw-sink-timeout", rawsink_timeout, 1, 60, 0);
+#			ifdef WITH_MEMSINK
+			case _O_RAW_SINK:			OPT_SET(raw_sink_name, optarg);
+			case _O_RAW_SINK_MODE:		OPT_NUMBER("--raw-sink-mode", raw_sink_mode, INT_MIN, INT_MAX, 8);
+			case _O_RAW_SINK_RM:		OPT_SET(raw_sink_rm, true);
+			case _O_RAW_SINK_TIMEOUT:	OPT_NUMBER("--raw-sink-timeout", raw_sink_timeout, 1, 60, 0);
 #			endif
 
 #			ifdef WITH_GPIO
@@ -461,17 +461,18 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 	options->blank = blank_frame_init(blank_path);
 	stream->blank = options->blank;
 
-#	ifdef WITH_RAWSINK
-	if (rawsink_name && rawsink_name[0] != '\0') {
-		options->rawsink = rawsink_open(
-			rawsink_name,
+#	ifdef WITH_MEMSINK
+	if (raw_sink_name && raw_sink_name[0] != '\0') {
+		options->raw_sink = memsink_open(
+			"RAW",
+			raw_sink_name,
 			true,
-			rawsink_mode,
-			rawsink_rm,
-			rawsink_timeout
+			raw_sink_mode,
+			raw_sink_rm,
+			raw_sink_timeout
 		);
 	}
-	stream->rawsink = options->rawsink;
+	stream->raw_sink = options->raw_sink;
 #	endif
 
 #	ifdef WITH_SETPROCTITLE
@@ -567,10 +568,10 @@ static void _features(void) {
 	puts("- WITH_OMX");
 #	endif
 
-#	ifdef WITH_RAWSINK
-	puts("+ WITH_RAWSINK");
+#	ifdef WITH_MEMSINK
+	puts("+ WITH_MEMSINK");
 #	else
-	puts("- WITH_RAWSINK");
+	puts("- WITH_MEMSINK");
 #	endif
 
 #	ifdef WITH_GPIO
@@ -639,7 +640,7 @@ static void _help(device_s *dev, encoder_s *encoder, stream_s *stream, server_s 
 	printf("                                             * OMX  ── GPU hardware accelerated MJPG encoding with OpenMax;\n");
 #	endif
 	printf("                                             * HW  ─── Use pre-encoded MJPG frames directly from camera hardware.\n");
-#	ifdef WITH_RAWSINK
+#	ifdef WITH_MEMSINK
 	printf("                                             * NOOP  ─ Don't compress stream. Useful for the RAW sink.\n\n");
 #	endif
 #	ifdef WITH_OMX
@@ -693,7 +694,7 @@ static void _help(device_s *dev, encoder_s *encoder, stream_s *stream, server_s 
 	printf("                                  Default: disabled.\n\n");
 	printf("    --allow-origin <str>  ─────── Set Access-Control-Allow-Origin header. Default: disabled.\n\n");
 	printf("    --server-timeout <sec>  ───── Timeout for client connections. Default: %u.\n\n", server->timeout);
-#ifdef WITH_RAWSINK
+#ifdef WITH_MEMSINK
 	printf("RAW sink options:\n");
 	printf("═════════════════\n");
 	printf("    --raw-sink <name>  ──────── Use the shared memory to sink RAW frames before encoding.\n");

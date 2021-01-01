@@ -48,8 +48,8 @@
 
 #include "xioctl.h"
 
-#ifdef WITH_RAWSINK
-#	include "../libs/rawsink/rawsink.h"
+#ifdef WITH_MEMSINK
+#	include "../libs/memsink/memsink.h"
 #endif
 
 

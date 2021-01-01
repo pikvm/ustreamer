@@ -36,7 +36,7 @@ _USTR_SRCS = $(shell ls \
 _REC_LIBS = $(_COMMON_LIBS) -lrt -lbcm_host -lvcos -lmmal -lmmal_core -lmmal_util -lmmal_vc_client -lmmal_components -L$(RPI_VC_LIBS)
 _REC_SRCS = $(shell ls \
 	src/libs/common/*.c \
-	src/libs/rawsink/*.c \
+	src/libs/memsink/*.c \
 	src/libs/h264/*.c \
 	src/recorder/*.c \
 )
@@ -47,10 +47,10 @@ $(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
 endef
 
 
-ifneq ($(call optbool,$(WITH_RAWSINK)),)
+ifneq ($(call optbool,$(WITH_MEMSINK)),)
 _USTR_LIBS += -lrt
-override CFLAGS += -DWITH_RAWSINK
-_USTR_SRCS += $(shell ls src/libs/rawsink/*.c)
+override CFLAGS += -DWITH_MEMSINK
+_USTR_SRCS += $(shell ls src/libs/memsink/*.c)
 endif
 
 
@@ -83,7 +83,7 @@ override CFLAGS += -DWITH_SETPROCTITLE
 endif
 
 
-ifneq ($(call optbool,$(WITH_RAWSINK)),)
+ifneq ($(call optbool,$(WITH_MEMSINK)),)
 ifneq ($(call optbool,$(WITH_OMX)),)
 _ENABLE_REC = 1
 endif

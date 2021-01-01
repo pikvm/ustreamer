@@ -208,9 +208,9 @@ void stream_loop(stream_s *stream) {
 							grab_after = now + fluency_delay;
 							LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
 
-#							ifdef WITH_RAWSINK
-							if (stream->rawsink && rawsink_server_put(stream->rawsink, &DEV(run->hw_buffers[buf_index].raw)) < 0) {
-								stream->rawsink = NULL;
+#							ifdef WITH_MEMSINK
+							if (stream->raw_sink && memsink_server_put(stream->raw_sink, &DEV(run->hw_buffers[buf_index].raw)) < 0) {
+								stream->raw_sink = NULL;
 								LOG_ERROR("RAW sink completely disabled due error");
 							}
 #							endif
@@ -264,9 +264,9 @@ static _pool_s *_stream_init_loop(stream_s *stream) {
 
 	while (!atomic_load(&stream->proc->stop)) {
 		if (_stream_expose_frame(stream, NULL, 0)) {
-#			ifdef WITH_RAWSINK
-			if (stream->rawsink && rawsink_server_put(stream->rawsink, stream->blank) < 0) {
-				stream->rawsink = NULL;
+#			ifdef WITH_MEMSINK
+			if (stream->raw_sink && memsink_server_put(stream->raw_sink, stream->blank) < 0) {
+				stream->raw_sink = NULL;
 				LOG_ERROR("RAW sink completely disabled due error");
 			}
 #			endif

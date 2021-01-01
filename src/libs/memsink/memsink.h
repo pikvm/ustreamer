@@ -40,10 +40,10 @@
 #include "../common/frame.h"
 
 
-#ifndef CFG_RAWSINK_MAX_DATA
-#	define CFG_RAWSINK_MAX_DATA 33554432
+#ifndef CFG_MEMSINK_MAX_DATA
+#	define CFG_MEMSINK_MAX_DATA 33554432
 #endif
-#define RAWSINK_MAX_DATA ((size_t)(CFG_RAWSINK_MAX_DATA))
+#define MEMSINK_MAX_DATA ((size_t)(CFG_MEMSINK_MAX_DATA))
 
 
 typedef struct {
@@ -53,10 +53,13 @@ typedef struct {
 	unsigned	format;
 	bool		online;
 	long double	grab_ts;
-	uint8_t		data[RAWSINK_MAX_DATA];
-} rawsink_shared_s;
+	long double	encode_begin_ts;
+	long double	encode_end_ts;
+	uint8_t		data[MEMSINK_MAX_DATA];
+} memsink_shared_s;
 
 typedef struct {
+	const char	*role;
 	bool		server;
 	bool		rm;
 	unsigned	timeout;
@@ -65,13 +68,13 @@ typedef struct {
 	char *sig_name;
 
 	int					fd;
-	rawsink_shared_s	*mem;
+	memsink_shared_s	*mem;
 	sem_t				*sig_sem;
-} rawsink_s;
+} memsink_s;
 
 
-rawsink_s *rawsink_open(const char *name, bool server, mode_t mode, bool rm, unsigned timeout);
-void rawsink_close(rawsink_s *rawsink);
+memsink_s *memsink_open(const char *role, const char *name, bool server, mode_t mode, bool rm, unsigned timeout);
+void memsink_close(memsink_s *memsink);
 
-int rawsink_server_put(rawsink_s *rawsink, frame_s *frame);
-int rawsink_client_get(rawsink_s *rawsink, frame_s *frame);
+int memsink_server_put(memsink_s *memsink, frame_s *frame);
+int memsink_client_get(memsink_s *memsink, frame_s *frame);

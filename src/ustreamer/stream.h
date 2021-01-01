@@ -40,8 +40,8 @@
 #include "blank.h"
 #include "device.h"
 #include "encoder.h"
-#ifdef WITH_RAWSINK
-#	include "../libs/rawsink/rawsink.h"
+#ifdef WITH_MEMSINK
+#	include "../libs/memsink/memsink.h"
 #endif
 #ifdef WITH_GPIO
 #	include "gpio/gpio.h"
@@ -68,8 +68,8 @@ typedef struct {
 	device_s	*dev;
 	encoder_s	*encoder;
 	frame_s		*blank;
-#	ifdef WITH_RAWSINK
-	rawsink_s	*rawsink;
+#	ifdef WITH_MEMSINK
+	memsink_s	*raw_sink;
 #	endif
 
 	process_s	*proc;

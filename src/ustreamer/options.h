@@ -37,8 +37,8 @@
 #include "../libs/common/logging.h"
 #include "../libs/common/process.h"
 #include "../libs/common/frame.h"
-#ifdef WITH_RAWSINK
-#	include "../libs/rawsink/rawsink.h"
+#ifdef WITH_MEMSINK
+#	include "../libs/memsink/memsink.h"
 #endif
 
 #include "device.h"
@@ -56,8 +56,8 @@ typedef struct {
 	char		**argv;
 	char		**argv_copy;
 	frame_s		*blank;
-#	ifdef WITH_RAWSINK
-	rawsink_s	*rawsink;
+#	ifdef WITH_MEMSINK
+	memsink_s	*raw_sink;
 #	endif
 } options_s;
 
