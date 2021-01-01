@@ -31,8 +31,8 @@
 
 #include <linux/videodev2.h>
 
-#include "../../../common/tools.h"
-#include "../../../common/frame.h"
+#include "../../../libs/common/tools.h"
+#include "../../../libs/common/frame.h"
 
 
 void cpu_encoder_compress(frame_s *src, frame_s *dest, unsigned quality);

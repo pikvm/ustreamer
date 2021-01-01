@@ -35,8 +35,8 @@
 #include <event2/http.h>
 #include <event2/util.h>
 
-#include "../../common/tools.h"
-#include "../../common/logging.h"
+#include "../../libs/common/tools.h"
+#include "../../libs/common/logging.h"
 
 
 evutil_socket_t evhttp_my_bind_unix(struct evhttp *http, const char *path, bool rm, mode_t mode);

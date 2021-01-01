@@ -29,9 +29,9 @@
 #include <jpeglib.h>
 #include <linux/videodev2.h>
 
-#include "../common/tools.h"
-#include "../common/logging.h"
-#include "../common/frame.h"
+#include "../libs/common/tools.h"
+#include "../libs/common/logging.h"
+#include "../libs/common/frame.h"
 
 #include "data/blank_jpeg.h"
 

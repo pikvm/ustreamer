@@ -41,15 +41,15 @@
 #include <linux/videodev2.h>
 #include <linux/v4l2-controls.h>
 
-#include "../common/tools.h"
-#include "../common/logging.h"
-#include "../common/threading.h"
-#include "../common/frame.h"
+#include "../libs/common/tools.h"
+#include "../libs/common/logging.h"
+#include "../libs/common/threading.h"
+#include "../libs/common/frame.h"
 
 #include "xioctl.h"
 
 #ifdef WITH_RAWSINK
-#	include "../rawsink/rawsink.h"
+#	include "../libs/rawsink/rawsink.h"
 #endif
 
 

@@ -53,11 +53,11 @@
 #	error Required libevent-pthreads support
 #endif
 
-#include "../../common/tools.h"
-#include "../../common/threading.h"
-#include "../../common/logging.h"
-#include "../../common/process.h"
-#include "../../common/frame.h"
+#include "../../libs/common/tools.h"
+#include "../../libs/common/threading.h"
+#include "../../libs/common/logging.h"
+#include "../../libs/common/process.h"
+#include "../../libs/common/frame.h"
 #include "../data/index_html.h"
 #include "../encoder.h"
 #include "../stream.h"

@@ -30,10 +30,10 @@
 #include <pthread.h>
 #include <linux/videodev2.h>
 
-#include "../common/tools.h"
-#include "../common/threading.h"
-#include "../common/logging.h"
-#include "../common/frame.h"
+#include "../libs/common/tools.h"
+#include "../libs/common/threading.h"
+#include "../libs/common/logging.h"
+#include "../libs/common/frame.h"
 
 #include "device.h"
 

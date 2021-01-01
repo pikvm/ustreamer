@@ -28,7 +28,7 @@
 #endif
 #include <string.h>
 
-#include "../../common/tools.h"
+#include "../../libs/common/tools.h"
 
 
 char *simplify_request_path(const char *str);

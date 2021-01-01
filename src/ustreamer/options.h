@@ -33,12 +33,12 @@
 #include <errno.h>
 #include <assert.h>
 
-#include "../common/config.h"
-#include "../common/logging.h"
-#include "../common/process.h"
-#include "../common/frame.h"
+#include "../libs/common/config.h"
+#include "../libs/common/logging.h"
+#include "../libs/common/process.h"
+#include "../libs/common/frame.h"
 #ifdef WITH_RAWSINK
-#	include "../rawsink/rawsink.h"
+#	include "../libs/rawsink/rawsink.h"
 #endif
 
 #include "device.h"

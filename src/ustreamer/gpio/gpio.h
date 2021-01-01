@@ -30,9 +30,9 @@
 #include <pthread.h>
 #include <gpiod.h>
 
-#include "../../common/tools.h"
-#include "../../common/logging.h"
-#include "../../common/threading.h"
+#include "../../libs/common/tools.h"
+#include "../../libs/common/logging.h"
+#include "../../libs/common/threading.h"
 
 
 typedef struct {

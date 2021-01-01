@@ -1,6 +1,7 @@
 -include config.mk
 
-PROG ?= ustreamer
+USTR ?= ustreamer
+REC ?= ustreamer-recorder
 DESTDIR ?=
 PREFIX ?= /usr/local
 MANPREFIX ?= $(PREFIX)/share/man
@@ -14,19 +15,30 @@ RPI_VC_LIBS ?= /opt/vc/lib
 
 BUILD ?= build
 
-LINTERS_IMAGE ?= $(PROG)-linters
+LINTERS_IMAGE ?= $(USTR)-linters
 
 
 # =====
-_PROG_LIBS = -lm -ljpeg -pthread -levent -levent_pthreads -luuid
 override CFLAGS += -c -std=c11 -Wall -Wextra -D_GNU_SOURCE
-_PROG_SRCS = $(shell ls \
-	src/common/*.c \
+
+_COMMON_LIBS = -lm -ljpeg -pthread
+
+_USTR_LIBS = $(_COMMON_LIBS) -levent -levent_pthreads -luuid
+_USTR_SRCS = $(shell ls \
+	src/libs/common/*.c \
 	src/ustreamer/*.c \
 	src/ustreamer/http/*.c \
 	src/ustreamer/data/*.c \
 	src/ustreamer/encoders/cpu/*.c \
 	src/ustreamer/encoders/hw/*.c \
+)
+
+_REC_LIBS = $(_COMMON_LIBS) -lrt -lbcm_host -lvcos -lmmal -lmmal_core -lmmal_util -lmmal_vc_client -lmmal_components -L$(RPI_VC_LIBS)
+_REC_SRCS = $(shell ls \
+	src/libs/common/*.c \
+	src/libs/rawsink/*.c \
+	src/libs/h264/*.c \
+	src/recorder/*.c \
 )
 
 
@@ -36,23 +48,23 @@ endef
 
 
 ifneq ($(call optbool,$(WITH_RAWSINK)),)
-_PROG_LIBS += -lrt
+_USTR_LIBS += -lrt
 override CFLAGS += -DWITH_RAWSINK
-_PROG_SRCS += $(shell ls src/rawsink/*.c)
+_USTR_SRCS += $(shell ls src/libs/rawsink/*.c)
 endif
 
 
 ifneq ($(call optbool,$(WITH_OMX)),)
-_PROG_LIBS += -lbcm_host -lvcos -lopenmaxil -L$(RPI_VC_LIBS)
+_USTR_LIBS += -lbcm_host -lvcos -lopenmaxil -L$(RPI_VC_LIBS)
 override CFLAGS += -DWITH_OMX -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
-_PROG_SRCS += $(shell ls src/ustreamer/encoders/omx/*.c)
+_USTR_SRCS += $(shell ls src/ustreamer/encoders/omx/*.c)
 endif
 
 
 ifneq ($(call optbool,$(WITH_GPIO)),)
-_PROG_LIBS += -lgpiod
+_USTR_LIBS += -lgpiod
 override CFLAGS += -DWITH_GPIO
-_PROG_SRCS += $(shell ls src/ustreamer/gpio/*.c)
+_USTR_SRCS += $(shell ls src/ustreamer/gpio/*.c)
 endif
 
 
@@ -65,28 +77,43 @@ endif
 WITH_SETPROCTITLE ?= 1
 ifneq ($(call optbool,$(WITH_SETPROCTITLE)),)
 ifeq ($(shell uname -s | tr A-Z a-z),linux)
-_PROG_LIBS += -lbsd
+_USTR_LIBS += -lbsd
 endif
 override CFLAGS += -DWITH_SETPROCTITLE
 endif
 
 
+ifneq ($(call optbool,$(WITH_RAWSINK)),)
+ifneq ($(call optbool,$(WITH_OMX)),)
+_ENABLE_REC = 1
+endif
+endif
+
+
 # =====
-all: $(PROG)
+all: $(USTR) $(REC)
 
 
-install: $(PROG)
-	install -Dm755 $(PROG) $(DESTDIR)$(PREFIX)/bin/$(PROG)
-	install -Dm644 $(PROG).1 $(DESTDIR)$(MANPREFIX)/man1/$(PROG).1
-	gzip $(DESTDIR)$(MANPREFIX)/man1/$(PROG).1
+install: $(USTR) $(REC)
+	install -Dm755 $(USTR) $(DESTDIR)$(PREFIX)/bin/$(USTR)
+	install -Dm644 $(USTR).1 $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
+	gzip $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
+ifneq ($(_ENABLE_REC),)
+	install -Dm755 $(DESTDIR)$(PREFIX)/bin/$(REC)
+endif
 
 
 install-strip: install
-	strip $(DESTDIR)$(PREFIX)/bin/$(PROG)
+	strip $(DESTDIR)$(PREFIX)/bin/$(USTR)
+ifneq ($(_ENABLE_REC),)
+	strip $(DESTDIR)$(PREFIX)/bin/$(REC)
+endif
 
 
 uninstall:
-	rm $(DESTDIR)$(PREFIX)/bin/$(PROG)
+	rm -f $(DESTDIR)$(PREFIX)/bin/$(USTR) \
+		$(DESTDIR)$(PREFIX)/bin/$(REC) \
+		$(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
 
 
 regen:
@@ -94,14 +121,27 @@ regen:
 	tools/make-html-h.py src/ustreamer/data/index.html src/ustreamer/data/index_html.c INDEX
 
 
-$(PROG): $(_PROG_SRCS:%.c=$(BUILD)/%.o)
+$(USTR): $(_USTR_SRCS:%.c=$(BUILD)/%.o)
 	$(info -- LD $@)
-	@ $(CC) $^ -o $@ $(LDFLAGS) $(_PROG_LIBS)
-	$(info ===== Build complete =====)
+	@ $(CC) $^ -o $@ $(LDFLAGS) $(_USTR_LIBS)
 	$(info == CC      = $(CC))
-	$(info == LIBS    = $(_PROG_LIBS))
+	$(info == LIBS    = $(_USTR_LIBS))
 	$(info == CFLAGS  = $(CFLAGS))
 	$(info == LDFLAGS = $(LDFLAGS))
+
+
+ifneq ($(_ENABLE_REC),)
+$(REC): $(_REC_SRCS:%.c=$(BUILD)/%.o)
+	$(info -- LD $@)
+	@ $(CC) $^ -o $@ $(LDFLAGS) $(_REC_LIBS)
+	$(info == CC      = $(CC))
+	$(info == LIBS    = $(_REC_LIBS))
+	$(info == CFLAGS  = $(CFLAGS))
+	$(info == LDFLAGS = $(LDFLAGS))
+else
+$(REC):
+	@ true
+endif
 
 
 $(BUILD)/%.o: %.c
@@ -152,6 +192,6 @@ clean-all: linters clean
 		-it $(LINTERS_IMAGE) bash -c "cd src && rm -rf linters/{.tox,.mypy_cache}"
 clean:
 	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.{xz,zst}
-	rm -rf $(PROG) $(BUILD) vgcore.* *.sock
+	rm -rf $(USTR) $(REC) $(BUILD) vgcore.* *.sock
 
 .PHONY: linters

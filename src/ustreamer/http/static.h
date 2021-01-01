@@ -29,8 +29,8 @@
 
 #include <sys/stat.h>
 
-#include "../../common/tools.h"
-#include "../../common/logging.h"
+#include "../../libs/common/tools.h"
+#include "../../libs/common/logging.h"
 
 #include "path.h"
 

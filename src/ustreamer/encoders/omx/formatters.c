@@ -26,12 +26,6 @@
 #define CASE_TO_STRING(_value) \
 	case _value: { return #_value; }
 
-#define CASE_ASSERT(_msg, _value) default: { \
-		char *_assert_buf; A_CALLOC(_assert_buf, 128); \
-		sprintf(_assert_buf, _msg ": 0x%08x", _value); \
-		assert(0 && _assert_buf); \
-	}
-
 const char *omx_error_to_string(OMX_ERRORTYPE error) {
 	switch (error) {
 		CASE_TO_STRING(OMX_ErrorNone);
@@ -93,9 +87,8 @@ const char *omx_state_to_string(OMX_STATETYPE state) {
 		CASE_TO_STRING(OMX_StateWaitForResources);
 		// cppcheck-suppress constArgument
 		// cppcheck-suppress knownArgument
-		CASE_ASSERT("Unsupported OMX state", state);
 	}
+	assert(0 && "Unsupported OMX state");
 }
 
-#undef CASE_ASSERT
 #undef CASE_TO_STRING
