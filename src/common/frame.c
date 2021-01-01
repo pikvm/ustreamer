@@ -94,6 +94,9 @@ bool frame_compare(const frame_s *a, const frame_s *b) {
 	return (
 		a->allocated && b->allocated
 		&& a->used == b->used
+		&& a->width == b->width
+		&& a->height == b->height
+		&& a->online == b->online
 		&& !memcmp(a->data, b->data, b->used)
 	);
 }
