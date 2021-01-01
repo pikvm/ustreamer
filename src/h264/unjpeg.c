@@ -39,6 +39,11 @@ int unjpeg(const frame_s *src, frame_s *dest) {
 	unsigned row_stride;
 	volatile int retval = 0;
 
+	frame_realloc_data(dest, ((src->width * src->height) << 1) * 2);
+	frame_copy_meta(src, dest);
+	dest->format = V4L2_PIX_FMT_RGB24;
+	dest->used = 0;
+
 	jpeg_create_decompress(&jpeg);
 
 	// https://stackoverflow.com/questions/19857766/error-handling-in-libjpeg
@@ -64,10 +69,8 @@ int unjpeg(const frame_s *src, frame_s *dest) {
 
 	jpeg_finish_decompress(&jpeg);
 
-	frame_copy_meta(src, dest);
 	dest->width = jpeg.output_width;
 	dest->height = jpeg.output_height;
-	dest->format = V4L2_PIX_FMT_RGB24;
 
 	done:
 		jpeg_destroy_decompress(&jpeg);
