@@ -22,65 +22,70 @@
 
 #pragma once
 
-#include <stdlib.h>
 #include <stdbool.h>
 #include <stdatomic.h>
-#include <unistd.h>
-#include <errno.h>
-#include <assert.h>
+
+#include <sys/types.h>
 
 #include <pthread.h>
-#include <linux/videodev2.h>
 
 #include "../libs/common/tools.h"
 #include "../libs/common/threading.h"
 #include "../libs/common/logging.h"
-#include "../libs/common/frame.h"
-
-#include "blank.h"
-#include "device.h"
-#include "encoder.h"
-#include "workers.h"
-#ifdef WITH_MEMSINK
-#	include "../libs/memsink/memsink.h"
-#endif
-#ifdef WITH_GPIO
-#	include "gpio/gpio.h"
-#endif
 
 
-typedef struct {
-	atomic_bool stop;
-	atomic_bool slowdown;
-} process_s;
+typedef struct worker_sx {
+	pthread_t		tid;
+	unsigned		number;
+	char			*name;
 
-typedef struct {
-	frame_s			*frame;
-	unsigned		captured_fps;
-	atomic_bool		updated;
-	long double		last_as_blank_ts;
-	pthread_mutex_t	mutex;
-} video_s;
+	long double		last_job_time;
 
-typedef struct {
-	int			last_as_blank;
-	unsigned	error_delay;
+	pthread_mutex_t	has_job_mutex;
+	void			*job;
+	atomic_bool		has_job;
+	bool			job_timely;
+	bool			job_failed;
+	long double		job_start_ts;
+	pthread_cond_t	has_job_cond;
 
-	device_s	*dev;
-	encoder_s	*encoder;
-	frame_s		*blank;
-#	ifdef WITH_MEMSINK
-	memsink_s	*raw_sink;
-#	endif
+	struct worker_sx *order_prev;
+	struct worker_sx *order_next;
 
-	process_s	*proc;
-	video_s		*video;
-} stream_s;
+	struct workers_pool_sx *pool;
+} worker_s;
+
+typedef struct workers_pool_sx {
+	const char		*name;
+	long double		desired_interval;
+
+	bool (*run_job)(worker_s *wr);
+	void (*job_destroy)(void *job);
+
+	unsigned		n_workers;
+	worker_s		*workers;
+	worker_s		*oldest_wr;
+	worker_s		*latest_wr;
+
+	long double		approx_job_time;
+
+	pthread_mutex_t	free_workers_mutex;
+	unsigned		free_workers;
+	pthread_cond_t	free_workers_cond;
+
+	atomic_bool		stop;
+} workers_pool_s;
 
 
-stream_s *stream_init(device_s *dev, encoder_s *encoder);
-void stream_destroy(stream_s *stream);
+workers_pool_s *workers_pool_init(
+	const char *name, unsigned n_workers, long double desired_interval,
+	void *(*job_init)(worker_s *wr),
+	void (*job_destroy)(void *job),
+	bool (*run_job)(worker_s *));
 
-void stream_loop(stream_s *stream);
-void stream_loop_break(stream_s *stream);
-void stream_switch_slowdown(stream_s *stream, bool slowdown);
+void workers_pool_destroy(workers_pool_s *pool);
+
+worker_s *workers_pool_wait(workers_pool_s *pool);
+void workers_pool_assign(workers_pool_s *pool, worker_s *ready_wr/*, void *job*/);
+
+long double workers_pool_get_fluency_delay(workers_pool_s *pool, worker_s *ready_wr);
