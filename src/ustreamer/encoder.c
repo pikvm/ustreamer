@@ -52,7 +52,6 @@ encoder_s *encoder_init(void) {
 	encoder_s *encoder;
 	A_CALLOC(encoder, 1);
 	encoder->type = run->type;
-	encoder->quality = run->quality;
 	encoder->n_workers = get_cores_available();
 	encoder->run = run;
 	return encoder;
@@ -94,7 +93,7 @@ const char *encoder_type_to_string(encoder_type_e type) {
 
 void encoder_prepare(encoder_s *encoder, device_s *dev) {
 	encoder_type_e type = (ER(cpu_forced) ? ENCODER_TYPE_CPU : encoder->type);
-	unsigned quality = encoder->quality;
+	unsigned quality = dev->jpeg_quality;
 	bool cpu_forced = false;
 
 	ER(n_workers) = min_u(encoder->n_workers, DR(n_buffers));
@@ -109,11 +108,7 @@ void encoder_prepare(encoder_s *encoder, device_s *dev) {
 			LOG_INFO("Switching to CPU encoder because the input format is not (M)JPEG");
 			goto use_cpu;
 		}
-
-		if (hw_encoder_prepare(dev, quality) < 0) {
-			quality = 0;
-		}
-
+		quality = DR(jpeg_quality);
 		ER(n_workers) = 1;
 	}
 #	ifdef WITH_OMX
@@ -174,7 +169,7 @@ void encoder_prepare(encoder_s *encoder, device_s *dev) {
 
 	use_cpu:
 		type = ENCODER_TYPE_CPU;
-		quality = encoder->quality;
+		quality = dev->jpeg_quality;
 
 	ok:
 #		ifdef WITH_RAWSINK

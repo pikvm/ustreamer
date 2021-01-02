@@ -86,6 +86,7 @@ typedef struct {
 	unsigned	height;
 	unsigned	format;
 	unsigned	hw_fps;
+	unsigned	jpeg_quality;
 	size_t		raw_size;
 	unsigned	n_buffers;
 	hw_buffer_s	*hw_buffers;
@@ -126,6 +127,7 @@ typedef struct {
 	unsigned			width;
 	unsigned			height;
 	unsigned			format;
+	unsigned			jpeg_quality;
 	v4l2_std_id			standard;
 	enum v4l2_memory	io_method;
 	bool				dv_timings;

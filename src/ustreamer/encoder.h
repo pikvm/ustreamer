@@ -91,7 +91,6 @@ typedef struct {
 
 typedef struct {
 	encoder_type_e	type;
-	unsigned		quality;
 	unsigned		n_workers;
 #	ifdef WITH_OMX
 	unsigned	n_glitched_resolutions;

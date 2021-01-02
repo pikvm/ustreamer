@@ -59,6 +59,7 @@ static int _device_open_dv_timings(device_s *dev);
 static int _device_apply_dv_timings(device_s *dev);
 static int _device_open_format(device_s *dev);
 static void _device_open_hw_fps(device_s *dev);
+static void _device_open_jpeg_quality(device_s *dev);
 static int _device_open_io_method(device_s *dev);
 static int _device_open_io_method_mmap(device_s *dev);
 static int _device_open_io_method_userptr(device_s *dev);
@@ -93,6 +94,7 @@ device_s *device_init(void) {
 	dev->width = 640;
 	dev->height = 480;
 	dev->format = V4L2_PIX_FMT_YUYV;
+	dev->jpeg_quality = 80;
 	dev->standard = V4L2_STD_UNKNOWN;
 	dev->io_method = V4L2_MEMORY_MMAP;
 	dev->n_buffers = get_cores_available() + 1;
@@ -151,6 +153,7 @@ int device_open(device_s *dev) {
 		goto error;
 	}
 	_device_open_hw_fps(dev);
+	_device_open_jpeg_quality(dev);
 	if (_device_open_io_method(dev) < 0) {
 		goto error;
 	}
@@ -564,6 +567,28 @@ static void _device_open_hw_fps(device_s *dev) {
 	}
 
 #	undef SETFPS_TPF
+}
+
+static void _device_open_jpeg_quality(device_s *dev) {
+	unsigned quality = 0;
+
+	if (RUN(format) == V4L2_PIX_FMT_MJPEG || RUN(format) == V4L2_PIX_FMT_JPEG) {
+		struct v4l2_jpegcompression comp;
+		MEMSET_ZERO(comp);
+
+		if (xioctl(RUN(fd), VIDIOC_G_JPEGCOMP, &comp) < 0) {
+			LOG_ERROR("Device does not support setting of HW encoding quality parameters");
+		} else {
+			comp.quality = dev->jpeg_quality;
+			if (xioctl(RUN(fd), VIDIOC_S_JPEGCOMP, &comp) < 0) {
+				LOG_ERROR("Unable to change MJPG quality for JPEG source with HW pass-through encoder");
+			} else {
+				quality = dev->jpeg_quality;
+			}
+		}
+	}
+
+	RUN(jpeg_quality) = quality;
 }
 
 static int _device_open_io_method(device_s *dev) {

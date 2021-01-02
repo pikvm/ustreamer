@@ -32,22 +32,6 @@ void _copy_plus_huffman(const frame_s *src, frame_s *dest);
 static bool _is_huffman(const uint8_t *data);
 
 
-int hw_encoder_prepare(device_s *dev, unsigned quality) {
-	struct v4l2_jpegcompression comp;
-	MEMSET_ZERO(comp);
-
-	if (xioctl(dev->run->fd, VIDIOC_G_JPEGCOMP, &comp) < 0) {
-		LOG_ERROR("Device does not support setting of HW encoding quality parameters");
-		return -1;
-	}
-	comp.quality = quality;
-	if (xioctl(dev->run->fd, VIDIOC_S_JPEGCOMP, &comp) < 0) {
-		LOG_ERROR("Unable to change MJPG quality for JPEG source with HW pass-through encoder");
-		return -1;
-	}
-	return 0;
-}
-
 void hw_encoder_compress(frame_s *src, frame_s *dest) {
 	if (src->format != V4L2_PIX_FMT_MJPEG && src->format != V4L2_PIX_FMT_JPEG) {
 		assert(0 && "Unsupported input format for HW encoder");

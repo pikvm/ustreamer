@@ -29,14 +29,9 @@
 
 #include <linux/videodev2.h>
 
-#include "../../../libs/common/tools.h"
-#include "../../../libs/common/logging.h"
 #include "../../../libs/common/frame.h"
-#include "../../xioctl.h"
-#include "../../device.h"
 
 #include "huffman.h"
 
 
-int hw_encoder_prepare(device_s *dev, unsigned quality);
 void hw_encoder_compress(frame_s *src, frame_s *dest);
