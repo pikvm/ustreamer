@@ -176,8 +176,8 @@ void stream_loop(stream_s *stream) {
 					gpio_set_stream_online(true);
 #					endif
 
-					long double now = get_now_monotonic();
-					long long now_second = floor_ms(now);
+					const long double now = get_now_monotonic();
+					const long long now_second = floor_ms(now);
 
 					int buf_index = device_grab_buffer(stream->dev);
 					if (buf_index >= 0) {
@@ -199,8 +199,7 @@ void stream_loop(stream_s *stream) {
 							}
 							captured_fps_accum += 1;
 
-							long double fluency_delay = _workers_pool_get_fluency_delay(pool, ready_wr);
-
+							const long double fluency_delay = _workers_pool_get_fluency_delay(pool, ready_wr);
 							grab_after = now + fluency_delay;
 							LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
 
