@@ -164,7 +164,7 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 			IFMT(encoding) = MMAL_ENCODING_RGB24;
 		} else {
 			char fourcc_buf[8];
-			LOG_ERROR("Unsupported pixelformat (fourcc): %s", fourcc_to_string(frame->format, fourcc_buf, 8);
+			LOG_ERROR("Unsupported pixelformat (fourcc): %s", fourcc_to_string(frame->format, fourcc_buf, 8));
 			goto error;
 		}
 		LOG_INFO("Using resolution: %ux%u", frame->width, frame->height);
