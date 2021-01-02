@@ -48,17 +48,16 @@ static void _format_bufferevent_reason(short what, char *reason);
 
 
 server_s *server_init(stream_s *stream) {
-	server_runtime_s *run;
-	server_s *server;
 	exposed_s *exposed;
-
 	A_CALLOC(exposed, 1);
 	exposed->frame = frame_init("http_exposed");
 
+	server_runtime_s *run;
 	A_CALLOC(run, 1);
 	run->stream = stream;
 	run->exposed = exposed;
 
+	server_s *server;
 	A_CALLOC(server, 1);
 	server->host = "127.0.0.1";
 	server->port = 8080;
@@ -95,7 +94,6 @@ void server_destroy(server_s *server) {
 
 	for (stream_client_s *client = RUN(stream_clients); client != NULL;) {
 		stream_client_s *next = client->next;
-
 		free(client->key);
 		free(client);
 		client = next;
@@ -233,20 +231,19 @@ static int _http_preprocess_request(struct evhttp_request *request, server_s *se
 
 static void _http_callback_root(struct evhttp_request *request, void *v_server) {
 	server_s *server = (server_s *)v_server;
-	struct evbuffer *buf;
-	struct evkeyvalq params; // For mjpg-streamer compatibility
-	const char *action; // Ditto
 
 	PREPROCESS_REQUEST;
 
+	struct evkeyvalq params; // For mjpg-streamer compatibility
 	evhttp_parse_query(evhttp_request_get_uri(request), &params);
-	action = evhttp_find_header(&params, "action");
+	const char *action = evhttp_find_header(&params, "action");
 
 	if (action && !strcmp(action, "snapshot")) {
 		_http_callback_snapshot(request, v_server);
 	} else if (action && !strcmp(action, "stream")) {
 		_http_callback_stream(request, v_server);
 	} else {
+		struct evbuffer *buf;
 		assert((buf = evbuffer_new()));
 		assert(evbuffer_add_printf(buf, "%s", HTML_INDEX_PAGE));
 		ADD_HEADER("Content-Type", "text/html");
@@ -261,23 +258,25 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 	server_s *server = (server_s *)v_server;
 	struct evbuffer *buf = NULL;
 	struct evhttp_uri *uri = NULL;
-	char *uri_path;
 	char *decoded_path = NULL;
 	char *static_path = NULL;
 	int fd = -1;
-	struct stat st;
 
 	PREPROCESS_REQUEST;
 
-	if ((uri = evhttp_uri_parse(evhttp_request_get_uri(request))) == NULL) {
-		goto bad_request;
-	}
-	if ((uri_path = (char *)evhttp_uri_get_path(uri)) == NULL) {
-		uri_path = "/";
-	}
+	{
+		char *uri_path;
 
-	if ((decoded_path = evhttp_uridecode(uri_path, 0, NULL)) == NULL) {
-		goto bad_request;
+		if ((uri = evhttp_uri_parse(evhttp_request_get_uri(request))) == NULL) {
+			goto bad_request;
+		}
+		if ((uri_path = (char *)evhttp_uri_get_path(uri)) == NULL) {
+			uri_path = "/";
+		}
+
+		if ((decoded_path = evhttp_uridecode(uri_path, 0, NULL)) == NULL) {
+			goto bad_request;
+		}
 	}
 
 	assert((buf = evbuffer_new()));
@@ -291,18 +290,22 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 		goto not_found;
 	}
 
-	if (fstat(fd, &st) < 0) {
-		LOG_PERROR("HTTP: Can't stat() found static file %s", static_path);
-		goto not_found;
-	}
+	{
+		struct stat st;
 
-	if (st.st_size > 0 && evbuffer_add_file(buf, fd, 0, st.st_size) < 0) {
-		LOG_ERROR("HTTP: Can't serve static file %s", static_path);
-		goto not_found;
+		if (fstat(fd, &st) < 0) {
+			LOG_PERROR("HTTP: Can't stat() found static file %s", static_path);
+			goto not_found;
+		}
+		if (st.st_size > 0 && evbuffer_add_file(buf, fd, 0, st.st_size) < 0) {
+			LOG_ERROR("HTTP: Can't serve static file %s", static_path);
+			goto not_found;
+		}
+
+		ADD_HEADER("Content-Type", guess_mime_type(static_path));
+		evhttp_send_reply(request, HTTP_OK, "OK", buf);
+		goto cleanup;
 	}
-	ADD_HEADER("Content-Type", guess_mime_type(static_path));
-	evhttp_send_reply(request, HTTP_OK, "OK", buf);
-	goto cleanup;
 
 	bad_request:
 		evhttp_send_error(request, HTTP_BADREQUEST, NULL);
@@ -332,14 +335,14 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 
 static void _http_callback_state(struct evhttp_request *request, void *v_server) {
 	server_s *server = (server_s *)v_server;
-	struct evbuffer *buf;
-	encoder_type_e encoder_type;
-	unsigned encoder_quality;
 
 	PREPROCESS_REQUEST;
 
+	encoder_type_e encoder_type;
+	unsigned encoder_quality;
 	encoder_get_runtime_params(STREAM(encoder), &encoder_type, &encoder_quality);
 
+	struct evbuffer *buf;
 	assert((buf = evbuffer_new()));
 
 	assert(evbuffer_add_printf(buf,
@@ -380,11 +383,10 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 
 static void _http_callback_snapshot(struct evhttp_request *request, void *v_server) {
 	server_s *server = (server_s *)v_server;
-	struct evbuffer *buf;
-	char header_buf[64];
 
 	PREPROCESS_REQUEST;
 
+	struct evbuffer *buf;
 	assert((buf = evbuffer_new()));
 	assert(!evbuffer_add(buf, (const void *)EX(frame->data), EX(frame->used)));
 
@@ -394,6 +396,8 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	ADD_HEADER("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, pre-check=0, post-check=0, max-age=0");
 	ADD_HEADER("Pragma", "no-cache");
 	ADD_HEADER("Expires", "Mon, 3 Jan 2000 12:34:56 GMT");
+
+	char header_buf[256];
 
 #	define ADD_TIME_HEADER(_key, _value) { \
 			sprintf(header_buf, "%.06Lf", _value); \
@@ -438,24 +442,21 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 	// https://github.com/libevent/libevent/blob/29cc8386a2f7911eaa9336692a2c5544d8b4734f/http.c#L1458
 
 	server_s *server = (server_s *)v_server;
-	struct evhttp_connection *conn;
-	struct evkeyvalq params;
-	struct bufferevent *buf_event;
-	stream_client_s *client;
-	char *client_addr;
-	unsigned short client_port;
-	uuid_t uuid;
 
 	PREPROCESS_REQUEST;
 
+	struct evhttp_connection *conn;
 	conn = evhttp_request_get_connection(request);
+
 	if (conn) {
+		stream_client_s *client;
 		A_CALLOC(client, 1);
 		client->server = server;
 		client->request = request;
 		client->need_initial = true;
 		client->need_first_frame = true;
 
+		struct evkeyvalq params;
 		evhttp_parse_query(evhttp_request_get_uri(request), &params);
 		client->key = uri_get_string(&params, "key");
 		client->extra_headers = uri_get_true(&params, "extra_headers");
@@ -463,6 +464,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		client->dual_final_frames = uri_get_true(&params, "dual_final_frames");
 		evhttp_clear_headers(&params);
 
+		uuid_t uuid;
 		uuid_generate(uuid);
 		uuid_unparse_lower(uuid, client->id);
 
@@ -487,11 +489,15 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 #			endif
 		}
 
+		char *client_addr;
+		unsigned short client_port;
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
+
 		LOG_INFO("HTTP: Registered client: [%s]:%u, id=%s; clients now: %u",
 			client_addr, client_port, client->id, RUN(stream_clients_count));
 
-		buf_event = evhttp_connection_get_bufferevent(conn);
+
+		struct bufferevent *buf_event = evhttp_connection_get_bufferevent(conn);
 		if (server->tcp_nodelay && !RUN(unix_fd)) {
 			evutil_socket_t fd;
 			int on = 1;
@@ -517,7 +523,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 
 	stream_client_s *client = (stream_client_s *)v_client;
 	server_s *server = client->server;
-	struct evbuffer *buf;
+
 	long double now = get_now_monotonic();
 	long long now_second = floor_ms(now);
 
@@ -528,6 +534,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	}
 	client->fps_accum += 1;
 
+	struct evbuffer *buf;
 	assert((buf = evbuffer_new()));
 
 	// В хроме и его производных есть фундаментальный баг: он отрисовывает
@@ -640,11 +647,8 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UNUSED short what, void *v_client) {
 	stream_client_s *client = (stream_client_s *)v_client;
 	server_s *server = client->server;
-	struct evhttp_connection *conn;
-	char *client_addr = "???";
-	unsigned short client_port = 0;
-	char reason[2048] = {0};
 
+	char reason[2048] = {0};
 	_format_bufferevent_reason(what, reason);
 
 	assert(RUN(stream_clients_count) > 0);
@@ -660,13 +664,17 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 #		endif
 	}
 
-	conn = evhttp_request_get_connection(client->request);
+	char *client_addr = "???";
+	unsigned short client_port = 0;
+
+	struct evhttp_connection *conn = evhttp_request_get_connection(client->request);
 	if (conn) {
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
 	}
 
 	LOG_INFO("HTTP: Disconnected client: [%s]:%u, id=%s, %s; clients now: %u",
 		client_addr, client_port, client->id, reason, RUN(stream_clients_count));
+
 	if (conn) {
 		evhttp_connection_free(conn);
 	}
@@ -684,14 +692,11 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 }
 
 static void _http_queue_send_stream(server_s *server, bool stream_updated, bool frame_updated) {
-	struct evhttp_connection *conn;
-	struct bufferevent *buf_event;
-	long long now;
 	bool has_clients = false;
 	bool queued = false;
 
 	for (stream_client_s *client = RUN(stream_clients); client != NULL; client = client->next) {
-		conn = evhttp_request_get_connection(client->request);
+		struct evhttp_connection *conn = evhttp_request_get_connection(client->request);
 		if (conn) {
 			// Фикс для бага WebKit. При включенной опции дропа одинаковых фреймов,
 			// WebKit отрисовывает последний фрейм в серии с некоторой задержкой,
@@ -708,7 +713,7 @@ static void _http_queue_send_stream(server_s *server, bool stream_updated, bool 
 			);
 
 			if (dual_update || frame_updated || client->need_first_frame) {
-				buf_event = evhttp_connection_get_bufferevent(conn);
+				struct bufferevent *buf_event = evhttp_connection_get_bufferevent(conn);
 				bufferevent_setcb(buf_event, NULL, _http_callback_stream_write, _http_callback_stream_error, (void *)client);
 				bufferevent_enable(buf_event, EV_READ|EV_WRITE);
 
@@ -726,8 +731,8 @@ static void _http_queue_send_stream(server_s *server, bool stream_updated, bool 
 	if (queued) {
 		static unsigned queued_fps_accum = 0;
 		static long long queued_fps_second = 0;
-
-		if ((now = floor_ms(get_now_monotonic())) != queued_fps_second) {
+		long long now = floor_ms(get_now_monotonic());
+		if (now != queued_fps_second) {
 			EX(queued_fps) = queued_fps_accum;
 			queued_fps_accum = 0;
 			queued_fps_second = now;

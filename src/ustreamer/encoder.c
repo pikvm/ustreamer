@@ -44,13 +44,12 @@ static const struct {
 
 encoder_s *encoder_init(void) {
 	encoder_runtime_s *run;
-	encoder_s *encoder;
-
 	A_CALLOC(run, 1);
 	run->type = ENCODER_TYPE_CPU;
 	run->quality = 80;
 	A_MUTEX_INIT(&run->mutex);
 
+	encoder_s *encoder;
 	A_CALLOC(encoder, 1);
 	encoder->type = run->type;
 	encoder->quality = run->quality;

@@ -214,18 +214,16 @@ static void _features(void);
 static void _help(device_s *dev, encoder_s *encoder, stream_s *stream, server_s *server);
 
 
-options_s *options_init(int argc, char *argv[]) {
+options_s *options_init(unsigned argc, char *argv[]) {
 	options_s *options;
-
 	A_CALLOC(options, 1);
 	options->argc = argc;
 	options->argv = argv;
 
 	A_CALLOC(options->argv_copy, argc);
-	for (int index = 0; index < argc; ++index) {
+	for (unsigned index = 0; index < argc; ++index) {
 		assert(options->argv_copy[index] = strdup(argv[index]));
 	}
-
 	return options;
 }
 
@@ -238,7 +236,7 @@ void options_destroy(options_s *options) {
 	if (options->blank) {
 		frame_destroy(options->blank);
 	}
-	for (int index = 0; index < options->argc; ++index) {
+	for (unsigned index = 0; index < options->argc; ++index) {
 		free(options->argv_copy[index]);
 	}
 	free(options->argv_copy);
@@ -313,11 +311,6 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 			break; \
 		}
 
-	int ch;
-	int short_index;
-	int opt_index;
-	char short_opts[1024] = {0};
-
 	char *blank_path = NULL;
 
 #	ifdef WITH_MEMSINK
@@ -331,7 +324,9 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 	char *process_name_prefix = NULL;
 #	endif
 
-	for (short_index = 0, opt_index = 0; _LONG_OPTS[opt_index].name != NULL; ++opt_index) {
+	char short_opts[1024] = {0};
+
+	for (int short_index = 0, opt_index = 0; _LONG_OPTS[opt_index].name != NULL; ++opt_index) {
 		if (isalpha(_LONG_OPTS[opt_index].val)) {
 			short_opts[short_index] = _LONG_OPTS[opt_index].val;
 			++short_index;
@@ -342,7 +337,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 		}
 	}
 
-	while ((ch = getopt_long(options->argc, options->argv_copy, short_opts, _LONG_OPTS, NULL)) >= 0) {
+	for (int ch; (ch = getopt_long(options->argc, options->argv_copy, short_opts, _LONG_OPTS, NULL)) >= 0;) {
 		switch (ch) {
 			case _O_DEVICE:			OPT_SET(dev->path, optarg);
 			case _O_INPUT:			OPT_NUMBER("--input", dev->input, 0, 128, 0);
@@ -494,7 +489,6 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 static int _parse_resolution(const char *str, unsigned *width, unsigned *height, bool limited) {
 	unsigned tmp_width;
 	unsigned tmp_height;
-
 	if (sscanf(str, "%ux%u", &tmp_width, &tmp_height) != 2) {
 		return -1;
 	}
@@ -514,20 +508,19 @@ static int _parse_resolution(const char *str, unsigned *width, unsigned *height,
 #ifdef WITH_OMX
 static int _parse_glitched_resolutions(const char *str, encoder_s *encoder) {
 	char *str_copy;
-	char *ptr;
-	unsigned count = 0;
-	unsigned width;
-	unsigned height;
-
 	assert((str_copy = strdup(str)) != NULL);
 
-	ptr = strtok(str_copy, ",;:\n\t ");
+	char *ptr = strtok(str_copy, ",;:\n\t ");
+	unsigned count = 0;
+
 	while (ptr != NULL) {
 		if (count >= MAX_GLITCHED_RESOLUTIONS) {
 			printf("Too big '--glitched-resolutions' list: maxlen=%u\n", MAX_GLITCHED_RESOLUTIONS);
 			goto error;
 		}
 
+		unsigned width;
+		unsigned height;
 		switch (_parse_resolution(ptr, &width, &height, true)) {
 			case -1:
 				printf("Invalid resolution format of '%s' in '--glitched-resolutions=%s\n", ptr, str_copy);

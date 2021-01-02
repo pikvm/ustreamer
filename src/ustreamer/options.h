@@ -52,7 +52,7 @@
 
 
 typedef struct {
-	int			argc;
+	unsigned	argc;
 	char		**argv;
 	char		**argv_copy;
 	frame_s		*blank;
@@ -62,7 +62,7 @@ typedef struct {
 } options_s;
 
 
-options_s *options_init(int argc, char *argv[]);
+options_s *options_init(unsigned argc, char *argv[]);
 void options_destroy(options_s *options);
 
 int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_s *stream, server_s *server);

@@ -63,8 +63,6 @@ omx_encoder_s *omx_encoder_init(void) {
 	//   - http://home.nouwen.name/RaspberryPi/documentation/ilcomponents/image_encode.html
 
 	omx_encoder_s *omx;
-	OMX_ERRORTYPE error;
-
 	A_CALLOC(omx, 1);
 
 	assert(_i_omx >= 0);
@@ -73,7 +71,7 @@ omx_encoder_s *omx_encoder_init(void) {
 		bcm_host_init();
 
 		LOG_INFO("Initializing OMX ...");
-		if ((error = OMX_Init()) != OMX_ErrorNone) {
+		if ((OMX_ERRORTYPE error = OMX_Init()) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't initialize OMX");
 			goto error;
 		}
@@ -104,8 +102,6 @@ omx_encoder_s *omx_encoder_init(void) {
 }
 
 void omx_encoder_destroy(omx_encoder_s *omx) {
-	OMX_ERRORTYPE error;
-
 	LOG_INFO("Destroying OMX encoder ...");
 
 	component_set_state(&omx->encoder, OMX_StateIdle);
@@ -117,7 +113,7 @@ void omx_encoder_destroy(omx_encoder_s *omx) {
 	}
 
 	if (omx->i_encoder) {
-		if ((error = OMX_FreeHandle(omx->encoder)) != OMX_ErrorNone) {
+		if ((OMX_ERRORTYPE error = OMX_FreeHandle(omx->encoder)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't free OMX.broadcom.image_encode");
 		}
 	}
@@ -159,8 +155,6 @@ int omx_encoder_compress(omx_encoder_s *omx, frame_s *src, frame_s *dest) {
 #	define OUT(_next)	omx->output_buffer->_next
 
 	OMX_ERRORTYPE error;
-	size_t slice_size = (IN(nAllocLen) < src->used ? IN(nAllocLen) : src->used);
-	size_t pos = 0;
 
 	if ((error = OMX_FillThisBuffer(omx->encoder, omx->output_buffer)) != OMX_ErrorNone) {
 		LOG_ERROR_OMX(error, "Failed to request filling of the output buffer on encoder");
@@ -170,6 +164,9 @@ int omx_encoder_compress(omx_encoder_s *omx, frame_s *src, frame_s *dest) {
 	dest->used = 0;
 	omx->output_available = false;
 	omx->input_required = true;
+
+	const size_t slice_size = (IN(nAllocLen) < src->used ? IN(nAllocLen) : src->used);
+	size_t pos = 0;
 
 	while (true) {
 		if (omx->failed) {

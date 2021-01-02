@@ -24,9 +24,8 @@
 
 
 bool uri_get_true(struct evkeyvalq *params, const char *key) {
-	const char *value_str;
-
-	if ((value_str = evhttp_find_header(params, key)) != NULL) {
+	const char *value_str = evhttp_find_header(params, key);
+	if (value_str != NULL) {
 		if (
 			value_str[0] == '1'
 			|| !evutil_ascii_strcasecmp(value_str, "true")
@@ -39,9 +38,8 @@ bool uri_get_true(struct evkeyvalq *params, const char *key) {
 }
 
 char *uri_get_string(struct evkeyvalq *params, const char *key) {
-	const char *value_str;
-
-	if ((value_str = evhttp_find_header(params, key)) != NULL) {
+	const char *value_str = evhttp_find_header(params, key);
+	if (value_str != NULL) {
 		return evhttp_encode_uri(value_str);
 	}
 	return NULL;

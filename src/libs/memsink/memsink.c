@@ -29,8 +29,6 @@ static int _flock_timedwait_monotonic(int fd, long double timeout);
 
 memsink_s *memsink_open(const char *role, const char *name, bool server, mode_t mode, bool rm, unsigned timeout) {
 	memsink_s *memsink;
-	int flags = (server ? O_RDWR | O_CREAT : O_RDWR);
-
 	A_CALLOC(memsink, 1);
 	memsink->role = role;
 	memsink->server = server;
@@ -48,6 +46,7 @@ memsink_s *memsink_open(const char *role, const char *name, bool server, mode_t 
 
 	LOG_INFO("Using %s sink: %s.{mem,sig}", role, name);
 
+	const int flags = (server ? O_RDWR | O_CREAT : O_RDWR);
 #	define OPEN_SIGNAL { \
 			if ((memsink->sig_sem = sem_open(memsink->sig_name, flags, mode, 0)) == SEM_FAILED) { \
 				LOG_PERROR("Can't open %s sink signal semaphore", role); \
@@ -130,10 +129,10 @@ void memsink_close(memsink_s *memsink) {
 	free(memsink);
 }
 
-int memsink_server_put(memsink_s *memsink, frame_s *frame) {
-	long double now = get_now_monotonic();
-
+int memsink_server_put(memsink_s *memsink, const frame_s *frame) {
 	assert(memsink->server);
+
+	const long double now = get_now_monotonic();
 
 	if (frame->used > MEMSINK_MAX_DATA) {
 		LOG_ERROR("%s sink: Can't put frame: is too big (%zu > %zu)",

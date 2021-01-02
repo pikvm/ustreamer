@@ -33,20 +33,19 @@ static void _jpeg_error_handler(j_common_ptr jpeg);
 
 
 int unjpeg(const frame_s *src, frame_s *dest) {
-	struct jpeg_decompress_struct jpeg;
-	_jpeg_error_manager_s jpeg_error;
-	JSAMPARRAY scanlines;
-	unsigned row_stride;
 	volatile int retval = 0;
+
+	struct jpeg_decompress_struct jpeg;
+	jpeg_create_decompress(&jpeg);
 
 	frame_realloc_data(dest, ((src->width * src->height) << 1) * 2);
 	frame_copy_meta(src, dest);
 	dest->format = V4L2_PIX_FMT_RGB24;
 	dest->used = 0;
 
-	jpeg_create_decompress(&jpeg);
-
 	// https://stackoverflow.com/questions/19857766/error-handling-in-libjpeg
+
+	_jpeg_error_manager_s jpeg_error;
 	jpeg.err = jpeg_std_error((struct jpeg_error_mgr *)&jpeg_error);
 	jpeg_error.mgr.error_exit = _jpeg_error_handler;
 	if (setjmp(jpeg_error.jmp) < 0) {
@@ -59,7 +58,9 @@ int unjpeg(const frame_s *src, frame_s *dest) {
 	jpeg.out_color_space = JCS_RGB;
 
 	jpeg_start_decompress(&jpeg);
-	row_stride = jpeg.output_width * jpeg.output_components;
+	const unsigned row_stride = jpeg.output_width * jpeg.output_components;
+
+	JSAMPARRAY scanlines;
 	scanlines = (*jpeg.mem->alloc_sarray)((j_common_ptr) &jpeg, JPOOL_IMAGE, row_stride, 1);
 
 	while (jpeg.output_scanline < jpeg.output_height) {

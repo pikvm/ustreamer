@@ -98,9 +98,7 @@ INLINE long double get_now_real(void) {
 }
 
 INLINE unsigned get_cores_available(void) {
-	long cores_sysconf;
-
-	cores_sysconf = sysconf(_SC_NPROCESSORS_ONLN);
+	long cores_sysconf = sysconf(_SC_NPROCESSORS_ONLN);
 	cores_sysconf = (cores_sysconf < 0 ? 0 : cores_sysconf);
 	return max_u(min_u(cores_sysconf, 4), 1);
 }

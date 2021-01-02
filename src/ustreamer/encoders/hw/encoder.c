@@ -34,7 +34,6 @@ static bool _is_huffman(const uint8_t *data);
 
 int hw_encoder_prepare(device_s *dev, unsigned quality) {
 	struct v4l2_jpegcompression comp;
-
 	MEMSET_ZERO(comp);
 
 	if (xioctl(dev->run->fd, VIDIOC_G_JPEGCOMP, &comp) < 0) {
@@ -60,7 +59,6 @@ void _copy_plus_huffman(const frame_s *src, frame_s *dest) {
 	if (!_is_huffman(src->data)) {
 		const uint8_t *src_ptr = src->data;
 		const uint8_t *src_end = src->data + src->used;
-		size_t paste;
 
 		while ((((src_ptr[0] << 8) | src_ptr[1]) != 0xFFC0) && (src_ptr < src_end)) {
 			src_ptr += 1;
@@ -69,7 +67,8 @@ void _copy_plus_huffman(const frame_s *src, frame_s *dest) {
 			dest->used = 0; // Error
 			return;
 		}
-		paste = src_ptr - src->data;
+
+		const size_t paste = src_ptr - src->data;
 
 		frame_set_data(dest, src->data, paste);
 		frame_append_data(dest, HUFFMAN_TABLE, sizeof(HUFFMAN_TABLE));

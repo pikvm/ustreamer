@@ -84,11 +84,10 @@ static const char *_io_method_to_string_supported(enum v4l2_memory io_method);
 
 device_s *device_init(void) {
 	device_runtime_s *run;
-	device_s *dev;
-
 	A_CALLOC(run, 1);
 	run->fd = -1;
 
+	device_s *dev;
 	A_CALLOC(dev, 1);
 	dev->path = "/dev/video0";
 	dev->width = 640;
@@ -226,7 +225,6 @@ int device_switch_capturing(device_s *dev, bool enable) {
 }
 
 int device_select(device_s *dev, bool *has_read, bool *has_write, bool *has_error) {
-	struct timeval timeout;
 	int retval;
 
 #	define INIT_FD_SET(_set) \
@@ -238,6 +236,7 @@ int device_select(device_s *dev, bool *has_read, bool *has_write, bool *has_erro
 
 #	undef INIT_FD_SET
 
+	struct timeval timeout;
 	timeout.tv_sec = dev->timeout;
 	timeout.tv_usec = 0;
 
@@ -273,7 +272,6 @@ int device_select(device_s *dev, bool *has_read, bool *has_write, bool *has_erro
 
 int device_grab_buffer(device_s *dev) {
 	struct v4l2_buffer buf_info;
-
 	MEMSET_ZERO(buf_info);
 	buf_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	buf_info.memory = dev->io_method;
@@ -371,8 +369,6 @@ int device_consume_event(device_s *dev) {
 
 static int _device_open_check_cap(device_s *dev) {
 	struct v4l2_capability cap;
-	int input = dev->input; // Needs pointer to int for ioctl()
-
 	MEMSET_ZERO(cap);
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_QUERYCAP) ...");
@@ -391,6 +387,7 @@ static int _device_open_check_cap(device_s *dev) {
 		return -1;
 	}
 
+	int input = dev->input; // Needs a pointer to int for ioctl()
 	LOG_INFO("Using input channel: %d", input);
 	if (xioctl(RUN(fd), VIDIOC_S_INPUT, &input) < 0) {
 		LOG_ERROR("Can't set input channel");
@@ -434,7 +431,6 @@ static int _device_open_dv_timings(device_s *dev) {
 
 static int _device_apply_dv_timings(device_s *dev) {
 	struct v4l2_dv_timings dv;
-
 	MEMSET_ZERO(dv);
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_QUERY_DV_TIMINGS) ...");
@@ -467,7 +463,6 @@ static int _device_apply_dv_timings(device_s *dev) {
 
 static int _device_open_format(device_s *dev) {
 	struct v4l2_format fmt;
-
 	MEMSET_ZERO(fmt);
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	fmt.fmt.pix.width = RUN(width);
@@ -518,10 +513,9 @@ static int _device_open_format(device_s *dev) {
 }
 
 static void _device_open_hw_fps(device_s *dev) {
-	struct v4l2_streamparm setfps;
-
 	RUN(hw_fps) = 0;
 
+	struct v4l2_streamparm setfps;
 	MEMSET_ZERO(setfps);
 	setfps.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
@@ -584,7 +578,6 @@ static int _device_open_io_method(device_s *dev) {
 
 static int _device_open_io_method_mmap(device_s *dev) {
 	struct v4l2_requestbuffers req;
-
 	MEMSET_ZERO(req);
 	req.count = dev->n_buffers;
 	req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -608,7 +601,6 @@ static int _device_open_io_method_mmap(device_s *dev) {
 	A_CALLOC(RUN(hw_buffers), req.count);
 	for (RUN(n_buffers) = 0; RUN(n_buffers) < req.count; ++RUN(n_buffers)) {
 		struct v4l2_buffer buf_info;
-
 		MEMSET_ZERO(buf_info);
 		buf_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		buf_info.memory = V4L2_MEMORY_MMAP;
@@ -645,9 +637,6 @@ static int _device_open_io_method_mmap(device_s *dev) {
 
 static int _device_open_io_method_userptr(device_s *dev) {
 	struct v4l2_requestbuffers req;
-	unsigned page_size = getpagesize();
-	unsigned buf_size = align_size(RUN(raw_size), page_size);
-
 	MEMSET_ZERO(req);
 	req.count = dev->n_buffers;
 	req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -669,13 +658,15 @@ static int _device_open_io_method_userptr(device_s *dev) {
 	LOG_DEBUG("Allocating device buffers ...");
 
 	A_CALLOC(RUN(hw_buffers), req.count);
+
+	const unsigned page_size = getpagesize();
+	const unsigned buf_size = align_size(RUN(raw_size), page_size);
+
 	for (RUN(n_buffers) = 0; RUN(n_buffers) < req.count; ++RUN(n_buffers)) {
 #       define HW(_next) RUN(hw_buffers)[RUN(n_buffers)]._next
-
 		assert(HW(raw.data) = aligned_alloc(page_size, buf_size));
 		memset(HW(raw.data), 0, buf_size);
 		HW(raw.allocated) = buf_size;
-
 #		undef HW
 	}
 	return 0;
@@ -684,7 +675,6 @@ static int _device_open_io_method_userptr(device_s *dev) {
 static int _device_open_queue_buffers(device_s *dev) {
 	for (unsigned index = 0; index < RUN(n_buffers); ++index) {
 		struct v4l2_buffer buf_info;
-
 		MEMSET_ZERO(buf_info);
 		buf_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		buf_info.memory = dev->io_method;
@@ -795,8 +785,6 @@ static void _device_set_control(
 	device_s *dev, struct v4l2_queryctrl *query,
 	const char *name, unsigned cid, int value, bool quiet) {
 
-	struct v4l2_control ctl;
-
 	if (value < query->minimum || value > query->maximum || value % query->step != 0) {
 		if (!quiet) {
 			LOG_ERROR("Invalid value %d of control %s: min=%d, max=%d, default=%d, step=%u",
@@ -805,6 +793,7 @@ static void _device_set_control(
 		return;
 	}
 
+	struct v4l2_control ctl;
 	MEMSET_ZERO(ctl);
 	ctl.id = cid;
 	ctl.value = value;

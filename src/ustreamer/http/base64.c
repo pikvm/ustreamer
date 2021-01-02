@@ -40,8 +40,8 @@ static const unsigned _MOD_TABLE[] = {0, 2, 1};
 char *base64_encode(const uint8_t *str) {
 	size_t str_len = strlen((const char *)str);
 	size_t encoded_size = 4 * ((str_len + 2) / 3) + 1; // +1 for '\0'
-	char *encoded;
 
+	char *encoded;
 	A_CALLOC(encoded, encoded_size);
 
 	for (unsigned str_index = 0, encoded_index = 0; str_index < str_len;) {

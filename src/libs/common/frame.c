@@ -25,7 +25,6 @@
 
 frame_s *frame_init(const char *role) {
 	frame_s *frame;
-
 	A_CALLOC(frame, 1);
 	frame->role = role;
 	frame->managed = true;
@@ -60,9 +59,7 @@ void frame_set_data(frame_s *frame, const uint8_t *data, size_t size) {
 
 void frame_append_data(frame_s *frame, const uint8_t *data, size_t size) {
 	assert(frame->managed);
-
 	size_t new_used = frame->used + size;
-
 	frame_realloc_data(frame, new_used);
 	memcpy(frame->data + frame->used, data, size);
 	frame->used = new_used;

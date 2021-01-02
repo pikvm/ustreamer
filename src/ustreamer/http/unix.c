@@ -24,7 +24,6 @@
 
 
 evutil_socket_t evhttp_my_bind_unix(struct evhttp *http, const char *path, bool rm, mode_t mode) {
-	evutil_socket_t fd = -1;
 	struct sockaddr_un addr;
 
 #	define MAX_SUN_PATH (sizeof(addr.sun_path) - 1)
@@ -40,6 +39,7 @@ evutil_socket_t evhttp_my_bind_unix(struct evhttp *http, const char *path, bool 
 
 #	undef MAX_SUN_PATH
 
+	evutil_socket_t fd = -1;
 	assert((fd = socket(AF_UNIX, SOCK_STREAM, 0)) >= 0);
 	assert(!evutil_make_socket_nonblocking(fd));
 

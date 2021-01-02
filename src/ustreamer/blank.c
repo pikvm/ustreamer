@@ -53,9 +53,7 @@ frame_s *blank_frame_init(const char *path) {
 }
 
 static frame_s *_init_internal(void) {
-	frame_s *blank;
-
-	blank = frame_init("blank_internal");
+	frame_s *blank = frame_init("blank_internal");
 	frame_set_data(blank, BLANK_JPEG_DATA, BLANK_JPEG_DATA_SIZE);
 	blank->width = BLANK_JPEG_WIDTH;
 	blank->height = BLANK_JPEG_HEIGHT;
@@ -65,9 +63,8 @@ static frame_s *_init_internal(void) {
 
 static frame_s *_init_external(const char *path) {
 	FILE *fp = NULL;
-	frame_s *blank;
 
-	blank = frame_init("blank_external");
+	frame_s *blank = frame_init("blank_external");
 	blank->format = V4L2_PIX_FMT_JPEG;
 
 	if ((fp = fopen(path, "rb")) == NULL) {
@@ -118,11 +115,10 @@ static frame_s *_init_external(const char *path) {
 
 static int _jpeg_read_geometry(FILE *fp, unsigned *width, unsigned *height) {
 	struct jpeg_decompress_struct jpeg;
-	_jpeg_error_manager_s jpeg_error;
-
 	jpeg_create_decompress(&jpeg);
 
 	// https://stackoverflow.com/questions/19857766/error-handling-in-libjpeg
+	_jpeg_error_manager_s jpeg_error;
 	jpeg.err = jpeg_std_error((struct jpeg_error_mgr *)&jpeg_error);
 	jpeg_error.mgr.error_exit = _jpeg_error_handler;
 	if (setjmp(jpeg_error.jmp) < 0) {

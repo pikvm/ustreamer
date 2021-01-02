@@ -40,11 +40,10 @@ static const char *_mmal_error_to_string(MMAL_STATUS_T error);
 
 h264_encoder_s *h264_encoder_init(void) {
 	h264_encoder_runtime_s *run;
-	h264_encoder_s *encoder;
-
 	A_CALLOC(run, 1);
 	run->tmp = frame_init("h264_tmp");
 
+	h264_encoder_s *encoder;
 	A_CALLOC(encoder, 1);
 	encoder->gop = 60;
 	encoder->bps = 5000 * 1000; // Kbps * 1000
@@ -280,16 +279,12 @@ static void _h264_encoder_cleanup(h264_encoder_s *encoder) {
 }
 
 static int _h264_encoder_compress_raw(h264_encoder_s *encoder, const frame_s *src, frame_s *dest, bool force_key) {
-	MMAL_STATUS_T error;
-	MMAL_BUFFER_HEADER_T *out = NULL;
-	MMAL_BUFFER_HEADER_T *in = NULL;
-	bool eos = false;
-	bool sent = false;
-
 	assert(src->used > 0);
 	assert(src->width == encoder->width);
 	assert(src->height == encoder->height);
 	assert(src->format == encoder->format);
+
+	MMAL_STATUS_T error;
 
 	LOG_DEBUG("Compressing new H264 frame; force_key=%d ...", force_key);
 
@@ -308,6 +303,11 @@ static int _h264_encoder_compress_raw(h264_encoder_s *encoder, const frame_s *sr
 			return -1;
 		}
 	}
+
+	MMAL_BUFFER_HEADER_T *out = NULL;
+	MMAL_BUFFER_HEADER_T *in = NULL;
+	bool eos = false;
+	bool sent = false;
 
 	while (!eos) {
 		out = NULL;

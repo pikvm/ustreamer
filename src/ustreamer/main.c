@@ -87,8 +87,8 @@ static void _signal_handler(int signum) {
 
 static void _install_signal_handlers(void) {
 	struct sigaction sig_act;
-
 	MEMSET_ZERO(sig_act);
+
 	assert(!sigemptyset(&sig_act.sa_mask));
 	sig_act.sa_handler = _signal_handler;
 	assert(!sigaddset(&sig_act.sa_mask, SIGINT));
@@ -105,21 +105,18 @@ static void _install_signal_handlers(void) {
 }
 
 int main(int argc, char *argv[]) {
-	options_s *options;
-	device_s *dev;
-	encoder_s *encoder;
-	stream_s *stream;
-	server_s *server;
-	int exit_code = 0;
+	assert(argc >= 0);
 
 	LOGGING_INIT;
 	A_THREAD_RENAME("main");
-	options = options_init(argc, argv);
 
-	dev = device_init();
-	encoder = encoder_init();
-	stream = stream_init(dev, encoder);
-	server = server_init(stream);
+	options_s *options = options_init(argc, argv);
+	device_s *dev = device_init();
+	encoder_s *encoder = encoder_init();
+	stream_s *stream = stream_init(dev, encoder);
+	server_s *server = server_init(stream);
+
+	int exit_code = 0;
 
 	if ((exit_code = options_parse(options, dev, encoder, stream, server)) == 0) {
 #		ifdef WITH_GPIO
@@ -128,10 +125,7 @@ int main(int argc, char *argv[]) {
 
 		_install_signal_handlers();
 
-		pthread_t stream_loop_tid;
-		pthread_t server_loop_tid;
 		_main_context_s ctx;
-
 		ctx.stream = stream;
 		ctx.server = server;
 		_ctx = &ctx;
@@ -141,6 +135,8 @@ int main(int argc, char *argv[]) {
 			gpio_set_prog_running(true);
 #			endif
 
+			pthread_t stream_loop_tid;
+			pthread_t server_loop_tid;
 			A_THREAD_CREATE(&stream_loop_tid, _stream_loop_thread, NULL);
 			A_THREAD_CREATE(&server_loop_tid, _server_loop_thread, NULL);
 			A_THREAD_JOIN(server_loop_tid);

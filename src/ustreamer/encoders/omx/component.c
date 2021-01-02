@@ -78,10 +78,10 @@ int component_set_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYP
 int component_set_state(OMX_HANDLETYPE *component, OMX_STATETYPE state) {
 	const char *state_str = omx_state_to_string(state);
 	OMX_ERRORTYPE error;
-	int retries = 50;
 
 	LOG_DEBUG("Switching component state to %s ...", state_str);
 
+	int retries = 50;
 	do {
 		error = OMX_SendCommand(*component, OMX_CommandStateSet, state, NULL);
 		if (error == OMX_ErrorNone) {
@@ -103,12 +103,12 @@ int component_set_state(OMX_HANDLETYPE *component, OMX_STATETYPE state) {
 
 static int _component_wait_port_changed(OMX_HANDLETYPE *component, OMX_U32 port, OMX_BOOL enabled) {
 	OMX_ERRORTYPE error;
-	OMX_PARAM_PORTDEFINITIONTYPE portdef;
-	int retries = 50;
 
+	OMX_PARAM_PORTDEFINITIONTYPE portdef;
 	OMX_INIT_STRUCTURE(portdef);
 	portdef.nPortIndex = port;
 
+	int retries = 50;
 	do {
 		if ((error = OMX_GetParameter(*component, OMX_IndexParamPortDefinition, &portdef)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't get OMX port %u definition for waiting", port);
@@ -129,8 +129,8 @@ static int _component_wait_port_changed(OMX_HANDLETYPE *component, OMX_U32 port,
 static int _component_wait_state_changed(OMX_HANDLETYPE *component, OMX_STATETYPE wanted) {
 	OMX_ERRORTYPE error;
 	OMX_STATETYPE state;
-	int retries = 50;
 
+	int retries = 50;
 	do {
 		if ((error = OMX_GetState(*component, &state)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Failed to get OMX component state");

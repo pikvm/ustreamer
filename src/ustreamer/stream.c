@@ -85,18 +85,17 @@ static long double _workers_pool_get_fluency_delay(_pool_s *pool, _worker_s *rea
 
 stream_s *stream_init(device_s *dev, encoder_s *encoder) {
 	process_s *proc;
-	video_s *video;
-	stream_s *stream;
-
 	A_CALLOC(proc, 1);
 	atomic_init(&proc->stop, false);
 	atomic_init(&proc->slowdown, false);
 
+	video_s *video;
 	A_CALLOC(video, 1);
 	video->frame = frame_init("stream_video");
 	atomic_init(&video->updated, false);
 	A_MUTEX_INIT(&video->mutex);
 
+	stream_s *stream;
 	A_CALLOC(stream, 1);
 	stream->last_as_blank = -1;
 	stream->error_delay = 1;
@@ -117,12 +116,11 @@ void stream_destroy(stream_s *stream) {
 
 void stream_loop(stream_s *stream) {
 #	define DEV(_next) stream->dev->_next
-	_pool_s *pool;
 
 	LOG_INFO("Using V4L2 device: %s", DEV(path));
 	LOG_INFO("Using desired FPS: %u", DEV(desired_fps));
 
-	while ((pool = _stream_init_loop(stream)) != NULL) {
+	for (_pool_s *pool; (pool = _stream_init_loop(stream)) != NULL;) {
 		long double grab_after = 0;
 		unsigned fluency_passed = 0;
 		unsigned captured_fps = 0;
@@ -132,12 +130,10 @@ void stream_loop(stream_s *stream) {
 		LOG_INFO("Capturing ...");
 
 		while (!atomic_load(&stream->proc->stop)) {
-			_worker_s *ready_wr;
-
 			SEP_DEBUG('-');
 			LOG_DEBUG("Waiting for worker ...");
 
-			ready_wr = _workers_pool_wait(pool);
+			_worker_s *ready_wr = _workers_pool_wait(pool);
 
 			if (!ready_wr->job_failed) {
 				if (ready_wr->job_timely) {
@@ -373,10 +369,9 @@ static _pool_s *_workers_pool_init(stream_s *stream) {
 #	define DEV(_next) stream->dev->_next
 #	define RUN(_next) stream->dev->run->_next
 
-	_pool_s *pool;
-
 	LOG_INFO("Creating pool with %u workers ...", stream->encoder->run->n_workers);
 
+	_pool_s *pool;
 	A_CALLOC(pool, 1);
 
 	pool->n_workers = stream->encoder->run->n_workers;
@@ -470,7 +465,6 @@ static void *_worker_thread(void *v_worker) {
 #			define PIC(_next) wr->frame->_next
 
 			LOG_DEBUG("Worker %u compressing JPEG from buffer %u ...", wr->number, wr->buf_index);
-
 			wr->job_failed = (bool)encoder_compress(
 				wr->stream->encoder,
 				wr->number,
@@ -482,7 +476,6 @@ static void *_worker_thread(void *v_worker) {
 				if (!wr->job_failed) {
 					wr->job_start_ts = PIC(encode_begin_ts);
 					wr->last_comp_time = PIC(encode_end_ts) - wr->job_start_ts;
-
 					LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%u, buffer=%u",
 						PIC(used), wr->last_comp_time, wr->number, wr->buf_index);
 				} else {
@@ -567,17 +560,14 @@ static void _workers_pool_assign(_pool_s *pool, _worker_s *ready_wr, unsigned bu
 }
 
 static long double _workers_pool_get_fluency_delay(_pool_s *pool, _worker_s *ready_wr) {
-	long double approx_comp_time;
-	long double min_delay;
-
-	approx_comp_time = pool->approx_comp_time * 0.9 + ready_wr->last_comp_time * 0.1;
+	const long double approx_comp_time = pool->approx_comp_time * 0.9 + ready_wr->last_comp_time * 0.1;
 
 	LOG_VERBOSE("Correcting approx_comp_time: %.3Lf -> %.3Lf (last_comp_time=%.3Lf)",
 		pool->approx_comp_time, approx_comp_time, ready_wr->last_comp_time);
 
 	pool->approx_comp_time = approx_comp_time;
 
-	min_delay = pool->approx_comp_time / pool->n_workers; // Среднее время работы размазывается на N воркеров
+	const long double min_delay = pool->approx_comp_time / pool->n_workers; // Среднее время работы размазывается на N воркеров
 
 	if (pool->desired_frames_interval > 0 && min_delay > 0 && pool->desired_frames_interval > min_delay) {
 		// Искусственное время задержки на основе желаемого FPS, если включен --desired-fps
