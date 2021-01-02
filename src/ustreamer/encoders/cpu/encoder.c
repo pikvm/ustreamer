@@ -47,7 +47,7 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
 static void _jpeg_term_destination(j_compress_ptr jpeg);
 
 
-void cpu_encoder_compress(frame_s *src, frame_s *dest, unsigned quality) {
+void cpu_encoder_compress(const frame_s *src, frame_s *dest, unsigned quality) {
 	// This function based on compress_image_to_jpeg() from mjpg-streamer
 
 	struct jpeg_compress_struct jpeg;

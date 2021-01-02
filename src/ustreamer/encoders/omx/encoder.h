@@ -71,4 +71,4 @@ omx_encoder_s *omx_encoder_init(void);
 void omx_encoder_destroy(omx_encoder_s *omx);
 
 int omx_encoder_prepare(omx_encoder_s *omx, device_s *dev, unsigned quality);
-int omx_encoder_compress(omx_encoder_s *omx, frame_s *src, frame_s *dest);
+int omx_encoder_compress(omx_encoder_s *omx, const frame_s *src, frame_s *dest);

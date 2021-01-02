@@ -104,9 +104,9 @@ omx_encoder_s *omx_encoder_init(void) {
 void omx_encoder_destroy(omx_encoder_s *omx) {
 	LOG_INFO("Destroying OMX encoder ...");
 
-	component_set_state(&omx->encoder, OMX_StateIdle);
+	omx_component_set_state(&omx->encoder, OMX_StateIdle);
 	_omx_encoder_clear_ports(omx);
-	component_set_state(&omx->encoder, OMX_StateLoaded);
+	omx_component_set_state(&omx->encoder, OMX_StateLoaded);
 
 	if (omx->i_handler_sem) {
 		vcos_semaphore_delete(&omx->handler_sem);
@@ -132,7 +132,7 @@ void omx_encoder_destroy(omx_encoder_s *omx) {
 }
 
 int omx_encoder_prepare(omx_encoder_s *omx, device_s *dev, unsigned quality) {
-	if (component_set_state(&omx->encoder, OMX_StateIdle) < 0) {
+	if (omx_component_set_state(&omx->encoder, OMX_StateIdle) < 0) {
 		return -1;
 	}
 	if (_omx_encoder_clear_ports(omx) < 0) {
@@ -144,13 +144,13 @@ int omx_encoder_prepare(omx_encoder_s *omx, device_s *dev, unsigned quality) {
 	if (_omx_setup_output(omx, quality) < 0) {
 		return -1;
 	}
-	if (component_set_state(&omx->encoder, OMX_StateExecuting) < 0) {
+	if (omx_component_set_state(&omx->encoder, OMX_StateExecuting) < 0) {
 		return -1;
 	}
 	return 0;
 }
 
-int omx_encoder_compress(omx_encoder_s *omx, frame_s *src, frame_s *dest) {
+int omx_encoder_compress(omx_encoder_s *omx, const frame_s *src, frame_s *dest) {
 #	define IN(_next)	omx->input_buffer->_next
 #	define OUT(_next)	omx->output_buffer->_next
 
@@ -294,7 +294,7 @@ static int _omx_init_disable_ports(omx_encoder_s *omx) {
 			return -1;
 		}
 		for (OMX_U32 port = ports.nStartPortNumber; port < ports.nStartPortNumber + ports.nPorts; ++port) {
-			if (component_disable_port(&omx->encoder, port) < 0) {
+			if (omx_component_disable_port(&omx->encoder, port) < 0) {
 				return -1;
 			}
 		}
@@ -308,7 +308,7 @@ static int _omx_setup_input(omx_encoder_s *omx, device_s *dev) {
 
 	LOG_DEBUG("Setting up OMX JPEG input port ...");
 
-	if (component_get_portdef(&omx->encoder, &portdef, _INPUT_PORT) < 0) {
+	if (omx_component_get_portdef(&omx->encoder, &portdef, _INPUT_PORT) < 0) {
 		LOG_ERROR("... first");
 		return -1;
 	}
@@ -340,16 +340,16 @@ static int _omx_setup_input(omx_encoder_s *omx, device_s *dev) {
 
 #	undef MAP_FORMAT
 
-	if (component_set_portdef(&omx->encoder, &portdef) < 0) {
+	if (omx_component_set_portdef(&omx->encoder, &portdef) < 0) {
 		return -1;
 	}
 
-	if (component_get_portdef(&omx->encoder, &portdef, _INPUT_PORT) < 0) {
+	if (omx_component_get_portdef(&omx->encoder, &portdef, _INPUT_PORT) < 0) {
 		LOG_ERROR("... second");
 		return -1;
 	}
 
-	if (component_enable_port(&omx->encoder, _INPUT_PORT) < 0) {
+	if (omx_component_enable_port(&omx->encoder, _INPUT_PORT) < 0) {
 		return -1;
 	}
 	omx->i_input_port_enabled = true;
@@ -367,7 +367,7 @@ static int _omx_setup_output(omx_encoder_s *omx, unsigned quality) {
 
 	LOG_DEBUG("Setting up OMX JPEG output port ...");
 
-	if (component_get_portdef(&omx->encoder, &portdef, _OUTPUT_PORT) < 0) {
+	if (omx_component_get_portdef(&omx->encoder, &portdef, _OUTPUT_PORT) < 0) {
 		LOG_ERROR("... first");
 		return -1;
 	}
@@ -376,11 +376,11 @@ static int _omx_setup_output(omx_encoder_s *omx, unsigned quality) {
 	portdef.format.image.eCompressionFormat = OMX_IMAGE_CodingJPEG;
 	portdef.format.image.eColorFormat = OMX_COLOR_FormatYCbYCr;
 
-	if (component_set_portdef(&omx->encoder, &portdef) < 0) {
+	if (omx_component_set_portdef(&omx->encoder, &portdef) < 0) {
 		return -1;
 	}
 
-	if (component_get_portdef(&omx->encoder, &portdef, _OUTPUT_PORT) < 0) {
+	if (omx_component_get_portdef(&omx->encoder, &portdef, _OUTPUT_PORT) < 0) {
 		LOG_ERROR("... second");
 		return -1;
 	}
@@ -423,7 +423,7 @@ static int _omx_setup_output(omx_encoder_s *omx, unsigned quality) {
 		}
 	}
 
-	if (component_enable_port(&omx->encoder, _OUTPUT_PORT) < 0) {
+	if (omx_component_enable_port(&omx->encoder, _OUTPUT_PORT) < 0) {
 		return -1;
 	}
 	omx->i_output_port_enabled = true;
@@ -440,11 +440,11 @@ static int _omx_encoder_clear_ports(omx_encoder_s *omx) {
 	int retval = 0;
 
 	if (omx->i_output_port_enabled) {
-		retval -= component_disable_port(&omx->encoder, _OUTPUT_PORT);
+		retval -= omx_component_disable_port(&omx->encoder, _OUTPUT_PORT);
 		omx->i_output_port_enabled = false;
 	}
 	if (omx->i_input_port_enabled) {
-		retval -= component_disable_port(&omx->encoder, _INPUT_PORT);
+		retval -= omx_component_disable_port(&omx->encoder, _INPUT_PORT);
 		omx->i_input_port_enabled = false;
 	}
 

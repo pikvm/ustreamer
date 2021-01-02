@@ -32,7 +32,7 @@ void _copy_plus_huffman(const frame_s *src, frame_s *dest);
 static bool _is_huffman(const uint8_t *data);
 
 
-void hw_encoder_compress(frame_s *src, frame_s *dest) {
+void hw_encoder_compress(const frame_s *src, frame_s *dest) {
 	if (src->format != V4L2_PIX_FMT_MJPEG && src->format != V4L2_PIX_FMT_JPEG) {
 		assert(0 && "Unsupported input format for HW encoder");
 	}

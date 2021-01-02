@@ -44,10 +44,10 @@
 	}
 
 
-int component_enable_port(OMX_HANDLETYPE *component, OMX_U32 port);
-int component_disable_port(OMX_HANDLETYPE *component, OMX_U32 port);
+int omx_component_enable_port(OMX_HANDLETYPE *component, OMX_U32 port);
+int omx_component_disable_port(OMX_HANDLETYPE *component, OMX_U32 port);
 
-int component_get_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYPE *portdef, OMX_U32 port);
-int component_set_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYPE *portdef);
+int omx_component_get_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYPE *portdef, OMX_U32 port);
+int omx_component_set_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYPE *portdef);
 
-int component_set_state(OMX_HANDLETYPE *component, OMX_STATETYPE state);
+int omx_component_set_state(OMX_HANDLETYPE *component, OMX_STATETYPE state);
