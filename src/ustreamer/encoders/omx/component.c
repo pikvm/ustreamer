@@ -23,11 +23,11 @@
 #include "component.h"
 
 
-static int _component_wait_port_changed(OMX_HANDLETYPE *component, OMX_U32 port, OMX_BOOL enabled);
-static int _component_wait_state_changed(OMX_HANDLETYPE *component, OMX_STATETYPE wanted);
+static int _omx_component_wait_port_changed(OMX_HANDLETYPE *component, OMX_U32 port, OMX_BOOL enabled);
+static int _omx_component_wait_state_changed(OMX_HANDLETYPE *component, OMX_STATETYPE wanted);
 
 
-int component_enable_port(OMX_HANDLETYPE *component, OMX_U32 port) {
+int omx_component_enable_port(OMX_HANDLETYPE *component, OMX_U32 port) {
 	OMX_ERRORTYPE error;
 
 	LOG_DEBUG("Enabling OMX port %u ...", port);
@@ -35,10 +35,10 @@ int component_enable_port(OMX_HANDLETYPE *component, OMX_U32 port) {
 		LOG_ERROR_OMX(error, "Can't enable OMX port %u", port);
 		return -1;
 	}
-	return _component_wait_port_changed(component, port, OMX_TRUE);
+	return _omx_component_wait_port_changed(component, port, OMX_TRUE);
 }
 
-int component_disable_port(OMX_HANDLETYPE *component, OMX_U32 port) {
+int omx_component_disable_port(OMX_HANDLETYPE *component, OMX_U32 port) {
 	OMX_ERRORTYPE error;
 
 	LOG_DEBUG("Disabling OMX port %u ...", port);
@@ -46,10 +46,10 @@ int component_disable_port(OMX_HANDLETYPE *component, OMX_U32 port) {
 		LOG_ERROR_OMX(error, "Can't disable OMX port %u", port);
 		return -1;
 	}
-	return _component_wait_port_changed(component, port, OMX_FALSE);
+	return _omx_component_wait_port_changed(component, port, OMX_FALSE);
 }
 
-int component_get_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYPE *portdef, OMX_U32 port) {
+int omx_component_get_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYPE *portdef, OMX_U32 port) {
 	OMX_ERRORTYPE error;
 
 	// cppcheck-suppress redundantPointerOp
@@ -64,7 +64,7 @@ int component_get_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYP
 	return 0;
 }
 
-int component_set_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYPE *portdef) {
+int omx_component_set_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYPE *portdef) {
 	OMX_ERRORTYPE error;
 
 	LOG_DEBUG("Writing OMX port %u definition ...", portdef->nPortIndex);
@@ -75,7 +75,7 @@ int component_set_portdef(OMX_HANDLETYPE *component, OMX_PARAM_PORTDEFINITIONTYP
 	return 0;
 }
 
-int component_set_state(OMX_HANDLETYPE *component, OMX_STATETYPE state) {
+int omx_component_set_state(OMX_HANDLETYPE *component, OMX_STATETYPE state) {
 	const char *state_str = omx_state_to_string(state);
 	OMX_ERRORTYPE error;
 
@@ -85,7 +85,7 @@ int component_set_state(OMX_HANDLETYPE *component, OMX_STATETYPE state) {
 	do {
 		error = OMX_SendCommand(*component, OMX_CommandStateSet, state, NULL);
 		if (error == OMX_ErrorNone) {
-			return _component_wait_state_changed(component, state);
+			return _omx_component_wait_state_changed(component, state);
 		} else if (error == OMX_ErrorInsufficientResources && retries) {
 			// Иногда железо не инициализируется, хз почему, просто ретраим, со второй попытки сработает
 			LOG_ERROR_OMX(error, "Can't switch OMX component state to %s, need to retry", state_str);
@@ -101,7 +101,7 @@ int component_set_state(OMX_HANDLETYPE *component, OMX_STATETYPE state) {
 }
 
 
-static int _component_wait_port_changed(OMX_HANDLETYPE *component, OMX_U32 port, OMX_BOOL enabled) {
+static int _omx_component_wait_port_changed(OMX_HANDLETYPE *component, OMX_U32 port, OMX_BOOL enabled) {
 	OMX_ERRORTYPE error;
 
 	OMX_PARAM_PORTDEFINITIONTYPE portdef;
@@ -126,7 +126,7 @@ static int _component_wait_port_changed(OMX_HANDLETYPE *component, OMX_U32 port,
 	return (portdef.bEnabled == enabled ? 0 : -1);
 }
 
-static int _component_wait_state_changed(OMX_HANDLETYPE *component, OMX_STATETYPE wanted) {
+static int _omx_component_wait_state_changed(OMX_HANDLETYPE *component, OMX_STATETYPE wanted) {
 	OMX_ERRORTYPE error;
 	OMX_STATETYPE state;
 

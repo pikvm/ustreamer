@@ -175,7 +175,7 @@ void stream_loop(stream_s *stream) {
 							job->encoder = stream->encoder;
 							job->buf_index = buf_index;
 							workers_pool_assign(pool, ready_wr);
-							LOG_DEBUG("Assigned new frame in buffer %u to worker %s", buf_index, ready_wr->name);
+							LOG_DEBUG("Assigned new frame in buffer %d to worker %s", buf_index, ready_wr->name);
 						}
 					} else if (buf_index != -2) { // -2 for broken frame
 						break;
