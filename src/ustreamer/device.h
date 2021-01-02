@@ -155,6 +155,6 @@ void device_close(device_s *dev);
 
 int device_switch_capturing(device_s *dev, bool enable);
 int device_select(device_s *dev, bool *has_read, bool *has_write, bool *has_error);
-int device_grab_buffer(device_s *dev);
-int device_release_buffer(device_s *dev, unsigned index);
+int device_grab_buffer(device_s *dev, hw_buffer_s **hw);
+int device_release_buffer(device_s *dev, hw_buffer_s *hw);
 int device_consume_event(device_s *dev);

@@ -26,7 +26,7 @@
 typedef struct {
 	device_s	*dev;
 	encoder_s	*encoder;
-	unsigned	buf_index;
+	hw_buffer_s	*hw;
 	char		*dest_role;
 	frame_s		*dest;
 } _job_s;
@@ -73,10 +73,8 @@ void stream_destroy(stream_s *stream) {
 }
 
 void stream_loop(stream_s *stream) {
-#	define DEV(_next) stream->dev->_next
-
-	LOG_INFO("Using V4L2 device: %s", DEV(path));
-	LOG_INFO("Using desired FPS: %u", DEV(desired_fps));
+	LOG_INFO("Using V4L2 device: %s", stream->dev->path);
+	LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
 
 	for (workers_pool_s *pool; (pool = _stream_init_loop(stream)) != NULL;) {
 		long double grab_after = 0;
@@ -137,13 +135,15 @@ void stream_loop(stream_s *stream) {
 					const long double now = get_now_monotonic();
 					const long long now_second = floor_ms(now);
 
-					int buf_index = device_grab_buffer(stream->dev);
+					hw_buffer_s *hw;
+					int buf_index = device_grab_buffer(stream->dev, &hw);
+
 					if (buf_index >= 0) {
 						if (now < grab_after) {
 							fluency_passed += 1;
 							LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf",
 								fluency_passed, now, grab_after);
-							if (device_release_buffer(stream->dev, buf_index) < 0) {
+							if (device_release_buffer(stream->dev, hw) < 0) {
 								break;
 							}
 						} else {
@@ -163,14 +163,14 @@ void stream_loop(stream_s *stream) {
 
 #							ifdef WITH_MEMSINK
 							if (stream->raw_sink) {
-								if (memsink_server_put(stream->raw_sink, &DEV(run->hw_buffers[buf_index].raw)) < 0) {
+								if (memsink_server_put(stream->raw_sink, &hw->raw) < 0) {
 									stream->raw_sink = NULL;
 									LOG_ERROR("RAW sink completely disabled due error");
 								}
 							}
 #							endif
 
-							((_job_s *)ready_wr->job)->buf_index = buf_index;
+							((_job_s *)ready_wr->job)->hw = hw;
 							workers_pool_assign(pool, ready_wr);
 							LOG_DEBUG("Assigned new frame in buffer %d to worker %s", buf_index, ready_wr->name);
 						}
@@ -201,8 +201,6 @@ void stream_loop(stream_s *stream) {
 		gpio_set_stream_online(false);
 #		endif
 	}
-
-#	undef DEV
 }
 
 void stream_loop_break(stream_s *stream) {
@@ -367,22 +365,18 @@ static void _worker_job_destroy(void *v_job) {
 static bool _worker_run_job(worker_s *wr) {
 	_job_s *job = (_job_s *)wr->job;
 
-	LOG_DEBUG("Worker %s compressing JPEG from buffer %u ...", wr->name, job->buf_index);
-	bool ok = !encoder_compress(
-		job->encoder,
-		wr->number,
-		&job->dev->run->hw_buffers[job->buf_index].raw,
-		job->dest);
+	LOG_DEBUG("Worker %s compressing JPEG from buffer %u ...", wr->name, job->hw->buf_info.index);
+	bool ok = !encoder_compress(job->encoder, wr->number, &job->hw->raw, job->dest);
 
-	if (device_release_buffer(job->dev, job->buf_index) == 0) {
+	if (device_release_buffer(job->dev, job->hw) == 0) {
 		if (ok) {
 			LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%s, buffer=%u",
 				job->dest->used,
 				job->dest->encode_end_ts - job->dest->encode_begin_ts,
 				wr->name,
-				job->buf_index);
+				job->hw->buf_info.index);
 		} else {
-			LOG_VERBOSE("Compression failed: worker=%s, buffer=%u", wr->name, job->buf_index);
+			LOG_VERBOSE("Compression failed: worker=%s, buffer=%u", wr->name, job->hw->buf_info.index);
 		}
 	} else {
 		ok = false;

@@ -273,7 +273,9 @@ int device_select(device_s *dev, bool *has_read, bool *has_write, bool *has_erro
 	return retval;
 }
 
-int device_grab_buffer(device_s *dev) {
+int device_grab_buffer(device_s *dev, hw_buffer_s **hw) {
+	*hw = NULL;
+
 	struct v4l2_buffer buf_info;
 	MEMSET_ZERO(buf_info);
 	buf_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -330,24 +332,22 @@ int device_grab_buffer(device_s *dev) {
 	HW(raw.grab_ts) = get_now_monotonic();
 
 #	undef HW
+	*hw = &RUN(hw_buffers[buf_info.index]);
 	return buf_info.index;
 }
 
-int device_release_buffer(device_s *dev, unsigned index) {
-#	define HW(_next) RUN(hw_buffers)[index]._next
-
+int device_release_buffer(device_s *dev, hw_buffer_s *hw) {
+	const unsigned index = hw->buf_info.index;
 	LOG_DEBUG("Releasing device buffer index=%u ...", index);
 
-	A_MUTEX_LOCK(&HW(grabbed_mutex));
-	if (xioctl(RUN(fd), VIDIOC_QBUF, &HW(buf_info)) < 0) {
+	A_MUTEX_LOCK(&hw->grabbed_mutex);
+	if (xioctl(RUN(fd), VIDIOC_QBUF, &hw->buf_info) < 0) {
 		LOG_PERROR("Unable to release device buffer index=%u", index);
-		A_MUTEX_UNLOCK(&HW(grabbed_mutex));
+		A_MUTEX_UNLOCK(&hw->grabbed_mutex);
 		return -1;
 	}
-	HW(grabbed) = false;
-	A_MUTEX_UNLOCK(&HW(grabbed_mutex));
-
-#	undef HW
+	hw->grabbed = false;
+	A_MUTEX_UNLOCK(&hw->grabbed_mutex);
 	return 0;
 }
 
