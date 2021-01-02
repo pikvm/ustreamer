@@ -24,14 +24,13 @@
 
 #include <stdio.h>
 #include <stdbool.h>
-#include <setjmp.h>
 
-#include <jpeglib.h>
 #include <linux/videodev2.h>
 
 #include "../libs/common/tools.h"
 #include "../libs/common/logging.h"
 #include "../libs/common/frame.h"
+#include "../libs/common/unjpeg.h"
 
 #include "data/blank_jpeg.h"
 

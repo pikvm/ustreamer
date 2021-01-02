@@ -38,8 +38,7 @@
 #include "../common/tools.h"
 #include "../common/logging.h"
 #include "../common/frame.h"
-
-#include "unjpeg.h"
+#include "../common/unjpeg.h"
 
 
 typedef struct {

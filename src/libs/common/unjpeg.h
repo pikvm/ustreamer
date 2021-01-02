@@ -23,6 +23,7 @@
 #pragma once
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <setjmp.h>
 #include <assert.h>
@@ -32,8 +33,8 @@
 #include <jpeglib.h>
 #include <linux/videodev2.h>
 
-#include "../common/logging.h"
-#include "../common/frame.h"
+#include "logging.h"
+#include "frame.h"
 
 
-int unjpeg(const frame_s *src, frame_s *dest);
+int unjpeg(const frame_s *src, frame_s *dest, bool decode);

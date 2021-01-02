@@ -23,17 +23,8 @@
 #include "blank.h"
 
 
-typedef struct {
-	struct jpeg_error_mgr	mgr; // Default manager
-	jmp_buf					jmp;
-} _jpeg_error_manager_s;
-
-
 static frame_s *_init_internal(void);
 static frame_s *_init_external(const char *path);
-
-static int _jpeg_read_geometry(FILE *fp, unsigned *width, unsigned *height);
-static void _jpeg_error_handler(j_common_ptr jpeg);
 
 
 frame_s *blank_frame_init(const char *path) {
@@ -72,15 +63,6 @@ static frame_s *_init_external(const char *path) {
 		goto error;
 	}
 
-	if (_jpeg_read_geometry(fp, &blank->width, &blank->height) < 0) {
-		goto error;
-	}
-
-	if (fseek(fp, 0, SEEK_SET) < 0) {
-		LOG_PERROR("Can't seek to begin of the blank placeholder");
-		goto error;
-	}
-
 #	define CHUNK_SIZE ((size_t)(100 * 1024))
 	while (true) {
 		if (blank->used + CHUNK_SIZE >= blank->allocated) {
@@ -92,7 +74,7 @@ static frame_s *_init_external(const char *path) {
 
 		if (readed < CHUNK_SIZE) {
 			if (feof(fp)) {
-				goto ok;
+				break;
 			} else {
 				LOG_PERROR("Can't read blank placeholder");
 				goto error;
@@ -100,6 +82,17 @@ static frame_s *_init_external(const char *path) {
 		}
 	}
 #	undef CHUNK_SIZE
+
+	frame_s *decoded = frame_init("blank_external_decoded");
+	if (unjpeg(blank, decoded, false) < 0) {
+		frame_destroy(decoded);
+		goto error;
+	}
+	blank->width = decoded->width;
+	blank->height = decoded->height;
+	frame_destroy(decoded);
+
+	goto ok;
 
 	error:
 		frame_destroy(blank);
@@ -111,37 +104,4 @@ static frame_s *_init_external(const char *path) {
 		}
 
 	return blank;
-}
-
-static int _jpeg_read_geometry(FILE *fp, unsigned *width, unsigned *height) {
-	struct jpeg_decompress_struct jpeg;
-	jpeg_create_decompress(&jpeg);
-
-	// https://stackoverflow.com/questions/19857766/error-handling-in-libjpeg
-	_jpeg_error_manager_s jpeg_error;
-	jpeg.err = jpeg_std_error((struct jpeg_error_mgr *)&jpeg_error);
-	jpeg_error.mgr.error_exit = _jpeg_error_handler;
-	if (setjmp(jpeg_error.jmp) < 0) {
-		jpeg_destroy_decompress(&jpeg);
-		return -1;
-	}
-
-	jpeg_stdio_src(&jpeg, fp);
-	jpeg_read_header(&jpeg, TRUE);
-	jpeg_start_decompress(&jpeg);
-
-	*width = jpeg.output_width;
-	*height = jpeg.output_height;
-
-	jpeg_destroy_decompress(&jpeg);
-	return 0;
-}
-
-static void _jpeg_error_handler(j_common_ptr jpeg) {
-	_jpeg_error_manager_s *jpeg_error = (_jpeg_error_manager_s *)jpeg->err;
-	char msg[JMSG_LENGTH_MAX];
-
-	(*jpeg_error->mgr.format_message)(jpeg, msg);
-	LOG_ERROR("Invalid blank placeholder: %s", msg);
-	longjmp(jpeg_error->jmp, -1);
 }

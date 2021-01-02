@@ -26,19 +26,19 @@
 typedef struct {
 	struct jpeg_error_mgr	mgr; // Default manager
 	jmp_buf					jmp;
+	const frame_s			*frame;
 } _jpeg_error_manager_s;
 
 
 static void _jpeg_error_handler(j_common_ptr jpeg);
 
 
-int unjpeg(const frame_s *src, frame_s *dest) {
+int unjpeg(const frame_s *src, frame_s *dest, bool decode) {
 	volatile int retval = 0;
 
 	struct jpeg_decompress_struct jpeg;
 	jpeg_create_decompress(&jpeg);
 
-	frame_realloc_data(dest, ((src->width * src->height) << 1) * 2);
 	frame_copy_meta(src, dest);
 	dest->format = V4L2_PIX_FMT_RGB24;
 	dest->used = 0;
@@ -48,6 +48,7 @@ int unjpeg(const frame_s *src, frame_s *dest) {
 	_jpeg_error_manager_s jpeg_error;
 	jpeg.err = jpeg_std_error((struct jpeg_error_mgr *)&jpeg_error);
 	jpeg_error.mgr.error_exit = _jpeg_error_handler;
+	jpeg_error.frame = src;
 	if (setjmp(jpeg_error.jmp) < 0) {
 		retval = -1;
 		goto done;
@@ -58,17 +59,21 @@ int unjpeg(const frame_s *src, frame_s *dest) {
 	jpeg.out_color_space = JCS_RGB;
 
 	jpeg_start_decompress(&jpeg);
-	const unsigned row_stride = jpeg.output_width * jpeg.output_components;
 
-	JSAMPARRAY scanlines;
-	scanlines = (*jpeg.mem->alloc_sarray)((j_common_ptr) &jpeg, JPOOL_IMAGE, row_stride, 1);
+	if (decode) {
+		const unsigned row_stride = jpeg.output_width * jpeg.output_components;
 
-	while (jpeg.output_scanline < jpeg.output_height) {
-		jpeg_read_scanlines(&jpeg, scanlines, 1);
-		frame_append_data(dest, scanlines[0], row_stride);
+		JSAMPARRAY scanlines;
+		scanlines = (*jpeg.mem->alloc_sarray)((j_common_ptr) &jpeg, JPOOL_IMAGE, row_stride, 1);
+
+		frame_realloc_data(dest, ((src->width * src->height) << 1) * 2);
+		while (jpeg.output_scanline < jpeg.output_height) {
+			jpeg_read_scanlines(&jpeg, scanlines, 1);
+			frame_append_data(dest, scanlines[0], row_stride);
+		}
+
+		jpeg_finish_decompress(&jpeg);
 	}
-
-	jpeg_finish_decompress(&jpeg);
 
 	dest->width = jpeg.output_width;
 	dest->height = jpeg.output_height;
@@ -83,6 +88,6 @@ static void _jpeg_error_handler(j_common_ptr jpeg) {
 	char msg[JMSG_LENGTH_MAX];
 
 	(*jpeg_error->mgr.format_message)(jpeg, msg);
-	LOG_ERROR("Can't decompress JPEG: %s", msg);
+	LOG_ERROR("Can't decompress %s JPEG: %s", jpeg_error->frame->name, msg);
 	longjmp(jpeg_error->jmp, -1);
 }
