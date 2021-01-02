@@ -23,10 +23,10 @@
 #include "frame.h"
 
 
-frame_s *frame_init(const char *role) {
+frame_s *frame_init(const char *name) {
 	frame_s *frame;
 	A_CALLOC(frame, 1);
-	frame->role = role;
+	frame->name = name;
 	frame->managed = true;
 	frame_realloc_data(frame, 500 * 1024);
 	return frame;
@@ -44,7 +44,7 @@ void frame_realloc_data(frame_s *frame, size_t size) {
 	assert(frame->managed);
 	if (frame->allocated < size) {
 		LOG_DEBUG("Increasing frame buffer '%s': %zu -> %zu (+%zu)",
-			frame->role, frame->allocated, size, size - frame->allocated);
+			frame->name, frame->allocated, size, size - frame->allocated);
 		A_REALLOC(frame->data, size);
 		frame->allocated = size;
 	}
@@ -75,7 +75,7 @@ void frame_copy(const frame_s *src, frame_s *dest) {
 }
 
 void frame_copy_meta(const frame_s *src, frame_s *dest) {
-	// Don't copy the role
+	// Don't copy the name
 	COPY(width);
 	COPY(height);
 	COPY(format);

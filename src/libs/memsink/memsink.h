@@ -59,7 +59,7 @@ typedef struct {
 } memsink_shared_s;
 
 typedef struct {
-	const char	*role;
+	const char	*name;
 	bool		server;
 	bool		rm;
 	unsigned	timeout;
@@ -73,7 +73,7 @@ typedef struct {
 } memsink_s;
 
 
-memsink_s *memsink_open(const char *role, const char *name, bool server, mode_t mode, bool rm, unsigned timeout);
+memsink_s *memsink_open(const char *name, const char *prefix, bool server, mode_t mode, bool rm, unsigned timeout);
 void memsink_close(memsink_s *memsink);
 
 int memsink_server_put(memsink_s *memsink, const frame_s *frame);

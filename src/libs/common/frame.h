@@ -34,7 +34,7 @@
 
 
 typedef struct {
-	const char	*role;
+	const char	*name;
 
 	uint8_t		*data;
 	size_t		used;
@@ -52,7 +52,7 @@ typedef struct {
 } frame_s;
 
 
-frame_s *frame_init(const char *role);
+frame_s *frame_init(const char *name);
 void frame_destroy(frame_s *frame);
 
 void frame_realloc_data(frame_s *frame, size_t size);
