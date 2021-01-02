@@ -28,7 +28,7 @@ static void *_worker_thread(void *v_worker);
 
 workers_pool_s *workers_pool_init(
 	const char *name, unsigned n_workers, long double desired_interval,
-	void *(*job_init)(worker_s *wr),
+	void *(*job_init)(worker_s *wr, void *arg), void *job_init_arg,
 	void (*job_destroy)(void *),
 	bool (*run_job)(worker_s *)) {
 
@@ -63,7 +63,7 @@ workers_pool_s *workers_pool_init(
 		A_COND_INIT(&WR(has_job_cond));
 
 		WR(pool) = pool;
-		WR(job) = job_init(&pool->workers[number]);
+		WR(job) = job_init(&pool->workers[number], job_init_arg);
 
 		A_THREAD_CREATE(&WR(tid), _worker_thread, (void *)&(pool->workers[number]));
 		pool->free_workers += 1;

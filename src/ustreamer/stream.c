@@ -36,7 +36,7 @@ static workers_pool_s *_stream_init_loop(stream_s *stream);
 static workers_pool_s *_stream_init_one(stream_s *stream);
 static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps);
 
-static void *_worker_job_init(worker_s *wr);
+static void *_worker_job_init(worker_s *wr, void *arg);
 static void _worker_job_destroy(void *v_job);
 static bool _worker_run_job(worker_s *wr);
 
@@ -170,10 +170,7 @@ void stream_loop(stream_s *stream) {
 							}
 #							endif
 
-							_job_s *job = (_job_s *)ready_wr->job;
-							job->dev = stream->dev;
-							job->encoder = stream->encoder;
-							job->buf_index = buf_index;
+							((_job_s *)ready_wr->job)->buf_index = buf_index;
 							workers_pool_assign(pool, ready_wr);
 							LOG_DEBUG("Assigned new frame in buffer %d to worker %s", buf_index, ready_wr->name);
 						}
@@ -279,7 +276,9 @@ static workers_pool_s *_stream_init_one(stream_s *stream) {
 
 	return workers_pool_init(
 		"jpeg", stream->encoder->run->n_workers, desired_interval,
-		_worker_job_init, _worker_job_destroy, _worker_run_job);
+		_worker_job_init, (void *)stream,
+		_worker_job_destroy,
+		_worker_run_job);
 
 	error:
 		device_close(stream->dev);
@@ -343,9 +342,13 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 #	undef VID
 }
 
-static void *_worker_job_init(worker_s *wr) {
+static void *_worker_job_init(worker_s *wr, void *arg) {
 	_job_s *job;
 	A_CALLOC(job, 1);
+
+	stream_s *stream = (stream_s *)arg;
+	job->dev = stream->dev;
+	job->encoder = stream->encoder;
 
 	const size_t dest_role_len = strlen(wr->name) + 16;
 	A_CALLOC(job->dest_role, dest_role_len);

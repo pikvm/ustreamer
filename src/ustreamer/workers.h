@@ -79,7 +79,7 @@ typedef struct workers_pool_sx {
 
 workers_pool_s *workers_pool_init(
 	const char *name, unsigned n_workers, long double desired_interval,
-	void *(*job_init)(worker_s *wr),
+	void *(*job_init)(worker_s *wr, void *arg), void *job_init_arg,
 	void (*job_destroy)(void *job),
 	bool (*run_job)(worker_s *));
 
