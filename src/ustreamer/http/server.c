@@ -39,8 +39,6 @@ static void _http_queue_send_stream(server_s *server, bool stream_updated, bool 
 
 static bool _expose_new_frame(server_s *server);
 
-static void _format_bufferevent_reason(short what, char *reason);
-
 
 #define RUN(_next)		server->run->_next
 #define STREAM(_next)	RUN(stream->_next)
@@ -648,8 +646,7 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	stream_client_s *client = (stream_client_s *)v_client;
 	server_s *server = client->server;
 
-	char reason[2048] = {0};
-	_format_bufferevent_reason(what, reason);
+	char *reason = bufferevent_my_format_reason(what);
 
 	assert(RUN(stream_clients_count) > 0);
 	RUN(stream_clients_count) -= 1;
@@ -689,6 +686,8 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	}
 	free(client->key);
 	free(client);
+
+	free(reason);
 }
 
 static void _http_queue_send_stream(server_s *server, bool stream_updated, bool frame_updated) {
@@ -822,36 +821,6 @@ static bool _expose_new_frame(server_s *server) {
 		atomic_store(&STREAM(video->updated), false);
 		A_MUTEX_UNLOCK(&STREAM(video->mutex));
 		return updated;
-}
-
-static void _format_bufferevent_reason(short what, char *reason) {
-	char perror_buf[1024] = {0};
-	char *perror_ptr = errno_to_string(EVUTIL_SOCKET_ERROR(), perror_buf, 1024); // evutil_socket_error_to_string() is not thread-sage
-	bool first = true;
-
-	strcat(reason, perror_ptr);
-	strcat(reason, " (");
-
-#	define FILL_REASON(_bev, _name) { \
-			if (what & _bev) { \
-				if (first) { \
-					first = false; \
-				} else { \
-					strcat(reason, ","); \
-				} \
-				strcat(reason, _name); \
-			} \
-		}
-
-	FILL_REASON(BEV_EVENT_READING, "reading");
-	FILL_REASON(BEV_EVENT_WRITING, "writing");
-	FILL_REASON(BEV_EVENT_ERROR, "error");
-	FILL_REASON(BEV_EVENT_TIMEOUT, "timeout");
-	FILL_REASON(BEV_EVENT_EOF, "eof"); // cppcheck-suppress unreadVariable
-
-#	undef FILL_REASON
-
-	strcat(reason, ")");
 }
 
 #undef EX

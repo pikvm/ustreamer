@@ -65,6 +65,7 @@
 #	include "../gpio/gpio.h"
 #endif
 
+#include "bev.h"
 #include "unix.h"
 #include "uri.h"
 #include "base64.h"
