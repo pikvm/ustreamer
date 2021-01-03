@@ -288,32 +288,28 @@ static int _omx_setup_input(omx_encoder_s *omx, device_s *dev) {
 		return -1;
 	}
 
-	portdef.format.image.nFrameWidth = dev->run->width;
-	portdef.format.image.nFrameHeight = dev->run->height;
-	portdef.format.image.nStride = 0;
-	portdef.format.image.nSliceHeight = align_size(dev->run->height, 16);
-	portdef.format.image.bFlagErrorConcealment = OMX_FALSE;
-	portdef.format.image.eCompressionFormat = OMX_IMAGE_CodingUnused;
+#	define IFMT(_next) portdef.format.image._next
+	IFMT(nFrameWidth) = dev->run->width;
+	IFMT(nFrameHeight) = dev->run->height;
+	IFMT(nStride) = 0;
+	IFMT(nSliceHeight) = align_size(dev->run->height, 16);
+	IFMT(bFlagErrorConcealment) = OMX_FALSE;
+	IFMT(eCompressionFormat) = OMX_IMAGE_CodingUnused;
 	portdef.nBufferSize = ((dev->run->width * dev->run->height) << 1) * 2;
-
-#	define MAP_FORMAT(_v4l2_format, _omx_format) \
-		case _v4l2_format: { portdef.format.image.eColorFormat = _omx_format; break; }
-
 	switch (dev->run->format) {
 		// https://www.fourcc.org/yuv.php
 		// Also see comments inside OMX_IVCommon.h
-		MAP_FORMAT(V4L2_PIX_FMT_YUYV, OMX_COLOR_FormatYCbYCr);
-		MAP_FORMAT(V4L2_PIX_FMT_UYVY, OMX_COLOR_FormatCbYCrY);
-		MAP_FORMAT(V4L2_PIX_FMT_RGB565, OMX_COLOR_Format16bitRGB565);
-		MAP_FORMAT(V4L2_PIX_FMT_RGB24, OMX_COLOR_Format24bitRGB888);
+		case V4L2_PIX_FMT_YUYV:		IFMT(eColorFormat) = OMX_COLOR_FormatYCbYCr; break;
+		case V4L2_PIX_FMT_UYVY:		IFMT(eColorFormat) = OMX_COLOR_FormatCbYCrY; break;
+		case V4L2_PIX_FMT_RGB565:	IFMT(eColorFormat) = OMX_COLOR_Format16bitRGB565; break;
+		case V4L2_PIX_FMT_RGB24:	IFMT(eColorFormat) = OMX_COLOR_Format24bitRGB888; break;
 		// TODO: найти устройство с RGB565 и протестить его.
 		// FIXME: RGB24 не работает нормально, нижняя половина экрана зеленая.
 		// FIXME: Китайский EasyCap тоже не работает, мусор на экране.
 		// Вероятно обе проблемы вызваны некорректной реализацией OMX на пае.
-		default: assert(0 && "Unsupported input format for OMX encoder");
+		default: assert(0 && "Unsupported input format for OMX JPEG encoder");
 	}
-
-#	undef MAP_FORMAT
+#	undef IFMT
 
 	if (omx_component_set_portdef(&omx->encoder, &portdef) < 0) {
 		return -1;
@@ -347,9 +343,11 @@ static int _omx_setup_output(omx_encoder_s *omx, unsigned quality) {
 		return -1;
 	}
 
-	portdef.format.image.bFlagErrorConcealment = OMX_FALSE;
-	portdef.format.image.eCompressionFormat = OMX_IMAGE_CodingJPEG;
-	portdef.format.image.eColorFormat = OMX_COLOR_FormatYCbYCr;
+#	define OFMT(_next) portdef.format.image._next
+	OFMT(bFlagErrorConcealment) = OMX_FALSE;
+	OFMT(eCompressionFormat) = OMX_IMAGE_CodingJPEG;
+	OFMT(eColorFormat) = OMX_COLOR_FormatYCbYCr;
+#	undef OFMT
 
 	if (omx_component_set_portdef(&omx->encoder, &portdef) < 0) {
 		return -1;

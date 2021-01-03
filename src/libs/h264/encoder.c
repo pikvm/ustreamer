@@ -125,7 +125,7 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 		}
 
 #	define SET_PORT_PARAM(_id, _type, _key, _value) { \
-			if ((error = mmal_port_parameter_set_##_type(RUN(_id##_port), _key, _value)) != MMAL_SUCCESS) { \
+			if ((error = mmal_port_parameter_set_##_type(RUN(_id##_port), MMAL_PARAMETER_##_key, _value)) != MMAL_SUCCESS) { \
 				LOG_ERROR_MMAL(error, "Can't set %s for the %s port", #_key, #_id); \
 				goto error; \
 			} \
@@ -151,15 +151,12 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 
 #		define IFMT(_next) RUN(input_port->format->_next)
 		IFMT(type) = MMAL_ES_TYPE_VIDEO;
-		char fourcc_buf[8];
 		switch (frame->format) {
-			case V4L2_PIX_FMT_YUYV: IFMT(encoding) = MMAL_ENCODING_YUYV; break;
-			case V4L2_PIX_FMT_UYVY: IFMT(encoding) = MMAL_ENCODING_UYVY; break;
-			case V4L2_PIX_FMT_RGB565: IFMT(encoding) = MMAL_ENCODING_RGB16; break;
-			case V4L2_PIX_FMT_RGB24: IFMT(encoding) = MMAL_ENCODING_RGB24; break;
-			default:
-				LOG_ERROR("Unsupported input format for MMAL (fourcc): %s", fourcc_to_string(frame->format, fourcc_buf, 8));
-				goto error;
+			case V4L2_PIX_FMT_YUYV:		IFMT(encoding) = MMAL_ENCODING_YUYV; break;
+			case V4L2_PIX_FMT_UYVY:		IFMT(encoding) = MMAL_ENCODING_UYVY; break;
+			case V4L2_PIX_FMT_RGB565:	IFMT(encoding) = MMAL_ENCODING_RGB16; break;
+			case V4L2_PIX_FMT_RGB24:	IFMT(encoding) = MMAL_ENCODING_RGB24; break;
+			default: assert(0 && "Unsupported input format for MMAL H264 encoder");
 		}
 		IFMT(es->video.width) = align_size(frame->width, 32);
 		IFMT(es->video.height) = align_size(frame->height, 16);
@@ -173,7 +170,7 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 #		undef IFMT
 
 		COMMIT_PORT(input);
-		SET_PORT_PARAM(input, boolean, MMAL_PARAMETER_ZERO_COPY, MMAL_FALSE);
+		SET_PORT_PARAM(input, boolean, ZERO_COPY, MMAL_FALSE);
 	}
 
 	{
@@ -205,19 +202,19 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 			}
 		}
 
-		SET_PORT_PARAM(output, boolean, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
-		SET_PORT_PARAM(output, uint32, MMAL_PARAMETER_INTRAPERIOD, encoder->gop);
-		SET_PORT_PARAM(output, uint32, MMAL_PARAMETER_NALUNITFORMAT, MMAL_VIDEO_NALUNITFORMAT_STARTCODES);
-		SET_PORT_PARAM(output, boolean, MMAL_PARAMETER_MINIMISE_FRAGMENTATION, MMAL_TRUE);
-		SET_PORT_PARAM(output, uint32, MMAL_PARAMETER_MB_ROWS_PER_SLICE, 0);
-		SET_PORT_PARAM(output, boolean, MMAL_PARAMETER_VIDEO_IMMUTABLE_INPUT, MMAL_FALSE);
-		SET_PORT_PARAM(output, boolean, MMAL_PARAMETER_VIDEO_DROPPABLE_PFRAMES, MMAL_FALSE);
-		SET_PORT_PARAM(output, uint32, MMAL_PARAMETER_VIDEO_BIT_RATE, encoder->bps);
-		SET_PORT_PARAM(output, uint32, MMAL_PARAMETER_VIDEO_ENCODE_PEAK_RATE, encoder->bps);
-		SET_PORT_PARAM(output, uint32, MMAL_PARAMETER_VIDEO_ENCODE_MIN_QUANT, 16);
-		SET_PORT_PARAM(output, uint32, MMAL_PARAMETER_VIDEO_ENCODE_MAX_QUANT, 34);
-		SET_PORT_PARAM(output, uint32, MMAL_PARAMETER_VIDEO_ENCODE_FRAME_LIMIT_BITS, 1000000);
-		SET_PORT_PARAM(output, uint32, MMAL_PARAMETER_VIDEO_ENCODE_H264_AU_DELIMITERS, MMAL_FALSE);
+		SET_PORT_PARAM(output, boolean,	ZERO_COPY,					MMAL_TRUE);
+		SET_PORT_PARAM(output, uint32,	INTRAPERIOD,				encoder->gop);
+		SET_PORT_PARAM(output, uint32,	NALUNITFORMAT,				MMAL_VIDEO_NALUNITFORMAT_STARTCODES);
+		SET_PORT_PARAM(output, boolean,	MINIMISE_FRAGMENTATION,		MMAL_TRUE);
+		SET_PORT_PARAM(output, uint32,	MB_ROWS_PER_SLICE,			0);
+		SET_PORT_PARAM(output, boolean,	VIDEO_IMMUTABLE_INPUT,		MMAL_FALSE);
+		SET_PORT_PARAM(output, boolean,	VIDEO_DROPPABLE_PFRAMES,	MMAL_FALSE);
+		SET_PORT_PARAM(output, uint32,	VIDEO_BIT_RATE,				encoder->bps);
+		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_PEAK_RATE,		encoder->bps);
+		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_MIN_QUANT,				16);
+		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_MAX_QUANT,				34);
+		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_FRAME_LIMIT_BITS,		1000000);
+		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_H264_AU_DELIMITERS,	MMAL_FALSE);
 	}
 
 	RUN(wrapper->user_data) = (void *)encoder;
@@ -358,21 +355,21 @@ static const char *_mmal_error_to_string(MMAL_STATUS_T error) {
 #	define CASE_ERROR(_name, _msg) case MMAL_##_name: return "MMAL_" #_name " [" _msg "]"
 	switch (error) {
 		case MMAL_SUCCESS: return "MMAL_SUCCESS";
-		CASE_ERROR(ENOMEM, "Out of memory");
-		CASE_ERROR(ENOSPC, "Out of resources");
-		CASE_ERROR(EINVAL, "Invalid argument");
-		CASE_ERROR(ENOSYS, "Function not implemented");
-		CASE_ERROR(ENOENT, "No such file or directory");
-		CASE_ERROR(ENXIO, "No such device or address");
-		CASE_ERROR(EIO, "IO error");
-		CASE_ERROR(ESPIPE, "Illegal seek");
-		CASE_ERROR(ECORRUPT, "Data is corrupt");
-		CASE_ERROR(ENOTREADY, "Component is not ready");
-		CASE_ERROR(ECONFIG, "Component is not configured");
-		CASE_ERROR(EISCONN, "Port is already connected");
-		CASE_ERROR(ENOTCONN, "Port is disconnected");
-		CASE_ERROR(EAGAIN, "Resource temporarily unavailable");
-		CASE_ERROR(EFAULT, "Bad address");
+		CASE_ERROR(ENOMEM,		"Out of memory");
+		CASE_ERROR(ENOSPC,		"Out of resources");
+		CASE_ERROR(EINVAL,		"Invalid argument");
+		CASE_ERROR(ENOSYS,		"Function not implemented");
+		CASE_ERROR(ENOENT,		"No such file or directory");
+		CASE_ERROR(ENXIO,		"No such device or address");
+		CASE_ERROR(EIO,			"IO error");
+		CASE_ERROR(ESPIPE,		"Illegal seek");
+		CASE_ERROR(ECORRUPT,	"Data is corrupt");
+		CASE_ERROR(ENOTREADY,	"Component is not ready");
+		CASE_ERROR(ECONFIG,		"Component is not configured");
+		CASE_ERROR(EISCONN,		"Port is already connected");
+		CASE_ERROR(ENOTCONN,	"Port is disconnected");
+		CASE_ERROR(EAGAIN,		"Resource temporarily unavailable");
+		CASE_ERROR(EFAULT,		"Bad address");
 		case MMAL_STATUS_MAX: break; // Makes cpplint happy
 	}
 	return "Unknown error";
