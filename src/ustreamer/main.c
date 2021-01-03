@@ -35,6 +35,10 @@
 #include <signal.h>
 
 #include <pthread.h>
+#ifdef WITH_OMX
+#	include <bcm_host.h>
+#	include <IL/OMX_Core.h>
+#endif
 
 #include "../libs/common/tools.h"
 #include "../libs/common/threading.h"
@@ -123,6 +127,25 @@ int main(int argc, char *argv[]) {
 	int exit_code = 0;
 
 	if ((exit_code = options_parse(options, dev, encoder, stream, server)) == 0) {
+#		ifdef WITH_OMX
+		bool i_bcm_host = false;
+		if (encoder->type == ENCODER_TYPE_OMX) {
+			LOG_INFO("Initializing BCM Host ...");
+			bcm_host_init();
+			i_bcm_host = true;
+		}
+		bool i_omx_core = false
+		if (encodeer->type == ENCODER_TYPE_OMX) {
+			LOG_INFO("Initializing OMX Core ...");
+			if ((OMX_ERRORTYPE error = OMX_Init()) != OMX_ErrorNone) {
+				LOG_ERROR_OMX(error, "Can't initialize OMX Core");
+				exit_code = -1;
+				goto omx_error;
+			}
+			i_omx_core = true;
+		}
+#		endif
+
 #		ifdef WITH_GPIO
 		gpio_init();
 #		endif
@@ -150,6 +173,16 @@ int main(int argc, char *argv[]) {
 #		ifdef WITH_GPIO
 		gpio_set_prog_running(false);
 		gpio_destroy();
+#		endif
+
+#		ifdef WITH_OMX
+		omx_error:
+		if (i_omx_core) {
+			OMX_Deinit();
+		}
+		if (i_bcm_host) {
+			bcm_host_deinit();
+		}
 #		endif
 	}
 

@@ -30,7 +30,6 @@
 
 #include <linux/videodev2.h>
 
-#include <bcm_host.h>
 #include <IL/OMX_Core.h>
 #include <IL/OMX_Component.h>
 #include <IL/OMX_Broadcom.h>

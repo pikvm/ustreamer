@@ -57,9 +57,6 @@ void h264_encoder_destroy(h264_encoder_s *encoder) {
 	if (RUN(i_handler_sem)) {
 		vcos_semaphore_delete(&RUN(handler_sem));
 	}
-	if (RUN(i_bcm_host)) {
-		bcm_host_deinit();
-	}
 	frame_destroy(RUN(tmp));
 	free(encoder);
 }
@@ -70,14 +67,7 @@ int h264_encoder_compress(h264_encoder_s *encoder, const frame_s *src, frame_s *
 	assert(src->height > 0);
 	assert(src->format > 0);
 
-	if (!RUN(i_bcm_host)) {
-		LOG_INFO("Initializing BCM ...");
-		bcm_host_init();
-		RUN(i_bcm_host) = true;
-	}
-
 	if (!RUN(i_handler_sem)) {
-		LOG_INFO("Creating VCOS semaphore ...");
 		if (vcos_semaphore_create(&RUN(handler_sem), "h264_handler_sem", 0) != VCOS_SUCCESS) {
 			LOG_PERROR("Can't create VCOS semaphore");
 			return -1;
@@ -156,18 +146,16 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 
 #		define IFMT(_next) RUN(input_port->format->_next)
 		IFMT(type) = MMAL_ES_TYPE_VIDEO;
-		if (frame->format == V4L2_PIX_FMT_UYVY) {
-			LOG_INFO("Using pixelformat: UYVY");
-			IFMT(encoding) = MMAL_ENCODING_UYVY;
-		} else if (frame->format == V4L2_PIX_FMT_RGB24) {
-			LOG_INFO("Using pixelformat: RGB24");
-			IFMT(encoding) = MMAL_ENCODING_RGB24;
-		} else {
-			char fourcc_buf[8];
-			LOG_ERROR("Unsupported pixelformat (fourcc): %s", fourcc_to_string(frame->format, fourcc_buf, 8));
-			goto error;
+		switch (frame->format) {
+			case V4L2_PIX_FMT_YUYV: IFMT(encoding) = MMAL_ENCODING_YUYV; break;
+			case V4L2_PIX_FMT_UYVY: IFMT(encoding) = MMAL_ENCODING_UYVY; break;
+			case V4L2_PIX_FMT_RGB565: IFMT(encoding) = MMAL_ENCODING_RGB16; break;
+			case V4L2_PIX_FMT_RGB24: IFMT(encoding) = MMAL_ENCODING_RGB24; break;
+			default:
+				char fourcc_buf[8];
+				LOG_ERROR("Unsupported input format for MMAL (fourcc): %s", fourcc_to_string(frame->format, fourcc_buf, 8));
+				goto error;
 		}
-		LOG_INFO("Using resolution: %ux%u", frame->width, frame->height);
 		IFMT(es->video.width) = align_size(frame->width, 32);
 		IFMT(es->video.height) = align_size(frame->height, 16);
 		IFMT(es->video.crop.x) = 0;

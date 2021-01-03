@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include <bcm_host.h>
+
 #include "../common/logging.h"
 #include "../common/frame.h"
 #include "../memsink/memsink.h"
@@ -9,6 +11,8 @@
 int main(void) {
 	LOGGING_INIT;
 	log_level = 3;
+
+	bcm_host_init();
 
 	frame_s *src = frame_init("src");
 	frame_s *dest = frame_init("dest");

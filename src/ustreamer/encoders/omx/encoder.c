@@ -27,9 +27,6 @@ static const OMX_U32 _INPUT_PORT = 340;
 static const OMX_U32 _OUTPUT_PORT = 341;
 
 
-static int _i_omx = 0;
-
-
 static int _vcos_semwait(VCOS_SEMAPHORE_T *sem);
 static int _omx_init_component(omx_encoder_s *omx);
 static int _omx_init_disable_ports(omx_encoder_s *omx);
@@ -64,19 +61,6 @@ omx_encoder_s *omx_encoder_init(void) {
 
 	omx_encoder_s *omx;
 	A_CALLOC(omx, 1);
-
-	assert(_i_omx >= 0);
-	if (_i_omx == 0) {
-		LOG_INFO("Initializing BCM ...");
-		bcm_host_init();
-
-		LOG_INFO("Initializing OMX ...");
-		if ((OMX_ERRORTYPE error = OMX_Init()) != OMX_ErrorNone) {
-			LOG_ERROR_OMX(error, "Can't initialize OMX");
-			goto error;
-		}
-	}
-	_i_omx += 1;
 
 	LOG_INFO("Initializing OMX encoder ...");
 
@@ -116,16 +100,6 @@ void omx_encoder_destroy(omx_encoder_s *omx) {
 		if ((OMX_ERRORTYPE error = OMX_FreeHandle(omx->encoder)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't free OMX.broadcom.image_encode");
 		}
-	}
-
-	assert(_i_omx >= 0);
-	_i_omx -= 1;
-	if (_i_omx == 0) {
-		LOG_INFO("Destroying OMX ...");
-		OMX_Deinit();
-
-		LOG_INFO("Destroying BCM ...");
-		bcm_host_deinit();
 	}
 
 	free(omx);

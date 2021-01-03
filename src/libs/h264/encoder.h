@@ -28,7 +28,6 @@
 
 #include <linux/videodev2.h>
 
-#include <bcm_host.h>
 #include <interface/mmal/mmal.h>
 #include <interface/mmal/mmal_format.h>
 #include <interface/mmal/util/mmal_default_components.h>
@@ -46,7 +45,6 @@ typedef struct {
 	MMAL_PORT_T			*input_port;
 	MMAL_PORT_T			*output_port;
 	VCOS_SEMAPHORE_T	handler_sem;
-	bool				i_bcm_host;
 	bool				i_handler_sem;
 
 	unsigned	width;
