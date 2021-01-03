@@ -98,21 +98,20 @@ install: $(USTR) $(REC)
 	install -Dm755 $(USTR) $(DESTDIR)$(PREFIX)/bin/$(USTR)
 	install -Dm644 $(USTR).1 $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
 	gzip $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
-ifneq ($(_ENABLE_REC),)
-	install -Dm755 $(DESTDIR)$(PREFIX)/bin/$(REC)
-endif
+#ifneq ($(_ENABLE_REC),)
+#	install -Dm755 $(DESTDIR)$(PREFIX)/bin/$(REC)
+#endif
 
 
 install-strip: install
 	strip $(DESTDIR)$(PREFIX)/bin/$(USTR)
-ifneq ($(_ENABLE_REC),)
-	strip $(DESTDIR)$(PREFIX)/bin/$(REC)
-endif
+#ifneq ($(_ENABLE_REC),)
+#	strip $(DESTDIR)$(PREFIX)/bin/$(REC)
+#endif
 
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(USTR) \
-		$(DESTDIR)$(PREFIX)/bin/$(REC) \
 		$(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
 
 
