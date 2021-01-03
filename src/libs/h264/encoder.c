@@ -25,6 +25,7 @@
 
 static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame);
 static void _h264_encoder_cleanup(h264_encoder_s *encoder);
+
 static int _h264_encoder_compress_raw(h264_encoder_s *encoder, const frame_s *src, frame_s *dest, bool force_key);
 
 static void _mmal_callback(MMAL_WRAPPER_T *wrapper);
@@ -41,7 +42,8 @@ static const char *_mmal_error_to_string(MMAL_STATUS_T error);
 h264_encoder_s *h264_encoder_init(void) {
 	h264_encoder_runtime_s *run;
 	A_CALLOC(run, 1);
-	run->tmp = frame_init("h264_tmp");
+	run->unjpegged = frame_init("h264_unjpegged_src");
+	run->last_online = -1;
 
 	h264_encoder_s *encoder;
 	A_CALLOC(encoder, 1);
@@ -49,7 +51,18 @@ h264_encoder_s *h264_encoder_init(void) {
 	encoder->bps = 5000 * 1000; // Kbps * 1000
 	encoder->fps = 30;
 	encoder->run = run;
+
+	if (vcos_semaphore_create(&run->handler_sem, "h264_handler_sem", 0) != VCOS_SUCCESS) {
+		LOG_PERROR("Can't create VCOS semaphore");
+		goto error;
+	}
+	run->i_handler_sem = true;
+
 	return encoder;
+
+	error:
+		h264_encoder_destroy(encoder);
+		return NULL;
 }
 
 void h264_encoder_destroy(h264_encoder_s *encoder) {
@@ -57,43 +70,37 @@ void h264_encoder_destroy(h264_encoder_s *encoder) {
 	if (RUN(i_handler_sem)) {
 		vcos_semaphore_delete(&RUN(handler_sem));
 	}
-	frame_destroy(RUN(tmp));
+	frame_destroy(RUN(unjpegged));
 	free(encoder);
 }
 
-int h264_encoder_compress(h264_encoder_s *encoder, const frame_s *src, frame_s *dest, bool force_key) {
+int h264_encoder_compress(h264_encoder_s *encoder, const frame_s *src, frame_s *dest) {
 	assert(src->used > 0);
 	assert(src->width > 0);
 	assert(src->height > 0);
 	assert(src->format > 0);
 
-	if (!RUN(i_handler_sem)) {
-		if (vcos_semaphore_create(&RUN(handler_sem), "h264_handler_sem", 0) != VCOS_SUCCESS) {
-			LOG_PERROR("Can't create VCOS semaphore");
-			return -1;
-		}
-		RUN(i_handler_sem) = true;
-	}
-
 	if (src->format == V4L2_PIX_FMT_MJPEG || src->format == V4L2_PIX_FMT_JPEG) {
 		LOG_DEBUG("Input frame format is JPEG; decoding ...");
-		if (unjpeg(src, RUN(tmp), true) < 0) {
+		if (unjpeg(src, RUN(unjpegged), true) < 0) {
 			return -1;
 		}
-		src = RUN(tmp);
+		src = RUN(unjpegged);
 	}
 
-	if (RUN(width) != src->width || RUN(height) != src->height || RUN(format) != src->format) {
+	if (RUN(i_width) != src->width || RUN(i_height) != src->height || RUN(i_format) != src->format) {
 		if (_h264_encoder_configure(encoder, src) < 0) {
 			return -1;
 		}
-		force_key = true;
+		RUN(last_online) = -1;
 	}
 
-	if (_h264_encoder_compress_raw(encoder, src, dest, force_key) < 0) {
+	if (_h264_encoder_compress_raw(encoder, src, dest, (RUN(last_online) != src->online)) < 0) {
 		_h264_encoder_cleanup(encoder);
 		return -1;
 	}
+
+	RUN(last_online) = src->online;
 	return 0;
 }
 
@@ -132,8 +139,6 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 		}
 
 	_h264_encoder_cleanup(encoder);
-
-	LOG_INFO("Applying H264 configuration ...");
 
 	if ((error = mmal_wrapper_create(&RUN(wrapper), MMAL_COMPONENT_DEFAULT_VIDEO_ENCODER)) != MMAL_SUCCESS) {
 		LOG_ERROR_MMAL(error, "Can't create MMAL wrapper");
@@ -221,9 +226,9 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 	ENABLE_PORT(input);
 	ENABLE_PORT(output);
 
-	RUN(width) = frame->width;
-	RUN(height) = frame->height;
-	RUN(format) = frame->format;
+	RUN(i_width) = frame->width;
+	RUN(i_height) = frame->height;
+	RUN(i_format) = frame->format;
 
 	return 0;
 
@@ -261,16 +266,16 @@ static void _h264_encoder_cleanup(h264_encoder_s *encoder) {
 		RUN(wrapper) = NULL;
 	}
 
-	RUN(width) = 0;
-	RUN(height) = 0;
-	RUN(format) = 0;
+	RUN(i_width) = 0;
+	RUN(i_height) = 0;
+	RUN(i_format) = 0;
 }
 
 static int _h264_encoder_compress_raw(h264_encoder_s *encoder, const frame_s *src, frame_s *dest, bool force_key) {
 	assert(src->used > 0);
-	assert(src->width == encoder->width);
-	assert(src->height == encoder->height);
-	assert(src->format == encoder->format);
+	assert(src->width == encoder->i_width);
+	assert(src->height == encoder->i_height);
+	assert(src->format == encoder->i_format);
 
 	MMAL_STATUS_T error;
 
@@ -339,8 +344,8 @@ static int _h264_encoder_compress_raw(h264_encoder_s *encoder, const frame_s *sr
 	}
 
 	dest->encode_end_ts = get_now_monotonic();
-	LOG_VERBOSE("Compressed new H264 frame: force_key=%d, size=%zu, time=%0.3Lf",
-		force_key, dest->used, dest->encode_end_ts - dest->encode_begin_ts);
+	LOG_VERBOSE("Compressed new H264 frame: size=%zu, time=%0.3Lf, force_key=%d",
+		dest->used, dest->encode_end_ts - dest->encode_begin_ts, force_key);
 	return 0;
 }
 

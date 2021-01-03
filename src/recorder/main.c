@@ -25,7 +25,7 @@ int main(void) {
 	int error = 0;
 	while ((error = memsink_client_get(memsink, src)) != -1) {
 		if (error == 0 /*|| (error == -2 && src->used > 0)*/) {
-			if (!h264_encoder_compress(encoder, src, dest, false)) {
+			if (!h264_encoder_compress(encoder, src, dest)) {
 				LOG_INFO("frame %Lf", get_now_monotonic() - dest->grab_ts);
 				fwrite(dest->data, 1, dest->used, fp);
 				fflush(fp);

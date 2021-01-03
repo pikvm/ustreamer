@@ -47,16 +47,19 @@ typedef struct {
 	VCOS_SEMAPHORE_T	handler_sem;
 	bool				i_handler_sem;
 
-	unsigned	width;
-	unsigned	height;
-	unsigned	format;
-	frame_s		*tmp;
+	frame_s		*unjpegged;
+	int			last_online;
+
+	unsigned i_width;
+	unsigned i_height;
+	unsigned i_format;
 } h264_encoder_runtime_s;
 
 typedef struct {
 	unsigned gop; // Interval between keyframes
 	unsigned bps; // Bit-per-sec
 	unsigned fps;
+
 	h264_encoder_runtime_s *run;
 } h264_encoder_s;
 
@@ -64,4 +67,4 @@ typedef struct {
 h264_encoder_s *h264_encoder_init(void);
 void h264_encoder_destroy(h264_encoder_s *encoder);
 
-int h264_encoder_compress(h264_encoder_s *encoder, const frame_s *src, frame_s *dest, bool force_key);
+int h264_encoder_compress(h264_encoder_s *encoder, const frame_s *src, frame_s *dest);
