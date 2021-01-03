@@ -49,8 +49,8 @@ typedef struct worker_sx {
 	long double		job_start_ts;
 	pthread_cond_t	has_job_cond;
 
-	struct worker_sx *order_prev;
-	struct worker_sx *order_next;
+	struct worker_sx *prev_wr;
+	struct worker_sx *next_wr;
 
 	struct workers_pool_sx *pool;
 } worker_s;

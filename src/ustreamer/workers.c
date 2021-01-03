@@ -113,7 +113,7 @@ worker_s *workers_pool_wait(workers_pool_s *pool) {
 	if (pool->oldest_wr && !atomic_load(&pool->oldest_wr->has_job)) {
 		ready_wr = pool->oldest_wr;
 		ready_wr->job_timely = true;
-		pool->oldest_wr = pool->oldest_wr->order_next;
+		pool->oldest_wr = pool->oldest_wr->next_wr;
 	} else {
 		for (unsigned number = 0; number < pool->n_workers; ++number) {
 			if (
@@ -137,17 +137,17 @@ void workers_pool_assign(workers_pool_s *pool, worker_s *ready_wr/*, void *job*/
 		pool->oldest_wr = ready_wr;
 		pool->latest_wr = pool->oldest_wr;
 	} else {
-		if (ready_wr->order_next) {
-			ready_wr->order_next->order_prev = ready_wr->order_prev;
+		if (ready_wr->next_wr) {
+			ready_wr->next_wr->prev_wr = ready_wr->prev_wr;
 		}
-		if (ready_wr->order_prev) {
-			ready_wr->order_prev->order_next = ready_wr->order_next;
+		if (ready_wr->prev_wr) {
+			ready_wr->prev_wr->next_wr = ready_wr->next_wr;
 		}
-		ready_wr->order_prev = pool->latest_wr;
-		pool->latest_wr->order_next = ready_wr;
+		ready_wr->prev_wr = pool->latest_wr;
+		pool->latest_wr->next_wr = ready_wr;
 		pool->latest_wr = ready_wr;
 	}
-	pool->latest_wr->order_next = NULL;
+	pool->latest_wr->next_wr = NULL;
 
 	A_MUTEX_LOCK(&ready_wr->has_job_mutex);
 	//ready_wr->job = job;
