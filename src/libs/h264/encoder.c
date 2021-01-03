@@ -58,6 +58,15 @@ h264_encoder_s *h264_encoder_init(void) {
 	}
 	run->i_handler_sem = true;
 
+	MMAL_STATUS_T error = mmal_wrapper_create(&run->wrapper, MMAL_COMPONENT_DEFAULT_VIDEO_ENCODER);
+	if (error != MMAL_SUCCESS) {
+		LOG_ERROR_MMAL(error, "Can't create MMAL wrapper");
+		run->wrapper = NULL;
+		goto error;
+	}
+	run->wrapper->user_data = (void *)encoder;
+	run->wrapper->callback = _mmal_callback;
+
 	return encoder;
 
 	error:
@@ -67,10 +76,20 @@ h264_encoder_s *h264_encoder_init(void) {
 
 void h264_encoder_destroy(h264_encoder_s *encoder) {
 	_h264_encoder_cleanup(encoder);
+
+	if (RUN(wrapper)) {
+		MMAL_STATUS_T error = mmal_wrapper_destroy(RUN(wrapper));
+		if (error != MMAL_SUCCESS) {
+			LOG_ERROR_MMAL(error, "Can't destroy MMAL encoder");
+		}
+	}
+
 	if (RUN(i_handler_sem)) {
 		vcos_semaphore_delete(&RUN(handler_sem));
 	}
+
 	frame_destroy(RUN(unjpegged));
+	free(encoder->run);
 	free(encoder);
 }
 
@@ -139,12 +158,7 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 		}
 
 	_h264_encoder_cleanup(encoder);
-
-	if ((error = mmal_wrapper_create(&RUN(wrapper), MMAL_COMPONENT_DEFAULT_VIDEO_ENCODER)) != MMAL_SUCCESS) {
-		LOG_ERROR_MMAL(error, "Can't create MMAL wrapper");
-		goto error;
-	}
-	RUN(wrapper->status) = MMAL_SUCCESS;
+	RUN(wrapper->status) = MMAL_SUCCESS; // Это реально надо?
 
 	{
 		PREPARE_PORT(input);
@@ -217,9 +231,6 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_H264_AU_DELIMITERS,	MMAL_FALSE);
 	}
 
-	RUN(wrapper->user_data) = (void *)encoder;
-	RUN(wrapper->callback) = _mmal_callback;
-
 	ENABLE_PORT(input);
 	ENABLE_PORT(output);
 
@@ -255,13 +266,6 @@ static void _h264_encoder_cleanup(h264_encoder_s *encoder) {
 	DISABLE_PORT(output);
 
 #	undef DISABLE_PORT
-
-	if (RUN(wrapper)) {
-		if ((error = mmal_wrapper_destroy(RUN(wrapper))) != MMAL_SUCCESS) {
-			LOG_ERROR_MMAL(error, "Can't destroy MMAL encoder");
-		}
-		RUN(wrapper) = NULL;
-	}
 
 	RUN(i_width) = 0;
 	RUN(i_height) = 0;
