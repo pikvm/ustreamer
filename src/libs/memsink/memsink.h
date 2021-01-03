@@ -73,8 +73,8 @@ typedef struct {
 } memsink_s;
 
 
-memsink_s *memsink_open(const char *name, const char *prefix, bool server, mode_t mode, bool rm, unsigned timeout);
-void memsink_close(memsink_s *memsink);
+memsink_s *memsink_init(const char *name, const char *prefix, bool server, mode_t mode, bool rm, unsigned timeout);
+void memsink_destroy(memsink_s *memsink);
 
 int memsink_server_put(memsink_s *memsink, const frame_s *frame);
 int memsink_client_get(memsink_s *memsink, frame_s *frame);

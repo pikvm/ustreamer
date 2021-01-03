@@ -27,7 +27,7 @@ static int _sem_timedwait_monotonic(sem_t *sem, long double timeout);
 static int _flock_timedwait_monotonic(int fd, long double timeout);
 
 
-memsink_s *memsink_open(const char *name, const char *prefix, bool server, mode_t mode, bool rm, unsigned timeout) {
+memsink_s *memsink_init(const char *name, const char *prefix, bool server, mode_t mode, bool rm, unsigned timeout) {
 	memsink_s *memsink;
 	A_CALLOC(memsink, 1);
 	memsink->name = name;
@@ -91,11 +91,11 @@ memsink_s *memsink_open(const char *name, const char *prefix, bool server, mode_
 	return memsink;
 
 	error:
-		memsink_close(memsink);
+		memsink_destroy(memsink);
 		return NULL;
 }
 
-void memsink_close(memsink_s *memsink) {
+void memsink_destroy(memsink_s *memsink) {
 	if (memsink->sig_sem != SEM_FAILED) {
 		if (sem_close(memsink->sig_sem) < 0) {
 			LOG_PERROR("Can't close %s sink signal semaphore", memsink->name);

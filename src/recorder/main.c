@@ -17,7 +17,7 @@ int main(void) {
 	frame_s *src = frame_init("src");
 	frame_s *dest = frame_init("dest");
 	h264_encoder_s *encoder = h264_encoder_init();
-	memsink_s *memsink = memsink_open("RAW", "test", false, 0, 0, (long double)encoder->fps / (long double)encoder->gop);
+	memsink_s *memsink = memsink_init("RAW", "test", false, 0, 0, (long double)encoder->fps / (long double)encoder->gop);
 	assert(memsink);
 	FILE *fp = fopen("test.h264", "wb");
 	assert(fp);

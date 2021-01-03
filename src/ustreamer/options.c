@@ -230,7 +230,7 @@ options_s *options_init(unsigned argc, char *argv[]) {
 void options_destroy(options_s *options) {
 #	ifdef WITH_MEMSINK
 	if (options->raw_sink) {
-		memsink_close(options->raw_sink);
+		memsink_destroy(options->raw_sink);
 	}
 #	endif
 	if (options->blank) {
@@ -458,7 +458,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 
 #	ifdef WITH_MEMSINK
 	if (raw_sink_name && raw_sink_name[0] != '\0') {
-		options->raw_sink = memsink_open(
+		options->raw_sink = memsink_init(
 			"RAW",
 			raw_sink_name,
 			true,
