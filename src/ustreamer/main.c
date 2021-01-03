@@ -51,8 +51,8 @@
 
 
 typedef struct {
-	stream_s			*stream;
-	server_s	*server;
+	stream_s *stream;
+	server_s *server;
 } _main_context_s;
 
 static _main_context_s *_ctx;
@@ -80,7 +80,11 @@ static void *_server_loop_thread(UNUSED void *arg) {
 }
 
 static void _signal_handler(int signum) {
-	LOG_INFO_NOLOCK("===== Stopping by %s =====", (signum == SIGTERM ? "SIGTERM" : "SIGINT"));
+	switch (signum) {
+		case SIGTERM:	LOG_INFO_NOLOCK("===== Stopping by SIGTERM ====="); break;
+		case SIGINT:	LOG_INFO_NOLOCK("===== Stopping by SIGINT ====="); break;
+		default:		LOG_INFO_NOLOCK("===== Stopping by %d =====", signum); break;
+	}
 	stream_loop_break(_ctx->stream);
 	server_loop_break(_ctx->server);
 }
@@ -94,13 +98,13 @@ static void _install_signal_handlers(void) {
 	assert(!sigaddset(&sig_act.sa_mask, SIGINT));
 	assert(!sigaddset(&sig_act.sa_mask, SIGTERM));
 
-	LOG_INFO("Installing SIGINT handler ...");
+	LOG_DEBUG("Installing SIGINT handler ...");
 	assert(!sigaction(SIGINT, &sig_act, NULL));
 
-	LOG_INFO("Installing SIGTERM handler ...");
+	LOG_DEBUG("Installing SIGTERM handler ...");
 	assert(!sigaction(SIGTERM, &sig_act, NULL));
 
-	LOG_INFO("Ignoring SIGPIPE ...");
+	LOG_DEBUG("Ignoring SIGPIPE ...");
 	assert(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
 }
 
