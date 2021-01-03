@@ -114,9 +114,20 @@ static void _install_signal_handlers(void) {
 
 int main(int argc, char *argv[]) {
 	assert(argc >= 0);
+	int exit_code = 0;
 
 	LOGGING_INIT;
 	A_THREAD_RENAME("main");
+
+#	ifdef WITH_OMX
+	bcm_host_init();
+	OMX_ERRORTYPE omx_error;
+	if ((omx_error = OMX_Init()) != OMX_ErrorNone) {
+		LOG_ERROR_OMX(omx_error, "Can't initialize OMX Core");
+		exit_code = -1;
+		goto omx_error;
+	}
+#	endif
 
 	options_s *options = options_init(argc, argv);
 	device_s *dev = device_init();
@@ -124,28 +135,7 @@ int main(int argc, char *argv[]) {
 	stream_s *stream = stream_init(dev, encoder);
 	server_s *server = server_init(stream);
 
-	int exit_code = 0;
-
 	if ((exit_code = options_parse(options, dev, encoder, stream, server)) == 0) {
-#		ifdef WITH_OMX
-		bool i_bcm_host = false;
-		if (encoder->type == ENCODER_TYPE_OMX) {
-			LOG_INFO("Initializing BCM Host ...");
-			bcm_host_init();
-			i_bcm_host = true;
-		}
-		bool i_omx_core = false
-		if (encodeer->type == ENCODER_TYPE_OMX) {
-			LOG_INFO("Initializing OMX Core ...");
-			if ((OMX_ERRORTYPE error = OMX_Init()) != OMX_ErrorNone) {
-				LOG_ERROR_OMX(error, "Can't initialize OMX Core");
-				exit_code = -1;
-				goto omx_error;
-			}
-			i_omx_core = true;
-		}
-#		endif
-
 #		ifdef WITH_GPIO
 		gpio_init();
 #		endif
@@ -174,24 +164,20 @@ int main(int argc, char *argv[]) {
 		gpio_set_prog_running(false);
 		gpio_destroy();
 #		endif
-
-#		ifdef WITH_OMX
-		omx_error:
-		if (i_omx_core) {
-			OMX_Deinit();
-		}
-		if (i_bcm_host) {
-			bcm_host_deinit();
-		}
-#		endif
 	}
 
 	server_destroy(server);
 	stream_destroy(stream);
 	encoder_destroy(encoder);
 	device_destroy(dev);
-
 	options_destroy(options);
+
+#	ifdef WITH_OMX
+	OMX_Deinit();
+	omx_error:
+	bcm_host_deinit();
+#	endif
+
 	if (exit_code == 0) {
 		LOG_INFO("Bye-bye");
 	}

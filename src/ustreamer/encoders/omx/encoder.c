@@ -97,7 +97,8 @@ void omx_encoder_destroy(omx_encoder_s *omx) {
 	}
 
 	if (omx->i_encoder) {
-		if ((OMX_ERRORTYPE error = OMX_FreeHandle(omx->encoder)) != OMX_ErrorNone) {
+		OMX_ERRORTYPE error;
+		if ((error = OMX_FreeHandle(omx->encoder)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't free OMX.broadcom.image_encode");
 		}
 	}
@@ -139,7 +140,7 @@ int omx_encoder_compress(omx_encoder_s *omx, const frame_s *src, frame_s *dest) 
 	omx->output_available = false;
 	omx->input_required = true;
 
-	const size_t slice_size = (IN(nAllocLen) < src->used ? IN(nAllocLen) : src->used);
+	size_t slice_size = (IN(nAllocLen) < src->used ? IN(nAllocLen) : src->used);
 	size_t pos = 0;
 
 	while (true) {

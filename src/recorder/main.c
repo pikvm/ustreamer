@@ -3,10 +3,10 @@
 
 #include <bcm_host.h>
 
-#include "../common/logging.h"
-#include "../common/frame.h"
-#include "../memsink/memsink.h"
-#include "../h264/encoder.h"
+#include "../libs/common/logging.h"
+#include "../libs/common/frame.h"
+#include "../libs/memsink/memsink.h"
+#include "../libs/h264/encoder.h"
 
 int main(void) {
 	LOGGING_INIT;

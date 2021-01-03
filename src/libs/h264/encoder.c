@@ -151,13 +151,13 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 
 #		define IFMT(_next) RUN(input_port->format->_next)
 		IFMT(type) = MMAL_ES_TYPE_VIDEO;
+		char fourcc_buf[8];
 		switch (frame->format) {
 			case V4L2_PIX_FMT_YUYV: IFMT(encoding) = MMAL_ENCODING_YUYV; break;
 			case V4L2_PIX_FMT_UYVY: IFMT(encoding) = MMAL_ENCODING_UYVY; break;
 			case V4L2_PIX_FMT_RGB565: IFMT(encoding) = MMAL_ENCODING_RGB16; break;
 			case V4L2_PIX_FMT_RGB24: IFMT(encoding) = MMAL_ENCODING_RGB24; break;
 			default:
-				char fourcc_buf[8];
 				LOG_ERROR("Unsupported input format for MMAL (fourcc): %s", fourcc_to_string(frame->format, fourcc_buf, 8));
 				goto error;
 		}
@@ -273,9 +273,9 @@ static void _h264_encoder_cleanup(h264_encoder_s *encoder) {
 
 static int _h264_encoder_compress_raw(h264_encoder_s *encoder, const frame_s *src, frame_s *dest, bool force_key) {
 	assert(src->used > 0);
-	assert(src->width == encoder->i_width);
-	assert(src->height == encoder->i_height);
-	assert(src->format == encoder->i_format);
+	assert(src->width == RUN(i_width));
+	assert(src->height == RUN(i_height));
+	assert(src->format == RUN(i_format));
 
 	MMAL_STATUS_T error;
 

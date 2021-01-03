@@ -32,7 +32,7 @@ static const struct {
 #	ifdef WITH_OMX
 	{"OMX",		ENCODER_TYPE_OMX},
 #	endif
-#	ifdef WITH_RAWSINK
+#	ifdef WITH_MEMSINK
 	{"NOOP",	ENCODER_TYPE_NOOP},
 #	endif
 };
@@ -151,7 +151,7 @@ void encoder_prepare(encoder_s *encoder, device_s *dev) {
 		}
 	}
 #	endif
-#	ifdef WITH_RAWSINK
+#	ifdef WITH_MEMSINK
 	else if (type == ENCODER_TYPE_NOOP) {
 		ER(n_workers) = 1;
 		quality = 0;
@@ -172,7 +172,7 @@ void encoder_prepare(encoder_s *encoder, device_s *dev) {
 		quality = dev->jpeg_quality;
 
 	ok:
-#		ifdef WITH_RAWSINK
+#		ifdef WITH_MEMSINK
 		if (type == ENCODER_TYPE_NOOP) {
 			LOG_INFO("Using JPEG NOOP encoder");
 		} else
@@ -227,7 +227,7 @@ int encoder_compress(encoder_s *encoder, unsigned worker_number, frame_s *src, f
 		}
 	}
 #	endif
-#	ifdef WITH_RAWSINK
+#	ifdef WITH_MEMSINK
 	else if (ER(type) == ENCODER_TYPE_NOOP) {
 		LOG_VERBOSE("Compressing buffer using NOOP (do nothing)");
 		usleep(5000); // Просто чтобы работала логика desired_fps

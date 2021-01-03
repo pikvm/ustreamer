@@ -51,7 +51,7 @@
 #	define ENCODER_TYPES_OMX_HINT ""
 #endif
 
-#ifdef WITH_RAWSINK
+#ifdef WITH_MEMSINK
 #	define ENCODER_TYPES_NOOP_HINT ", NOOP"
 #else
 #	define ENCODER_TYPES_NOOP_HINT ""
@@ -70,7 +70,7 @@ typedef enum {
 #	ifdef WITH_OMX
 	ENCODER_TYPE_OMX,
 #	endif
-#	ifdef WITH_RAWSINK
+#	ifdef WITH_MEMSINK
 	ENCODER_TYPE_NOOP,
 #	endif
 } encoder_type_e;

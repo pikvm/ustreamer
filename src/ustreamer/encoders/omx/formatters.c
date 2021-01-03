@@ -87,6 +87,7 @@ const char *omx_state_to_string(OMX_STATETYPE state) {
 		CASE_TO_STRING(OMX_StateWaitForResources);
 		// cppcheck-suppress constArgument
 		// cppcheck-suppress knownArgument
+		default: break;
 	}
 	assert(0 && "Unsupported OMX state");
 }
