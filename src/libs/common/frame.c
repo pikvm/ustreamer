@@ -28,7 +28,7 @@ frame_s *frame_init(const char *name) {
 	A_CALLOC(frame, 1);
 	frame->name = name;
 	frame->managed = true;
-	frame_realloc_data(frame, 500 * 1024);
+	frame_realloc_data(frame, 512 * 1024);
 	return frame;
 }
 
