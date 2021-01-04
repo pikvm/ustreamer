@@ -404,7 +404,7 @@ static int _device_open_check_cap(device_s *dev) {
 			return -1;
 		}
 	} else {
-		LOG_INFO("Using TV standard: DEFAULT");
+		LOG_DEBUG("Using TV standard: DEFAULT");
 	}
 	return 0;
 }
