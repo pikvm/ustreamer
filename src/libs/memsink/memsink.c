@@ -141,7 +141,7 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 	}
 
 	if (_flock_timedwait_monotonic(sink->fd, 1) == 0) {
-		LOG_PERF("%s sink: >>>>> Exposing new frame ...", sink->name);
+		LOG_VERBOSE("%s sink: >>>>> Exposing new frame ...", sink->name);
 
 		if (sem_trywait(sink->sig_sem) < 0 && errno != EAGAIN) {
 			LOG_PERROR("%s sink: Can't wait signal semaphore", sink->name);
@@ -172,7 +172,7 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 			sink->name, get_now_monotonic() - now);
 
 	} else if (errno == EWOULDBLOCK) {
-		LOG_PERF("%s sink: ===== Shared memory is busy now; frame skipped", sink->name);
+		LOG_VERBOSE("%s sink: ===== Shared memory is busy now; frame skipped", sink->name);
 
 	} else {
 		LOG_PERROR("%s sink: Can't lock memory", sink->name);
