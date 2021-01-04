@@ -244,6 +244,7 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 		SET_PORT_PARAM(output, uint32,	MB_ROWS_PER_SLICE,			0);
 		SET_PORT_PARAM(output, boolean,	VIDEO_IMMUTABLE_INPUT,		MMAL_FALSE);
 		SET_PORT_PARAM(output, boolean,	VIDEO_DROPPABLE_PFRAMES,	MMAL_FALSE);
+		SET_PORT_PARAM(output, boolean,	VIDEO_ENCODE_INLINE_HEADER,	MMAL_TRUE); // SPS/PPS: https://github.com/raspberrypi/firmware/issues/242
 		SET_PORT_PARAM(output, uint32,	VIDEO_BIT_RATE,				encoder->bps);
 		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_PEAK_RATE,		encoder->bps);
 		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_MIN_QUANT,				16);
