@@ -33,11 +33,10 @@ _USTR_SRCS = $(shell ls \
 	src/ustreamer/encoders/hw/*.c \
 )
 
-_REC_LIBS = $(_COMMON_LIBS) -lrt -lbcm_host -lvcos -lmmal -lmmal_core -lmmal_util -lmmal_vc_client -lmmal_components -L$(RPI_VC_LIBS)
+_REC_LIBS = $(_COMMON_LIBS) -lrt
 _REC_SRCS = $(shell ls \
 	src/libs/common/*.c \
 	src/libs/memsink/*.c \
-	src/libs/h264/*.c \
 	src/recorder/*.c \
 )
 
@@ -47,17 +46,14 @@ $(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
 endef
 
 
-ifneq ($(call optbool,$(WITH_MEMSINK)),)
-_USTR_LIBS += -lrt
-override CFLAGS += -DWITH_MEMSINK
-_USTR_SRCS += $(shell ls src/libs/memsink/*.c)
-endif
-
-
 ifneq ($(call optbool,$(WITH_OMX)),)
-_USTR_LIBS += -lbcm_host -lvcos -lopenmaxil -L$(RPI_VC_LIBS)
+_USTR_LIBS += -lrt -lbcm_host -lvcos -lopenmaxil -lmmal -lmmal_core -lmmal_util -lmmal_vc_client -lmmal_components -L$(RPI_VC_LIBS)
 override CFLAGS += -DWITH_OMX -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
-_USTR_SRCS += $(shell ls src/ustreamer/encoders/omx/*.c)
+_USTR_SRCS += $(shell ls \
+	src/libs/memsink/*.c \
+	src/ustreamer/encoders/omx/*.c \
+	src/ustreamer/h264/*.c \
+)
 endif
 
 
@@ -83,13 +79,6 @@ override CFLAGS += -DWITH_SETPROCTITLE
 endif
 
 
-ifneq ($(call optbool,$(WITH_MEMSINK)),)
-ifneq ($(call optbool,$(WITH_OMX)),)
-_ENABLE_REC = 1
-endif
-endif
-
-
 # =====
 all: $(USTR) $(REC)
 
@@ -98,14 +87,14 @@ install: $(USTR) $(REC)
 	install -Dm755 $(USTR) $(DESTDIR)$(PREFIX)/bin/$(USTR)
 	install -Dm644 $(USTR).1 $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
 	gzip $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
-#ifneq ($(_ENABLE_REC),)
+#ifneq ($(call optbool,$(WITH_OMX)),)
 #	install -Dm755 $(DESTDIR)$(PREFIX)/bin/$(REC)
 #endif
 
 
 install-strip: install
 	strip $(DESTDIR)$(PREFIX)/bin/$(USTR)
-#ifneq ($(_ENABLE_REC),)
+#ifneq ($(call optbool,$(WITH_OMX)),)
 #	strip $(DESTDIR)$(PREFIX)/bin/$(REC)
 #endif
 
@@ -113,6 +102,9 @@ install-strip: install
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(USTR) \
 		$(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
+#ifneq ($(call optbool,$(WITH_OMX)),)
+#	rm -f $(DESTDIR)$(PREFIX)/bin/$(REC)
+#endif
 
 
 regen:
@@ -121,22 +113,22 @@ regen:
 
 
 $(USTR): $(_USTR_SRCS:%.c=$(BUILD)/%.o)
-	$(info -- LD $@)
+	$(info == LD $@)
 	@ $(CC) $^ -o $@ $(LDFLAGS) $(_USTR_LIBS)
-	$(info == CC      = $(CC))
-	$(info == LIBS    = $(_USTR_LIBS))
-	$(info == CFLAGS  = $(CFLAGS))
-	$(info == LDFLAGS = $(LDFLAGS))
+	$(info :: CC      = $(CC))
+	$(info :: LIBS    = $(_USTR_LIBS))
+	$(info :: CFLAGS  = $(CFLAGS))
+	$(info :: LDFLAGS = $(LDFLAGS))
 
 
-ifneq ($(_ENABLE_REC),)
+ifneq ($(call optbool,$(WITH_OMX)),)
 $(REC): $(_REC_SRCS:%.c=$(BUILD)/%.o)
-	$(info -- LD $@)
+	$(info == LD $@)
 	@ $(CC) $^ -o $@ $(LDFLAGS) $(_REC_LIBS)
-	$(info == CC      = $(CC))
-	$(info == LIBS    = $(_REC_LIBS))
-	$(info == CFLAGS  = $(CFLAGS))
-	$(info == LDFLAGS = $(LDFLAGS))
+	$(info :: CC      = $(CC))
+	$(info :: LIBS    = $(_REC_LIBS))
+	$(info :: CFLAGS  = $(CFLAGS))
+	$(info :: LDFLAGS = $(LDFLAGS))
 else
 $(REC):
 	@ true
@@ -192,5 +184,6 @@ clean-all: linters clean
 clean:
 	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.{xz,zst}
 	rm -rf $(USTR) $(REC) $(BUILD) vgcore.* *.sock
+
 
 .PHONY: linters

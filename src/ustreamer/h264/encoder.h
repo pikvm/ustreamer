@@ -34,10 +34,10 @@
 #include <interface/mmal/util/mmal_component_wrapper.h>
 #include <interface/mmal/util/mmal_util_params.h>
 
-#include "../common/tools.h"
-#include "../common/logging.h"
-#include "../common/frame.h"
-#include "../common/unjpeg.h"
+#include "../../libs/common/tools.h"
+#include "../../libs/common/logging.h"
+#include "../../libs/common/frame.h"
+#include "../../libs/common/unjpeg.h"
 
 
 typedef struct {
@@ -47,7 +47,7 @@ typedef struct {
 	VCOS_SEMAPHORE_T	handler_sem;
 	bool				i_handler_sem;
 
-	frame_s		*unjpegged;
+	frame_s		*tmp;
 	int			last_online;
 
 	unsigned i_width;

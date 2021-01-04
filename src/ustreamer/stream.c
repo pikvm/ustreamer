@@ -24,7 +24,6 @@
 
 
 typedef struct {
-	device_s	*dev;
 	encoder_s	*encoder;
 	hw_buffer_s	*hw;
 	char		*dest_role;
@@ -36,9 +35,15 @@ static workers_pool_s *_stream_init_loop(stream_s *stream);
 static workers_pool_s *_stream_init_one(stream_s *stream);
 static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps);
 
-static void *_worker_job_init(worker_s *wr, void *arg);
+static void *_worker_job_init(worker_s *wr, void *v_arg);
 static void _worker_job_destroy(void *v_job);
 static bool _worker_run_job(worker_s *wr);
+
+#ifdef WITH_OMX
+static h264_stream_s *_h264_stream_init(memsink_s *sink);
+static void _h264_stream_destroy(h264_stream_s *h264);
+static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame);
+#endif
 
 
 stream_s *stream_init(device_s *dev, encoder_s *encoder) {
@@ -76,6 +81,12 @@ void stream_loop(stream_s *stream) {
 	LOG_INFO("Using V4L2 device: %s", stream->dev->path);
 	LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
 
+#	ifdef WITH_OMX
+	if (stream->h264_sink) {
+		stream->h264 = _h264_stream_init(stream->h264_sink);
+	}
+#	endif
+
 	for (workers_pool_s *pool; (pool = _stream_init_loop(stream)) != NULL;) {
 		long double grab_after = 0;
 		unsigned fluency_passed = 0;
@@ -90,16 +101,24 @@ void stream_loop(stream_s *stream) {
 			LOG_DEBUG("Waiting for worker ...");
 
 			worker_s *ready_wr = workers_pool_wait(pool);
+			_job_s *ready_job = (_job_s *)(ready_wr->job);
 
-			if (!ready_wr->job_failed) {
-				if (ready_wr->job_timely) {
-					_stream_expose_frame(stream, ((_job_s *)(ready_wr->job))->dest, captured_fps);
-					LOG_PERF("##### Encoded frame exposed; worker=%s", ready_wr->name);
-				} else {
-					LOG_PERF("----- Encoded frame dropped; worker=%s", ready_wr->name);
+			if (ready_job->hw) {
+				if (device_release_buffer(stream->dev, ready_job->hw) < 0) {
+					ready_wr->job_failed = true;
 				}
-			} else {
-				break;
+				ready_job->hw = NULL;
+
+				if (!ready_wr->job_failed) {
+					if (ready_wr->job_timely) {
+						_stream_expose_frame(stream, ready_job->dest, captured_fps);
+						LOG_PERF("##### Encoded frame exposed; worker=%s", ready_wr->name);
+					} else {
+						LOG_PERF("----- Encoded frame dropped; worker=%s", ready_wr->name);
+					}
+				} else {
+					break;
+				}
 			}
 
 			if (atomic_load(&stream->proc->stop)) {
@@ -161,18 +180,15 @@ void stream_loop(stream_s *stream) {
 							grab_after = now + fluency_delay;
 							LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
 
-#							ifdef WITH_MEMSINK
-							if (stream->raw_sink) {
-								if (memsink_server_put(stream->raw_sink, &hw->raw) < 0) {
-									stream->raw_sink = NULL;
-									LOG_ERROR("RAW sink completely disabled due error");
-								}
-							}
-#							endif
-
-							((_job_s *)ready_wr->job)->hw = hw;
+							ready_job->hw = hw;
 							workers_pool_assign(pool, ready_wr);
 							LOG_DEBUG("Assigned new frame in buffer %d to worker %s", buf_index, ready_wr->name);
+
+#							ifdef WITH_OMX
+							if (stream->h264) {
+								_h264_stream_process(stream->h264, &hw->raw);
+							}
+#							endif
 						}
 					} else if (buf_index != -2) { // -2 for broken frame
 						break;
@@ -201,6 +217,12 @@ void stream_loop(stream_s *stream) {
 		gpio_set_stream_online(false);
 #		endif
 	}
+
+#	ifdef WITH_OMX
+	if (stream->h264) {
+		_h264_stream_destroy(stream->h264);
+	}
+#	endif
 }
 
 void stream_loop_break(stream_s *stream) {
@@ -212,6 +234,7 @@ void stream_switch_slowdown(stream_s *stream, bool slowdown) {
 }
 
 static workers_pool_s *_stream_init_loop(stream_s *stream) {
+
 	workers_pool_s *pool = NULL;
 	int access_error = 0;
 
@@ -219,12 +242,9 @@ static workers_pool_s *_stream_init_loop(stream_s *stream) {
 
 	while (!atomic_load(&stream->proc->stop)) {
 		if (_stream_expose_frame(stream, NULL, 0)) {
-#			ifdef WITH_MEMSINK
-			if (stream->raw_sink) {
-				if (memsink_server_put(stream->raw_sink, stream->blank) < 0) {
-					stream->raw_sink = NULL;
-					LOG_ERROR("RAW sink completely disabled due error");
-				}
+#			ifdef WITH_OMX
+			if (stream->h264) {
+				_h264_stream_process(stream->h264, stream->blank);
 			}
 #			endif
 		}
@@ -340,12 +360,11 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 #	undef VID
 }
 
-static void *_worker_job_init(worker_s *wr, void *arg) {
+static void *_worker_job_init(worker_s *wr, void *v_stream) {
+	stream_s *stream = (stream_s *)v_stream;
+
 	_job_s *job;
 	A_CALLOC(job, 1);
-
-	stream_s *stream = (stream_s *)arg;
-	job->dev = stream->dev;
 	job->encoder = stream->encoder;
 
 	const size_t dest_role_len = strlen(wr->name) + 16;
@@ -367,19 +386,50 @@ static bool _worker_run_job(worker_s *wr) {
 
 	LOG_DEBUG("Worker %s compressing JPEG from buffer %u ...", wr->name, job->hw->buf_info.index);
 	bool ok = !encoder_compress(job->encoder, wr->number, &job->hw->raw, job->dest);
-
-	if (device_release_buffer(job->dev, job->hw) == 0) {
-		if (ok) {
-			LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%s, buffer=%u",
-				job->dest->used,
-				job->dest->encode_end_ts - job->dest->encode_begin_ts,
-				wr->name,
-				job->hw->buf_info.index);
-		} else {
-			LOG_VERBOSE("Compression failed: worker=%s, buffer=%u", wr->name, job->hw->buf_info.index);
-		}
+	if (ok) {
+		LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%s, buffer=%u",
+			job->dest->used,
+			job->dest->encode_end_ts - job->dest->encode_begin_ts,
+			wr->name,
+			job->hw->buf_info.index);
 	} else {
-		ok = false;
+		LOG_VERBOSE("Compression failed: worker=%s, buffer=%u", wr->name, job->hw->buf_info.index);
 	}
 	return ok;
 }
+
+#ifdef WITH_OMX
+static h264_stream_s *_h264_stream_init(memsink_s *sink) {
+	h264_stream_s *h264;
+	A_CALLOC(h264, 1);
+
+	if ((h264->encoder = h264_encoder_init()) == NULL) {
+		goto error;
+	}
+
+	h264->dest = frame_init("h264_dest");
+	h264->sink = sink;
+
+	return h264;
+
+	error:
+		_h264_stream_destroy(h264);
+		return NULL;
+}
+
+static void _h264_stream_destroy(h264_stream_s *h264) {
+	if (h264->encoder) {
+		h264_encoder_destroy(h264->encoder);
+	}
+	if (h264->dest) {
+		frame_destroy(h264->dest);
+	}
+	free(h264);
+}
+
+static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame) {
+	if (h264_encoder_compress(h264->encoder, frame, h264->dest) == 0) {
+		memsink_server_put(h264->sink, h264->dest);
+	}
+}
+#endif

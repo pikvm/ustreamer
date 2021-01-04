@@ -32,7 +32,7 @@ workers_pool_s *workers_pool_init(
 	void (*job_destroy)(void *),
 	bool (*run_job)(worker_s *)) {
 
-	LOG_INFO("Creating pool %s with %u workers ...", name, n_workers);
+	LOG_INFO("Creating pool '%s' with %u workers ...", name, n_workers);
 
 	workers_pool_s *pool;
 	A_CALLOC(pool, 1);
@@ -74,7 +74,7 @@ workers_pool_s *workers_pool_init(
 }
 
 void workers_pool_destroy(workers_pool_s *pool) {
-	LOG_INFO("Destroying pool %s ...", pool->name);
+	LOG_INFO("Destroying workers pool '%s' ...", pool->name);
 
 	atomic_store(&pool->stop, true);
 	for (unsigned number = 0; number < pool->n_workers; ++number) {

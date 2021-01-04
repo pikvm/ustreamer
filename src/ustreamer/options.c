@@ -82,11 +82,11 @@ enum _OPT_VALUES {
 	_O_TCP_NODELAY,
 	_O_SERVER_TIMEOUT,
 
-#ifdef WITH_MEMSINK
-	_O_RAW_SINK,
-	_O_RAW_SINK_MODE,
-	_O_RAW_SINK_RM,
-	_O_RAW_SINK_TIMEOUT,
+#ifdef WITH_OMX
+	_O_H264_SINK,
+	_O_H264_SINK_MODE,
+	_O_H264_SINK_RM,
+	_O_H264_SINK_TIMEOUT,
 #endif
 
 #ifdef WITH_GPIO
@@ -167,11 +167,11 @@ static const struct option _LONG_OPTS[] = {
 	{"tcp-nodelay",				no_argument,		NULL,	_O_TCP_NODELAY},
 	{"server-timeout",			required_argument,	NULL,	_O_SERVER_TIMEOUT},
 
-#ifdef WITH_MEMSINK
-	{"raw-sink",				required_argument,	NULL,	_O_RAW_SINK},
-	{"raw-sink-mode",			required_argument,	NULL,	_O_RAW_SINK_MODE},
-	{"raw-sink-rm",				no_argument,		NULL,	_O_RAW_SINK_RM},
-	{"raw-sink-timeout",		required_argument,	NULL,	_O_RAW_SINK_TIMEOUT},
+#ifdef WITH_OMX
+	{"h264-sink",				required_argument,	NULL,	_O_H264_SINK},
+	{"h264-sink-mode",			required_argument,	NULL,	_O_H264_SINK_MODE},
+	{"h264-sink-rm",			no_argument,		NULL,	_O_H264_SINK_RM},
+	{"h264-sink-timeout",		required_argument,	NULL,	_O_H264_SINK_TIMEOUT},
 #endif
 
 #ifdef WITH_GPIO
@@ -228,9 +228,9 @@ options_s *options_init(unsigned argc, char *argv[]) {
 }
 
 void options_destroy(options_s *options) {
-#	ifdef WITH_MEMSINK
-	if (options->raw_sink) {
-		memsink_destroy(options->raw_sink);
+#	ifdef WITH_OMX
+	if (options->h264_sink) {
+		memsink_destroy(options->h264_sink);
 	}
 #	endif
 	if (options->blank) {
@@ -313,11 +313,11 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 
 	char *blank_path = NULL;
 
-#	ifdef WITH_MEMSINK
-	char *raw_sink_name = NULL;
-	mode_t raw_sink_mode = 0660;
-	bool raw_sink_rm = false;
-	unsigned raw_sink_timeout = 1;
+#	ifdef WITH_OMX
+	char *h264_sink_name = NULL;
+	mode_t h264_sink_mode = 0660;
+	bool h264_sink_rm = false;
+	unsigned h264_sink_timeout = 1;
 #	endif
 
 #	ifdef WITH_SETPROCTITLE
@@ -410,11 +410,11 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 			case _O_TCP_NODELAY:		OPT_SET(server->tcp_nodelay, true);
 			case _O_SERVER_TIMEOUT:		OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
-#			ifdef WITH_MEMSINK
-			case _O_RAW_SINK:			OPT_SET(raw_sink_name, optarg);
-			case _O_RAW_SINK_MODE:		OPT_NUMBER("--raw-sink-mode", raw_sink_mode, INT_MIN, INT_MAX, 8);
-			case _O_RAW_SINK_RM:		OPT_SET(raw_sink_rm, true);
-			case _O_RAW_SINK_TIMEOUT:	OPT_NUMBER("--raw-sink-timeout", raw_sink_timeout, 1, 60, 0);
+#			ifdef WITH_OMX
+			case _O_H264_SINK:			OPT_SET(h264_sink_name, optarg);
+			case _O_H264_SINK_MODE:		OPT_NUMBER("--h264-sink-mode", h264_sink_mode, INT_MIN, INT_MAX, 8);
+			case _O_H264_SINK_RM:		OPT_SET(h264_sink_rm, true);
+			case _O_H264_SINK_TIMEOUT:	OPT_NUMBER("--h264-sink-timeout", h264_sink_timeout, 1, 60, 0);
 #			endif
 
 #			ifdef WITH_GPIO
@@ -456,18 +456,18 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 	options->blank = blank_frame_init(blank_path);
 	stream->blank = options->blank;
 
-#	ifdef WITH_MEMSINK
-	if (raw_sink_name && raw_sink_name[0] != '\0') {
-		options->raw_sink = memsink_init(
-			"RAW",
-			raw_sink_name,
+#	ifdef WITH_OMX
+	if (h264_sink_name && h264_sink_name[0] != '\0') {
+		options->h264_sink = memsink_init(
+			"h264",
+			h264_sink_name,
 			true,
-			raw_sink_mode,
-			raw_sink_rm,
-			raw_sink_timeout
+			h264_sink_mode,
+			h264_sink_rm,
+			h264_sink_timeout
 		);
 	}
-	stream->raw_sink = options->raw_sink;
+	stream->h264_sink = options->h264_sink;
 #	endif
 
 #	ifdef WITH_SETPROCTITLE
@@ -561,12 +561,6 @@ static void _features(void) {
 	puts("- WITH_OMX");
 #	endif
 
-#	ifdef WITH_MEMSINK
-	puts("+ WITH_MEMSINK");
-#	else
-	puts("- WITH_MEMSINK");
-#	endif
-
 #	ifdef WITH_GPIO
 	puts("+ WITH_GPIO");
 #	else
@@ -633,9 +627,7 @@ static void _help(device_s *dev, encoder_s *encoder, stream_s *stream, server_s 
 	printf("                                             * OMX  ── GPU hardware accelerated MJPG encoding with OpenMax;\n");
 #	endif
 	printf("                                             * HW  ─── Use pre-encoded MJPG frames directly from camera hardware.\n");
-#	ifdef WITH_MEMSINK
-	printf("                                             * NOOP  ─ Don't compress stream. Useful for the RAW sink.\n\n");
-#	endif
+	printf("                                             * NOOP  ─ Don't compress MJPG stream (do nothing).\n\n");
 #	ifdef WITH_OMX
 	printf("    -g|--glitched-resolutions <WxH,...>  ─ Comma-separated list of resolutions that require forced\n");
 	printf("                                           encoding on CPU instead of OMX. Default: disabled.\n\n");
@@ -687,14 +679,14 @@ static void _help(device_s *dev, encoder_s *encoder, stream_s *stream, server_s 
 	printf("                                  Default: disabled.\n\n");
 	printf("    --allow-origin <str>  ─────── Set Access-Control-Allow-Origin header. Default: disabled.\n\n");
 	printf("    --server-timeout <sec>  ───── Timeout for client connections. Default: %u.\n\n", server->timeout);
-#ifdef WITH_MEMSINK
-	printf("RAW sink options:\n");
+#ifdef WITH_OMX
+	printf("H264 sink options:\n");
 	printf("═════════════════\n");
-	printf("    --raw-sink <name>  ──────── Use the shared memory to sink RAW frames before encoding.\n");
-	printf("                                Most likely you will never need it. Default: disabled.\n\n");
-	printf("    --raw-sink-mode <mode>  ─── Set RAW sink permissions (like 777). Default: 660.\n\n");
-	printf("    --raw-sink-rm  ──────────── Remove shared memory on stop. Default: disabled.\n\n");
-	printf("    --raw-sink-timeout <sec>  ─ Timeout for lock. Default: 1.\n\n");
+	printf("    --h264-sink <name>  ──────── Use the shared memory to sink H264 frames encoded by MMAL.\n");
+	printf("                                 Most likely you will never need it. Default: disabled.\n\n");
+	printf("    --h264-sink-mode <mode>  ─── Set H264 sink permissions (like 777). Default: 660.\n\n");
+	printf("    --h264-sink-rm  ──────────── Remove shared memory on stop. Default: disabled.\n\n");
+	printf("    --h264-sink-timeout <sec>  ─ Timeout for lock. Default: 1.\n\n");
 #endif
 #ifdef WITH_GPIO
 	printf("GPIO options:\n");

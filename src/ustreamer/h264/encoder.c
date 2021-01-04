@@ -40,27 +40,29 @@ static const char *_mmal_error_to_string(MMAL_STATUS_T error);
 
 
 h264_encoder_s *h264_encoder_init(void) {
+	LOG_INFO("H264: Initializing MMAL encoder ...");
+
 	h264_encoder_runtime_s *run;
 	A_CALLOC(run, 1);
-	run->unjpegged = frame_init("h264_unjpegged_src");
+	run->tmp = frame_init("h264_tmp");
 	run->last_online = -1;
 
 	h264_encoder_s *encoder;
 	A_CALLOC(encoder, 1);
-	encoder->gop = 60;
+	encoder->gop = 45; // 60
 	encoder->bps = 5000 * 1000; // Kbps * 1000
-	encoder->fps = 30;
+	encoder->fps = 0; // FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L210
 	encoder->run = run;
 
 	if (vcos_semaphore_create(&run->handler_sem, "h264_handler_sem", 0) != VCOS_SUCCESS) {
-		LOG_PERROR("Can't create VCOS semaphore");
+		LOG_PERROR("H264: Can't create VCOS semaphore");
 		goto error;
 	}
 	run->i_handler_sem = true;
 
 	MMAL_STATUS_T error = mmal_wrapper_create(&run->wrapper, MMAL_COMPONENT_DEFAULT_VIDEO_ENCODER);
 	if (error != MMAL_SUCCESS) {
-		LOG_ERROR_MMAL(error, "Can't create MMAL wrapper");
+		LOG_ERROR_MMAL(error, "H264: Can't create MMAL wrapper");
 		run->wrapper = NULL;
 		goto error;
 	}
@@ -75,12 +77,14 @@ h264_encoder_s *h264_encoder_init(void) {
 }
 
 void h264_encoder_destroy(h264_encoder_s *encoder) {
+	LOG_INFO("H264: Destroying MMAL encoder ...");
+
 	_h264_encoder_cleanup(encoder);
 
 	if (RUN(wrapper)) {
 		MMAL_STATUS_T error = mmal_wrapper_destroy(RUN(wrapper));
 		if (error != MMAL_SUCCESS) {
-			LOG_ERROR_MMAL(error, "Can't destroy MMAL encoder");
+			LOG_ERROR_MMAL(error, "H264: Can't destroy MMAL encoder");
 		}
 	}
 
@@ -88,7 +92,7 @@ void h264_encoder_destroy(h264_encoder_s *encoder) {
 		vcos_semaphore_delete(&RUN(handler_sem));
 	}
 
-	frame_destroy(RUN(unjpegged));
+	frame_destroy(RUN(tmp));
 	free(encoder->run);
 	free(encoder);
 }
@@ -99,13 +103,22 @@ int h264_encoder_compress(h264_encoder_s *encoder, const frame_s *src, frame_s *
 	assert(src->height > 0);
 	assert(src->format > 0);
 
+	frame_copy_meta(src, dest);
+	dest->encode_begin_ts = get_now_monotonic();
+	dest->format = V4L2_PIX_FMT_H264;
+
 	if (src->format == V4L2_PIX_FMT_MJPEG || src->format == V4L2_PIX_FMT_JPEG) {
-		LOG_DEBUG("Input frame format is JPEG; decoding ...");
-		if (unjpeg(src, RUN(unjpegged), true) < 0) {
+		LOG_DEBUG("H264: Input frame format is JPEG; decoding ...");
+		if (unjpeg(src, RUN(tmp), true) < 0) {
 			return -1;
 		}
-		src = RUN(unjpegged);
+		LOG_VERBOSE("H264: JPEG decoded; time=%Lf", get_now_monotonic() - dest->encode_begin_ts);
+	} else {
+		LOG_DEBUG("H264: Copying source to tmp buffer ...");
+		frame_copy(src, RUN(tmp));
+		LOG_VERBOSE("H264: Source copied; time=%Lf", get_now_monotonic() - dest->encode_begin_ts);
 	}
+	src = RUN(tmp);
 
 	if (RUN(i_width) != src->width || RUN(i_height) != src->height || RUN(i_format) != src->format) {
 		if (_h264_encoder_configure(encoder, src) < 0) {
@@ -114,23 +127,31 @@ int h264_encoder_compress(h264_encoder_s *encoder, const frame_s *src, frame_s *
 		RUN(last_online) = -1;
 	}
 
-	if (_h264_encoder_compress_raw(encoder, src, dest, (RUN(last_online) != src->online)) < 0) {
+	bool force_key = (RUN(last_online) != src->online);
+
+	if (_h264_encoder_compress_raw(encoder, src, dest, force_key) < 0) {
 		_h264_encoder_cleanup(encoder);
 		return -1;
 	}
+
+	dest->encode_end_ts = get_now_monotonic();
+	LOG_VERBOSE("H264: Compressed new frame: size=%zu, time=%0.3Lf, force_key=%d",
+		dest->used, dest->encode_end_ts - dest->encode_begin_ts, force_key);
 
 	RUN(last_online) = src->online;
 	return 0;
 }
 
 static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame) {
+	LOG_INFO("H264: Reconfiguring MMAL encoder ...");
+
 	MMAL_STATUS_T error;
 
 #	define PREPARE_PORT(_id) { \
 			RUN(_id##_port) = RUN(wrapper->_id[0]); \
 			if (RUN(_id##_port->is_enabled)) { \
 				if ((error = mmal_wrapper_port_disable(RUN(_id##_port))) != MMAL_SUCCESS) { \
-					LOG_ERROR_MMAL(error, "Can't disable MMAL %s port while configuring", #_id); \
+					LOG_ERROR_MMAL(error, "H264: Can't disable MMAL %s port while configuring", #_id); \
 					goto error; \
 				} \
 			} \
@@ -138,21 +159,21 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 
 #	define COMMIT_PORT(_id) { \
 			if ((error = mmal_port_format_commit(RUN(_id##_port))) != MMAL_SUCCESS) { \
-				LOG_ERROR_MMAL(error, "Can't commit MMAL %s port", #_id); \
+				LOG_ERROR_MMAL(error, "H264: Can't commit MMAL %s port", #_id); \
 				goto error; \
 			} \
 		}
 
 #	define SET_PORT_PARAM(_id, _type, _key, _value) { \
 			if ((error = mmal_port_parameter_set_##_type(RUN(_id##_port), MMAL_PARAMETER_##_key, _value)) != MMAL_SUCCESS) { \
-				LOG_ERROR_MMAL(error, "Can't set %s for the %s port", #_key, #_id); \
+				LOG_ERROR_MMAL(error, "H264: Can't set %s for the %s port", #_key, #_id); \
 				goto error; \
 			} \
 		}
 
 #	define ENABLE_PORT(_id) { \
 			if ((error = mmal_wrapper_port_enable(RUN(_id##_port), MMAL_WRAPPER_FLAG_PAYLOAD_ALLOCATE)) != MMAL_SUCCESS) { \
-				LOG_ERROR_MMAL(error, "Can't enable MMAL %s port", #_id); \
+				LOG_ERROR_MMAL(error, "H264: Can't enable MMAL %s port", #_id); \
 				goto error; \
 			} \
 		}
@@ -211,7 +232,7 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 			profile.profile[0].profile = MMAL_VIDEO_PROFILE_H264_CONSTRAINED_BASELINE;
 			profile.profile[0].level = MMAL_VIDEO_LEVEL_H264_4; // Supports 1080p
 			if ((error = mmal_port_parameter_set(RUN(output_port), &profile.hdr)) != MMAL_SUCCESS) {
-				LOG_ERROR_MMAL(error, "Can't set MMAL_PARAMETER_PROFILE for the output port");
+				LOG_ERROR_MMAL(error, "H264: Can't set MMAL_PARAMETER_PROFILE for the output port");
 				goto error;
 			}
 		}
@@ -256,7 +277,7 @@ static void _h264_encoder_cleanup(h264_encoder_s *encoder) {
 #	define DISABLE_PORT(_id) { \
 			if (RUN(_id##_port)) { \
 				if ((error = mmal_wrapper_port_disable(RUN(_id##_port))) != MMAL_SUCCESS) { \
-					LOG_ERROR_MMAL(error, "Can't disable MMAL %s port", #_id); \
+					LOG_ERROR_MMAL(error, "H264: Can't disable MMAL %s port", #_id); \
 				} \
 				RUN(_id##_port) = NULL; \
 			} \
@@ -278,14 +299,9 @@ static int _h264_encoder_compress_raw(h264_encoder_s *encoder, const frame_s *sr
 	assert(src->height == RUN(i_height));
 	assert(src->format == RUN(i_format));
 
+	LOG_DEBUG("H264: Compressing new frame; force_key=%d ...", force_key);
+
 	MMAL_STATUS_T error;
-
-	LOG_DEBUG("Compressing new H264 frame; force_key=%d ...", force_key);
-
-	frame_copy_meta(src, dest);
-	dest->format = V4L2_PIX_FMT_H264;
-	dest->encode_begin_ts = get_now_monotonic();
-	dest->used = 0;
 
 	if (force_key) {
 		if ((error = mmal_port_parameter_set_boolean(
@@ -293,7 +309,7 @@ static int _h264_encoder_compress_raw(h264_encoder_s *encoder, const frame_s *sr
 			MMAL_PARAMETER_VIDEO_REQUEST_I_FRAME,
 			MMAL_TRUE
 		)) != MMAL_SUCCESS) {
-			LOG_ERROR_MMAL(error, "Can't request keyframe");
+			LOG_ERROR_MMAL(error, "H264: Can't request keyframe");
 			return -1;
 		}
 	}
@@ -303,11 +319,13 @@ static int _h264_encoder_compress_raw(h264_encoder_s *encoder, const frame_s *sr
 	bool eos = false;
 	bool sent = false;
 
+	dest->used = 0;
+
 	while (!eos) {
 		out = NULL;
 		while (mmal_wrapper_buffer_get_empty(RUN(output_port), &out, 0) == MMAL_SUCCESS) {
 			if ((error = mmal_port_send_buffer(RUN(output_port), out)) != MMAL_SUCCESS) {
-				LOG_ERROR_MMAL(error, "Can't send MMAL output buffer");
+				LOG_ERROR_MMAL(error, "H264: Can't send MMAL output buffer");
 				return -1;
 			}
 		}
@@ -319,7 +337,7 @@ static int _h264_encoder_compress_raw(h264_encoder_s *encoder, const frame_s *sr
 			in->offset = 0;
 			in->flags = MMAL_BUFFER_HEADER_FLAG_EOS;
 			if ((error = mmal_port_send_buffer(RUN(input_port), in)) != MMAL_SUCCESS) {
-				LOG_ERROR_MMAL(error, "Can't send MMAL input buffer");
+				LOG_ERROR_MMAL(error, "H264: Can't send MMAL input buffer");
 				return -1;
 			}
 			sent = true;
@@ -330,7 +348,7 @@ static int _h264_encoder_compress_raw(h264_encoder_s *encoder, const frame_s *sr
 			vcos_semaphore_wait(&RUN(handler_sem));
 			continue;
 		} else if (error != MMAL_SUCCESS) {
-			LOG_ERROR_MMAL(error, "Can't get MMAL output buffer");
+			LOG_ERROR_MMAL(error, "H264: Can't get MMAL output buffer");
 			return -1;
 		}
 
@@ -341,12 +359,8 @@ static int _h264_encoder_compress_raw(h264_encoder_s *encoder, const frame_s *sr
 	}
 
 	if ((error = mmal_port_flush(RUN(output_port))) != MMAL_SUCCESS) {
-		LOG_ERROR_MMAL(error, "Can't flush MMAL output buffer; ignored");
+		LOG_ERROR_MMAL(error, "H264: Can't flush MMAL output buffer; ignored");
 	}
-
-	dest->encode_end_ts = get_now_monotonic();
-	LOG_VERBOSE("Compressed new H264 frame: size=%zu, time=%0.3Lf, force_key=%d",
-		dest->used, dest->encode_end_ts - dest->encode_begin_ts, force_key);
 	return 0;
 }
 

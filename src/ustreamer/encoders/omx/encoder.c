@@ -59,10 +59,10 @@ omx_encoder_s *omx_encoder_init(void) {
 	//   - https://bitbucket.org/bensch128/omxjpegencode/src/master/jpeg_encoder.cpp
 	//   - http://home.nouwen.name/RaspberryPi/documentation/ilcomponents/image_encode.html
 
+	LOG_INFO("Initializing OMX encoder ...");
+
 	omx_encoder_s *omx;
 	A_CALLOC(omx, 1);
-
-	LOG_INFO("Initializing OMX encoder ...");
 
 	if (vcos_semaphore_create(&omx->handler_sem, "handler_sem", 0) != VCOS_SUCCESS) {
 		LOG_ERROR("Can't create VCOS semaphore");
@@ -278,10 +278,10 @@ static int _omx_init_disable_ports(omx_encoder_s *omx) {
 }
 
 static int _omx_setup_input(omx_encoder_s *omx, device_s *dev) {
+	LOG_DEBUG("Setting up OMX JPEG input port ...");
+
 	OMX_ERRORTYPE error;
 	OMX_PARAM_PORTDEFINITIONTYPE portdef;
-
-	LOG_DEBUG("Setting up OMX JPEG input port ...");
 
 	if (omx_component_get_portdef(&omx->encoder, &portdef, _INPUT_PORT) < 0) {
 		LOG_ERROR("... first");
@@ -333,10 +333,10 @@ static int _omx_setup_input(omx_encoder_s *omx, device_s *dev) {
 }
 
 static int _omx_setup_output(omx_encoder_s *omx, unsigned quality) {
+	LOG_DEBUG("Setting up OMX JPEG output port ...");
+
 	OMX_ERRORTYPE error;
 	OMX_PARAM_PORTDEFINITIONTYPE portdef;
-
-	LOG_DEBUG("Setting up OMX JPEG output port ...");
 
 	if (omx_component_get_portdef(&omx->encoder, &portdef, _OUTPUT_PORT) < 0) {
 		LOG_ERROR("... first");

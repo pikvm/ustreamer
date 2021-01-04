@@ -48,10 +48,6 @@
 
 #include "xioctl.h"
 
-#ifdef WITH_MEMSINK
-#	include "../libs/memsink/memsink.h"
-#endif
-
 
 #define VIDEO_MIN_WIDTH		((unsigned)160)
 #define VIDEO_MAX_WIDTH		((unsigned)10240)

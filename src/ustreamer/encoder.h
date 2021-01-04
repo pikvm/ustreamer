@@ -51,17 +51,11 @@
 #	define ENCODER_TYPES_OMX_HINT ""
 #endif
 
-#ifdef WITH_MEMSINK
-#	define ENCODER_TYPES_NOOP_HINT ", NOOP"
-#else
-#	define ENCODER_TYPES_NOOP_HINT ""
-#endif
-
 
 #define ENCODER_TYPES_STR \
 	"CPU, HW" \
 	ENCODER_TYPES_OMX_HINT \
-	ENCODER_TYPES_NOOP_HINT
+	", NOOP"
 
 typedef enum {
 	ENCODER_TYPE_UNKNOWN, // Only for encoder_parse_type() and main()
@@ -70,9 +64,7 @@ typedef enum {
 #	ifdef WITH_OMX
 	ENCODER_TYPE_OMX,
 #	endif
-#	ifdef WITH_MEMSINK
 	ENCODER_TYPE_NOOP,
-#	endif
 } encoder_type_e;
 
 typedef struct {

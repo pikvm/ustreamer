@@ -1,35 +1,26 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include <bcm_host.h>
-
 #include "../libs/common/logging.h"
 #include "../libs/common/frame.h"
 #include "../libs/memsink/memsink.h"
-#include "../libs/h264/encoder.h"
 
 int main(void) {
 	LOGGING_INIT;
 	log_level = 3;
 
-	bcm_host_init();
-
-	frame_s *src = frame_init("src");
-	frame_s *dest = frame_init("dest");
-	h264_encoder_s *encoder = h264_encoder_init();
-	memsink_s *memsink = memsink_init("RAW", "test", false, 0, 0, (long double)encoder->fps / (long double)encoder->gop);
-	assert(memsink);
+	frame_s *frame = frame_init("h264");
+	memsink_s *sink = memsink_init("h264", "test", false, 0, 0, 0.1);
+	assert(sink);
 	FILE *fp = fopen("test.h264", "wb");
 	assert(fp);
 
 	int error = 0;
-	while ((error = memsink_client_get(memsink, src)) != -1) {
-		if (error == 0 /*|| (error == -2 && src->used > 0)*/) {
-			if (!h264_encoder_compress(encoder, src, dest)) {
-				LOG_INFO("frame %Lf", get_now_monotonic() - dest->grab_ts);
-				fwrite(dest->data, 1, dest->used, fp);
-				fflush(fp);
-			}
+	while ((error = memsink_client_get(sink, frame)) != -1) {
+		if (error == 0 /*|| (error == -2 && frame->used > 0)*/) {
+			LOG_INFO("frame %Lf", get_now_monotonic() - frame->grab_ts);
+			fwrite(frame->data, 1, frame->used, fp);
+			fflush(fp);
 		}
 	}
 	fclose(fp);

@@ -41,7 +41,8 @@
 #include "device.h"
 #include "encoder.h"
 #include "workers.h"
-#ifdef WITH_MEMSINK
+#ifdef WITH_OMX
+#	include "h264/encoder.h"
 #	include "../libs/memsink/memsink.h"
 #endif
 #ifdef WITH_GPIO
@@ -62,6 +63,14 @@ typedef struct {
 	pthread_mutex_t	mutex;
 } video_s;
 
+#ifdef WITH_OMX
+typedef struct {
+	h264_encoder_s	*encoder;
+	frame_s			*dest;
+	memsink_s		*sink;
+} h264_stream_s;
+#endif
+
 typedef struct {
 	int			last_as_blank;
 	unsigned	error_delay;
@@ -69,12 +78,15 @@ typedef struct {
 	device_s	*dev;
 	encoder_s	*encoder;
 	frame_s		*blank;
-#	ifdef WITH_MEMSINK
-	memsink_s	*raw_sink;
+#	ifdef WITH_OMX
+	memsink_s	*h264_sink;
 #	endif
 
-	process_s	*proc;
-	video_s		*video;
+	process_s		*proc;
+	video_s			*video;
+#	ifdef WITH_OMX
+	h264_stream_s	*h264;
+#	endif
 } stream_s;
 
 
