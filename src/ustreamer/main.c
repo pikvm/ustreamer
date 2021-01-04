@@ -131,11 +131,11 @@ int main(int argc, char *argv[]) {
 
 	options_s *options = options_init(argc, argv);
 	device_s *dev = device_init();
-	encoder_s *encoder = encoder_init();
-	stream_s *stream = stream_init(dev, encoder);
+	encoder_s *enc = encoder_init();
+	stream_s *stream = stream_init(dev, enc);
 	server_s *server = server_init(stream);
 
-	if ((exit_code = options_parse(options, dev, encoder, stream, server)) == 0) {
+	if ((exit_code = options_parse(options, dev, enc, stream, server)) == 0) {
 #		ifdef WITH_GPIO
 		gpio_init();
 #		endif
@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
 
 	server_destroy(server);
 	stream_destroy(stream);
-	encoder_destroy(encoder);
+	encoder_destroy(enc);
 	device_destroy(dev);
 	options_destroy(options);
 

@@ -35,16 +35,16 @@ static int _omx_setup_output(omx_encoder_s *omx, unsigned quality);
 static int _omx_encoder_clear_ports(omx_encoder_s *omx);
 
 static OMX_ERRORTYPE _omx_event_handler(
-	UNUSED OMX_HANDLETYPE encoder,
+	UNUSED OMX_HANDLETYPE comp,
 	OMX_PTR v_omx, OMX_EVENTTYPE event, OMX_U32 data1,
 	UNUSED OMX_U32 data2, UNUSED OMX_PTR event_data);
 
 static OMX_ERRORTYPE _omx_input_required_handler(
-	UNUSED OMX_HANDLETYPE encoder,
+	UNUSED OMX_HANDLETYPE comp,
 	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buffer);
 
 static OMX_ERRORTYPE _omx_output_available_handler(
-	UNUSED OMX_HANDLETYPE encoder,
+	UNUSED OMX_HANDLETYPE comp,
 	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buffer);
 
 
@@ -88,9 +88,9 @@ omx_encoder_s *omx_encoder_init(void) {
 void omx_encoder_destroy(omx_encoder_s *omx) {
 	LOG_INFO("Destroying OMX encoder ...");
 
-	omx_component_set_state(&omx->encoder, OMX_StateIdle);
+	omx_component_set_state(&omx->comp, OMX_StateIdle);
 	_omx_encoder_clear_ports(omx);
-	omx_component_set_state(&omx->encoder, OMX_StateLoaded);
+	omx_component_set_state(&omx->comp, OMX_StateLoaded);
 
 	if (omx->i_handler_sem) {
 		vcos_semaphore_delete(&omx->handler_sem);
@@ -98,7 +98,7 @@ void omx_encoder_destroy(omx_encoder_s *omx) {
 
 	if (omx->i_encoder) {
 		OMX_ERRORTYPE error;
-		if ((error = OMX_FreeHandle(omx->encoder)) != OMX_ErrorNone) {
+		if ((error = OMX_FreeHandle(omx->comp)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't free OMX.broadcom.image_encode");
 		}
 	}
@@ -107,7 +107,7 @@ void omx_encoder_destroy(omx_encoder_s *omx) {
 }
 
 int omx_encoder_prepare(omx_encoder_s *omx, device_s *dev, unsigned quality) {
-	if (omx_component_set_state(&omx->encoder, OMX_StateIdle) < 0) {
+	if (omx_component_set_state(&omx->comp, OMX_StateIdle) < 0) {
 		return -1;
 	}
 	if (_omx_encoder_clear_ports(omx) < 0) {
@@ -119,7 +119,7 @@ int omx_encoder_prepare(omx_encoder_s *omx, device_s *dev, unsigned quality) {
 	if (_omx_setup_output(omx, quality) < 0) {
 		return -1;
 	}
-	if (omx_component_set_state(&omx->encoder, OMX_StateExecuting) < 0) {
+	if (omx_component_set_state(&omx->comp, OMX_StateExecuting) < 0) {
 		return -1;
 	}
 	return 0;
@@ -131,7 +131,7 @@ int omx_encoder_compress(omx_encoder_s *omx, const frame_s *src, frame_s *dest) 
 
 	OMX_ERRORTYPE error;
 
-	if ((error = OMX_FillThisBuffer(omx->encoder, omx->output_buffer)) != OMX_ErrorNone) {
+	if ((error = OMX_FillThisBuffer(omx->comp, omx->output_buffer)) != OMX_ErrorNone) {
 		LOG_ERROR_OMX(error, "Failed to request filling of the output buffer on encoder");
 		return -1;
 	}
@@ -158,7 +158,7 @@ int omx_encoder_compress(omx_encoder_s *omx, const frame_s *src, frame_s *dest) 
 				break;
 			}
 
-			if ((error = OMX_FillThisBuffer(omx->encoder, omx->output_buffer)) != OMX_ErrorNone) {
+			if ((error = OMX_FillThisBuffer(omx->comp, omx->output_buffer)) != OMX_ErrorNone) {
 				LOG_ERROR_OMX(error, "Failed to request filling of the output buffer on encoder");
 				return -1;
 			}
@@ -181,7 +181,7 @@ int omx_encoder_compress(omx_encoder_s *omx, const frame_s *src, frame_s *dest) 
 				slice_size = src->used - pos;
 			}
 
-			if ((error = OMX_EmptyThisBuffer(omx->encoder, omx->input_buffer)) != OMX_ErrorNone) {
+			if ((error = OMX_EmptyThisBuffer(omx->comp, omx->input_buffer)) != OMX_ErrorNone) {
 				LOG_ERROR_OMX(error, "Failed to request emptying of the input buffer on encoder");
 				return -1;
 			}
@@ -241,7 +241,7 @@ static int _omx_init_component(omx_encoder_s *omx) {
 	callbacks.FillBufferDone = _omx_output_available_handler;
 
 	LOG_DEBUG("Initializing OMX.broadcom.image_encode ...");
-	if ((error = OMX_GetHandle(&omx->encoder, "OMX.broadcom.image_encode", omx, &callbacks)) != OMX_ErrorNone) {
+	if ((error = OMX_GetHandle(&omx->comp, "OMX.broadcom.image_encode", omx, &callbacks)) != OMX_ErrorNone) {
 		LOG_ERROR_OMX(error, "Can't initialize OMX.broadcom.image_encode");
 		return -1;
 	}
@@ -258,18 +258,18 @@ static int _omx_init_disable_ports(omx_encoder_s *omx) {
 	OMX_PORT_PARAM_TYPE ports;
 
 	OMX_INIT_STRUCTURE(ports);
-	if ((error = OMX_GetParameter(omx->encoder, OMX_IndexParamImageInit, &ports)) != OMX_ErrorNone) {
+	if ((error = OMX_GetParameter(omx->comp, OMX_IndexParamImageInit, &ports)) != OMX_ErrorNone) {
 		LOG_ERROR_OMX(error, "Can't OMX_GetParameter(OMX_IndexParamImageInit)");
 		return -1;
 	}
 
 	for (unsigned index = 0; index < 4; ++index) {
-		if ((error = OMX_GetParameter(omx->encoder, types[index], &ports)) != OMX_ErrorNone) {
+		if ((error = OMX_GetParameter(omx->comp, types[index], &ports)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't OMX_GetParameter(types[%u])", index);
 			return -1;
 		}
 		for (OMX_U32 port = ports.nStartPortNumber; port < ports.nStartPortNumber + ports.nPorts; ++port) {
-			if (omx_component_disable_port(&omx->encoder, port) < 0) {
+			if (omx_component_disable_port(&omx->comp, port) < 0) {
 				return -1;
 			}
 		}
@@ -283,7 +283,7 @@ static int _omx_setup_input(omx_encoder_s *omx, device_s *dev) {
 	OMX_ERRORTYPE error;
 	OMX_PARAM_PORTDEFINITIONTYPE portdef;
 
-	if (omx_component_get_portdef(&omx->encoder, &portdef, _INPUT_PORT) < 0) {
+	if (omx_component_get_portdef(&omx->comp, &portdef, _INPUT_PORT) < 0) {
 		LOG_ERROR("... first");
 		return -1;
 	}
@@ -311,21 +311,21 @@ static int _omx_setup_input(omx_encoder_s *omx, device_s *dev) {
 	}
 #	undef IFMT
 
-	if (omx_component_set_portdef(&omx->encoder, &portdef) < 0) {
+	if (omx_component_set_portdef(&omx->comp, &portdef) < 0) {
 		return -1;
 	}
 
-	if (omx_component_get_portdef(&omx->encoder, &portdef, _INPUT_PORT) < 0) {
+	if (omx_component_get_portdef(&omx->comp, &portdef, _INPUT_PORT) < 0) {
 		LOG_ERROR("... second");
 		return -1;
 	}
 
-	if (omx_component_enable_port(&omx->encoder, _INPUT_PORT) < 0) {
+	if (omx_component_enable_port(&omx->comp, _INPUT_PORT) < 0) {
 		return -1;
 	}
 	omx->i_input_port_enabled = true;
 
-	if ((error = OMX_AllocateBuffer(omx->encoder, &omx->input_buffer, _INPUT_PORT, NULL, portdef.nBufferSize)) != OMX_ErrorNone) {
+	if ((error = OMX_AllocateBuffer(omx->comp, &omx->input_buffer, _INPUT_PORT, NULL, portdef.nBufferSize)) != OMX_ErrorNone) {
 		LOG_ERROR_OMX(error, "Can't allocate OMX JPEG input buffer");
 		return -1;
 	}
@@ -338,7 +338,7 @@ static int _omx_setup_output(omx_encoder_s *omx, unsigned quality) {
 	OMX_ERRORTYPE error;
 	OMX_PARAM_PORTDEFINITIONTYPE portdef;
 
-	if (omx_component_get_portdef(&omx->encoder, &portdef, _OUTPUT_PORT) < 0) {
+	if (omx_component_get_portdef(&omx->comp, &portdef, _OUTPUT_PORT) < 0) {
 		LOG_ERROR("... first");
 		return -1;
 	}
@@ -349,11 +349,11 @@ static int _omx_setup_output(omx_encoder_s *omx, unsigned quality) {
 	OFMT(eColorFormat) = OMX_COLOR_FormatYCbYCr;
 #	undef OFMT
 
-	if (omx_component_set_portdef(&omx->encoder, &portdef) < 0) {
+	if (omx_component_set_portdef(&omx->comp, &portdef) < 0) {
 		return -1;
 	}
 
-	if (omx_component_get_portdef(&omx->encoder, &portdef, _OUTPUT_PORT) < 0) {
+	if (omx_component_get_portdef(&omx->comp, &portdef, _OUTPUT_PORT) < 0) {
 		LOG_ERROR("... second");
 		return -1;
 	}
@@ -364,7 +364,7 @@ static int _omx_setup_output(omx_encoder_s *omx, unsigned quality) {
 		OMX_INIT_STRUCTURE(exif);
 		exif.bEnabled = OMX_FALSE;
 
-		if ((error = OMX_SetParameter(omx->encoder, OMX_IndexParamBrcmDisableEXIF, &exif)) != OMX_ErrorNone) {
+		if ((error = OMX_SetParameter(omx->comp, OMX_IndexParamBrcmDisableEXIF, &exif)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't disable EXIF on OMX JPEG");
 			return -1;
 		}
@@ -377,7 +377,7 @@ static int _omx_setup_output(omx_encoder_s *omx, unsigned quality) {
 		ijg.nPortIndex = _OUTPUT_PORT;
 		ijg.bEnabled = OMX_TRUE;
 
-		if ((error = OMX_SetParameter(omx->encoder, OMX_IndexParamBrcmEnableIJGTableScaling, &ijg)) != OMX_ErrorNone) {
+		if ((error = OMX_SetParameter(omx->comp, OMX_IndexParamBrcmEnableIJGTableScaling, &ijg)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't set OMX JPEG IJG settings");
 			return -1;
 		}
@@ -390,18 +390,18 @@ static int _omx_setup_output(omx_encoder_s *omx, unsigned quality) {
 		qfactor.nPortIndex = _OUTPUT_PORT;
 		qfactor.nQFactor = quality;
 
-		if ((error = OMX_SetParameter(omx->encoder, OMX_IndexParamQFactor, &qfactor)) != OMX_ErrorNone) {
+		if ((error = OMX_SetParameter(omx->comp, OMX_IndexParamQFactor, &qfactor)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't set OMX JPEG quality");
 			return -1;
 		}
 	}
 
-	if (omx_component_enable_port(&omx->encoder, _OUTPUT_PORT) < 0) {
+	if (omx_component_enable_port(&omx->comp, _OUTPUT_PORT) < 0) {
 		return -1;
 	}
 	omx->i_output_port_enabled = true;
 
-	if ((error = OMX_AllocateBuffer(omx->encoder, &omx->output_buffer, _OUTPUT_PORT, NULL, portdef.nBufferSize)) != OMX_ErrorNone) {
+	if ((error = OMX_AllocateBuffer(omx->comp, &omx->output_buffer, _OUTPUT_PORT, NULL, portdef.nBufferSize)) != OMX_ErrorNone) {
 		LOG_ERROR_OMX(error, "Can't allocate OMX JPEG output buffer");
 		return -1;
 	}
@@ -413,23 +413,23 @@ static int _omx_encoder_clear_ports(omx_encoder_s *omx) {
 	int retval = 0;
 
 	if (omx->i_output_port_enabled) {
-		retval -= omx_component_disable_port(&omx->encoder, _OUTPUT_PORT);
+		retval -= omx_component_disable_port(&omx->comp, _OUTPUT_PORT);
 		omx->i_output_port_enabled = false;
 	}
 	if (omx->i_input_port_enabled) {
-		retval -= omx_component_disable_port(&omx->encoder, _INPUT_PORT);
+		retval -= omx_component_disable_port(&omx->comp, _INPUT_PORT);
 		omx->i_input_port_enabled = false;
 	}
 
 	if (omx->input_buffer) {
-		if ((error = OMX_FreeBuffer(omx->encoder, _INPUT_PORT, omx->input_buffer)) != OMX_ErrorNone) {
+		if ((error = OMX_FreeBuffer(omx->comp, _INPUT_PORT, omx->input_buffer)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't free OMX JPEG input buffer");
 			// retval -= 1;
 		}
 		omx->input_buffer = NULL;
 	}
 	if (omx->output_buffer) {
-		if ((error = OMX_FreeBuffer(omx->encoder, _OUTPUT_PORT, omx->output_buffer)) != OMX_ErrorNone) {
+		if ((error = OMX_FreeBuffer(omx->comp, _OUTPUT_PORT, omx->output_buffer)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't free OMX JPEG output buffer");
 			// retval -= 1;
 		}
@@ -439,7 +439,7 @@ static int _omx_encoder_clear_ports(omx_encoder_s *omx) {
 }
 
 static OMX_ERRORTYPE _omx_event_handler(
-	UNUSED OMX_HANDLETYPE encoder,
+	UNUSED OMX_HANDLETYPE comp,
 	OMX_PTR v_omx, OMX_EVENTTYPE event, OMX_U32 data1,
 	UNUSED OMX_U32 data2, UNUSED OMX_PTR event_data) {
 
@@ -456,7 +456,7 @@ static OMX_ERRORTYPE _omx_event_handler(
 }
 
 static OMX_ERRORTYPE _omx_input_required_handler(
-	UNUSED OMX_HANDLETYPE encoder,
+	UNUSED OMX_HANDLETYPE comp,
 	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buffer) {
 
 	// Called by OMX when the encoder component requires
@@ -470,7 +470,7 @@ static OMX_ERRORTYPE _omx_input_required_handler(
 }
 
 static OMX_ERRORTYPE _omx_output_available_handler(
-	UNUSED OMX_HANDLETYPE encoder,
+	UNUSED OMX_HANDLETYPE comp,
 	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buffer) {
 
 	// Called by OMX when the encoder component has filled

@@ -76,7 +76,7 @@ typedef struct {
 	unsigned n_workers;
 
 #	ifdef WITH_OMX
-	unsigned				n_omxs;
+	unsigned		n_omxs;
 	omx_encoder_s	**omxs;
 #	endif
 } encoder_runtime_s;
@@ -94,12 +94,12 @@ typedef struct {
 
 
 encoder_s *encoder_init(void);
-void encoder_destroy(encoder_s *encoder);
+void encoder_destroy(encoder_s *enc);
 
 encoder_type_e encoder_parse_type(const char *str);
 const char *encoder_type_to_string(encoder_type_e type);
 
-void encoder_prepare(encoder_s *encoder, device_s *dev);
-void encoder_get_runtime_params(encoder_s *encoder, encoder_type_e *type, unsigned *quality);
+void encoder_prepare(encoder_s *enc, device_s *dev);
+void encoder_get_runtime_params(encoder_s *enc, encoder_type_e *type, unsigned *quality);
 
-int encoder_compress(encoder_s *encoder, unsigned worker_number, frame_s *src, frame_s *dest);
+int encoder_compress(encoder_s *enc, unsigned worker_number, frame_s *src, frame_s *dest);

@@ -24,7 +24,7 @@
 
 
 typedef struct {
-	encoder_s	*encoder;
+	encoder_s	*enc;
 	hw_buffer_s	*hw;
 	char		*dest_role;
 	frame_s		*dest;
@@ -46,7 +46,7 @@ static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame);
 #endif
 
 
-stream_s *stream_init(device_s *dev, encoder_s *encoder) {
+stream_s *stream_init(device_s *dev, encoder_s *enc) {
 	process_s *proc;
 	A_CALLOC(proc, 1);
 	atomic_init(&proc->stop, false);
@@ -65,7 +65,7 @@ stream_s *stream_init(device_s *dev, encoder_s *encoder) {
 	stream->proc = proc;
 	stream->video = video;
 	stream->dev = dev;
-	stream->encoder = encoder;
+	stream->enc = enc;
 	return stream;
 }
 
@@ -281,7 +281,7 @@ static workers_pool_s *_stream_init_one(stream_s *stream) {
 		goto error;
 	}
 
-	encoder_prepare(stream->encoder, stream->dev);
+	encoder_prepare(stream->enc, stream->dev);
 
 #	define DEV(_next) stream->dev->_next
 #	define RUN(_next) stream->dev->run->_next
@@ -293,7 +293,7 @@ static workers_pool_s *_stream_init_one(stream_s *stream) {
 #	undef RUN
 
 	return workers_pool_init(
-		"jpeg", stream->encoder->run->n_workers, desired_interval,
+		"jpeg", stream->enc->run->n_workers, desired_interval,
 		_worker_job_init, (void *)stream,
 		_worker_job_destroy,
 		_worker_run_job);
@@ -365,7 +365,7 @@ static void *_worker_job_init(worker_s *wr, void *v_stream) {
 
 	_job_s *job;
 	A_CALLOC(job, 1);
-	job->encoder = stream->encoder;
+	job->enc = stream->enc;
 
 	const size_t dest_role_len = strlen(wr->name) + 16;
 	A_CALLOC(job->dest_role, dest_role_len);
@@ -385,7 +385,7 @@ static bool _worker_run_job(worker_s *wr) {
 	_job_s *job = (_job_s *)wr->job;
 
 	LOG_DEBUG("Worker %s compressing JPEG from buffer %u ...", wr->name, job->hw->buf_info.index);
-	bool ok = !encoder_compress(job->encoder, wr->number, &job->hw->raw, job->dest);
+	bool ok = !encoder_compress(job->enc, wr->number, &job->hw->raw, job->dest);
 	if (ok) {
 		LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%s, buffer=%u",
 			job->dest->used,
@@ -403,7 +403,7 @@ static h264_stream_s *_h264_stream_init(memsink_s *sink) {
 	h264_stream_s *h264;
 	A_CALLOC(h264, 1);
 
-	if ((h264->encoder = h264_encoder_init()) == NULL) {
+	if ((h264->enc = h264_encoder_init()) == NULL) {
 		goto error;
 	}
 
@@ -418,8 +418,8 @@ static h264_stream_s *_h264_stream_init(memsink_s *sink) {
 }
 
 static void _h264_stream_destroy(h264_stream_s *h264) {
-	if (h264->encoder) {
-		h264_encoder_destroy(h264->encoder);
+	if (h264->enc) {
+		h264_encoder_destroy(h264->enc);
 	}
 	if (h264->dest) {
 		frame_destroy(h264->dest);
@@ -428,7 +428,7 @@ static void _h264_stream_destroy(h264_stream_s *h264) {
 }
 
 static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame) {
-	if (h264_encoder_compress(h264->encoder, frame, h264->dest) == 0) {
+	if (h264_encoder_compress(h264->enc, frame, h264->dest) == 0) {
 		memsink_server_put(h264->sink, h264->dest);
 	}
 }

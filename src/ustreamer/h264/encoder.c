@@ -23,16 +23,16 @@
 #include "encoder.h"
 
 
-static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame);
-static void _h264_encoder_cleanup(h264_encoder_s *encoder);
+static int _h264_encoder_configure(h264_encoder_s *enc, const frame_s *frame);
+static void _h264_encoder_cleanup(h264_encoder_s *enc);
 
-static int _h264_encoder_compress_raw(h264_encoder_s *encoder, const frame_s *src, frame_s *dest, bool force_key);
+static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key);
 
 static void _mmal_callback(MMAL_WRAPPER_T *wrapper);
 static const char *_mmal_error_to_string(MMAL_STATUS_T error);
 
 
-#define RUN(_next) encoder->run->_next
+#define RUN(_next) enc->run->_next
 
 #define LOG_ERROR_MMAL(_error, _msg, ...) { \
 		LOG_ERROR(_msg ": %s", ##__VA_ARGS__, _mmal_error_to_string(_error)); \
@@ -47,12 +47,12 @@ h264_encoder_s *h264_encoder_init(void) {
 	run->tmp = frame_init("h264_tmp");
 	run->last_online = -1;
 
-	h264_encoder_s *encoder;
-	A_CALLOC(encoder, 1);
-	encoder->gop = 45; // 60
-	encoder->bps = 5000 * 1000; // Kbps * 1000
-	encoder->fps = 0; // FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L210
-	encoder->run = run;
+	h264_encoder_s *enc;
+	A_CALLOC(enc, 1);
+	enc->gop = 45; // 60
+	enc->bps = 5000 * 1000; // Kbps * 1000
+	enc->fps = 0; // FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L210
+	enc->run = run;
 
 	if (vcos_semaphore_create(&run->handler_sem, "h264_handler_sem", 0) != VCOS_SUCCESS) {
 		LOG_PERROR("H264: Can't create VCOS semaphore");
@@ -66,20 +66,20 @@ h264_encoder_s *h264_encoder_init(void) {
 		run->wrapper = NULL;
 		goto error;
 	}
-	run->wrapper->user_data = (void *)encoder;
+	run->wrapper->user_data = (void *)enc;
 	run->wrapper->callback = _mmal_callback;
 
-	return encoder;
+	return enc;
 
 	error:
-		h264_encoder_destroy(encoder);
+		h264_encoder_destroy(enc);
 		return NULL;
 }
 
-void h264_encoder_destroy(h264_encoder_s *encoder) {
+void h264_encoder_destroy(h264_encoder_s *enc) {
 	LOG_INFO("H264: Destroying MMAL encoder ...");
 
-	_h264_encoder_cleanup(encoder);
+	_h264_encoder_cleanup(enc);
 
 	if (RUN(wrapper)) {
 		MMAL_STATUS_T error = mmal_wrapper_destroy(RUN(wrapper));
@@ -93,11 +93,11 @@ void h264_encoder_destroy(h264_encoder_s *encoder) {
 	}
 
 	frame_destroy(RUN(tmp));
-	free(encoder->run);
-	free(encoder);
+	free(enc->run);
+	free(enc);
 }
 
-int h264_encoder_compress(h264_encoder_s *encoder, const frame_s *src, frame_s *dest) {
+int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest) {
 	assert(src->used > 0);
 	assert(src->width > 0);
 	assert(src->height > 0);
@@ -121,7 +121,7 @@ int h264_encoder_compress(h264_encoder_s *encoder, const frame_s *src, frame_s *
 	src = RUN(tmp);
 
 	if (RUN(i_width) != src->width || RUN(i_height) != src->height || RUN(i_format) != src->format) {
-		if (_h264_encoder_configure(encoder, src) < 0) {
+		if (_h264_encoder_configure(enc, src) < 0) {
 			return -1;
 		}
 		RUN(last_online) = -1;
@@ -129,8 +129,8 @@ int h264_encoder_compress(h264_encoder_s *encoder, const frame_s *src, frame_s *
 
 	bool force_key = (RUN(last_online) != src->online);
 
-	if (_h264_encoder_compress_raw(encoder, src, dest, force_key) < 0) {
-		_h264_encoder_cleanup(encoder);
+	if (_h264_encoder_compress_raw(enc, src, dest, force_key) < 0) {
+		_h264_encoder_cleanup(enc);
 		return -1;
 	}
 
@@ -142,7 +142,7 @@ int h264_encoder_compress(h264_encoder_s *encoder, const frame_s *src, frame_s *
 	return 0;
 }
 
-static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame) {
+static int _h264_encoder_configure(h264_encoder_s *enc, const frame_s *frame) {
 	LOG_INFO("H264: Reconfiguring MMAL encoder ...");
 
 	MMAL_STATUS_T error;
@@ -178,7 +178,7 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 			} \
 		}
 
-	_h264_encoder_cleanup(encoder);
+	_h264_encoder_cleanup(enc);
 	RUN(wrapper->status) = MMAL_SUCCESS; // Это реально надо?
 
 	{
@@ -215,8 +215,8 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 		OFMT(type) = MMAL_ES_TYPE_VIDEO;
 		OFMT(encoding) = MMAL_ENCODING_H264;
 		OFMT(encoding_variant) = MMAL_ENCODING_VARIANT_H264_DEFAULT;
-		OFMT(bitrate) = encoder->bps;
-		OFMT(es->video.frame_rate.num) = encoder->fps;
+		OFMT(bitrate) = enc->bps;
+		OFMT(es->video.frame_rate.num) = enc->fps;
 		OFMT(es->video.frame_rate.den) = 1;
 		RUN(output_port->buffer_size) = RUN(output_port->buffer_size_recommended) * 4;
 		RUN(output_port->buffer_num) = RUN(output_port->buffer_num_recommended);
@@ -238,15 +238,15 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 		}
 
 		SET_PORT_PARAM(output, boolean,	ZERO_COPY,					MMAL_TRUE);
-		SET_PORT_PARAM(output, uint32,	INTRAPERIOD,				encoder->gop);
+		SET_PORT_PARAM(output, uint32,	INTRAPERIOD,				enc->gop);
 		SET_PORT_PARAM(output, uint32,	NALUNITFORMAT,				MMAL_VIDEO_NALUNITFORMAT_STARTCODES);
 		SET_PORT_PARAM(output, boolean,	MINIMISE_FRAGMENTATION,		MMAL_TRUE);
 		SET_PORT_PARAM(output, uint32,	MB_ROWS_PER_SLICE,			0);
 		SET_PORT_PARAM(output, boolean,	VIDEO_IMMUTABLE_INPUT,		MMAL_FALSE);
 		SET_PORT_PARAM(output, boolean,	VIDEO_DROPPABLE_PFRAMES,	MMAL_FALSE);
 		SET_PORT_PARAM(output, boolean,	VIDEO_ENCODE_INLINE_HEADER,	MMAL_TRUE); // SPS/PPS: https://github.com/raspberrypi/userland/issues/443
-		SET_PORT_PARAM(output, uint32,	VIDEO_BIT_RATE,				encoder->bps);
-		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_PEAK_RATE,		encoder->bps);
+		SET_PORT_PARAM(output, uint32,	VIDEO_BIT_RATE,				enc->bps);
+		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_PEAK_RATE,		enc->bps);
 		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_MIN_QUANT,				16);
 		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_MAX_QUANT,				34);
 		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_FRAME_LIMIT_BITS,		1000000);
@@ -263,7 +263,7 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 	return 0;
 
 	error:
-		_h264_encoder_cleanup(encoder);
+		_h264_encoder_cleanup(enc);
 		return -1;
 
 #	undef ENABLE_PORT
@@ -272,7 +272,7 @@ static int _h264_encoder_configure(h264_encoder_s *encoder, const frame_s *frame
 #	undef PREPARE_PORT
 }
 
-static void _h264_encoder_cleanup(h264_encoder_s *encoder) {
+static void _h264_encoder_cleanup(h264_encoder_s *enc) {
 	MMAL_STATUS_T error;
 
 #	define DISABLE_PORT(_id) { \
@@ -294,7 +294,7 @@ static void _h264_encoder_cleanup(h264_encoder_s *encoder) {
 	RUN(i_format) = 0;
 }
 
-static int _h264_encoder_compress_raw(h264_encoder_s *encoder, const frame_s *src, frame_s *dest, bool force_key) {
+static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key) {
 	assert(src->used > 0);
 	assert(src->width == RUN(i_width));
 	assert(src->height == RUN(i_height));

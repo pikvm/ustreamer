@@ -51,7 +51,7 @@
 
 
 typedef struct {
-	OMX_HANDLETYPE			encoder;
+	OMX_HANDLETYPE			comp;
 	OMX_BUFFERHEADERTYPE	*input_buffer;
 	OMX_BUFFERHEADERTYPE	*output_buffer;
 	bool					input_required;

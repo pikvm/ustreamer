@@ -65,4 +65,4 @@ typedef struct {
 options_s *options_init(unsigned argc, char *argv[]);
 void options_destroy(options_s *options);
 
-int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_s *stream, server_s *server);
+int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *stream, server_s *server);

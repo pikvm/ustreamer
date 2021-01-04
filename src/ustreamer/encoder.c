@@ -36,7 +36,7 @@ static const struct {
 };
 
 
-#define ER(_next)	encoder->run->_next
+#define ER(_next)	enc->run->_next
 #define DR(_next)	dev->run->_next
 
 
@@ -47,15 +47,15 @@ encoder_s *encoder_init(void) {
 	run->quality = 80;
 	A_MUTEX_INIT(&run->mutex);
 
-	encoder_s *encoder;
-	A_CALLOC(encoder, 1);
-	encoder->type = run->type;
-	encoder->n_workers = get_cores_available();
-	encoder->run = run;
-	return encoder;
+	encoder_s *enc;
+	A_CALLOC(enc, 1);
+	enc->type = run->type;
+	enc->n_workers = get_cores_available();
+	enc->run = run;
+	return enc;
 }
 
-void encoder_destroy(encoder_s *encoder) {
+void encoder_destroy(encoder_s *enc) {
 #	ifdef WITH_OMX
 	if (ER(omxs)) {
 		for (unsigned index = 0; index < ER(n_omxs); ++index) {
@@ -67,8 +67,8 @@ void encoder_destroy(encoder_s *encoder) {
 	}
 #	endif
 	A_MUTEX_DESTROY(&ER(mutex));
-	free(encoder->run);
-	free(encoder);
+	free(enc->run);
+	free(enc);
 }
 
 encoder_type_e encoder_parse_type(const char *str) {
@@ -89,12 +89,12 @@ const char *encoder_type_to_string(encoder_type_e type) {
 	return _ENCODER_TYPES[0].name;
 }
 
-void encoder_prepare(encoder_s *encoder, device_s *dev) {
-	encoder_type_e type = (ER(cpu_forced) ? ENCODER_TYPE_CPU : encoder->type);
+void encoder_prepare(encoder_s *enc, device_s *dev) {
+	encoder_type_e type = (ER(cpu_forced) ? ENCODER_TYPE_CPU : enc->type);
 	unsigned quality = dev->jpeg_quality;
 	bool cpu_forced = false;
 
-	ER(n_workers) = min_u(encoder->n_workers, DR(n_buffers));
+	ER(n_workers) = min_u(enc->n_workers, DR(n_buffers));
 
 	if ((DR(format) == V4L2_PIX_FMT_MJPEG || DR(format) == V4L2_PIX_FMT_JPEG) && type != ENCODER_TYPE_HW) {
 		LOG_INFO("Switching to HW encoder because the input format is (M)JPEG");
@@ -111,10 +111,10 @@ void encoder_prepare(encoder_s *encoder, device_s *dev) {
 	}
 #	ifdef WITH_OMX
 	else if (type == ENCODER_TYPE_OMX) {
-		for (unsigned index = 0; index < encoder->n_glitched_resolutions; ++index) {
+		for (unsigned index = 0; index < enc->n_glitched_resolutions; ++index) {
 			if (
-				encoder->glitched_resolutions[index][0] == DR(width)
-				&& encoder->glitched_resolutions[index][1] == DR(height)
+				enc->glitched_resolutions[index][0] == DR(width)
+				&& enc->glitched_resolutions[index][1] == DR(height)
 			) {
 				LOG_INFO("Switching to CPU encoder the resolution %ux%u marked as glitchy for OMX",
 					DR(width), DR(height));
@@ -185,7 +185,7 @@ void encoder_prepare(encoder_s *encoder, device_s *dev) {
 		A_MUTEX_UNLOCK(&ER(mutex));
 }
 
-void encoder_get_runtime_params(encoder_s *encoder, encoder_type_e *type, unsigned *quality) {
+void encoder_get_runtime_params(encoder_s *enc, encoder_type_e *type, unsigned *quality) {
 	A_MUTEX_LOCK(&ER(mutex));
 	*type = ER(type);
 	*quality = ER(quality);
@@ -194,7 +194,7 @@ void encoder_get_runtime_params(encoder_s *encoder, encoder_type_e *type, unsign
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic push
-int encoder_compress(encoder_s *encoder, unsigned worker_number, frame_s *src, frame_s *dest) {
+int encoder_compress(encoder_s *enc, unsigned worker_number, frame_s *src, frame_s *dest) {
 #pragma GCC diagnostic pop
 
 	assert(ER(type) != ENCODER_TYPE_UNKNOWN);

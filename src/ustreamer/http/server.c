@@ -336,9 +336,9 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 
 	PREPROCESS_REQUEST;
 
-	encoder_type_e encoder_type;
-	unsigned encoder_quality;
-	encoder_get_runtime_params(STREAM(encoder), &encoder_type, &encoder_quality);
+	encoder_type_e enc_type;
+	unsigned enc_quality;
+	encoder_get_runtime_params(STREAM(enc), &enc_type, &enc_quality);
 
 	struct evbuffer *buf;
 	assert((buf = evbuffer_new()));
@@ -349,8 +349,8 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		" \"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
 		" \"online\": %s, \"desired_fps\": %u, \"captured_fps\": %u},"
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
-		encoder_type_to_string(encoder_type),
-		encoder_quality,
+		encoder_type_to_string(enc_type),
+		enc_quality,
 		(server->fake_width ? server->fake_width : EX(frame->width)),
 		(server->fake_height ? server->fake_height : EX(frame->height)),
 		bool_to_string(EX(frame->online)),

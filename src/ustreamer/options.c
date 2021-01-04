@@ -207,11 +207,11 @@ static const struct option _LONG_OPTS[] = {
 
 static int _parse_resolution(const char *str, unsigned *width, unsigned *height, bool limited);
 #ifdef WITH_OMX
-static int _parse_glitched_resolutions(const char *str, encoder_s *encoder);
+static int _parse_glitched_resolutions(const char *str, encoder_s *enc);
 #endif
 
 static void _features(void);
-static void _help(device_s *dev, encoder_s *encoder, stream_s *stream, server_s *server);
+static void _help(device_s *dev, encoder_s *enc, stream_s *stream, server_s *server);
 
 
 options_s *options_init(unsigned argc, char *argv[]) {
@@ -244,7 +244,7 @@ void options_destroy(options_s *options) {
 }
 
 
-int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_s *stream, server_s *server) {
+int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *stream, server_s *server) {
 #	define OPT_SET(_dest, _value) { \
 			_dest = _value; \
 			break; \
@@ -353,12 +353,12 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 			case _O_PERSISTENT:		OPT_SET(dev->persistent, true);
 			case _O_DV_TIMINGS:		OPT_SET(dev->dv_timings, true);
 			case _O_BUFFERS:		OPT_NUMBER("--buffers", dev->n_buffers, 1, 32, 0);
-			case _O_WORKERS:		OPT_NUMBER("--workers", encoder->n_workers, 1, 32, 0);
+			case _O_WORKERS:		OPT_NUMBER("--workers", enc->n_workers, 1, 32, 0);
 			case _O_QUALITY:		OPT_NUMBER("--quality", dev->jpeg_quality, 1, 100, 0);
-			case _O_ENCODER:		OPT_PARSE("encoder type", encoder->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, ENCODER_TYPES_STR);
+			case _O_ENCODER:		OPT_PARSE("encoder type", enc->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, ENCODER_TYPES_STR);
 #			ifdef WITH_OMX
 			case _O_GLITCHED_RESOLUTIONS:
-				if (_parse_glitched_resolutions(optarg, encoder) < 0) {
+				if (_parse_glitched_resolutions(optarg, enc) < 0) {
 					return -1;
 				}
 				break;
@@ -444,12 +444,12 @@ int options_parse(options_s *options, device_s *dev, encoder_s *encoder, stream_
 			case _O_FORCE_LOG_COLORS:	OPT_SET(log_colored, true);
 			case _O_NO_LOG_COLORS:		OPT_SET(log_colored, false);
 
-			case _O_HELP:		_help(dev, encoder, stream, server); return 1;
+			case _O_HELP:		_help(dev, enc, stream, server); return 1;
 			case _O_VERSION:	puts(VERSION); return 1;
 			case _O_FEATURES:	_features(); return 1;
 
 			case 0:		break;
-			default:	_help(dev, encoder, stream, server); return -1;
+			default:	_help(dev, enc, stream, server); return -1;
 		}
 	}
 
@@ -506,7 +506,7 @@ static int _parse_resolution(const char *str, unsigned *width, unsigned *height,
 }
 
 #ifdef WITH_OMX
-static int _parse_glitched_resolutions(const char *str, encoder_s *encoder) {
+static int _parse_glitched_resolutions(const char *str, encoder_s *enc) {
 	char *str_copy;
 	assert((str_copy = strdup(str)) != NULL);
 
@@ -537,14 +537,14 @@ static int _parse_glitched_resolutions(const char *str, encoder_s *encoder) {
 			default: assert(0 && "Unknown error");
 		}
 
-		encoder->glitched_resolutions[count][0] = width;
-		encoder->glitched_resolutions[count][1] = height;
+		enc->glitched_resolutions[count][0] = width;
+		enc->glitched_resolutions[count][1] = height;
 		count += 1;
 
 		ptr = strtok(NULL, ",;:\n\t ");
 	}
 
-	encoder->n_glitched_resolutions = count;
+	enc->n_glitched_resolutions = count;
 	free(str_copy);
 	return 0;
 
@@ -586,7 +586,7 @@ static void _features(void) {
 #	endif
 }
 
-static void _help(device_s *dev, encoder_s *encoder, stream_s *stream, server_s *server) {
+static void _help(device_s *dev, encoder_s *enc, stream_s *stream, server_s *server) {
 	printf("\nuStreamer - Lightweight and fast MJPG-HTTP streamer\n");
 	printf("═══════════════════════════════════════════════════\n\n");
 	printf("Version: %s; license: GPLv3\n", VERSION);
@@ -613,7 +613,7 @@ static void _help(device_s *dev, encoder_s *encoder, stream_s *stream, server_s 
 	printf("                                           Each buffer may processed using an independent thread.\n");
 	printf("                                           Default: %u (the number of CPU cores (but not more than 4) + 1).\n\n", dev->n_buffers);
 	printf("    -w|--workers <N>  ──────────────────── The number of worker threads but not more than buffers.\n");
-	printf("                                           Default: %u (the number of CPU cores (but not more than 4)).\n\n", encoder->n_workers);
+	printf("                                           Default: %u (the number of CPU cores (but not more than 4)).\n\n", enc->n_workers);
 	printf("    -q|--quality <N>  ──────────────────── Set quality of JPEG encoding from 1 to 100 (best). Default: %u.\n", dev->jpeg_quality);
 	printf("                                           Note: If HW encoding is used (JPEG source format selected),\n");
 	printf("                                           this parameter attempts to configure the camera\n");

@@ -65,7 +65,7 @@ typedef struct {
 
 #ifdef WITH_OMX
 typedef struct {
-	h264_encoder_s	*encoder;
+	h264_encoder_s	*enc;
 	frame_s			*dest;
 	memsink_s		*sink;
 } h264_stream_s;
@@ -76,7 +76,7 @@ typedef struct {
 	unsigned	error_delay;
 
 	device_s	*dev;
-	encoder_s	*encoder;
+	encoder_s	*enc;
 	frame_s		*blank;
 #	ifdef WITH_OMX
 	memsink_s	*h264_sink;
@@ -90,7 +90,7 @@ typedef struct {
 } stream_s;
 
 
-stream_s *stream_init(device_s *dev, encoder_s *encoder);
+stream_s *stream_init(device_s *dev, encoder_s *enc);
 void stream_destroy(stream_s *stream);
 
 void stream_loop(stream_s *stream);
