@@ -50,9 +50,9 @@ typedef struct {
 	frame_s		*tmp;
 	int			last_online;
 
-	unsigned i_width;
-	unsigned i_height;
-	unsigned i_format;
+	unsigned width;
+	unsigned height;
+	unsigned format;
 } h264_encoder_runtime_s;
 
 typedef struct {
@@ -67,4 +67,5 @@ typedef struct {
 h264_encoder_s *h264_encoder_init(void);
 void h264_encoder_destroy(h264_encoder_s *enc);
 
+int h264_encoder_prepare(h264_encoder_s *enc, unsigned width, unsigned height, unsigned format);
 int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest);

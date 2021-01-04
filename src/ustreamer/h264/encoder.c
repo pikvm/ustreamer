@@ -23,9 +23,7 @@
 #include "encoder.h"
 
 
-static int _h264_encoder_configure(h264_encoder_s *enc, const frame_s *frame);
 static void _h264_encoder_cleanup(h264_encoder_s *enc);
-
 static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key);
 
 static void _mmal_callback(MMAL_WRAPPER_T *wrapper);
@@ -97,53 +95,8 @@ void h264_encoder_destroy(h264_encoder_s *enc) {
 	free(enc);
 }
 
-int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest) {
-	assert(src->used > 0);
-	assert(src->width > 0);
-	assert(src->height > 0);
-	assert(src->format > 0);
-
-	frame_copy_meta(src, dest);
-	dest->encode_begin_ts = get_now_monotonic();
-	dest->format = V4L2_PIX_FMT_H264;
-
-	if (src->format == V4L2_PIX_FMT_MJPEG || src->format == V4L2_PIX_FMT_JPEG) {
-		LOG_DEBUG("H264: Input frame format is JPEG; decoding ...");
-		if (unjpeg(src, RUN(tmp), true) < 0) {
-			return -1;
-		}
-		LOG_VERBOSE("H264: JPEG decoded; time=%Lf", get_now_monotonic() - dest->encode_begin_ts);
-	} else {
-		LOG_DEBUG("H264: Copying source to tmp buffer ...");
-		frame_copy(src, RUN(tmp));
-		LOG_VERBOSE("H264: Source copied; time=%Lf", get_now_monotonic() - dest->encode_begin_ts);
-	}
-	src = RUN(tmp);
-
-	if (RUN(i_width) != src->width || RUN(i_height) != src->height || RUN(i_format) != src->format) {
-		if (_h264_encoder_configure(enc, src) < 0) {
-			return -1;
-		}
-		RUN(last_online) = -1;
-	}
-
-	bool force_key = (RUN(last_online) != src->online);
-
-	if (_h264_encoder_compress_raw(enc, src, dest, force_key) < 0) {
-		_h264_encoder_cleanup(enc);
-		return -1;
-	}
-
-	dest->encode_end_ts = get_now_monotonic();
-	LOG_VERBOSE("H264: Compressed new frame: size=%zu, time=%0.3Lf, force_key=%d",
-		dest->used, dest->encode_end_ts - dest->encode_begin_ts, force_key);
-
-	RUN(last_online) = src->online;
-	return 0;
-}
-
-static int _h264_encoder_configure(h264_encoder_s *enc, const frame_s *frame) {
-	LOG_INFO("H264: Reconfiguring MMAL encoder ...");
+int h264_encoder_prepare(h264_encoder_s *enc, unsigned width, unsigned height, unsigned format) {
+	LOG_INFO("H264: Configuring MMAL encoder ...");
 
 	MMAL_STATUS_T error;
 
@@ -186,19 +139,21 @@ static int _h264_encoder_configure(h264_encoder_s *enc, const frame_s *frame) {
 
 #		define IFMT(_next) RUN(input_port->format->_next)
 		IFMT(type) = MMAL_ES_TYPE_VIDEO;
-		switch (frame->format) {
+		switch (format) {
 			case V4L2_PIX_FMT_YUYV:		IFMT(encoding) = MMAL_ENCODING_YUYV; break;
 			case V4L2_PIX_FMT_UYVY:		IFMT(encoding) = MMAL_ENCODING_UYVY; break;
 			case V4L2_PIX_FMT_RGB565:	IFMT(encoding) = MMAL_ENCODING_RGB16; break;
+			case V4L2_PIX_FMT_MJPEG:
+			case V4L2_PIX_FMT_JPEG:		// See unjpeg.c
 			case V4L2_PIX_FMT_RGB24:	IFMT(encoding) = MMAL_ENCODING_RGB24; break;
 			default: assert(0 && "Unsupported input format for MMAL H264 encoder");
 		}
-		IFMT(es->video.width) = align_size(frame->width, 32);
-		IFMT(es->video.height) = align_size(frame->height, 16);
+		IFMT(es->video.width) = align_size(width, 32);
+		IFMT(es->video.height) = align_size(height, 16);
 		IFMT(es->video.crop.x) = 0;
 		IFMT(es->video.crop.y) = 0;
-		IFMT(es->video.crop.width) = frame->width;
-		IFMT(es->video.crop.height) = frame->height;
+		IFMT(es->video.crop.width) = width;
+		IFMT(es->video.crop.height) = height;
 		IFMT(flags) = MMAL_ES_FORMAT_FLAG_FRAMED;
 		RUN(input_port->buffer_size) = 1000 * 1000;
 		RUN(input_port->buffer_num) = RUN(input_port->buffer_num_recommended) * 4;
@@ -256,9 +211,9 @@ static int _h264_encoder_configure(h264_encoder_s *enc, const frame_s *frame) {
 	ENABLE_PORT(input);
 	ENABLE_PORT(output);
 
-	RUN(i_width) = frame->width;
-	RUN(i_height) = frame->height;
-	RUN(i_format) = frame->format;
+	RUN(width) = width;
+	RUN(height) = height;
+	RUN(format) = format;
 
 	return 0;
 
@@ -289,17 +244,52 @@ static void _h264_encoder_cleanup(h264_encoder_s *enc) {
 
 #	undef DISABLE_PORT
 
-	RUN(i_width) = 0;
-	RUN(i_height) = 0;
-	RUN(i_format) = 0;
+	RUN(width) = 0;
+	RUN(height) = 0;
+	RUN(format) = 0;
+	RUN(last_online) = -1;
+}
+
+int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest) {
+	frame_copy_meta(src, dest);
+	dest->encode_begin_ts = get_now_monotonic();
+	dest->format = V4L2_PIX_FMT_H264;
+
+	if (src->format == V4L2_PIX_FMT_MJPEG || src->format == V4L2_PIX_FMT_JPEG) {
+		LOG_DEBUG("H264: Input frame format is JPEG; decoding ...");
+		if (unjpeg(src, RUN(tmp), true) < 0) {
+			return -1;
+		}
+		assert(RUN(tmp->format) == V4L2_PIX_FMT_RGB24);
+		LOG_VERBOSE("H264: JPEG decoded; time=%Lf", get_now_monotonic() - dest->encode_begin_ts);
+	} else {
+		LOG_DEBUG("H264: Copying source to tmp buffer ...");
+		frame_copy(src, RUN(tmp));
+		assert(src->format == RUN(format));
+		LOG_VERBOSE("H264: Source copied; time=%Lf", get_now_monotonic() - dest->encode_begin_ts);
+	}
+	src = RUN(tmp);
+
+	assert(src->used > 0);
+	assert(src->width == RUN(width));
+	assert(src->height == RUN(height));
+
+	bool force_key = (RUN(last_online) != src->online);
+
+	if (_h264_encoder_compress_raw(enc, src, dest, force_key) < 0) {
+		_h264_encoder_cleanup(enc);
+		return -1;
+	}
+
+	dest->encode_end_ts = get_now_monotonic();
+	LOG_VERBOSE("H264: Compressed new frame: size=%zu, time=%0.3Lf, force_key=%d",
+		dest->used, dest->encode_end_ts - dest->encode_begin_ts, force_key);
+
+	RUN(last_online) = src->online;
+	return 0;
 }
 
 static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key) {
-	assert(src->used > 0);
-	assert(src->width == RUN(i_width));
-	assert(src->height == RUN(i_height));
-	assert(src->format == RUN(i_format));
-
 	LOG_DEBUG("H264: Compressing new frame; force_key=%d ...", force_key);
 
 	MMAL_STATUS_T error;

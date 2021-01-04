@@ -30,7 +30,7 @@ static const OMX_U32 _OUTPUT_PORT = 341;
 static int _vcos_semwait(VCOS_SEMAPHORE_T *sem);
 static int _omx_init_component(omx_encoder_s *omx);
 static int _omx_init_disable_ports(omx_encoder_s *omx);
-static int _omx_setup_input(omx_encoder_s *omx, device_s *dev);
+static int _omx_setup_input(omx_encoder_s *omx, unsigned width, unsigned height, unsigned format);
 static int _omx_setup_output(omx_encoder_s *omx, unsigned quality);
 static int _omx_encoder_clear_ports(omx_encoder_s *omx);
 
@@ -106,14 +106,14 @@ void omx_encoder_destroy(omx_encoder_s *omx) {
 	free(omx);
 }
 
-int omx_encoder_prepare(omx_encoder_s *omx, device_s *dev, unsigned quality) {
+int omx_encoder_prepare(omx_encoder_s *omx, unsigned width, unsigned height, unsigned format, unsigned quality) {
 	if (omx_component_set_state(&omx->comp, OMX_StateIdle) < 0) {
 		return -1;
 	}
 	if (_omx_encoder_clear_ports(omx) < 0) {
 		return -1;
 	}
-	if (_omx_setup_input(omx, dev) < 0) {
+	if (_omx_setup_input(omx, width, height, format) < 0) {
 		return -1;
 	}
 	if (_omx_setup_output(omx, quality) < 0) {
@@ -277,7 +277,7 @@ static int _omx_init_disable_ports(omx_encoder_s *omx) {
 	return 0;
 }
 
-static int _omx_setup_input(omx_encoder_s *omx, device_s *dev) {
+static int _omx_setup_input(omx_encoder_s *omx, unsigned width, unsigned height, unsigned format) {
 	LOG_DEBUG("Setting up OMX JPEG input port ...");
 
 	OMX_ERRORTYPE error;
@@ -289,14 +289,14 @@ static int _omx_setup_input(omx_encoder_s *omx, device_s *dev) {
 	}
 
 #	define IFMT(_next) portdef.format.image._next
-	IFMT(nFrameWidth) = dev->run->width;
-	IFMT(nFrameHeight) = dev->run->height;
+	IFMT(nFrameWidth) = width;
+	IFMT(nFrameHeight) = height;
 	IFMT(nStride) = 0;
-	IFMT(nSliceHeight) = align_size(dev->run->height, 16);
+	IFMT(nSliceHeight) = align_size(height, 16);
 	IFMT(bFlagErrorConcealment) = OMX_FALSE;
 	IFMT(eCompressionFormat) = OMX_IMAGE_CodingUnused;
-	portdef.nBufferSize = ((dev->run->width * dev->run->height) << 1) * 2;
-	switch (dev->run->format) {
+	portdef.nBufferSize = ((width * height) << 1) * 2;
+	switch (format) {
 		// https://www.fourcc.org/yuv.php
 		// Also see comments inside OMX_IVCommon.h
 		case V4L2_PIX_FMT_YUYV:		IFMT(eColorFormat) = OMX_COLOR_FormatYCbYCr; break;

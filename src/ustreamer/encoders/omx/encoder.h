@@ -38,7 +38,6 @@
 #include "../../../libs/common/tools.h"
 #include "../../../libs/common/logging.h"
 #include "../../../libs/common/frame.h"
-#include "../../device.h"
 
 #include "formatters.h"
 #include "component.h"
@@ -69,5 +68,5 @@ typedef struct {
 omx_encoder_s *omx_encoder_init(void);
 void omx_encoder_destroy(omx_encoder_s *omx);
 
-int omx_encoder_prepare(omx_encoder_s *omx, device_s *dev, unsigned quality);
+int omx_encoder_prepare(omx_encoder_s *omx, unsigned width, unsigned height, unsigned format, unsigned quality);
 int omx_encoder_compress(omx_encoder_s *omx, const frame_s *src, frame_s *dest);

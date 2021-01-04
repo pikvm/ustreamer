@@ -113,6 +113,7 @@ regen:
 
 
 $(USTR): $(_USTR_SRCS:%.c=$(BUILD)/%.o)
+	$(info ========================================)
 	$(info == LD $@)
 	@ $(CC) $^ -o $@ $(LDFLAGS) $(_USTR_LIBS)
 	$(info :: CC      = $(CC))
@@ -123,6 +124,7 @@ $(USTR): $(_USTR_SRCS:%.c=$(BUILD)/%.o)
 
 ifneq ($(call optbool,$(WITH_OMX)),)
 $(REC): $(_REC_SRCS:%.c=$(BUILD)/%.o)
+	$(info ========================================)
 	$(info == LD $@)
 	@ $(CC) $^ -o $@ $(LDFLAGS) $(_REC_LIBS)
 	$(info :: CC      = $(CC))

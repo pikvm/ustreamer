@@ -142,7 +142,7 @@ void encoder_prepare(encoder_s *enc, device_s *dev) {
 		}
 
 		for (unsigned index = 0; index < ER(n_omxs); ++index) {
-			if (omx_encoder_prepare(ER(omxs[index]), dev, quality) < 0) {
+			if (omx_encoder_prepare(ER(omxs[index]), DR(width), DR(height), DR(format), quality) < 0) {
 				LOG_ERROR("Can't prepare OMX encoder, falling back to CPU");
 				goto force_cpu;
 			}

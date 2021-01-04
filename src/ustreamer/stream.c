@@ -428,8 +428,15 @@ static void _h264_stream_destroy(h264_stream_s *h264) {
 }
 
 static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame) {
-	if (h264_encoder_compress(h264->enc, frame, h264->dest) == 0) {
-		memsink_server_put(h264->sink, h264->dest);
+#	define NEQ(_field) (frame->_field != h264->enc->run->_field)
+	if (NEQ(width) || NEQ(height) || NEQ(format)) {
+#	undef NEQ
+		h264_encoder_prepare(h264->enc, frame->width, frame->height, frame->format);
+	}
+	if (h264->enc->run->format) {
+		if (h264_encoder_compress(h264->enc, frame, h264->dest) == 0) {
+			memsink_server_put(h264->sink, h264->dest);
+		}
 	}
 }
 #endif
