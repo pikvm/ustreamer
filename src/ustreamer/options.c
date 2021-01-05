@@ -206,9 +206,6 @@ static const struct option _LONG_OPTS[] = {
 
 
 static int _parse_resolution(const char *str, unsigned *width, unsigned *height, bool limited);
-#ifdef WITH_OMX
-static int _parse_glitched_resolutions(const char *str, encoder_s *enc);
-#endif
 
 static void _features(void);
 static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, server_s *server);
@@ -357,11 +354,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			case _O_QUALITY:		OPT_NUMBER("--quality", dev->jpeg_quality, 1, 100, 0);
 			case _O_ENCODER:		OPT_PARSE("encoder type", enc->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, ENCODER_TYPES_STR);
 #			ifdef WITH_OMX
-			case _O_GLITCHED_RESOLUTIONS:
-				if (_parse_glitched_resolutions(optarg, enc) < 0) {
-					return -1;
-				}
-				break;
+			case _O_GLITCHED_RESOLUTIONS: break;
 #			endif
 			case _O_BLANK:				OPT_SET(blank_path, optarg);
 			case _O_LAST_AS_BLANK:		OPT_NUMBER("--last-as-blank", stream->last_as_blank, 0, 86400, 0);
@@ -505,55 +498,6 @@ static int _parse_resolution(const char *str, unsigned *width, unsigned *height,
 	return 0;
 }
 
-#ifdef WITH_OMX
-static int _parse_glitched_resolutions(const char *str, encoder_s *enc) {
-	char *str_copy;
-	assert((str_copy = strdup(str)) != NULL);
-
-	char *ptr = strtok(str_copy, ",;:\n\t ");
-	unsigned count = 0;
-
-	while (ptr != NULL) {
-		if (count >= MAX_GLITCHED_RESOLUTIONS) {
-			printf("Too big '--glitched-resolutions' list: maxlen=%u\n", MAX_GLITCHED_RESOLUTIONS);
-			goto error;
-		}
-
-		unsigned width;
-		unsigned height;
-		switch (_parse_resolution(ptr, &width, &height, true)) {
-			case -1:
-				printf("Invalid resolution format of '%s' in '--glitched-resolutions=%s\n", ptr, str_copy);
-				goto error;
-			case -2:
-				printf("Invalid width of '%s' in '--glitched-resolutions=%s: min=%u, max=%u\n",
-					ptr, str_copy, VIDEO_MIN_WIDTH, VIDEO_MIN_HEIGHT);
-				goto error;
-			case -3:
-				printf("Invalid width of '%s' in '--glitched-resolutions=%s: min=%u, max=%u\n",
-					ptr, str_copy, VIDEO_MIN_WIDTH, VIDEO_MIN_HEIGHT);
-				goto error;
-			case 0: break;
-			default: assert(0 && "Unknown error");
-		}
-
-		enc->glitched_resolutions[count][0] = width;
-		enc->glitched_resolutions[count][1] = height;
-		count += 1;
-
-		ptr = strtok(NULL, ",;:\n\t ");
-	}
-
-	enc->n_glitched_resolutions = count;
-	free(str_copy);
-	return 0;
-
-	error:
-		free(str_copy);
-		return -1;
-}
-#endif
-
 static void _features(void) {
 #	ifdef WITH_OMX
 	puts("+ WITH_OMX");
@@ -630,8 +574,7 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("                                             * HW  ─── Use pre-encoded MJPG frames directly from camera hardware.");
 	SAY("                                             * NOOP  ─ Don't compress MJPG stream (do nothing).\n");
 #	ifdef WITH_OMX
-	SAY("    -g|--glitched-resolutions <WxH,...>  ─ Comma-separated list of resolutions that require forced");
-	SAY("                                           encoding on CPU instead of OMX. Default: disabled.\n");
+	SAY("    -g|--glitched-resolutions <WxH,...>  ─ It doesn't do anything. Still here for compatibility. Default: disabled.\n");
 #	endif
 	SAY("    -k|--blank <path>  ─────────────────── Path to JPEG file that will be shown when the device is disconnected");
 	SAY("                                           during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.\n");

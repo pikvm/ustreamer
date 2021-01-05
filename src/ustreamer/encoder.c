@@ -111,15 +111,9 @@ void encoder_prepare(encoder_s *enc, device_s *dev) {
 	}
 #	ifdef WITH_OMX
 	else if (type == ENCODER_TYPE_OMX) {
-		for (unsigned index = 0; index < enc->n_glitched_resolutions; ++index) {
-			if (
-				enc->glitched_resolutions[index][0] == DR(width)
-				&& enc->glitched_resolutions[index][1] == DR(height)
-			) {
-				LOG_INFO("Switching to CPU encoder the resolution %ux%u marked as glitchy for OMX",
-					DR(width), DR(height));
-				goto use_cpu;
-			}
+		if (align_size(DR(width), 32) != DR(width) || align_size(DR(height), 16) != DR(height)) {
+			LOG_INFO("Switching to CPU encoder because OMX can't handle %ux%u", DR(width), DR(height));
+			goto use_cpu;
 		}
 
 		LOG_DEBUG("Preparing OMX encoder ...");

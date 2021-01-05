@@ -43,10 +43,6 @@
 #ifdef WITH_OMX
 #	include "encoders/omx/encoder.h"
 #	define ENCODER_TYPES_OMX_HINT ", OMX"
-#	ifndef CFG_MAX_GLITCHED_RESOLUTIONS
-#		define CFG_MAX_GLITCHED_RESOLUTIONS 1024
-#	endif
-#	define MAX_GLITCHED_RESOLUTIONS ((unsigned)(CFG_MAX_GLITCHED_RESOLUTIONS))
 #else
 #	define ENCODER_TYPES_OMX_HINT ""
 #endif
@@ -84,10 +80,6 @@ typedef struct {
 typedef struct {
 	encoder_type_e	type;
 	unsigned		n_workers;
-#	ifdef WITH_OMX
-	unsigned	n_glitched_resolutions;
-	unsigned	glitched_resolutions[2][MAX_GLITCHED_RESOLUTIONS];
-#	endif
 
 	encoder_runtime_s *run;
 } encoder_s;
