@@ -211,7 +211,7 @@ static int _parse_glitched_resolutions(const char *str, encoder_s *enc);
 #endif
 
 static void _features(void);
-static void _help(device_s *dev, encoder_s *enc, stream_s *stream, server_s *server);
+static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, server_s *server);
 
 
 options_s *options_init(unsigned argc, char *argv[]) {
@@ -444,12 +444,12 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			case _O_FORCE_LOG_COLORS:	OPT_SET(log_colored, true);
 			case _O_NO_LOG_COLORS:		OPT_SET(log_colored, false);
 
-			case _O_HELP:		_help(dev, enc, stream, server); return 1;
+			case _O_HELP:		_help(stdout, dev, enc, stream, server); return 1;
 			case _O_VERSION:	puts(VERSION); return 1;
 			case _O_FEATURES:	_features(); return 1;
 
 			case 0:		break;
-			default:	_help(dev, enc, stream, server); return -1;
+			default:	_help(stderr, dev, enc, stream, server); return -1;
 		}
 	}
 
@@ -586,144 +586,146 @@ static void _features(void) {
 #	endif
 }
 
-static void _help(device_s *dev, encoder_s *enc, stream_s *stream, server_s *server) {
-	printf("\nuStreamer - Lightweight and fast MJPG-HTTP streamer\n");
-	printf("═══════════════════════════════════════════════════\n\n");
-	printf("Version: %s; license: GPLv3\n", VERSION);
-	printf("Copyright (C) 2018 Maxim Devaev <mdevaev@gmail.com>\n\n");
-	printf("Capturing options:\n");
-	printf("══════════════════\n");
-	printf("    -d|--device </dev/path>  ───────────── Path to V4L2 device. Default: %s.\n\n", dev->path);
-	printf("    -i|--input <N>  ────────────────────── Input channel. Default: %u.\n\n", dev->input);
-	printf("    -r|--resolution <WxH>  ─────────────── Initial image resolution. Default: %ux%u.\n\n", dev->width, dev->height);
-	printf("    -m|--format <fmt>  ─────────────────── Image format.\n");
-	printf("                                           Available: %s; default: YUYV.\n\n", FORMATS_STR);
-	printf("    -a|--tv-standard <std>  ────────────── Force TV standard.\n");
-	printf("                                           Available: %s; default: disabled.\n\n", STANDARDS_STR);
-	printf("    -I|--io-method <method>  ───────────── Set V4L2 IO method (see kernel documentation).\n");
-	printf("                                           Changing of this parameter may increase the performance. Or not.\n");
-	printf("                                           Available: %s; default: MMAP.\n\n", IO_METHODS_STR);
-	printf("    -f|--desired-fps <N>  ──────────────── Desired FPS. Default: maximum possible.\n\n");
-	printf("    -z|--min-frame-size <N>  ───────────── Drop frames smaller then this limit. Useful if the device\n");
-	printf("                                           produces small-sized garbage frames. Default: %zu bytes.\n\n", dev->min_frame_size);
-	printf("    -n|--persistent  ───────────────────── Don't re-initialize device on timeout. Default: disabled.\n\n");
-	printf("    -t|--dv-timings  ───────────────────── Enable DV timings querying and events processing\n");
-	printf("                                           to automatic resolution change. Default: disabled.\n\n");
-	printf("    -b|--buffers <N>  ──────────────────── The number of buffers to receive data from the device.\n");
-	printf("                                           Each buffer may processed using an independent thread.\n");
-	printf("                                           Default: %u (the number of CPU cores (but not more than 4) + 1).\n\n", dev->n_buffers);
-	printf("    -w|--workers <N>  ──────────────────── The number of worker threads but not more than buffers.\n");
-	printf("                                           Default: %u (the number of CPU cores (but not more than 4)).\n\n", enc->n_workers);
-	printf("    -q|--quality <N>  ──────────────────── Set quality of JPEG encoding from 1 to 100 (best). Default: %u.\n", dev->jpeg_quality);
-	printf("                                           Note: If HW encoding is used (JPEG source format selected),\n");
-	printf("                                           this parameter attempts to configure the camera\n");
-	printf("                                           or capture device hardware's internal encoder.\n");
-	printf("                                           It does not re-encode MJPG to MJPG to change the quality level\n");
-	printf("                                           for sources that already output MJPG.\n\n");
-	printf("    -c|--encoder <type>  ───────────────── Use specified encoder. It may affect the number of workers.\n");
-	printf("                                           Available:\n");
-	printf("                                             * CPU  ── Software MJPG encoding (default);\n");
+static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, server_s *server) {
+#	define SAY(_msg, ...) fprintf(fp, _msg "\n", ##__VA_ARGS__)
+	SAY("\nuStreamer - Lightweight and fast MJPG-HTTP streamer");
+	SAY("═══════════════════════════════════════════════════\n");
+	SAY("Version: %s; license: GPLv3", VERSION);
+	SAY("Copyright (C) 2018 Maxim Devaev <mdevaev@gmail.com>\n");
+	SAY("Capturing options:");
+	SAY("══════════════════");
+	SAY("    -d|--device </dev/path>  ───────────── Path to V4L2 device. Default: %s.\n", dev->path);
+	SAY("    -i|--input <N>  ────────────────────── Input channel. Default: %u.\n", dev->input);
+	SAY("    -r|--resolution <WxH>  ─────────────── Initial image resolution. Default: %ux%u.\n", dev->width, dev->height);
+	SAY("    -m|--format <fmt>  ─────────────────── Image format.");
+	SAY("                                           Available: %s; default: YUYV.\n", FORMATS_STR);
+	SAY("    -a|--tv-standard <std>  ────────────── Force TV standard.");
+	SAY("                                           Available: %s; default: disabled.\n", STANDARDS_STR);
+	SAY("    -I|--io-method <method>  ───────────── Set V4L2 IO method (see kernel documentation).");
+	SAY("                                           Changing of this parameter may increase the performance. Or not.");
+	SAY("                                           Available: %s; default: MMAP.\n", IO_METHODS_STR);
+	SAY("    -f|--desired-fps <N>  ──────────────── Desired FPS. Default: maximum possible.\n");
+	SAY("    -z|--min-frame-size <N>  ───────────── Drop frames smaller then this limit. Useful if the device");
+	SAY("                                           produces small-sized garbage frames. Default: %zu bytes.\n", dev->min_frame_size);
+	SAY("    -n|--persistent  ───────────────────── Don't re-initialize device on timeout. Default: disabled.\n");
+	SAY("    -t|--dv-timings  ───────────────────── Enable DV timings querying and events processing");
+	SAY("                                           to automatic resolution change. Default: disabled.\n");
+	SAY("    -b|--buffers <N>  ──────────────────── The number of buffers to receive data from the device.");
+	SAY("                                           Each buffer may processed using an independent thread.");
+	SAY("                                           Default: %u (the number of CPU cores (but not more than 4) + 1).\n", dev->n_buffers);
+	SAY("    -w|--workers <N>  ──────────────────── The number of worker threads but not more than buffers.");
+	SAY("                                           Default: %u (the number of CPU cores (but not more than 4)).\n", enc->n_workers);
+	SAY("    -q|--quality <N>  ──────────────────── Set quality of JPEG encoding from 1 to 100 (best). Default: %u.", dev->jpeg_quality);
+	SAY("                                           Note: If HW encoding is used (JPEG source format selected),");
+	SAY("                                           this parameter attempts to configure the camera");
+	SAY("                                           or capture device hardware's internal encoder.");
+	SAY("                                           It does not re-encode MJPG to MJPG to change the quality level");
+	SAY("                                           for sources that already output MJPG.\n");
+	SAY("    -c|--encoder <type>  ───────────────── Use specified encoder. It may affect the number of workers.");
+	SAY("                                           Available:");
+	SAY("                                             * CPU  ── Software MJPG encoding (default);");
 #	ifdef WITH_OMX
-	printf("                                             * OMX  ── GPU hardware accelerated MJPG encoding with OpenMax;\n");
+	SAY("                                             * OMX  ── GPU hardware accelerated MJPG encoding with OpenMax;");
 #	endif
-	printf("                                             * HW  ─── Use pre-encoded MJPG frames directly from camera hardware.\n");
-	printf("                                             * NOOP  ─ Don't compress MJPG stream (do nothing).\n\n");
+	SAY("                                             * HW  ─── Use pre-encoded MJPG frames directly from camera hardware.");
+	SAY("                                             * NOOP  ─ Don't compress MJPG stream (do nothing).\n");
 #	ifdef WITH_OMX
-	printf("    -g|--glitched-resolutions <WxH,...>  ─ Comma-separated list of resolutions that require forced\n");
-	printf("                                           encoding on CPU instead of OMX. Default: disabled.\n\n");
+	SAY("    -g|--glitched-resolutions <WxH,...>  ─ Comma-separated list of resolutions that require forced");
+	SAY("                                           encoding on CPU instead of OMX. Default: disabled.\n");
 #	endif
-	printf("    -k|--blank <path>  ─────────────────── Path to JPEG file that will be shown when the device is disconnected\n");
-	printf("                                           during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.\n\n");
-	printf("    -K|--last-as-blank <sec>  ──────────── Show the last frame received from the camera after it was disconnected,\n");
-	printf("                                           but no more than specified time (or endlessly if 0 is specified).\n");
-	printf("                                           If the device has not yet been online, display 'NO SIGNAL' or the image\n");
-	printf("                                           specified by option --blank. Default: disabled.\n\n");
-	printf("    --device-timeout <sec>  ────────────── Timeout for device querying. Default: %u.\n\n", dev->timeout);
-	printf("    --device-error-delay <sec>  ────────── Delay before trying to connect to the device again\n");
-	printf("                                           after an error (timeout for example). Default: %u.\n\n", stream->error_delay);
-	printf("Image control options:\n");
-	printf("══════════════════════\n");
-	printf("    --image-default  ────────────────────── Reset all image settings below to default. Default: no change.\n\n");
-	printf("    --brightness <N|auto|default>  ──────── Set brightness. Default: no change.\n\n");
-	printf("    --contrast <N|default>  ─────────────── Set contrast. Default: no change.\n\n");
-	printf("    --saturation <N|default>  ───────────── Set saturation. Default: no change.\n\n");
-	printf("    --hue <N|auto|default>  ─────────────── Set hue. Default: no change.\n\n");
-	printf("    --gamma <N|default> ─────────────────── Set gamma. Default: no change.\n\n");
-	printf("    --sharpness <N|default>  ────────────── Set sharpness. Default: no change.\n\n");
-	printf("    --backlight-compensation <N|default>  ─ Set backlight compensation. Default: no change.\n\n");
-	printf("    --white-balance <N|auto|default>  ───── Set white balance. Default: no change.\n\n");
-	printf("    --gain <N|auto|default>  ────────────── Set gain. Default: no change.\n\n");
-	printf("    --color-effect <N|default>  ─────────── Set color effect. Default: no change.\n\n");
-	printf("    --flip-vertical <1|0|default>  ──────── Set vertical flip. Default: no change.\n\n");
-	printf("    --flip-horizontal <1|0|default>  ────── Set horizontal flip. Default: no change.\n\n");
-	printf("    Hint: use v4l2-ctl --list-ctrls-menus to query available controls of the device.\n\n");
-	printf("HTTP server options:\n");
-	printf("════════════════════\n");
-	printf("    -s|--host <address>  ──────── Listen on Hostname or IP. Default: %s.\n\n", server->host);
-	printf("    -p|--port <N>  ────────────── Bind to this TCP port. Default: %u.\n\n", server->port);
-	printf("    -U|--unix <path>  ─────────── Bind to UNIX domain socket. Default: disabled.\n\n");
-	printf("    -D|--unix-rm  ─────────────── Try to remove old UNIX socket file before binding. Default: disabled.\n\n");
-	printf("    -M|--unix-mode <mode>  ────── Set UNIX socket file permissions (like 777). Default: disabled.\n\n");
-	printf("    --user <name>  ────────────── HTTP basic auth user. Default: disabled.\n\n");
-	printf("    --passwd <str>  ───────────── HTTP basic auth passwd. Default: empty.\n\n");
-	printf("    --static <path> ───────────── Path to dir with static files instead of embedded root index page.\n");
-	printf("                                  Symlinks are not supported for security reasons. Default: disabled.\n\n");
-	printf("    -e|--drop-same-frames <N>  ── Don't send identical frames to clients, but no more than specified number.\n");
-	printf("                                  It can significantly reduce the outgoing traffic, but will increase\n");
-	printf("                                  the CPU loading. Don't use this option with analog signal sources\n");
-	printf("                                  or webcams, it's useless. Default: disabled.\n\n");
-	printf("    -l|--slowdown  ────────────── Slowdown capturing to 1 FPS or less when no stream clients are connected.\n");
-	printf("                                  Useful to reduce CPU consumption. Default: disabled.\n\n");
-	printf("    -R|--fake-resolution <WxH>  ─ Override image resolution for the /state. Default: disabled.\n\n");
-	printf("    --tcp-nodelay  ────────────── Set TCP_NODELAY flag to the client /stream socket. Ignored for --unix.\n");
-	printf("                                  Default: disabled.\n\n");
-	printf("    --allow-origin <str>  ─────── Set Access-Control-Allow-Origin header. Default: disabled.\n\n");
-	printf("    --server-timeout <sec>  ───── Timeout for client connections. Default: %u.\n\n", server->timeout);
-#ifdef WITH_OMX
-	printf("H264 sink options:\n");
-	printf("═════════════════\n");
-	printf("    --h264-sink <name>  ──────── Use the shared memory to sink H264 frames encoded by MMAL.\n");
-	printf("                                 Most likely you will never need it. Default: disabled.\n\n");
-	printf("    --h264-sink-mode <mode>  ─── Set H264 sink permissions (like 777). Default: 660.\n\n");
-	printf("    --h264-sink-rm  ──────────── Remove shared memory on stop. Default: disabled.\n\n");
-	printf("    --h264-sink-timeout <sec>  ─ Timeout for lock. Default: 1.\n\n");
-#endif
-#ifdef WITH_GPIO
-	printf("GPIO options:\n");
-	printf("═════════════\n");
-	printf("    --gpio-device </dev/path>  ───── Path to GPIO character device. Default: %s.\n\n", gpio.path);
-	printf("    --gpio-consumer-prefix <str>  ── Consumer prefix for GPIO outputs. Default: %s.\n\n", gpio.consumer_prefix);
-	printf("    --gpio-prog-running <pin>  ───── Set 1 on GPIO pin while uStreamer is running. Default: disabled.\n\n");
-	printf("    --gpio-stream-online <pin>  ──── Set 1 while streaming. Default: disabled.\n\n");
-	printf("    --gpio-has-http-clients <pin>  ─ Set 1 while stream has at least one client. Default: disabled.\n\n");
-#endif
-#if (defined(HAS_PDEATHSIG) || defined(WITH_SETPROCTITLE))
-	printf("Process options:\n");
-	printf("════════════════\n");
-#endif
-#ifdef HAS_PDEATHSIG
-	printf("    --exit-on-parent-death  ─────── Exit the program if the parent process is dead. Default: disabled.\n\n");
-#endif
-#ifdef WITH_SETPROCTITLE
-	printf("    --process-name-prefix <str>  ── Set process name prefix which will be displayed in the process list\n");
-	printf("                                    like '<str>: ustreamer --blah-blah-blah'. Default: disabled.\n\n");
-	printf("    --notify-parent  ────────────── Send SIGUSR2 to the parent process when the stream parameters are changed.\n");
-	printf("                                    Checking changes is performed for the online flag and image resolution.\n\n");
-#endif
-	printf("Logging options:\n");
-	printf("════════════════\n");
-	printf("    --log-level <N>  ──── Verbosity level of messages from 0 (info) to 3 (debug).\n");
-	printf("                          Enabling debugging messages can slow down the program.\n");
-	printf("                          Available levels: 0 (info), 1 (performance), 2 (verbose), 3 (debug).\n");
-	printf("                          Default: %d.\n\n", log_level);
-	printf("    --perf  ───────────── Enable performance messages (same as --log-level=1). Default: disabled.\n\n");
-	printf("    --verbose  ────────── Enable verbose messages and lower (same as --log-level=2). Default: disabled.\n\n");
-	printf("    --debug  ──────────── Enable debug messages and lower (same as --log-level=3). Default: disabled.\n\n");
-	printf("    --force-log-colors  ─ Force color logging. Default: colored if stdout is a TTY.\n\n");
-	printf("    --no-log-colors  ──── Disable color logging. Default: ditto.\n\n");
-	printf("Help options:\n");
-	printf("═════════════\n");
-	printf("    -h|--help  ─────── Print this text and exit.\n\n");
-	printf("    -v|--version  ──── Print version and exit.\n\n");
-	printf("    --features  ────── Print list of supported features.\n\n");
+	SAY("    -k|--blank <path>  ─────────────────── Path to JPEG file that will be shown when the device is disconnected");
+	SAY("                                           during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.\n");
+	SAY("    -K|--last-as-blank <sec>  ──────────── Show the last frame received from the camera after it was disconnected,");
+	SAY("                                           but no more than specified time (or endlessly if 0 is specified).");
+	SAY("                                           If the device has not yet been online, display 'NO SIGNAL' or the image");
+	SAY("                                           specified by option --blank. Default: disabled.\n");
+	SAY("    --device-timeout <sec>  ────────────── Timeout for device querying. Default: %u.\n", dev->timeout);
+	SAY("    --device-error-delay <sec>  ────────── Delay before trying to connect to the device again");
+	SAY("                                           after an error (timeout for example). Default: %u.\n", stream->error_delay);
+	SAY("Image control options:");
+	SAY("══════════════════════");
+	SAY("    --image-default  ────────────────────── Reset all image settings below to default. Default: no change.\n");
+	SAY("    --brightness <N|auto|default>  ──────── Set brightness. Default: no change.\n");
+	SAY("    --contrast <N|default>  ─────────────── Set contrast. Default: no change.\n");
+	SAY("    --saturation <N|default>  ───────────── Set saturation. Default: no change.\n");
+	SAY("    --hue <N|auto|default>  ─────────────── Set hue. Default: no change.\n");
+	SAY("    --gamma <N|default> ─────────────────── Set gamma. Default: no change.\n");
+	SAY("    --sharpness <N|default>  ────────────── Set sharpness. Default: no change.\n");
+	SAY("    --backlight-compensation <N|default>  ─ Set backlight compensation. Default: no change.\n");
+	SAY("    --white-balance <N|auto|default>  ───── Set white balance. Default: no change.\n");
+	SAY("    --gain <N|auto|default>  ────────────── Set gain. Default: no change.\n");
+	SAY("    --color-effect <N|default>  ─────────── Set color effect. Default: no change.\n");
+	SAY("    --flip-vertical <1|0|default>  ──────── Set vertical flip. Default: no change.\n");
+	SAY("    --flip-horizontal <1|0|default>  ────── Set horizontal flip. Default: no change.\n");
+	SAY("    Hint: use v4l2-ctl --list-ctrls-menus to query available controls of the device.\n");
+	SAY("HTTP server options:");
+	SAY("════════════════════");
+	SAY("    -s|--host <address>  ──────── Listen on Hostname or IP. Default: %s.\n", server->host);
+	SAY("    -p|--port <N>  ────────────── Bind to this TCP port. Default: %u.\n", server->port);
+	SAY("    -U|--unix <path>  ─────────── Bind to UNIX domain socket. Default: disabled.\n");
+	SAY("    -D|--unix-rm  ─────────────── Try to remove old UNIX socket file before binding. Default: disabled.\n");
+	SAY("    -M|--unix-mode <mode>  ────── Set UNIX socket file permissions (like 777). Default: disabled.\n");
+	SAY("    --user <name>  ────────────── HTTP basic auth user. Default: disabled.\n");
+	SAY("    --passwd <str>  ───────────── HTTP basic auth passwd. Default: empty.\n");
+	SAY("    --static <path> ───────────── Path to dir with static files instead of embedded root index page.");
+	SAY("                                  Symlinks are not supported for security reasons. Default: disabled.\n");
+	SAY("    -e|--drop-same-frames <N>  ── Don't send identical frames to clients, but no more than specified number.");
+	SAY("                                  It can significantly reduce the outgoing traffic, but will increase");
+	SAY("                                  the CPU loading. Don't use this option with analog signal sources");
+	SAY("                                  or webcams, it's useless. Default: disabled.\n");
+	SAY("    -l|--slowdown  ────────────── Slowdown capturing to 1 FPS or less when no stream clients are connected.");
+	SAY("                                  Useful to reduce CPU consumption. Default: disabled.\n");
+	SAY("    -R|--fake-resolution <WxH>  ─ Override image resolution for the /state. Default: disabled.\n");
+	SAY("    --tcp-nodelay  ────────────── Set TCP_NODELAY flag to the client /stream socket. Ignored for --unix.");
+	SAY("                                  Default: disabled.\n");
+	SAY("    --allow-origin <str>  ─────── Set Access-Control-Allow-Origin header. Default: disabled.\n");
+	SAY("    --server-timeout <sec>  ───── Timeout for client connections. Default: %u.\n", server->timeout);
+#	ifdef WITH_OMX
+	SAY("H264 sink options:");
+	SAY("═════════════════");
+	SAY("    --h264-sink <name>  ──────── Use the shared memory to sink H264 frames encoded by MMAL.");
+	SAY("                                 Most likely you will never need it. Default: disabled.\n");
+	SAY("    --h264-sink-mode <mode>  ─── Set H264 sink permissions (like 777). Default: 660.\n");
+	SAY("    --h264-sink-rm  ──────────── Remove shared memory on stop. Default: disabled.\n");
+	SAY("    --h264-sink-timeout <sec>  ─ Timeout for lock. Default: 1.\n");
+#	endif
+#	ifdef WITH_GPIO
+	SAY("GPIO options:");
+	SAY("═════════════");
+	SAY("    --gpio-device </dev/path>  ───── Path to GPIO character device. Default: %s.\n", gpio.path);
+	SAY("    --gpio-consumer-prefix <str>  ── Consumer prefix for GPIO outputs. Default: %s.\n", gpio.consumer_prefix);
+	SAY("    --gpio-prog-running <pin>  ───── Set 1 on GPIO pin while uStreamer is running. Default: disabled.\n");
+	SAY("    --gpio-stream-online <pin>  ──── Set 1 while streaming. Default: disabled.\n");
+	SAY("    --gpio-has-http-clients <pin>  ─ Set 1 while stream has at least one client. Default: disabled.\n");
+#	endif
+#	if (defined(HAS_PDEATHSIG) || defined(WITH_SETPROCTITLE))
+	SAY("Process options:");
+	SAY("════════════════");
+#	endif
+#	ifdef HAS_PDEATHSIG
+	SAY("    --exit-on-parent-death  ─────── Exit the program if the parent process is dead. Default: disabled.\n");
+#	endif
+#	ifdef WITH_SETPROCTITLE
+	SAY("    --process-name-prefix <str>  ── Set process name prefix which will be displayed in the process list");
+	SAY("                                    like '<str>: ustreamer --blah-blah-blah'. Default: disabled.\n");
+	SAY("    --notify-parent  ────────────── Send SIGUSR2 to the parent process when the stream parameters are changed.");
+	SAY("                                    Checking changes is performed for the online flag and image resolution.\n");
+#	endif
+	SAY("Logging options:");
+	SAY("════════════════");
+	SAY("    --log-level <N>  ──── Verbosity level of messages from 0 (info) to 3 (debug).");
+	SAY("                          Enabling debugging messages can slow down the program.");
+	SAY("                          Available levels: 0 (info), 1 (performance), 2 (verbose), 3 (debug).");
+	SAY("                          Default: %d.\n", log_level);
+	SAY("    --perf  ───────────── Enable performance messages (same as --log-level=1). Default: disabled.\n");
+	SAY("    --verbose  ────────── Enable verbose messages and lower (same as --log-level=2). Default: disabled.\n");
+	SAY("    --debug  ──────────── Enable debug messages and lower (same as --log-level=3). Default: disabled.\n");
+	SAY("    --force-log-colors  ─ Force color logging. Default: colored if stderr is a TTY.\n");
+	SAY("    --no-log-colors  ──── Disable color logging. Default: ditto.\n");
+	SAY("Help options:");
+	SAY("═════════════");
+	SAY("    -h|--help  ─────── Print this text and exit.\n");
+	SAY("    -v|--version  ──── Print version and exit.\n");
+	SAY("    --features  ────── Print list of supported features.\n");
+#	undef SAY
 }

@@ -54,7 +54,7 @@ extern pthread_mutex_t log_mutex;
 
 #define LOGGING_INIT { \
 		log_level = LOG_LEVEL_INFO; \
-		log_colored = isatty(1); \
+		log_colored = isatty(2); \
 		A_MUTEX_INIT(&log_mutex); \
 	}
 
@@ -76,10 +76,10 @@ extern pthread_mutex_t log_mutex;
 #define SEP_INFO(_ch) { \
 		LOGGING_LOCK; \
 		for (int _i = 0; _i < 80; ++_i) { \
-			putchar(_ch); \
+			fputc(_ch, stderr); \
 		} \
-		putchar('\n'); \
-		fflush(stdout); \
+		fputc('\n', stderr); \
+		fflush(stderr); \
 		LOGGING_UNLOCK; \
 	}
 
@@ -94,14 +94,15 @@ extern pthread_mutex_t log_mutex;
 		char _tname_buf[MAX_THREAD_NAME] = {0}; \
 		thread_get_name(_tname_buf); \
 		if (log_colored) { \
-			printf(COLOR_GRAY "-- " _label_color _label COLOR_GRAY " [%.03Lf %9s]" " -- " COLOR_RESET _msg_color _msg COLOR_RESET, \
+			fprintf(stderr, COLOR_GRAY "-- " _label_color _label COLOR_GRAY \
+				" [%.03Lf %9s]" " -- " COLOR_RESET _msg_color _msg COLOR_RESET, \
 				get_now_monotonic(), _tname_buf, ##__VA_ARGS__); \
 		} else { \
-			printf("-- " _label " [%.03Lf %9s] -- " _msg, \
+			fprintf(stderr, "-- " _label " [%.03Lf %9s] -- " _msg, \
 				get_now_monotonic(), _tname_buf, ##__VA_ARGS__); \
 		} \
-		putchar('\n'); \
-		fflush(stdout); \
+		fputc('\n', stderr); \
+		fflush(stderr); \
 	}
 
 #define LOG_PRINTF(_label_color, _label, _msg_color, _msg, ...) { \
