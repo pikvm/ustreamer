@@ -95,8 +95,13 @@ void h264_encoder_destroy(h264_encoder_s *enc) {
 	free(enc);
 }
 
-int h264_encoder_prepare(h264_encoder_s *enc, unsigned width, unsigned height, unsigned format) {
+int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame) {
 	LOG_INFO("H264: Configuring MMAL encoder ...");
+
+	if (align_size(frame->width, 32) != frame->width && frame_get_padding(frame) == 0) {
+		LOG_ERROR("H264: MMAL encoder can't handle unaligned width");
+		goto error;
+	}
 
 	MMAL_STATUS_T error;
 
@@ -139,21 +144,21 @@ int h264_encoder_prepare(h264_encoder_s *enc, unsigned width, unsigned height, u
 
 #		define IFMT(_next) RUN(input_port->format->_next)
 		IFMT(type) = MMAL_ES_TYPE_VIDEO;
-		switch (format) {
+		switch (frame->format) {
 			case V4L2_PIX_FMT_YUYV:		IFMT(encoding) = MMAL_ENCODING_YUYV; break;
 			case V4L2_PIX_FMT_UYVY:		IFMT(encoding) = MMAL_ENCODING_UYVY; break;
 			case V4L2_PIX_FMT_RGB565:	IFMT(encoding) = MMAL_ENCODING_RGB16; break;
 			case V4L2_PIX_FMT_MJPEG:
 			case V4L2_PIX_FMT_JPEG:		// See unjpeg.c
 			case V4L2_PIX_FMT_RGB24:	IFMT(encoding) = MMAL_ENCODING_RGB24; break;
-			default: assert(0 && "Unsupported input format for MMAL H264 encoder");
+			default: assert(0 && "Unsupported pixelformat");
 		}
-		IFMT(es->video.width) = align_size(width, 32);
-		IFMT(es->video.height) = align_size(height, 16);
+		IFMT(es->video.width) = align_size(frame->width, 32);
+		IFMT(es->video.height) = align_size(frame->height, 16);
 		IFMT(es->video.crop.x) = 0;
 		IFMT(es->video.crop.y) = 0;
-		IFMT(es->video.crop.width) = width;
-		IFMT(es->video.crop.height) = height;
+		IFMT(es->video.crop.width) = frame->width;
+		IFMT(es->video.crop.height) = frame->height;
 		IFMT(flags) = MMAL_ES_FORMAT_FLAG_FRAMED;
 		RUN(input_port->buffer_size) = 1000 * 1000;
 		RUN(input_port->buffer_num) = RUN(input_port->buffer_num_recommended) * 4;
@@ -211,9 +216,10 @@ int h264_encoder_prepare(h264_encoder_s *enc, unsigned width, unsigned height, u
 	ENABLE_PORT(input);
 	ENABLE_PORT(output);
 
-	RUN(width) = width;
-	RUN(height) = height;
-	RUN(format) = format;
+	RUN(width) = frame->width;
+	RUN(height) = frame->height;
+	RUN(format) = frame->format;
+	RUN(stride) = frame->stride;
 
 	return 0;
 
@@ -247,6 +253,7 @@ static void _h264_encoder_cleanup(h264_encoder_s *enc) {
 	RUN(width) = 0;
 	RUN(height) = 0;
 	RUN(format) = 0;
+	RUN(stride) = 0;
 	RUN(last_online) = -1;
 }
 
@@ -254,6 +261,7 @@ int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest
 	frame_copy_meta(src, dest);
 	dest->encode_begin_ts = get_now_monotonic();
 	dest->format = V4L2_PIX_FMT_H264;
+	dest->stride = 0;
 
 	if (src->format == V4L2_PIX_FMT_MJPEG || src->format == V4L2_PIX_FMT_JPEG) {
 		LOG_DEBUG("H264: Input frame format is JPEG; decoding ...");

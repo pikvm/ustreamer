@@ -153,6 +153,7 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 		COPY(width);
 		COPY(height);
 		COPY(format);
+		COPY(stride);
 		COPY(online);
 		COPY(grab_ts);
 		COPY(encode_begin_ts);
@@ -203,6 +204,7 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 	COPY(width);
 	COPY(height);
 	COPY(format);
+	COPY(stride);
 	COPY(online);
 	COPY(grab_ts);
 	COPY(encode_begin_ts);

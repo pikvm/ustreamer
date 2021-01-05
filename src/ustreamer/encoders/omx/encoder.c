@@ -30,7 +30,7 @@ static const OMX_U32 _OUTPUT_PORT = 341;
 static int _vcos_semwait(VCOS_SEMAPHORE_T *sem);
 static int _omx_init_component(omx_encoder_s *omx);
 static int _omx_init_disable_ports(omx_encoder_s *omx);
-static int _omx_setup_input(omx_encoder_s *omx, unsigned width, unsigned height, unsigned format);
+static int _omx_setup_input(omx_encoder_s *omx, const frame_s *frame);
 static int _omx_setup_output(omx_encoder_s *omx, unsigned quality);
 static int _omx_encoder_clear_ports(omx_encoder_s *omx);
 
@@ -106,14 +106,19 @@ void omx_encoder_destroy(omx_encoder_s *omx) {
 	free(omx);
 }
 
-int omx_encoder_prepare(omx_encoder_s *omx, unsigned width, unsigned height, unsigned format, unsigned quality) {
+int omx_encoder_prepare(omx_encoder_s *omx, const frame_s *frame, unsigned quality) {
+	if (align_size(frame->width, 32) != frame->width && frame_get_padding(frame) == 0) {
+		LOG_ERROR("%u %u", frame->width, frame->stride);
+		LOG_ERROR("OMX encoder can't handle unaligned width");
+		return -2;
+	}
 	if (omx_component_set_state(&omx->comp, OMX_StateIdle) < 0) {
 		return -1;
 	}
 	if (_omx_encoder_clear_ports(omx) < 0) {
 		return -1;
 	}
-	if (_omx_setup_input(omx, width, height, format) < 0) {
+	if (_omx_setup_input(omx, frame) < 0) {
 		return -1;
 	}
 	if (_omx_setup_output(omx, quality) < 0) {
@@ -136,7 +141,9 @@ int omx_encoder_compress(omx_encoder_s *omx, const frame_s *src, frame_s *dest) 
 		return -1;
 	}
 
+	dest->width = align_size(src->width, 32);
 	dest->used = 0;
+
 	omx->output_available = false;
 	omx->input_required = true;
 
@@ -277,7 +284,7 @@ static int _omx_init_disable_ports(omx_encoder_s *omx) {
 	return 0;
 }
 
-static int _omx_setup_input(omx_encoder_s *omx, unsigned width, unsigned height, unsigned format) {
+static int _omx_setup_input(omx_encoder_s *omx, const frame_s *frame) {
 	LOG_DEBUG("Setting up OMX JPEG input port ...");
 
 	OMX_ERRORTYPE error;
@@ -289,14 +296,14 @@ static int _omx_setup_input(omx_encoder_s *omx, unsigned width, unsigned height,
 	}
 
 #	define IFMT(_next) portdef.format.image._next
-	IFMT(nFrameWidth) = width;
-	IFMT(nFrameHeight) = height;
-	IFMT(nStride) = 0;
-	IFMT(nSliceHeight) = align_size(height, 16);
+	IFMT(nFrameWidth) = align_size(frame->width, 32);
+	IFMT(nFrameHeight) = frame->height;
+	IFMT(nStride) = align_size(frame->width, 32) << 1;
+	IFMT(nSliceHeight) = align_size(frame->height, 16);
 	IFMT(bFlagErrorConcealment) = OMX_FALSE;
 	IFMT(eCompressionFormat) = OMX_IMAGE_CodingUnused;
-	portdef.nBufferSize = ((width * height) << 1) * 2;
-	switch (format) {
+	portdef.nBufferSize = ((frame->width * frame->height) << 1) * 2;
+	switch (frame->format) {
 		// https://www.fourcc.org/yuv.php
 		// Also see comments inside OMX_IVCommon.h
 		case V4L2_PIX_FMT_YUYV:		IFMT(eColorFormat) = OMX_COLOR_FormatYCbYCr; break;
@@ -307,7 +314,7 @@ static int _omx_setup_input(omx_encoder_s *omx, unsigned width, unsigned height,
 		// FIXME: RGB24 не работает нормально, нижняя половина экрана зеленая.
 		// FIXME: Китайский EasyCap тоже не работает, мусор на экране.
 		// Вероятно обе проблемы вызваны некорректной реализацией OMX на пае.
-		default: assert(0 && "Unsupported input format for OMX JPEG encoder");
+		default: assert(0 && "Unsupported pixelformat");
 	}
 #	undef IFMT
 
@@ -358,43 +365,31 @@ static int _omx_setup_output(omx_encoder_s *omx, unsigned quality) {
 		return -1;
 	}
 
-	{
-		OMX_CONFIG_BOOLEANTYPE exif;
-
-		OMX_INIT_STRUCTURE(exif);
-		exif.bEnabled = OMX_FALSE;
-
-		if ((error = OMX_SetParameter(omx->comp, OMX_IndexParamBrcmDisableEXIF, &exif)) != OMX_ErrorNone) {
-			LOG_ERROR_OMX(error, "Can't disable EXIF on OMX JPEG");
-			return -1;
+#	define SET_PARAM(_key, _value) { \
+			if ((error = OMX_SetParameter(omx->comp, OMX_IndexParam##_key, _value)) != OMX_ErrorNone) { \
+				LOG_ERROR_OMX(error, "Can't set OMX param %s", #_key); \
+				return -1; \
+			} \
 		}
-	}
 
-	{
-		OMX_PARAM_IJGSCALINGTYPE ijg;
+	OMX_CONFIG_BOOLEANTYPE exif;
+	OMX_INIT_STRUCTURE(exif);
+	exif.bEnabled = OMX_FALSE;
+	SET_PARAM(BrcmDisableEXIF, &exif);
 
-		OMX_INIT_STRUCTURE(ijg);
-		ijg.nPortIndex = _OUTPUT_PORT;
-		ijg.bEnabled = OMX_TRUE;
+	OMX_PARAM_IJGSCALINGTYPE ijg;
+	OMX_INIT_STRUCTURE(ijg);
+	ijg.nPortIndex = _OUTPUT_PORT;
+	ijg.bEnabled = OMX_TRUE;
+	SET_PARAM(BrcmEnableIJGTableScaling, &ijg);
 
-		if ((error = OMX_SetParameter(omx->comp, OMX_IndexParamBrcmEnableIJGTableScaling, &ijg)) != OMX_ErrorNone) {
-			LOG_ERROR_OMX(error, "Can't set OMX JPEG IJG settings");
-			return -1;
-		}
-	}
+	OMX_IMAGE_PARAM_QFACTORTYPE qfactor;
+	OMX_INIT_STRUCTURE(qfactor);
+	qfactor.nPortIndex = _OUTPUT_PORT;
+	qfactor.nQFactor = quality;
+	SET_PARAM(QFactor, &qfactor);
 
-	{
-		OMX_IMAGE_PARAM_QFACTORTYPE qfactor;
-
-		OMX_INIT_STRUCTURE(qfactor);
-		qfactor.nPortIndex = _OUTPUT_PORT;
-		qfactor.nQFactor = quality;
-
-		if ((error = OMX_SetParameter(omx->comp, OMX_IndexParamQFactor, &qfactor)) != OMX_ErrorNone) {
-			LOG_ERROR_OMX(error, "Can't set OMX JPEG quality");
-			return -1;
-		}
-	}
+#	undef SET_PARAM
 
 	if (omx_component_enable_port(&omx->comp, _OUTPUT_PORT) < 0) {
 		return -1;

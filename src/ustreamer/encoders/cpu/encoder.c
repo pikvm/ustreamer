@@ -113,6 +113,7 @@ static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg, const 
 	uint8_t *line_buffer;
 	A_CALLOC(line_buffer, frame->width * 3);
 
+	const unsigned padding = frame_get_padding(frame);
 	const uint8_t *data = frame->data;
 	unsigned z = 0;
 
@@ -137,9 +138,9 @@ static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg, const 
 				data += 4;
 			}
 		}
+		data += padding;
 
-		JSAMPROW scanlines[1];
-		scanlines[0] = line_buffer;
+		JSAMPROW scanlines[1] = {line_buffer};
 		jpeg_write_scanlines(jpeg, scanlines, 1);
 	}
 
@@ -150,13 +151,14 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const 
 	uint8_t *line_buffer;
 	A_CALLOC(line_buffer, frame->width * 3);
 
+	const unsigned padding = frame_get_padding(frame);
 	const uint8_t *data = frame->data;
 	unsigned z = 0;
 
 	while (jpeg->next_scanline < frame->height) {
 		uint8_t *ptr = line_buffer;
 
-		for(unsigned x = 0; x < frame->width; ++x) {
+		for (unsigned x = 0; x < frame->width; ++x) {
 			int y = (!z ? data[1] << 8 : data[3] << 8);
 			int u = data[0] - 128;
 			int v = data[2] - 128;
@@ -174,9 +176,9 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const 
 				data += 4;
 			}
 		}
+		data += padding;
 
-		JSAMPROW scanlines[1];
-		scanlines[0] = line_buffer;
+		JSAMPROW scanlines[1] = {line_buffer};
 		jpeg_write_scanlines(jpeg, scanlines, 1);
 	}
 
@@ -192,12 +194,13 @@ static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, cons
 	uint8_t *line_buffer;
 	A_CALLOC(line_buffer, frame->width * 3);
 
+	const unsigned padding = frame_get_padding(frame);
 	const uint8_t *data = frame->data;
 
 	while (jpeg->next_scanline < frame->height) {
 		uint8_t *ptr = line_buffer;
 
-		for(unsigned x = 0; x < frame->width; ++x) {
+		for (unsigned x = 0; x < frame->width; ++x) {
 			unsigned int two_byte = (data[1] << 8) + data[0];
 
 			*(ptr++) = data[1] & 248; // Red
@@ -206,9 +209,9 @@ static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, cons
 
 			data += 2;
 		}
+		data += padding;
 
-		JSAMPROW scanlines[1];
-		scanlines[0] = line_buffer;
+		JSAMPROW scanlines[1] = {line_buffer};
 		jpeg_write_scanlines(jpeg, scanlines, 1);
 	}
 
@@ -216,10 +219,14 @@ static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, cons
 }
 
 static void _jpeg_write_scanlines_rgb24(struct jpeg_compress_struct *jpeg, const frame_s *frame) {
+	const unsigned padding = frame_get_padding(frame);
+	uint8_t *data = frame->data;
+
 	while (jpeg->next_scanline < frame->height) {
-		JSAMPROW scanlines[1];
-		scanlines[0] = (uint8_t *)(frame->data + jpeg->next_scanline * frame->width * 3);
+		JSAMPROW scanlines[1] = {data};
 		jpeg_write_scanlines(jpeg, scanlines, 1);
+
+		data += (jpeg->next_scanline * frame->width * 3) + padding;
 	}
 }
 

@@ -51,6 +51,7 @@ typedef struct {
 	unsigned	width;
 	unsigned	height;
 	unsigned	format;
+	unsigned	stride;
 	bool		online;
 	long double	grab_ts;
 	long double	encode_begin_ts;

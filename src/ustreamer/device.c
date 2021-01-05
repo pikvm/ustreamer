@@ -57,7 +57,7 @@ static const struct {
 static int _device_open_check_cap(device_s *dev);
 static int _device_open_dv_timings(device_s *dev);
 static int _device_apply_dv_timings(device_s *dev);
-static int _device_open_format(device_s *dev);
+static int _device_open_format(device_s *dev, bool first);
 static void _device_open_hw_fps(device_s *dev);
 static void _device_open_jpeg_quality(device_s *dev);
 static int _device_open_io_method(device_s *dev);
@@ -149,7 +149,7 @@ int device_open(device_s *dev) {
 	if (_device_open_dv_timings(dev) < 0) {
 		goto error;
 	}
-	if (_device_open_format(dev) < 0) {
+	if (_device_open_format(dev, true) < 0) {
 		goto error;
 	}
 	_device_open_hw_fps(dev);
@@ -327,6 +327,7 @@ int device_grab_buffer(device_s *dev, hw_buffer_s **hw) {
 	HW(raw.width) = RUN(width);
 	HW(raw.height) = RUN(height);
 	HW(raw.format) = RUN(format);
+	HW(raw.stride) = RUN(stride);
 	HW(raw.online) = true;
 	memcpy(&HW(buf_info), &buf_info, sizeof(struct v4l2_buffer));
 	HW(raw.grab_ts) = get_now_monotonic();
@@ -464,7 +465,9 @@ static int _device_apply_dv_timings(device_s *dev) {
 	return 0;
 }
 
-static int _device_open_format(device_s *dev) {
+static int _device_open_format(device_s *dev, bool first) {
+	const unsigned stride = align_size(RUN(width), 32) << 1;
+
 	struct v4l2_format fmt;
 	MEMSET_ZERO(fmt);
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -472,21 +475,27 @@ static int _device_open_format(device_s *dev) {
 	fmt.fmt.pix.height = RUN(height);
 	fmt.fmt.pix.pixelformat = dev->format;
 	fmt.fmt.pix.field = V4L2_FIELD_ANY;
+	fmt.fmt.pix.bytesperline = stride;
 
 	// Set format
 	LOG_DEBUG("Calling ioctl(VIDIOC_S_FMT) ...");
 	if (xioctl(RUN(fd), VIDIOC_S_FMT, &fmt) < 0) {
-		LOG_PERROR("Unable to set pixelformat=%s, resolution=%ux%u",
-			_format_to_string_supported(dev->format), RUN(width), RUN(height));
+		LOG_PERROR("Unable to set pixelformat=%s, stride=%u, resolution=%ux%u",
+			_format_to_string_supported(dev->format), stride, RUN(width), RUN(height));
 		return -1;
 	}
 
 	// Check resolution
+	bool retry = false;
 	if (fmt.fmt.pix.width != RUN(width) || fmt.fmt.pix.height != RUN(height)) {
 		LOG_ERROR("Requested resolution=%ux%u is unavailable", RUN(width), RUN(height));
+		retry = true;
 	}
 	if (_device_apply_resolution(dev, fmt.fmt.pix.width, fmt.fmt.pix.height) < 0) {
 		return -1;
+	}
+	if (first && retry) {
+		return _device_open_format(dev, false);
 	}
 	LOG_INFO("Using resolution: %ux%u", RUN(width), RUN(height));
 
@@ -511,6 +520,7 @@ static int _device_open_format(device_s *dev) {
 	RUN(format) = fmt.fmt.pix.pixelformat;
 	LOG_INFO("Using pixelformat: %s", _format_to_string_supported(RUN(format)));
 
+	RUN(stride) = fmt.fmt.pix.bytesperline;
 	RUN(raw_size) = fmt.fmt.pix.sizeimage; // Only for userptr
 	return 0;
 }

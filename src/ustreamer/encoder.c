@@ -97,13 +97,13 @@ void encoder_prepare(encoder_s *enc, device_s *dev) {
 	ER(n_workers) = min_u(enc->n_workers, DR(n_buffers));
 
 	if ((DR(format) == V4L2_PIX_FMT_MJPEG || DR(format) == V4L2_PIX_FMT_JPEG) && type != ENCODER_TYPE_HW) {
-		LOG_INFO("Switching to HW encoder because the input format is (M)JPEG");
+		LOG_INFO("Switching to HW encoder: the input is (M)JPEG ...");
 		type = ENCODER_TYPE_HW;
 	}
 
 	if (type == ENCODER_TYPE_HW) {
 		if (DR(format) != V4L2_PIX_FMT_MJPEG && DR(format) != V4L2_PIX_FMT_JPEG) {
-			LOG_INFO("Switching to CPU encoder because the input format is not (M)JPEG");
+			LOG_INFO("Switching to CPU encoder: the input format is not (M)JPEG ...");
 			goto use_cpu;
 		}
 		quality = DR(jpeg_quality);
@@ -111,8 +111,8 @@ void encoder_prepare(encoder_s *enc, device_s *dev) {
 	}
 #	ifdef WITH_OMX
 	else if (type == ENCODER_TYPE_OMX) {
-		if (align_size(DR(width), 32) != DR(width) || align_size(DR(height), 16) != DR(height)) {
-			LOG_INFO("Switching to CPU encoder because OMX can't handle %ux%u", DR(width), DR(height));
+		if (align_size(DR(width), 32) != DR(width)) {
+			LOG_INFO("Switching to CPU encoder: OMX can't handle width=%u ...", DR(width));
 			goto use_cpu;
 		}
 
@@ -135,9 +135,18 @@ void encoder_prepare(encoder_s *enc, device_s *dev) {
 			}
 		}
 
+		frame_s frame;
+		MEMSET_ZERO(frame);
+		frame.width = DR(width);
+		frame.height = DR(height);
+		frame.format = DR(format);
+		frame.stride = DR(stride);
+
 		for (unsigned index = 0; index < ER(n_omxs); ++index) {
-			if (omx_encoder_prepare(ER(omxs[index]), DR(width), DR(height), DR(format), quality) < 0) {
-				LOG_ERROR("Can't prepare OMX encoder, falling back to CPU");
+			int omx_error = omx_encoder_prepare(ER(omxs[index]), &frame, quality);
+			if (omx_error == -2) {
+				goto use_cpu;
+			} else if (omx_error < 0) {
 				goto force_cpu;
 			}
 		}
@@ -154,6 +163,7 @@ void encoder_prepare(encoder_s *enc, device_s *dev) {
 #	pragma GCC diagnostic push
 	// cppcheck-suppress unusedLabel
 	force_cpu:
+		LOG_ERROR("Forced CPU encoder permanently");
 		cpu_forced = true;
 #	pragma GCC diagnostic pop
 
@@ -196,6 +206,7 @@ int encoder_compress(encoder_s *enc, unsigned worker_number, frame_s *src, frame
 
 	frame_copy_meta(src, dest);
 	dest->format = V4L2_PIX_FMT_JPEG;
+	dest->stride = 0;
 	dest->encode_begin_ts = get_now_monotonic();
 	dest->used = 0;
 

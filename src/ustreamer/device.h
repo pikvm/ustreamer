@@ -81,6 +81,7 @@ typedef struct {
 	unsigned	width;
 	unsigned	height;
 	unsigned	format;
+	unsigned	stride;
 	unsigned	hw_fps;
 	unsigned	jpeg_quality;
 	size_t		raw_size;

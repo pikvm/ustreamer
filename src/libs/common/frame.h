@@ -29,20 +29,28 @@
 #include <string.h>
 #include <assert.h>
 
+#include <linux/videodev2.h>
+
 #include "tools.h"
 #include "logging.h"
 
 
 typedef struct {
-	const char	*name;
+	const char *name;
 
-	uint8_t		*data;
-	size_t		used;
-	size_t		allocated;
-	unsigned	width;
-	unsigned	height;
-	unsigned	format;
-	bool		online;
+	uint8_t	*data;
+	size_t	used;
+	size_t	allocated;
+
+	unsigned width;
+	unsigned height;
+	unsigned format;
+	unsigned stride;
+	// Stride is a bytesperline in V4L2
+	// https://www.kernel.org/doc/html/v4.14/media/uapi/v4l/pixfmt-v4l2.html
+	// https://medium.com/@oleg.shipitko/what-does-stride-mean-in-image-processing-bba158a72bcd
+
+	bool online;
 
 	long double	grab_ts;
 	long double	encode_begin_ts;
@@ -62,5 +70,7 @@ void frame_append_data(frame_s *frame, const uint8_t *data, size_t size);
 void frame_copy(const frame_s *src, frame_s *dest);
 void frame_copy_meta(const frame_s *src, frame_s *dest);
 bool frame_compare(const frame_s *a, const frame_s *b);
+
+unsigned frame_get_padding(const frame_s *frame);
 
 const char *fourcc_to_string(unsigned format, char *buf, size_t size);

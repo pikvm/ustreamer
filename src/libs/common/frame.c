@@ -79,6 +79,7 @@ void frame_copy_meta(const frame_s *src, frame_s *dest) {
 	COPY(width);
 	COPY(height);
 	COPY(format);
+	COPY(stride);
 	COPY(online);
 	COPY(grab_ts);
 	COPY(encode_begin_ts);
@@ -88,14 +89,35 @@ void frame_copy_meta(const frame_s *src, frame_s *dest) {
 #undef COPY
 
 bool frame_compare(const frame_s *a, const frame_s *b) {
+#	define CMP(_field) (a->_field == b->_field)
 	return (
 		a->allocated && b->allocated
-		&& a->used == b->used
-		&& a->width == b->width
-		&& a->height == b->height
-		&& a->online == b->online
+		&& CMP(used)
+		&& CMP(width)
+		&& CMP(height)
+		&& CMP(format)
+		&& CMP(stride)
+		&& CMP(online)
 		&& !memcmp(a->data, b->data, b->used)
 	);
+#	undef CMP
+}
+
+unsigned frame_get_padding(const frame_s *frame) {
+	unsigned bytes_per_pixel = 0;
+	switch (frame->format) {
+		case V4L2_PIX_FMT_YUYV:
+		case V4L2_PIX_FMT_UYVY:
+		case V4L2_PIX_FMT_RGB565: bytes_per_pixel = 2; break;
+		case V4L2_PIX_FMT_RGB24: bytes_per_pixel = 3; break;
+		case V4L2_PIX_FMT_MJPEG:
+		case V4L2_PIX_FMT_JPEG: bytes_per_pixel = 0; break;
+		default: assert(0 && "Unknown pixelformat");
+	}
+	if (bytes_per_pixel > 0 && frame->stride > frame->width) {
+		return (frame->stride - frame->width * bytes_per_pixel);
+	}
+	return 0;
 }
 
 const char *fourcc_to_string(unsigned format, char *buf, size_t size) {
