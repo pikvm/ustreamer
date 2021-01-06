@@ -38,9 +38,9 @@ enum _OPT_VALUES {
 	_O_WORKERS = 'w',
 	_O_QUALITY = 'q',
 	_O_ENCODER = 'c',
-#ifdef WITH_OMX
+#	ifdef WITH_OMX
 	_O_GLITCHED_RESOLUTIONS = 'g',
-#endif
+#	endif
 
 	_O_HOST = 's',
 	_O_PORT = 'p',
@@ -93,20 +93,20 @@ enum _OPT_VALUES {
 #	endif
 #	undef ADD_SINK
 
-#ifdef WITH_GPIO
+#	ifdef WITH_GPIO
 	_O_GPIO_DEVICE,
 	_O_GPIO_CONSUMER_PREFIX,
 	_O_GPIO_PROG_RUNNING,
 	_O_GPIO_STREAM_ONLINE,
 	_O_GPIO_HAS_HTTP_CLIENTS,
-#endif
+#	endif
 
-#ifdef HAS_PDEATHSIG
+#	ifdef HAS_PDEATHSIG
 	_O_EXIT_ON_PARENT_DEATH,
-#endif
-#ifdef WITH_SETPROCTITLE
+#	endif
+#	ifdef WITH_SETPROCTITLE
 	_O_PROCESS_NAME_PREFIX,
-#endif
+#	endif
 	_O_NOTIFY_PARENT,
 
 	_O_LOG_LEVEL,
@@ -182,20 +182,20 @@ static const struct option _LONG_OPTS[] = {
 #	endif
 #	undef ADD_SINK
 
-#ifdef WITH_GPIO
+#	ifdef WITH_GPIO
 	{"gpio-device",				required_argument,	NULL,	_O_GPIO_DEVICE},
 	{"gpio-consumer-prefix",	required_argument,	NULL,	_O_GPIO_CONSUMER_PREFIX},
 	{"gpio-prog-running",		required_argument,	NULL,	_O_GPIO_PROG_RUNNING},
 	{"gpio-stream-online",		required_argument,	NULL,	_O_GPIO_STREAM_ONLINE},
 	{"gpio-has-http-clients",	required_argument,	NULL,	_O_GPIO_HAS_HTTP_CLIENTS},
-#endif
+#	endif
 
-#ifdef HAS_PDEATHSIG
+#	ifdef HAS_PDEATHSIG
 	{"exit-on-parent-death",	no_argument,		NULL,	_O_EXIT_ON_PARENT_DEATH},
-#endif
-#ifdef WITH_SETPROCTITLE
+#	endif
+#	ifdef WITH_SETPROCTITLE
 	{"process-name-prefix",		required_argument,	NULL,	_O_PROCESS_NAME_PREFIX},
-#endif
+#	endif
 	{"notify-parent",			no_argument,		NULL,	_O_NOTIFY_PARENT},
 
 	{"log-level",				required_argument,	NULL,	_O_LOG_LEVEL},
@@ -562,7 +562,7 @@ static void _features(void) {
 static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, server_s *server) {
 #	define SAY(_msg, ...) fprintf(fp, _msg "\n", ##__VA_ARGS__)
 	SAY("\nuStreamer - Lightweight and fast MJPG-HTTP streamer");
-	SAY("═══════════════════════════════════════════════════\n");
+	SAY("═══════════════════════════════════════════════════");
 	SAY("Version: %s; license: GPLv3", VERSION);
 	SAY("Copyright (C) 2018 Maxim Devaev <mdevaev@gmail.com>\n");
 	SAY("Capturing options:");
@@ -655,7 +655,7 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 #	define ADD_SINK(_lower, _upper) \
 		SAY(#_upper " sink options:"); \
 		SAY("══════════════════"); \
-		SAY("    --" #_lower "-sink <name>  ──────── Use the shared memory to sink " #_upper " frames. Default: disabled."); \
+		SAY("    --" #_lower "-sink <name>  ──────── Use the shared memory to sink " #_upper " frames. Default: disabled.\n"); \
 		SAY("    --" #_lower "-sink-mode <mode>  ─── Set " #_upper " sink permissions (like 777). Default: 660.\n"); \
 		SAY("    --" #_lower "-sink-rm  ──────────── Remove shared memory on stop. Default: disabled.\n"); \
 		SAY("    --" #_lower "-sink-timeout <sec>  ─ Timeout for lock. Default: 1.\n");
