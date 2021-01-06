@@ -25,5 +25,5 @@ BDEPEND=""
 
 src_install() {
 	dobin ustreamer
-	doman ustreamer.1
+	doman man/ustreamer.1
 }
