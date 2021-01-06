@@ -36,6 +36,7 @@
 #include "../libs/common/threading.h"
 #include "../libs/common/logging.h"
 #include "../libs/common/frame.h"
+#include "../libs/memsink/memsink.h"
 
 #include "blank.h"
 #include "device.h"
@@ -43,7 +44,6 @@
 #include "workers.h"
 #ifdef WITH_OMX
 #	include "h264/encoder.h"
-#	include "../libs/memsink/memsink.h"
 #endif
 #ifdef WITH_GPIO
 #	include "gpio/gpio.h"
@@ -78,6 +78,7 @@ typedef struct {
 	device_s	*dev;
 	encoder_s	*enc;
 	frame_s		*blank;
+	memsink_s	*jpeg_sink;
 #	ifdef WITH_OMX
 	memsink_s	*h264_sink;
 #	endif

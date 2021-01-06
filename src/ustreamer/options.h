@@ -37,9 +37,7 @@
 #include "../libs/common/logging.h"
 #include "../libs/common/process.h"
 #include "../libs/common/frame.h"
-#ifdef WITH_OMX
-#	include "../libs/memsink/memsink.h"
-#endif
+#include "../libs/memsink/memsink.h"
 
 #include "device.h"
 #include "encoder.h"
@@ -56,6 +54,7 @@ typedef struct {
 	char		**argv;
 	char		**argv_copy;
 	frame_s		*blank;
+	memsink_s	*jpeg_sink;
 #	ifdef WITH_OMX
 	memsink_s	*h264_sink;
 #	endif

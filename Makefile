@@ -21,11 +21,12 @@ LINTERS_IMAGE ?= $(USTR)-linters
 # =====
 override CFLAGS += -c -std=c11 -Wall -Wextra -D_GNU_SOURCE
 
-_COMMON_LIBS = -lm -ljpeg -pthread
+_COMMON_LIBS = -lm -ljpeg -pthread -lrt
 
 _USTR_LIBS = $(_COMMON_LIBS) -levent -levent_pthreads -luuid
 _USTR_SRCS = $(shell ls \
 	src/libs/common/*.c \
+	src/libs/memsink/*.c \
 	src/ustreamer/*.c \
 	src/ustreamer/http/*.c \
 	src/ustreamer/data/*.c \
@@ -33,7 +34,7 @@ _USTR_SRCS = $(shell ls \
 	src/ustreamer/encoders/hw/*.c \
 )
 
-_REC_LIBS = $(_COMMON_LIBS) -lrt
+_REC_LIBS = $(_COMMON_LIBS)
 _REC_SRCS = $(shell ls \
 	src/libs/common/*.c \
 	src/libs/memsink/*.c \
@@ -47,10 +48,9 @@ endef
 
 
 ifneq ($(call optbool,$(WITH_OMX)),)
-_USTR_LIBS += -lrt -lbcm_host -lvcos -lopenmaxil -lmmal -lmmal_core -lmmal_util -lmmal_vc_client -lmmal_components -L$(RPI_VC_LIBS)
+_USTR_LIBS += -lbcm_host -lvcos -lopenmaxil -lmmal -lmmal_core -lmmal_util -lmmal_vc_client -lmmal_components -L$(RPI_VC_LIBS)
 override CFLAGS += -DWITH_OMX -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
 _USTR_SRCS += $(shell ls \
-	src/libs/memsink/*.c \
 	src/ustreamer/encoders/omx/*.c \
 	src/ustreamer/h264/*.c \
 )
@@ -122,7 +122,6 @@ $(USTR): $(_USTR_SRCS:%.c=$(BUILD)/%.o)
 	$(info :: LDFLAGS = $(LDFLAGS))
 
 
-ifneq ($(call optbool,$(WITH_OMX)),)
 $(REC): $(_REC_SRCS:%.c=$(BUILD)/%.o)
 	$(info ========================================)
 	$(info == LD $@)
@@ -131,10 +130,6 @@ $(REC): $(_REC_SRCS:%.c=$(BUILD)/%.o)
 	$(info :: LIBS    = $(_REC_LIBS))
 	$(info :: CFLAGS  = $(CFLAGS))
 	$(info :: LDFLAGS = $(LDFLAGS))
-else
-$(REC):
-	@ true
-endif
 
 
 $(BUILD)/%.o: %.c
