@@ -195,12 +195,24 @@ Set Access\-Control\-Allow\-Origin header. Default: disabled.
 .BR \-\-server\-timeout\ \fIsec
 Timeout for client connections. Default: 10.
 
+.SS "JPEG sink options"
+.BR \-\-jpeg\-sink\ \fIname
+Use the specified shared memory object to sink JPEG frames. Default: disabled.
+.TP
+.BR \-\-jpeg\-sink\-mode\ \fImode
+Set JPEG sink permissions (like 777). Default: 660.
+.TP
+.BR \-\-jpeg\-sink\-rm
+Remove shared memory on stop. Default: disabled.
+.TP
+.BR \-\-jpeg\-sink\-timeout\ \fIsec
+Timeout for lock. Default: 1.
+
 .SS "H264 sink options"
 Available only if \fBWITH_OMX\fR feature enabled.
 .TP
 .BR \-\-h264\-sink\ \fIname
-Use the specified shared memory object to sink H264 frames encoded by MMAL.
-Most likely you will never need it. Default: disabled.
+Use the specified shared memory object to sink H264 frames encoded by MMAL. Default: disabled.
 .TP
 .BR \-\-h264\-sink\-mode\ \fImode
 Set H264 sink permissions (like 777). Default: 660.
