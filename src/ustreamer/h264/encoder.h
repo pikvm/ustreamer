@@ -34,10 +34,10 @@
 #include <interface/mmal/util/mmal_component_wrapper.h>
 #include <interface/mmal/util/mmal_util_params.h>
 
-#include "../../libs/common/tools.h"
-#include "../../libs/common/logging.h"
-#include "../../libs/common/frame.h"
-#include "../../libs/common/unjpeg.h"
+#include "../../libs/tools.h"
+#include "../../libs/logging.h"
+#include "../../libs/frame.h"
+#include "../../libs/unjpeg.h"
 
 
 typedef struct {

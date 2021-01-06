@@ -27,10 +27,10 @@
 
 #include <linux/videodev2.h>
 
-#include "../libs/common/tools.h"
-#include "../libs/common/logging.h"
-#include "../libs/common/frame.h"
-#include "../libs/common/unjpeg.h"
+#include "../libs/tools.h"
+#include "../libs/logging.h"
+#include "../libs/frame.h"
+#include "../libs/unjpeg.h"
 
 #include "data/blank_jpeg.h"
 

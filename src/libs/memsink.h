@@ -35,9 +35,9 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#include "../common/tools.h"
-#include "../common/logging.h"
-#include "../common/frame.h"
+#include "tools.h"
+#include "logging.h"
+#include "frame.h"
 
 
 #ifndef CFG_MEMSINK_MAX_DATA

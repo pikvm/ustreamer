@@ -28,8 +28,8 @@
 #include <event2/util.h>
 #include <event2/bufferevent.h>
 
-#include "../../libs/common/tools.h"
-#include "../../libs/common/logging.h"
+#include "../../libs/tools.h"
+#include "../../libs/logging.h"
 
 
 char *bufferevent_my_format_reason(short what);

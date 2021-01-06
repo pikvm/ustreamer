@@ -29,9 +29,9 @@
 
 #include <pthread.h>
 
-#include "../libs/common/tools.h"
-#include "../libs/common/threading.h"
-#include "../libs/common/logging.h"
+#include "../libs/tools.h"
+#include "../libs/threading.h"
+#include "../libs/logging.h"
 
 
 typedef struct worker_sx {

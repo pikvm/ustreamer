@@ -33,11 +33,11 @@
 #include <errno.h>
 #include <assert.h>
 
-#include "../libs/common/config.h"
-#include "../libs/common/logging.h"
-#include "../libs/common/process.h"
-#include "../libs/common/frame.h"
-#include "../libs/memsink/memsink.h"
+#include "../libs/config.h"
+#include "../libs/logging.h"
+#include "../libs/process.h"
+#include "../libs/frame.h"
+#include "../libs/memsink.h"
 
 #include "device.h"
 #include "encoder.h"

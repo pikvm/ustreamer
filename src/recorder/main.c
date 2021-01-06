@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "../libs/common/logging.h"
-#include "../libs/common/frame.h"
-#include "../libs/memsink/memsink.h"
+#include "../libs/logging.h"
+#include "../libs/frame.h"
+#include "../libs/memsink.h"
 
 int main(void) {
 	LOGGING_INIT;

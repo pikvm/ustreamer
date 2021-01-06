@@ -40,9 +40,9 @@
 #	include <IL/OMX_Core.h>
 #endif
 
-#include "../libs/common/tools.h"
-#include "../libs/common/threading.h"
-#include "../libs/common/logging.h"
+#include "../libs/tools.h"
+#include "../libs/threading.h"
+#include "../libs/logging.h"
 
 #include "options.h"
 #include "device.h"

@@ -26,8 +26,8 @@
 
 #include <sys/ioctl.h>
 
-#include "../libs/common/tools.h"
-#include "../libs/common/logging.h"
+#include "../libs/tools.h"
+#include "../libs/logging.h"
 
 
 #ifndef CFG_XIOCTL_RETRIES

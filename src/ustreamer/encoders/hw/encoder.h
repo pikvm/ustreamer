@@ -29,7 +29,7 @@
 
 #include <linux/videodev2.h>
 
-#include "../../../libs/common/frame.h"
+#include "../../../libs/frame.h"
 
 #include "huffman.h"
 

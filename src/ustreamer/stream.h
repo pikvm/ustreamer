@@ -32,11 +32,11 @@
 #include <pthread.h>
 #include <linux/videodev2.h>
 
-#include "../libs/common/tools.h"
-#include "../libs/common/threading.h"
-#include "../libs/common/logging.h"
-#include "../libs/common/frame.h"
-#include "../libs/memsink/memsink.h"
+#include "../libs/tools.h"
+#include "../libs/threading.h"
+#include "../libs/logging.h"
+#include "../libs/frame.h"
+#include "../libs/memsink.h"
 
 #include "blank.h"
 #include "device.h"

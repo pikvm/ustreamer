@@ -26,7 +26,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "../../libs/common/tools.h"
+#include "../../libs/tools.h"
 
 
 char *base64_encode(const uint8_t *str);

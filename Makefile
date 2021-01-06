@@ -25,8 +25,7 @@ _COMMON_LIBS = -lm -ljpeg -pthread -lrt
 
 _USTR_LIBS = $(_COMMON_LIBS) -levent -levent_pthreads -luuid
 _USTR_SRCS = $(shell ls \
-	src/libs/common/*.c \
-	src/libs/memsink/*.c \
+	src/libs/*.c \
 	src/ustreamer/*.c \
 	src/ustreamer/http/*.c \
 	src/ustreamer/data/*.c \
@@ -36,8 +35,7 @@ _USTR_SRCS = $(shell ls \
 
 _REC_LIBS = $(_COMMON_LIBS)
 _REC_SRCS = $(shell ls \
-	src/libs/common/*.c \
-	src/libs/memsink/*.c \
+	src/libs/*.c \
 	src/recorder/*.c \
 )
 
