@@ -105,23 +105,23 @@ regen:
 
 
 $(USTR): $(_USTR_SRCS:%.c=$(BUILD)/%.o)
-	$(info ========================================)
+#	$(info ========================================)
 	$(info == LD $@)
 	@ $(CC) $^ -o $@ $(LDFLAGS) $(_USTR_LIBS)
-	$(info :: CC      = $(CC))
-	$(info :: LIBS    = $(_USTR_LIBS))
-	$(info :: CFLAGS  = $(CFLAGS))
-	$(info :: LDFLAGS = $(LDFLAGS))
+#	$(info :: CC      = $(CC))
+#	$(info :: LIBS    = $(_USTR_LIBS))
+#	$(info :: CFLAGS  = $(CFLAGS))
+#	$(info :: LDFLAGS = $(LDFLAGS))
 
 
 $(DUMP): $(_DUMP_SRCS:%.c=$(BUILD)/%.o)
-	$(info ========================================)
+#	$(info ========================================)
 	$(info == LD $@)
 	@ $(CC) $^ -o $@ $(LDFLAGS) $(_DUMP_LIBS)
-	$(info :: CC      = $(CC))
-	$(info :: LIBS    = $(_DUMP_LIBS))
-	$(info :: CFLAGS  = $(CFLAGS))
-	$(info :: LDFLAGS = $(LDFLAGS))
+#	$(info :: CC      = $(CC))
+#	$(info :: LIBS    = $(_DUMP_LIBS))
+#	$(info :: CFLAGS  = $(CFLAGS))
+#	$(info :: LDFLAGS = $(LDFLAGS))
 
 
 $(BUILD)/%.o: %.c
