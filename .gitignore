@@ -9,4 +9,5 @@
 /config.mk
 /vgcore.*
 /ustreamer
+/ustreamer-dump
 /*.sock

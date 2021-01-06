@@ -1,7 +1,7 @@
 -include config.mk
 
 USTR ?= ustreamer
-REC ?= ustreamer-recorder
+DUMP ?= ustreamer-dump
 DESTDIR ?=
 PREFIX ?= /usr/local
 MANPREFIX ?= $(PREFIX)/share/man
@@ -33,10 +33,10 @@ _USTR_SRCS = $(shell ls \
 	src/ustreamer/encoders/hw/*.c \
 )
 
-_REC_LIBS = $(_COMMON_LIBS)
-_REC_SRCS = $(shell ls \
+_DUMP_LIBS = $(_COMMON_LIBS)
+_DUMP_SRCS = $(shell ls \
 	src/libs/*.c \
-	src/recorder/*.c \
+	src/dump/*.c \
 )
 
 
@@ -78,31 +78,25 @@ endif
 
 
 # =====
-all: $(USTR) $(REC)
+all: $(USTR) $(DUMP)
 
 
-install: $(USTR) $(REC)
+install: $(USTR) $(DUMP)
 	install -Dm755 $(USTR) $(DESTDIR)$(PREFIX)/bin/$(USTR)
+	install -Dm755 $(DUMP) $(DESTDIR)$(PREFIX)/bin/$(DUMP)
 	install -Dm644 $(USTR).1 $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
 	gzip $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
-#ifneq ($(call optbool,$(WITH_OMX)),)
-#	install -Dm755 $(DESTDIR)$(PREFIX)/bin/$(REC)
-#endif
 
 
 install-strip: install
 	strip $(DESTDIR)$(PREFIX)/bin/$(USTR)
-#ifneq ($(call optbool,$(WITH_OMX)),)
-#	strip $(DESTDIR)$(PREFIX)/bin/$(REC)
-#endif
+	strip $(DESTDIR)$(PREFIX)/bin/$(DUMP)
 
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(USTR) \
+		$(DESTDIR)$(PREFIX)/bin/$(DUMP) \
 		$(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
-#ifneq ($(call optbool,$(WITH_OMX)),)
-#	rm -f $(DESTDIR)$(PREFIX)/bin/$(REC)
-#endif
 
 
 regen:
@@ -120,12 +114,12 @@ $(USTR): $(_USTR_SRCS:%.c=$(BUILD)/%.o)
 	$(info :: LDFLAGS = $(LDFLAGS))
 
 
-$(REC): $(_REC_SRCS:%.c=$(BUILD)/%.o)
+$(DUMP): $(_DUMP_SRCS:%.c=$(BUILD)/%.o)
 	$(info ========================================)
 	$(info == LD $@)
-	@ $(CC) $^ -o $@ $(LDFLAGS) $(_REC_LIBS)
+	@ $(CC) $^ -o $@ $(LDFLAGS) $(_DUMP_LIBS)
 	$(info :: CC      = $(CC))
-	$(info :: LIBS    = $(_REC_LIBS))
+	$(info :: LIBS    = $(_DUMP_LIBS))
 	$(info :: CFLAGS  = $(CFLAGS))
 	$(info :: LDFLAGS = $(LDFLAGS))
 
@@ -178,7 +172,7 @@ clean-all: linters clean
 		-it $(LINTERS_IMAGE) bash -c "cd src && rm -rf linters/{.tox,.mypy_cache}"
 clean:
 	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.{xz,zst}
-	rm -rf $(USTR) $(REC) $(BUILD) vgcore.* *.sock
+	rm -rf $(USTR) $(DUMP) $(BUILD) vgcore.* *.sock
 
 
 .PHONY: linters
