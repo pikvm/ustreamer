@@ -263,7 +263,7 @@ int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest
 	dest->format = V4L2_PIX_FMT_H264;
 	dest->stride = 0;
 
-	if (src->format == V4L2_PIX_FMT_MJPEG || src->format == V4L2_PIX_FMT_JPEG) {
+	if (is_jpeg(src->format)) {
 		LOG_DEBUG("H264: Input frame format is JPEG; decoding ...");
 		if (unjpeg(src, RUN(tmp), true) < 0) {
 			return -1;

@@ -96,13 +96,13 @@ void encoder_prepare(encoder_s *enc, device_s *dev) {
 
 	ER(n_workers) = min_u(enc->n_workers, DR(n_buffers));
 
-	if ((DR(format) == V4L2_PIX_FMT_MJPEG || DR(format) == V4L2_PIX_FMT_JPEG) && type != ENCODER_TYPE_HW) {
+	if (is_jpeg(DR(format)) && type != ENCODER_TYPE_HW) {
 		LOG_INFO("Switching to HW encoder: the input is (M)JPEG ...");
 		type = ENCODER_TYPE_HW;
 	}
 
 	if (type == ENCODER_TYPE_HW) {
-		if (DR(format) != V4L2_PIX_FMT_MJPEG && DR(format) != V4L2_PIX_FMT_JPEG) {
+		if (!is_jpeg(DR(format))) {
 			LOG_INFO("Switching to CPU encoder: the input format is not (M)JPEG ...");
 			goto use_cpu;
 		}

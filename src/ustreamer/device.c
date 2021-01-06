@@ -582,7 +582,7 @@ static void _device_open_hw_fps(device_s *dev) {
 static void _device_open_jpeg_quality(device_s *dev) {
 	unsigned quality = 0;
 
-	if (RUN(format) == V4L2_PIX_FMT_MJPEG || RUN(format) == V4L2_PIX_FMT_JPEG) {
+	if (is_jpeg(RUN(format))) {
 		struct v4l2_jpegcompression comp;
 		MEMSET_ZERO(comp);
 

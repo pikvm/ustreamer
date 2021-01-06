@@ -34,6 +34,8 @@ static void _jpeg_error_handler(j_common_ptr jpeg);
 
 
 int unjpeg(const frame_s *src, frame_s *dest, bool decode) {
+	assert(is_jpeg(src->format));
+
 	volatile int retval = 0;
 
 	struct jpeg_decompress_struct jpeg;

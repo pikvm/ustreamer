@@ -74,3 +74,7 @@ bool frame_compare(const frame_s *a, const frame_s *b);
 unsigned frame_get_padding(const frame_s *frame);
 
 const char *fourcc_to_string(unsigned format, char *buf, size_t size);
+
+inline bool is_jpeg(unsigned format) {
+	return (format == V4L2_PIX_FMT_JPEG || format == V4L2_PIX_FMT_MJPEG);
+}
