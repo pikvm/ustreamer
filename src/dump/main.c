@@ -276,7 +276,7 @@ static void _help(FILE *fp) {
 	SAY("\nuStreamer-dump - Dump uStreamer's memory sink to file");
 	SAY("═════════════════════════════════════════════════════");
 	SAY("Version: %s; license: GPLv3", VERSION);
-	SAY("Copyright (C) 2018 Maxim Devaev <mdevaev@gmail.com>\n");
+	SAY("Copyright (C) 2018-2021 Maxim Devaev <mdevaev@gmail.com>\n");
 	SAY("Example:");
 	SAY("════════");
 	SAY("    ustreamer-dump --sink test --output - \\");
