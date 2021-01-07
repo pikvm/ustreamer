@@ -35,7 +35,7 @@ static workers_pool_s *_stream_init_loop(stream_s *stream);
 static workers_pool_s *_stream_init_one(stream_s *stream);
 static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps);
 
-static void *_worker_job_init(worker_s *wr, void *v_arg);
+static void *_worker_job_init(worker_s *wr, void *v_enc);
 static void _worker_job_destroy(void *v_job);
 static bool _worker_run_job(worker_s *wr);
 
@@ -304,7 +304,7 @@ static workers_pool_s *_stream_init_one(stream_s *stream) {
 
 	return workers_pool_init(
 		"JPEG", "jw", stream->enc->run->n_workers, desired_interval,
-		_worker_job_init, (void *)stream,
+		_worker_job_init, (void *)stream->enc,
 		_worker_job_destroy,
 		_worker_run_job);
 
@@ -370,12 +370,10 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 #	undef VID
 }
 
-static void *_worker_job_init(worker_s *wr, void *v_stream) {
-	stream_s *stream = (stream_s *)v_stream;
-
+static void *_worker_job_init(worker_s *wr, void *v_enc) {
 	_job_s *job;
 	A_CALLOC(job, 1);
-	job->enc = stream->enc;
+	job->enc = (encoder_s *)v_enc;
 
 	const size_t dest_role_len = strlen(wr->name) + 16;
 	A_CALLOC(job->dest_role, dest_role_len);
@@ -384,6 +382,7 @@ static void *_worker_job_init(worker_s *wr, void *v_stream) {
 
 	return (void *)job;
 }
+
 static void _worker_job_destroy(void *v_job) {
 	_job_s *job = (_job_s *)v_job;
 	frame_destroy(job->dest);
