@@ -36,6 +36,7 @@ endef
 define Package/ustreamer/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/ustreamer $(1)/usr/bin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/ustreamer-dump $(1)/usr/bin/
 	$(INSTALL_DIR) $(1)/etc/config
 	$(CP) ./files/ustreamer.config $(1)/etc/config/ustreamer
 	$(INSTALL_DIR) $(1)/etc/init.d
