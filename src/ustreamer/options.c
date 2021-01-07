@@ -609,7 +609,7 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("                                             * HW  ─── Use pre-encoded MJPG frames directly from camera hardware.");
 	SAY("                                             * NOOP  ─ Don't compress MJPG stream (do nothing).\n");
 #	ifdef WITH_OMX
-	SAY("    -g|--glitched-resolutions <WxH,...>  ─ It doesn't do anything. Still here for compatibility. Default: disabled.\n");
+	SAY("    -g|--glitched-resolutions <WxH,...>  ─ It doesn't do anything. Still here for compatibility.\n");
 #	endif
 	SAY("    -k|--blank <path>  ─────────────────── Path to JPEG file that will be shown when the device is disconnected");
 	SAY("                                           during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.\n");

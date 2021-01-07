@@ -7,25 +7,26 @@ ustreamer-dump \- Dump uStreamer's memory sink to file
 
 .SH SYNOPSIS
 .B ustreamer-dump
-.RI [OPTION]
+.RI [OPTIONS]
 
 .SH DESCRIPTION
 µStreamer-dump (\fBustreamer-dump\fP) writes a local stream from ustreamer to a file or redirect it to other utilities (such as \fBffmpeg\fR).
 
 .SH USAGE
-\fBustreamer\fR requires at least the \fB\-\-sink\fR option to operate.
+\fBustreamer\fR requires at least the \fB\-\-???\-sink\fR option to operate.
 
 To output ustreamers sink "test" to ffmpeg, and into a file called test.mp4:
+
 \fBustreamer-dump \e\fR
 .RS
 \fB\-\-sink=test \e\fR # Use ustreamer sink "test"
 .nf
 \fB\-\-output\ \- \e\fR # Output to stdout
-\fB\ |\ ffmpeg\ \-use_wallclock_as_timestamps\ 1\ \-i\ pipe:\ \-c:v\ libx264\ test\.mp4\fR
+\fB|\ ffmpeg\ \-use_wallclock_as_timestamps\ 1\ \-i\ pipe:\ \-c:v\ libx264\ test\.mp4\fR
 
 .SH OPTIONS
 .SS "Sink options"
-
+.TP
 .BR \-s ", " \-\-sink\ \fIname
 Memory sink ID. No default.
 .TP
@@ -39,6 +40,7 @@ Filename to dump output to. Use '-' for stdout. Default: just consume the sink.
 Format output as JSON. Required option --output. Default: disabled.
 
 .SS "Logging options"
+.TP
 .BR \-\-log\-level\ \fIN
 Verbosity level of messages from 0 (info) to 3 (debug). Enabling debugging messages can slow down the program.
 Available levels: 0 (info), 1 (performance), 2 (verbose), 3 (debug).
@@ -60,11 +62,15 @@ Force color logging. Default: colored if stderr is a TTY.
 Disable color logging. Default: ditto.
 
 .SS "Help options"
+.TP
 .BR \-h ", " \-\-help
 Print this text and exit.
 .TP
 .BR \-v ", " \-\-version
 Print version and exit.
+
+.SH "SEE ALSO"
+.BR ustreamer (1)
 
 .SH BUGS
 Please file any bugs and issues at \fIhttps://github.com/pikvm/ustreamer/issues\fR

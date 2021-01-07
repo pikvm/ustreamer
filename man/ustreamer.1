@@ -7,7 +7,7 @@ ustreamer \- stream MJPG video from any V4L2 device to the network
 
 .SH SYNOPSIS
 .B ustreamer
-.RI [OPTION]
+.RI [OPTIONS]
 
 .SH DESCRIPTION
 µStreamer (\fBustreamer\fP) is a lightweight and very quick server to stream MJPG video from any V4L2 device to the network. All new browsers have native support of this video format, as well as most video players such as mplayer, VLC etc. µStreamer is a part of the Pi-KVM project designed to stream VGA and HDMI screencast hardware data with the highest resolution and FPS possible.
@@ -40,6 +40,7 @@ You can always view the full list of options with \fBustreamer \-\-help\fR\. Som
 
 .SH OPTIONS
 .SS "Capturing options"
+.TP
 .BR \-d\ \fI/dev/path ", " \-\-device\ \fI/dev/path
 Path to V4L2 device. Default: /dev/video0.
 .TP
@@ -97,7 +98,7 @@ HW ─ Use pre-encoded MJPG frames directly from camera hardware.
 NOOP ─ Don't compress MJPG stream (do nothing).
 .TP
 .BR \-g\ \fIWxH,... ", " \-\-glitched\-resolutions\ \fIWxH,...
-It doesn't do anything. Still here for compatibility. Required \fBWITH_OMX\fR feature. Default: disabled.
+It doesn't do anything. Still here for compatibility. Required \fBWITH_OMX\fR feature.
 .TP
 .BR \-k\ \fIpath ", " \-\-blank\ \fIpath
 Path to JPEG file that will be shown when the device is disconnected during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.
@@ -112,6 +113,7 @@ Timeout for device querying. Default: 1.
 Delay before trying to connect to the device again after an error (timeout for example). Default: 1.
 
 .SS "Image control options"
+.TP
 .BR \-\-image\-default
 Reset all image settings bellow to default. Default: no change.
 .TP
@@ -152,6 +154,7 @@ Set vertical flip. Default: no change.
 Set horizontal flip. Default: no change.
 
 .SS "HTTP server options"
+.TP
 .BR \-s\ \fIaddress ", " \-\-host\ \fIaddress
 Listen on Hostname or IP. Default: 127.0.0.1.
 .TP
@@ -196,6 +199,8 @@ Set Access\-Control\-Allow\-Origin header. Default: disabled.
 Timeout for client connections. Default: 10.
 
 .SS "JPEG sink options"
+With shared memory sink you can write a stream to a file. See \fBustreamer-dump\fR(1) for more info.
+.TP
 .BR \-\-jpeg\-sink\ \fIname
 Use the specified shared memory object to sink JPEG frames. Default: disabled.
 .TP
@@ -209,6 +214,7 @@ Remove shared memory on stop. Default: disabled.
 Timeout for lock. Default: 1.
 
 .SS "H264 sink options"
+.TP
 Available only if \fBWITH_OMX\fR feature enabled.
 .TP
 .BR \-\-h264\-sink\ \fIname
@@ -224,6 +230,7 @@ Remove shared memory on stop. Default: disabled.
 Timeout for lock. Default: 1.
 
 .SS "Process options"
+.TP
 .BR \-\-exit\-on\-parent\-death
 Exit the program if the parent process is dead. Required \fBHAS_PDEATHSIG\fR feature. Default: disabled.
 .TP
@@ -252,6 +259,7 @@ Set 1 while streaming. Default: disabled.
 Set 1 while stream has at least one client. Default: disabled.
 
 .SS "Logging options"
+.TP
 .BR \-\-log\-level\ \fIN
 Verbosity level of messages from 0 (info) to 3 (debug). Enabling debugging messages can slow down the program.
 Available levels: 0 (info), 1 (performance), 2 (verbose), 3 (debug).
@@ -273,6 +281,7 @@ Force color logging. Default: colored if stderr is a TTY.
 Disable color logging. Default: ditto.
 
 .SS "Help options"
+.TP
 .BR \-h ", " \-\-help
 Print this text and exit.
 .TP
@@ -281,6 +290,9 @@ Print version and exit.
 .TP
 .BR \-\-features
 Print list of supported features.
+
+.SH "SEE ALSO"
+.BR ustreamer-dump (1)
 
 .SH BUGS
 Please file any bugs and issues at \fIhttps://github.com/pikvm/ustreamer/issues\fR
