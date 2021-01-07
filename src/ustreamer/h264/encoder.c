@@ -91,6 +91,12 @@ void h264_encoder_destroy(h264_encoder_s *enc) {
 	free(enc);
 }
 
+bool h264_encoder_is_prepared_for(h264_encoder_s *enc, const frame_s *frame) {
+#	define EQ(_field) (frame->_field == enc->_field)
+	return (EQ(width) && EQ(height) && EQ(format) && EQ(stride));
+#	undef EQ
+}
+
 int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame) {
 	LOG_INFO("H264: Configuring MMAL encoder ...");
 
@@ -216,7 +222,7 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame) {
 	ENABLE_PORT(input);
 	ENABLE_PORT(output);
 
-	enc->prepared = true;
+	enc->ready = true;
 	return 0;
 
 	error:
@@ -249,11 +255,11 @@ static void _h264_encoder_cleanup(h264_encoder_s *enc) {
 	enc->wrapper->status = MMAL_SUCCESS; // Это реально надо?
 
 	enc->last_online = -1;
-	enc->prepared = false;
+	enc->ready = false;
 }
 
 int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest) {
-	assert(enc->prepared);
+	assert(enc->ready);
 
 	frame_copy_meta(src, dest);
 	dest->encode_begin_ts = get_now_monotonic();

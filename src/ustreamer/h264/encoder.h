@@ -58,12 +58,13 @@ typedef struct {
 	unsigned	height;
 	unsigned	format;
 	unsigned	stride;
-	bool		prepared;
+	bool		ready;
 } h264_encoder_s;
 
 
 h264_encoder_s *h264_encoder_init(unsigned bitrate, unsigned gop, unsigned fps);
 void h264_encoder_destroy(h264_encoder_s *enc);
 
+bool h264_encoder_is_prepared_for(h264_encoder_s *enc, const frame_s *frame);
 int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame);
 int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest);
