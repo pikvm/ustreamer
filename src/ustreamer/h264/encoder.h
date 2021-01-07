@@ -54,10 +54,11 @@ typedef struct {
 	frame_s		*tmp;
 	int			last_online;
 
-	unsigned width;
-	unsigned height;
-	unsigned format;
-	unsigned stride;
+	unsigned	width;
+	unsigned	height;
+	unsigned	format;
+	unsigned	stride;
+	bool		prepared;
 } h264_encoder_s;
 
 

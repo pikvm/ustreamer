@@ -94,6 +94,13 @@ void h264_encoder_destroy(h264_encoder_s *enc) {
 int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame) {
 	LOG_INFO("H264: Configuring MMAL encoder ...");
 
+	_h264_encoder_cleanup(enc);
+
+	enc->width = frame->width;
+	enc->height = frame->height;
+	enc->format = frame->format;
+	enc->stride = frame->stride;
+
 	if (align_size(frame->width, 32) != frame->width && frame_get_padding(frame) == 0) {
 		LOG_ERROR("H264: MMAL encoder can't handle unaligned width");
 		goto error;
@@ -131,9 +138,6 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame) {
 				goto error; \
 			} \
 		}
-
-	_h264_encoder_cleanup(enc);
-	enc->wrapper->status = MMAL_SUCCESS; // Это реально надо?
 
 	{
 		PREPARE_PORT(input);
@@ -212,11 +216,7 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame) {
 	ENABLE_PORT(input);
 	ENABLE_PORT(output);
 
-	enc->width = frame->width;
-	enc->height = frame->height;
-	enc->format = frame->format;
-	enc->stride = frame->stride;
-
+	enc->prepared = true;
 	return 0;
 
 	error:
@@ -246,14 +246,15 @@ static void _h264_encoder_cleanup(h264_encoder_s *enc) {
 
 #	undef DISABLE_PORT
 
-	enc->width = 0;
-	enc->height = 0;
-	enc->format = 0;
-	enc->stride = 0;
+	enc->wrapper->status = MMAL_SUCCESS; // Это реально надо?
+
 	enc->last_online = -1;
+	enc->prepared = false;
 }
 
 int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest) {
+	assert(enc->prepared);
+
 	frame_copy_meta(src, dest);
 	dest->encode_begin_ts = get_now_monotonic();
 	dest->format = V4L2_PIX_FMT_H264;
@@ -270,6 +271,7 @@ int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest
 		LOG_DEBUG("H264: Copying source to tmp buffer ...");
 		frame_copy(src, enc->tmp);
 		assert(src->format == enc->format);
+		assert(enc->tmp->stride == enc->stride);
 		LOG_VERBOSE("H264: Source copied; time=%Lf", get_now_monotonic() - dest->encode_begin_ts);
 	}
 	src = enc->tmp;
