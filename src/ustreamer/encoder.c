@@ -159,13 +159,11 @@ void encoder_prepare(encoder_s *enc, device_s *dev) {
 
 	goto ok;
 
-#	pragma GCC diagnostic ignored "-Wunused-label"
-#	pragma GCC diagnostic push
-	// cppcheck-suppress unusedLabel
+#	ifdef WITH_OMX
 	force_cpu:
 		LOG_ERROR("Forced CPU encoder permanently");
 		cpu_forced = true;
-#	pragma GCC diagnostic pop
+#	endif
 
 	use_cpu:
 		type = ENCODER_TYPE_CPU;
@@ -233,16 +231,14 @@ int encoder_compress(encoder_s *enc, unsigned worker_number, frame_s *src, frame
 	dest->encode_end_ts = get_now_monotonic();
 	return 0;
 
-#	pragma GCC diagnostic ignored "-Wunused-label"
-#	pragma GCC diagnostic push
-	// cppcheck-suppress unusedLabel
+#	ifdef WITH_OMX
 	error:
 		LOG_INFO("Error while compressing buffer, falling back to CPU");
 		A_MUTEX_LOCK(&ER(mutex));
 		ER(cpu_forced) = true;
 		A_MUTEX_UNLOCK(&ER(mutex));
 		return -1;
-#	pragma GCC diagnostic pop
+#	endif
 }
 
 #undef DR
