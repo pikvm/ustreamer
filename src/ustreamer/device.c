@@ -501,18 +501,17 @@ static int _device_open_format(device_s *dev, bool first) {
 
 	// Check format
 	if (fmt.fmt.pix.pixelformat != dev->format) {
-		char format_obtained_str[8];
-		char *format_str_nullable;
-
 		LOG_ERROR("Could not obtain the requested pixelformat=%s; driver gave us %s",
 			_format_to_string_supported(dev->format),
 			_format_to_string_supported(fmt.fmt.pix.pixelformat));
 
-		if ((format_str_nullable = (char *)_format_to_string_nullable(fmt.fmt.pix.pixelformat)) != NULL) {
-			LOG_INFO("Falling back to pixelformat=%s", format_str_nullable);
+		char *format_str;
+		if ((format_str = (char *)_format_to_string_nullable(fmt.fmt.pix.pixelformat)) != NULL) {
+			LOG_INFO("Falling back to pixelformat=%s", format_str);
 		} else {
+			char fourcc_str[8];
 			LOG_ERROR("Unsupported pixelformat=%s (fourcc)",
-				fourcc_to_string(fmt.fmt.pix.pixelformat, format_obtained_str, 8));
+				fourcc_to_string(fmt.fmt.pix.pixelformat, fourcc_str, 8));
 			return -1;
 		}
 	}

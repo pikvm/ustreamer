@@ -185,8 +185,11 @@ static int _dump_sink(const char *sink_name, unsigned sink_timeout, const char *
 			const long double now = get_now_monotonic();
 			const long long now_second = floor_ms(now);
 
-			LOG_VERBOSE("Frame: size=%zu, resolution=%ux%u, format=%u, stride=%u, online=%d",
-				frame->used, frame->width, frame->height, frame->format, frame->stride, frame->online);
+			char fourcc_str[8];
+			LOG_VERBOSE("Frame: size=%zu, resolution=%ux%u, fourcc=%s, stride=%u, online=%d",
+				frame->used, frame->width, frame->height,
+				fourcc_to_string(frame->format, fourcc_str, 8),
+				frame->stride, frame->online);
 
 			LOG_DEBUG("       grab_ts=%.3Lf, encode_begin_ts=%.3Lf, encode_end_ts=%.3Lf, latency=%.3Lf",
 				frame->grab_ts, frame->encode_begin_ts, frame->encode_end_ts, now - frame->grab_ts);
