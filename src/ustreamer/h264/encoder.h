@@ -37,7 +37,6 @@
 #include "../../libs/tools.h"
 #include "../../libs/logging.h"
 #include "../../libs/frame.h"
-#include "../../libs/unjpeg.h"
 
 
 typedef struct {
@@ -51,8 +50,7 @@ typedef struct {
 	VCOS_SEMAPHORE_T	handler_sem;
 	bool				i_handler_sem;
 
-	frame_s		*tmp;
-	int			last_online;
+	int last_online;
 
 	unsigned	width;
 	unsigned	height;

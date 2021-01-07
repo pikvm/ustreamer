@@ -43,6 +43,7 @@
 #include "encoder.h"
 #include "workers.h"
 #ifdef WITH_OMX
+#	include "../libs/unjpeg.h"
 #	include "h264/encoder.h"
 #endif
 #ifdef WITH_GPIO
@@ -65,9 +66,10 @@ typedef struct {
 
 #ifdef WITH_OMX
 typedef struct {
-	h264_encoder_s	*enc;
-	frame_s			*dest;
 	memsink_s		*sink;
+	frame_s			*tmp_src;
+	frame_s			*dest;
+	h264_encoder_s	*enc;
 } h264_stream_s;
 #endif
 

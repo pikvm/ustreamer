@@ -46,7 +46,6 @@ h264_encoder_s *h264_encoder_init(unsigned bitrate, unsigned gop, unsigned fps) 
 	enc->gop = gop; // Interval between keyframes
 	enc->fps = fps;
 
-	enc->tmp = frame_init("h264_tmp");
 	enc->last_online = -1;
 
 	if (vcos_semaphore_create(&enc->handler_sem, "h264_handler_sem", 0) != VCOS_SUCCESS) {
@@ -87,7 +86,6 @@ void h264_encoder_destroy(h264_encoder_s *enc) {
 		vcos_semaphore_delete(&enc->handler_sem);
 	}
 
-	frame_destroy(enc->tmp);
 	free(enc);
 }
 
@@ -154,8 +152,6 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame) {
 			case V4L2_PIX_FMT_YUYV:		IFMT(encoding) = MMAL_ENCODING_YUYV; break;
 			case V4L2_PIX_FMT_UYVY:		IFMT(encoding) = MMAL_ENCODING_UYVY; break;
 			case V4L2_PIX_FMT_RGB565:	IFMT(encoding) = MMAL_ENCODING_RGB16; break;
-			case V4L2_PIX_FMT_MJPEG:
-			case V4L2_PIX_FMT_JPEG:		// See unjpeg.c
 			case V4L2_PIX_FMT_RGB24:	IFMT(encoding) = MMAL_ENCODING_RGB24; break;
 			default: assert(0 && "Unsupported pixelformat");
 		}
@@ -260,31 +256,16 @@ static void _h264_encoder_cleanup(h264_encoder_s *enc) {
 
 int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest) {
 	assert(enc->ready);
+	assert(src->used > 0);
+	assert(src->width == enc->width);
+	assert(src->height == enc->height);
+	assert(src->format == enc->format);
+	assert(src->stride == enc->stride);
 
 	frame_copy_meta(src, dest);
 	dest->encode_begin_ts = get_now_monotonic();
 	dest->format = V4L2_PIX_FMT_H264;
 	dest->stride = 0;
-
-	if (is_jpeg(src->format)) {
-		LOG_DEBUG("H264: Input frame format is JPEG; decoding ...");
-		if (unjpeg(src, enc->tmp, true) < 0) {
-			return -1;
-		}
-		assert(enc->tmp->format == V4L2_PIX_FMT_RGB24);
-		LOG_VERBOSE("H264: JPEG decoded; time=%Lf", get_now_monotonic() - dest->encode_begin_ts);
-	} else {
-		LOG_DEBUG("H264: Copying source to tmp buffer ...");
-		frame_copy(src, enc->tmp);
-		assert(src->format == enc->format);
-		assert(enc->tmp->stride == enc->stride);
-		LOG_VERBOSE("H264: Source copied; time=%Lf", get_now_monotonic() - dest->encode_begin_ts);
-	}
-	src = enc->tmp;
-
-	assert(src->used > 0);
-	assert(src->width == enc->width);
-	assert(src->height == enc->height);
 
 	bool force_key = (enc->last_online != src->online);
 

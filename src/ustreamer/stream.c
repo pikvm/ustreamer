@@ -412,14 +412,14 @@ static bool _worker_run_job(worker_s *wr) {
 static h264_stream_s *_h264_stream_init(memsink_s *sink, unsigned bitrate, unsigned gop) {
 	h264_stream_s *h264;
 	A_CALLOC(h264, 1);
+	h264->sink = sink;
+	h264->tmp_src = frame_init("h264_tmp_src");
+	h264->dest = frame_init("h264_dest");
 
 	// FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L210
 	if ((h264->enc = h264_encoder_init(bitrate, gop, 0)) == NULL) {
 		goto error;
 	}
-
-	h264->dest = frame_init("h264_dest");
-	h264->sink = sink;
 
 	return h264;
 
@@ -432,18 +432,31 @@ static void _h264_stream_destroy(h264_stream_s *h264) {
 	if (h264->enc) {
 		h264_encoder_destroy(h264->enc);
 	}
-	if (h264->dest) {
-		frame_destroy(h264->dest);
-	}
+	frame_destroy(h264->dest);
+	frame_destroy(h264->tmp_src);
 	free(h264);
 }
 
 static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame) {
-	if (!h264_encoder_is_prepared_for(h264->enc, frame)) {
-		h264_encoder_prepare(h264->enc, frame);
+	long double now = get_now_monotonic();
+	if (is_jpeg(frame->format)) {
+		LOG_DEBUG("H264: Input frame is JPEG; decoding ...");
+		if (unjpeg(frame, h264->tmp_src, true) < 0) {
+			return;
+		}
+		LOG_VERBOSE("H264: JPEG decoded; time=%Lf", get_now_monotonic() - now);
+	} else {
+		LOG_DEBUG("H264: Copying source to tmp buffer ...");
+		frame_copy(frame, h264->tmp_src);
+		LOG_VERBOSE("H264: Source copied; time=%Lf", get_now_monotonic() - now);
 	}
+
+	if (!h264_encoder_is_prepared_for(h264->enc, h264->tmp_src)) {
+		h264_encoder_prepare(h264->enc, h264->tmp_src);
+	}
+
 	if (h264->enc->ready) {
-		if (h264_encoder_compress(h264->enc, frame, h264->dest) == 0) {
+		if (h264_encoder_compress(h264->enc, h264->tmp_src, h264->dest) == 0) {
 			memsink_server_put(h264->sink, h264->dest);
 		}
 	}
