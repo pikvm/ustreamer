@@ -41,6 +41,10 @@
 
 
 typedef struct {
+	unsigned bitrate; // Kbit-per-sec
+	unsigned gop; // Interval between keyframes
+	unsigned fps;
+
 	MMAL_WRAPPER_T		*wrapper;
 	MMAL_PORT_T			*input_port;
 	MMAL_PORT_T			*output_port;
@@ -54,18 +58,10 @@ typedef struct {
 	unsigned height;
 	unsigned format;
 	unsigned stride;
-} h264_encoder_runtime_s;
-
-typedef struct {
-	unsigned gop; // Interval between keyframes
-	unsigned bitrate; // Kbit-per-sec
-	unsigned fps;
-
-	h264_encoder_runtime_s *run;
 } h264_encoder_s;
 
 
-h264_encoder_s *h264_encoder_init(void);
+h264_encoder_s *h264_encoder_init(unsigned bitrate, unsigned gop, unsigned fps);
 void h264_encoder_destroy(h264_encoder_s *enc);
 
 int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame);

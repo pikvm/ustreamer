@@ -40,7 +40,7 @@ static void _worker_job_destroy(void *v_job);
 static bool _worker_run_job(worker_s *wr);
 
 #ifdef WITH_OMX
-static h264_stream_s *_h264_stream_init(memsink_s *sink);
+static h264_stream_s *_h264_stream_init(memsink_s *sink, unsigned bitrate, unsigned gop);
 static void _h264_stream_destroy(h264_stream_s *h264);
 static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame);
 #endif
@@ -87,7 +87,7 @@ void stream_loop(stream_s *stream) {
 
 #	ifdef WITH_OMX
 	if (stream->h264_sink) {
-		stream->h264 = _h264_stream_init(stream->h264_sink);
+		stream->h264 = _h264_stream_init(stream->h264_sink, stream->h264_bitrate, stream->h264_gop);
 	}
 #	endif
 
@@ -409,11 +409,12 @@ static bool _worker_run_job(worker_s *wr) {
 }
 
 #ifdef WITH_OMX
-static h264_stream_s *_h264_stream_init(memsink_s *sink) {
+static h264_stream_s *_h264_stream_init(memsink_s *sink, unsigned bitrate, unsigned gop) {
 	h264_stream_s *h264;
 	A_CALLOC(h264, 1);
 
-	if ((h264->enc = h264_encoder_init()) == NULL) {
+	// FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L210
+	if ((h264->enc = h264_encoder_init(bitrate, gop, 0)) == NULL) {
 		goto error;
 	}
 
@@ -438,12 +439,12 @@ static void _h264_stream_destroy(h264_stream_s *h264) {
 }
 
 static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame) {
-#	define NEQ(_field) (frame->_field != h264->enc->run->_field)
+#	define NEQ(_field) (frame->_field != h264->enc->_field)
 	if (NEQ(width) || NEQ(height) || NEQ(format)) {
 #	undef NEQ
 		h264_encoder_prepare(h264->enc, frame);
 	}
-	if (h264->enc->run->format) {
+	if (h264->enc->format) {
 		if (h264_encoder_compress(h264->enc, frame, h264->dest) == 0) {
 			memsink_server_put(h264->sink, h264->dest);
 		}
