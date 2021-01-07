@@ -51,8 +51,8 @@
 
 typedef struct {
 	OMX_HANDLETYPE			comp;
-	OMX_BUFFERHEADERTYPE	*input_buffer;
-	OMX_BUFFERHEADERTYPE	*output_buffer;
+	OMX_BUFFERHEADERTYPE	*input_buf;
+	OMX_BUFFERHEADERTYPE	*output_buf;
 	bool					input_required;
 	bool					output_available;
 	bool					failed;

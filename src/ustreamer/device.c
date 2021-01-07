@@ -97,7 +97,7 @@ device_s *device_init(void) {
 	dev->jpeg_quality = 80;
 	dev->standard = V4L2_STD_UNKNOWN;
 	dev->io_method = V4L2_MEMORY_MMAP;
-	dev->n_buffers = get_cores_available() + 1;
+	dev->n_bufs = get_cores_available() + 1;
 	dev->min_frame_size = 128;
 	dev->timeout = 1;
 	dev->run = run;
@@ -173,10 +173,10 @@ int device_open(device_s *dev) {
 void device_close(device_s *dev) {
 	RUN(persistent_timeout_reported) = false;
 
-	if (RUN(hw_buffers)) {
+	if (RUN(hw_bufs)) {
 		LOG_DEBUG("Releasing device buffers ...");
-		for (unsigned index = 0; index < RUN(n_buffers); ++index) {
-#			define HW(_next) RUN(hw_buffers)[index]._next
+		for (unsigned index = 0; index < RUN(n_bufs); ++index) {
+#			define HW(_next) RUN(hw_bufs)[index]._next
 
 			if (dev->io_method == V4L2_MEMORY_MMAP) {
 				if (HW(raw.allocated) > 0 && HW(raw.data) != MAP_FAILED) {
@@ -193,9 +193,9 @@ void device_close(device_s *dev) {
 
 #			undef HW
 		}
-		RUN(n_buffers) = 0;
-		free(RUN(hw_buffers));
-		RUN(hw_buffers) = NULL;
+		RUN(n_bufs) = 0;
+		free(RUN(hw_bufs));
+		RUN(hw_bufs) = NULL;
 	}
 
 	if (RUN(fd) >= 0) {
@@ -290,9 +290,9 @@ int device_grab_buffer(device_s *dev, hw_buffer_s **hw) {
 	LOG_DEBUG("Grabbed new frame in device buffer: index=%u, bytesused=%u",
 		buf_info.index, buf_info.bytesused);
 
-	if (buf_info.index >= RUN(n_buffers)) {
-		LOG_ERROR("V4L2 error: grabbed invalid device buffer: index=%u, nbuffers=%u",
-			buf_info.index, RUN(n_buffers));
+	if (buf_info.index >= RUN(n_bufs)) {
+		LOG_ERROR("V4L2 error: grabbed invalid device buffer: index=%u, n_bufs=%u",
+			buf_info.index, RUN(n_bufs));
 		return -1;
 	}
 
@@ -311,7 +311,7 @@ int device_grab_buffer(device_s *dev, hw_buffer_s **hw) {
 		return -2;
 	}
 
-#	define HW(_next) RUN(hw_buffers)[buf_info.index]._next
+#	define HW(_next) RUN(hw_bufs)[buf_info.index]._next
 
 	A_MUTEX_LOCK(&HW(grabbed_mutex));
 	if (HW(grabbed)) {
@@ -333,7 +333,7 @@ int device_grab_buffer(device_s *dev, hw_buffer_s **hw) {
 	HW(raw.grab_ts) = get_now_monotonic();
 
 #	undef HW
-	*hw = &RUN(hw_buffers[buf_info.index]);
+	*hw = &RUN(hw_bufs[buf_info.index]);
 	return buf_info.index;
 }
 
@@ -613,7 +613,7 @@ static int _device_open_io_method(device_s *dev) {
 static int _device_open_io_method_mmap(device_s *dev) {
 	struct v4l2_requestbuffers req;
 	MEMSET_ZERO(req);
-	req.count = dev->n_buffers;
+	req.count = dev->n_bufs;
 	req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	req.memory = V4L2_MEMORY_MMAP;
 
@@ -627,30 +627,30 @@ static int _device_open_io_method_mmap(device_s *dev) {
 		LOG_ERROR("Insufficient buffer memory: %u", req.count);
 		return -1;
 	} else {
-		LOG_INFO("Requested %u device buffers, got %u", dev->n_buffers, req.count);
+		LOG_INFO("Requested %u device buffers, got %u", dev->n_bufs, req.count);
 	}
 
 	LOG_DEBUG("Allocating device buffers ...");
 
-	A_CALLOC(RUN(hw_buffers), req.count);
-	for (RUN(n_buffers) = 0; RUN(n_buffers) < req.count; ++RUN(n_buffers)) {
+	A_CALLOC(RUN(hw_bufs), req.count);
+	for (RUN(n_bufs) = 0; RUN(n_bufs) < req.count; ++RUN(n_bufs)) {
 		struct v4l2_buffer buf_info;
 		MEMSET_ZERO(buf_info);
 		buf_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		buf_info.memory = V4L2_MEMORY_MMAP;
-		buf_info.index = RUN(n_buffers);
+		buf_info.index = RUN(n_bufs);
 
-		LOG_DEBUG("Calling ioctl(VIDIOC_QUERYBUF) for device buffer %u ...", RUN(n_buffers));
+		LOG_DEBUG("Calling ioctl(VIDIOC_QUERYBUF) for device buffer %u ...", RUN(n_bufs));
 		if (xioctl(RUN(fd), VIDIOC_QUERYBUF, &buf_info) < 0) {
 			LOG_PERROR("Can't VIDIOC_QUERYBUF");
 			return -1;
 		}
 
-#		define HW(_next) RUN(hw_buffers)[RUN(n_buffers)]._next
+#		define HW(_next) RUN(hw_bufs)[RUN(n_bufs)]._next
 
 		A_MUTEX_INIT(&HW(grabbed_mutex));
 
-		LOG_DEBUG("Mapping device buffer %u ...", RUN(n_buffers));
+		LOG_DEBUG("Mapping device buffer %u ...", RUN(n_bufs));
 		if ((HW(raw.data) = mmap(
 			NULL,
 			buf_info.length,
@@ -659,7 +659,7 @@ static int _device_open_io_method_mmap(device_s *dev) {
 			RUN(fd),
 			buf_info.m.offset
 		)) == MAP_FAILED) {
-			LOG_PERROR("Can't map device buffer %u", RUN(n_buffers));
+			LOG_PERROR("Can't map device buffer %u", RUN(n_bufs));
 			return -1;
 		}
 		HW(raw.allocated) = buf_info.length;
@@ -672,7 +672,7 @@ static int _device_open_io_method_mmap(device_s *dev) {
 static int _device_open_io_method_userptr(device_s *dev) {
 	struct v4l2_requestbuffers req;
 	MEMSET_ZERO(req);
-	req.count = dev->n_buffers;
+	req.count = dev->n_bufs;
 	req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	req.memory = V4L2_MEMORY_USERPTR;
 
@@ -686,18 +686,18 @@ static int _device_open_io_method_userptr(device_s *dev) {
 		LOG_ERROR("Insufficient buffer memory: %u", req.count);
 		return -1;
 	} else {
-		LOG_INFO("Requested %u device buffers, got %u", dev->n_buffers, req.count);
+		LOG_INFO("Requested %u device buffers, got %u", dev->n_bufs, req.count);
 	}
 
 	LOG_DEBUG("Allocating device buffers ...");
 
-	A_CALLOC(RUN(hw_buffers), req.count);
+	A_CALLOC(RUN(hw_bufs), req.count);
 
 	const unsigned page_size = getpagesize();
 	const unsigned buf_size = align_size(RUN(raw_size), page_size);
 
-	for (RUN(n_buffers) = 0; RUN(n_buffers) < req.count; ++RUN(n_buffers)) {
-#       define HW(_next) RUN(hw_buffers)[RUN(n_buffers)]._next
+	for (RUN(n_bufs) = 0; RUN(n_bufs) < req.count; ++RUN(n_bufs)) {
+#       define HW(_next) RUN(hw_bufs)[RUN(n_bufs)]._next
 		assert(HW(raw.data) = aligned_alloc(page_size, buf_size));
 		memset(HW(raw.data), 0, buf_size);
 		HW(raw.allocated) = buf_size;
@@ -707,15 +707,15 @@ static int _device_open_io_method_userptr(device_s *dev) {
 }
 
 static int _device_open_queue_buffers(device_s *dev) {
-	for (unsigned index = 0; index < RUN(n_buffers); ++index) {
+	for (unsigned index = 0; index < RUN(n_bufs); ++index) {
 		struct v4l2_buffer buf_info;
 		MEMSET_ZERO(buf_info);
 		buf_info.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		buf_info.memory = dev->io_method;
 		buf_info.index = index;
 		if (dev->io_method == V4L2_MEMORY_USERPTR) {
-			buf_info.m.userptr = (unsigned long)RUN(hw_buffers)[index].raw.data;
-			buf_info.length = RUN(hw_buffers)[index].raw.allocated;
+			buf_info.m.userptr = (unsigned long)RUN(hw_bufs)[index].raw.data;
+			buf_info.length = RUN(hw_bufs)[index].raw.allocated;
 		}
 
 		LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) for buffer %u ...", index);

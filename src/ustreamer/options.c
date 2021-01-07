@@ -369,7 +369,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			case _O_MIN_FRAME_SIZE:	OPT_NUMBER("--min-frame-size", dev->min_frame_size, 1, 8192, 0);
 			case _O_PERSISTENT:		OPT_SET(dev->persistent, true);
 			case _O_DV_TIMINGS:		OPT_SET(dev->dv_timings, true);
-			case _O_BUFFERS:		OPT_NUMBER("--buffers", dev->n_buffers, 1, 32, 0);
+			case _O_BUFFERS:		OPT_NUMBER("--buffers", dev->n_bufs, 1, 32, 0);
 			case _O_WORKERS:		OPT_NUMBER("--workers", enc->n_workers, 1, 32, 0);
 			case _O_QUALITY:		OPT_NUMBER("--quality", dev->jpeg_quality, 1, 100, 0);
 			case _O_ENCODER:		OPT_PARSE("encoder type", enc->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, ENCODER_TYPES_STR);
@@ -585,7 +585,7 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("                                           to automatic resolution change. Default: disabled.\n");
 	SAY("    -b|--buffers <N>  ──────────────────── The number of buffers to receive data from the device.");
 	SAY("                                           Each buffer may processed using an independent thread.");
-	SAY("                                           Default: %u (the number of CPU cores (but not more than 4) + 1).\n", dev->n_buffers);
+	SAY("                                           Default: %u (the number of CPU cores (but not more than 4) + 1).\n", dev->n_bufs);
 	SAY("    -w|--workers <N>  ──────────────────── The number of worker threads but not more than buffers.");
 	SAY("                                           Default: %u (the number of CPU cores (but not more than 4)).\n", enc->n_workers);
 	SAY("    -q|--quality <N>  ──────────────────── Set quality of JPEG encoding from 1 to 100 (best). Default: %u.", dev->jpeg_quality);

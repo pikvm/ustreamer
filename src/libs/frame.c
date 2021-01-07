@@ -110,6 +110,7 @@ unsigned frame_get_padding(const frame_s *frame) {
 		case V4L2_PIX_FMT_UYVY:
 		case V4L2_PIX_FMT_RGB565: bytes_per_pixel = 2; break;
 		case V4L2_PIX_FMT_RGB24: bytes_per_pixel = 3; break;
+		// case V4L2_PIX_FMT_H264:
 		case V4L2_PIX_FMT_MJPEG:
 		case V4L2_PIX_FMT_JPEG: bytes_per_pixel = 0; break;
 		default: assert(0 && "Unknown pixelformat");

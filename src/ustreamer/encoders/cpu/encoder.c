@@ -30,7 +30,7 @@
 
 typedef struct {
 	struct	jpeg_destination_mgr mgr; // Default manager
-	JOCTET	*buffer; // Start of buffer
+	JOCTET	*buf; // Start of buffer
 	frame_s	*frame;
 } _jpeg_dest_manager_s;
 
@@ -110,15 +110,15 @@ static void _jpeg_set_dest_frame(j_compress_ptr jpeg, frame_s *frame) {
 #define NORM_COMPONENT(_x)	(((_x) > 255) ? 255 : (((_x) < 0) ? 0 : (_x)))
 
 static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg, const frame_s *frame) {
-	uint8_t *line_buffer;
-	A_CALLOC(line_buffer, frame->width * 3);
+	uint8_t *line_buf;
+	A_CALLOC(line_buf, frame->width * 3);
 
 	const unsigned padding = frame_get_padding(frame);
 	const uint8_t *data = frame->data;
 	unsigned z = 0;
 
 	while (jpeg->next_scanline < frame->height) {
-		uint8_t *ptr = line_buffer;
+		uint8_t *ptr = line_buf;
 
 		for (unsigned x = 0; x < frame->width; ++x) {
 			int y = (!z ? data[0] << 8 : data[2] << 8);
@@ -140,23 +140,23 @@ static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg, const 
 		}
 		data += padding;
 
-		JSAMPROW scanlines[1] = {line_buffer};
+		JSAMPROW scanlines[1] = {line_buf};
 		jpeg_write_scanlines(jpeg, scanlines, 1);
 	}
 
-	free(line_buffer);
+	free(line_buf);
 }
 
 static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const frame_s *frame) {
-	uint8_t *line_buffer;
-	A_CALLOC(line_buffer, frame->width * 3);
+	uint8_t *line_buf;
+	A_CALLOC(line_buf, frame->width * 3);
 
 	const unsigned padding = frame_get_padding(frame);
 	const uint8_t *data = frame->data;
 	unsigned z = 0;
 
 	while (jpeg->next_scanline < frame->height) {
-		uint8_t *ptr = line_buffer;
+		uint8_t *ptr = line_buf;
 
 		for (unsigned x = 0; x < frame->width; ++x) {
 			int y = (!z ? data[1] << 8 : data[3] << 8);
@@ -178,11 +178,11 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const 
 		}
 		data += padding;
 
-		JSAMPROW scanlines[1] = {line_buffer};
+		JSAMPROW scanlines[1] = {line_buf};
 		jpeg_write_scanlines(jpeg, scanlines, 1);
 	}
 
-	free(line_buffer);
+	free(line_buf);
 }
 
 #undef NORM_COMPONENT
@@ -191,14 +191,14 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const 
 #undef YUV_R
 
 static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, const frame_s *frame) {
-	uint8_t *line_buffer;
-	A_CALLOC(line_buffer, frame->width * 3);
+	uint8_t *line_buf;
+	A_CALLOC(line_buf, frame->width * 3);
 
 	const unsigned padding = frame_get_padding(frame);
 	const uint8_t *data = frame->data;
 
 	while (jpeg->next_scanline < frame->height) {
-		uint8_t *ptr = line_buffer;
+		uint8_t *ptr = line_buf;
 
 		for (unsigned x = 0; x < frame->width; ++x) {
 			unsigned int two_byte = (data[1] << 8) + data[0];
@@ -211,11 +211,11 @@ static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, cons
 		}
 		data += padding;
 
-		JSAMPROW scanlines[1] = {line_buffer};
+		JSAMPROW scanlines[1] = {line_buf};
 		jpeg_write_scanlines(jpeg, scanlines, 1);
 	}
 
-	free(line_buffer);
+	free(line_buf);
 }
 
 static void _jpeg_write_scanlines_rgb24(struct jpeg_compress_struct *jpeg, const frame_s *frame) {
@@ -236,11 +236,11 @@ static void _jpeg_init_destination(j_compress_ptr jpeg) {
 	_jpeg_dest_manager_s *dest = (_jpeg_dest_manager_s *)jpeg->dest;
 
 	// Allocate the output buffer - it will be released when done with image
-	assert((dest->buffer = (JOCTET *)(*jpeg->mem->alloc_small)(
+	assert((dest->buf = (JOCTET *)(*jpeg->mem->alloc_small)(
 		(j_common_ptr) jpeg, JPOOL_IMAGE, JPEG_OUTPUT_BUFFER_SIZE * sizeof(JOCTET)
 	)));
 
-	dest->mgr.next_output_byte = dest->buffer;
+	dest->mgr.next_output_byte = dest->buf;
 	dest->mgr.free_in_buffer = JPEG_OUTPUT_BUFFER_SIZE;
 }
 
@@ -249,9 +249,9 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg) {
 
 	_jpeg_dest_manager_s *dest = (_jpeg_dest_manager_s *)jpeg->dest;
 
-	frame_append_data(dest->frame, dest->buffer, JPEG_OUTPUT_BUFFER_SIZE);
+	frame_append_data(dest->frame, dest->buf, JPEG_OUTPUT_BUFFER_SIZE);
 
-	dest->mgr.next_output_byte = dest->buffer;
+	dest->mgr.next_output_byte = dest->buf;
 	dest->mgr.free_in_buffer = JPEG_OUTPUT_BUFFER_SIZE;
 
 	return TRUE;
@@ -265,7 +265,7 @@ static void _jpeg_term_destination(j_compress_ptr jpeg) {
 	size_t final = JPEG_OUTPUT_BUFFER_SIZE - dest->mgr.free_in_buffer;
 
 	// Write any data remaining in the buffer.
-	frame_append_data(dest->frame, dest->buffer, final);
+	frame_append_data(dest->frame, dest->buf, final);
 }
 
 #undef JPEG_OUTPUT_BUFFER_SIZE

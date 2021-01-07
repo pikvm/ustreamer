@@ -85,8 +85,8 @@ typedef struct {
 	unsigned	hw_fps;
 	unsigned	jpeg_quality;
 	size_t		raw_size;
-	unsigned	n_buffers;
-	hw_buffer_s	*hw_buffers;
+	unsigned	n_bufs;
+	hw_buffer_s	*hw_bufs;
 	bool		capturing;
 	bool		persistent_timeout_reported;
 } device_runtime_s;
@@ -128,7 +128,7 @@ typedef struct {
 	v4l2_std_id			standard;
 	enum v4l2_memory	io_method;
 	bool				dv_timings;
-	unsigned			n_buffers;
+	unsigned			n_bufs;
 	unsigned			desired_fps;
 	size_t				min_frame_size;
 	bool				persistent;

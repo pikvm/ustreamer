@@ -94,7 +94,7 @@ void encoder_prepare(encoder_s *enc, device_s *dev) {
 	unsigned quality = dev->jpeg_quality;
 	bool cpu_forced = false;
 
-	ER(n_workers) = min_u(enc->n_workers, DR(n_buffers));
+	ER(n_workers) = min_u(enc->n_workers, DR(n_bufs));
 
 	if (is_jpeg(DR(format)) && type != ENCODER_TYPE_HW) {
 		LOG_INFO("Switching to HW encoder: the input is (M)JPEG ...");

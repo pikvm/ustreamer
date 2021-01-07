@@ -41,11 +41,11 @@ static OMX_ERRORTYPE _omx_event_handler(
 
 static OMX_ERRORTYPE _omx_input_required_handler(
 	UNUSED OMX_HANDLETYPE comp,
-	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buffer);
+	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buf);
 
 static OMX_ERRORTYPE _omx_output_available_handler(
 	UNUSED OMX_HANDLETYPE comp,
-	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buffer);
+	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buf);
 
 
 omx_encoder_s *omx_encoder_init(void) {
@@ -131,12 +131,12 @@ int omx_encoder_prepare(omx_encoder_s *omx, const frame_s *frame, unsigned quali
 }
 
 int omx_encoder_compress(omx_encoder_s *omx, const frame_s *src, frame_s *dest) {
-#	define IN(_next)	omx->input_buffer->_next
-#	define OUT(_next)	omx->output_buffer->_next
+#	define IN(_next)	omx->input_buf->_next
+#	define OUT(_next)	omx->output_buf->_next
 
 	OMX_ERRORTYPE error;
 
-	if ((error = OMX_FillThisBuffer(omx->comp, omx->output_buffer)) != OMX_ErrorNone) {
+	if ((error = OMX_FillThisBuffer(omx->comp, omx->output_buf)) != OMX_ErrorNone) {
 		LOG_ERROR_OMX(error, "Failed to request filling of the output buffer on encoder");
 		return -1;
 	}
@@ -165,7 +165,7 @@ int omx_encoder_compress(omx_encoder_s *omx, const frame_s *src, frame_s *dest) 
 				break;
 			}
 
-			if ((error = OMX_FillThisBuffer(omx->comp, omx->output_buffer)) != OMX_ErrorNone) {
+			if ((error = OMX_FillThisBuffer(omx->comp, omx->output_buf)) != OMX_ErrorNone) {
 				LOG_ERROR_OMX(error, "Failed to request filling of the output buffer on encoder");
 				return -1;
 			}
@@ -188,7 +188,7 @@ int omx_encoder_compress(omx_encoder_s *omx, const frame_s *src, frame_s *dest) 
 				slice_size = src->used - pos;
 			}
 
-			if ((error = OMX_EmptyThisBuffer(omx->comp, omx->input_buffer)) != OMX_ErrorNone) {
+			if ((error = OMX_EmptyThisBuffer(omx->comp, omx->input_buf)) != OMX_ErrorNone) {
 				LOG_ERROR_OMX(error, "Failed to request emptying of the input buffer on encoder");
 				return -1;
 			}
@@ -332,7 +332,7 @@ static int _omx_setup_input(omx_encoder_s *omx, const frame_s *frame) {
 	}
 	omx->i_input_port_enabled = true;
 
-	if ((error = OMX_AllocateBuffer(omx->comp, &omx->input_buffer, _INPUT_PORT, NULL, portdef.nBufferSize)) != OMX_ErrorNone) {
+	if ((error = OMX_AllocateBuffer(omx->comp, &omx->input_buf, _INPUT_PORT, NULL, portdef.nBufferSize)) != OMX_ErrorNone) {
 		LOG_ERROR_OMX(error, "Can't allocate OMX JPEG input buffer");
 		return -1;
 	}
@@ -396,7 +396,7 @@ static int _omx_setup_output(omx_encoder_s *omx, unsigned quality) {
 	}
 	omx->i_output_port_enabled = true;
 
-	if ((error = OMX_AllocateBuffer(omx->comp, &omx->output_buffer, _OUTPUT_PORT, NULL, portdef.nBufferSize)) != OMX_ErrorNone) {
+	if ((error = OMX_AllocateBuffer(omx->comp, &omx->output_buf, _OUTPUT_PORT, NULL, portdef.nBufferSize)) != OMX_ErrorNone) {
 		LOG_ERROR_OMX(error, "Can't allocate OMX JPEG output buffer");
 		return -1;
 	}
@@ -416,19 +416,19 @@ static int _omx_encoder_clear_ports(omx_encoder_s *omx) {
 		omx->i_input_port_enabled = false;
 	}
 
-	if (omx->input_buffer) {
-		if ((error = OMX_FreeBuffer(omx->comp, _INPUT_PORT, omx->input_buffer)) != OMX_ErrorNone) {
+	if (omx->input_buf) {
+		if ((error = OMX_FreeBuffer(omx->comp, _INPUT_PORT, omx->input_buf)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't free OMX JPEG input buffer");
 			// retval -= 1;
 		}
-		omx->input_buffer = NULL;
+		omx->input_buf = NULL;
 	}
-	if (omx->output_buffer) {
-		if ((error = OMX_FreeBuffer(omx->comp, _OUTPUT_PORT, omx->output_buffer)) != OMX_ErrorNone) {
+	if (omx->output_buf) {
+		if ((error = OMX_FreeBuffer(omx->comp, _OUTPUT_PORT, omx->output_buf)) != OMX_ErrorNone) {
 			LOG_ERROR_OMX(error, "Can't free OMX JPEG output buffer");
 			// retval -= 1;
 		}
-		omx->output_buffer = NULL;
+		omx->output_buf = NULL;
 	}
 	return retval;
 }
@@ -452,7 +452,7 @@ static OMX_ERRORTYPE _omx_event_handler(
 
 static OMX_ERRORTYPE _omx_input_required_handler(
 	UNUSED OMX_HANDLETYPE comp,
-	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buffer) {
+	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buf) {
 
 	// Called by OMX when the encoder component requires
 	// the input buffer to be filled with RAW image data
@@ -466,7 +466,7 @@ static OMX_ERRORTYPE _omx_input_required_handler(
 
 static OMX_ERRORTYPE _omx_output_available_handler(
 	UNUSED OMX_HANDLETYPE comp,
-	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buffer) {
+	OMX_PTR v_omx, UNUSED OMX_BUFFERHEADERTYPE *buf) {
 
 	// Called by OMX when the encoder component has filled
 	// the output buffer with JPEG data
