@@ -26,7 +26,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include <fcntl.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <assert.h>
 
@@ -47,6 +46,7 @@
 
 
 typedef struct {
+	uint64_t	seq;
 	size_t		used;
 	unsigned	width;
 	unsigned	height;
@@ -61,20 +61,18 @@ typedef struct {
 
 typedef struct {
 	const char	*name;
+	const char	*obj;
 	bool		server;
 	bool		rm;
 	unsigned	timeout;
 
-	char *mem_name;
-	char *sig_name;
-
 	int					fd;
 	memsink_shared_s	*mem;
-	sem_t				*sig_sem;
+	uint64_t			client_seq;
 } memsink_s;
 
 
-memsink_s *memsink_init(const char *name, const char *prefix, bool server, mode_t mode, bool rm, unsigned timeout);
+memsink_s *memsink_init(const char *name, const char *obj, bool server, mode_t mode, bool rm, unsigned timeout);
 void memsink_destroy(memsink_s *sink);
 
 int memsink_server_put(memsink_s *sink, const frame_s *frame);

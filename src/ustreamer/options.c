@@ -482,7 +482,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 #	define ADD_SINK(_lower, _upper) { \
 			if (_lower##_sink_name && _lower##_sink_name[0] != '\0') { \
 				options->_lower##_sink = memsink_init( \
-					#_lower, \
+					#_upper, \
 					_lower##_sink_name, \
 					true, \
 					_lower##_sink_mode, \
