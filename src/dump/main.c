@@ -248,7 +248,7 @@ static int _dump_sink(const char *sink_name, unsigned sink_timeout, const char *
 static void _help(FILE *fp) {
 #	define SAY(_msg, ...) fprintf(fp, _msg "\n", ##__VA_ARGS__)
 	SAY("\nuStreamer-dump - Dump uStreamer's memory sink to file");
-	SAY("═══════════════════════════════════════════════════════");
+	SAY("═════════════════════════════════════════════════════");
 	SAY("Version: %s; license: GPLv3", VERSION);
 	SAY("Copyright (C) 2018 Maxim Devaev <mdevaev@gmail.com>\n");
 	SAY("Example:");
@@ -260,7 +260,7 @@ static void _help(FILE *fp) {
 	SAY("    -s|--sink <name>  ──────── Memory sink ID. No default.\n");
 	SAY("    -t|--sink-timeout <sec>  ─ Timeout for the upcoming frame. Default: 1.\n");
 	SAY("    -o|--output  ───────────── Filename to dump. Use '-' for stdout. Default: just consume the sink.\n");
-	SAY("    -j|--output-json  ──────── Format output as JSON. Required option --output.\n");
+	SAY("    -j|--output-json  ──────── Format output as JSON. Required option --output. Default: disabled.\n");
 	SAY("Logging options:");
 	SAY("════════════════");
 	SAY("    --log-level <N>  ──── Verbosity level of messages from 0 (info) to 3 (debug).");
