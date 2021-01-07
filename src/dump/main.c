@@ -285,7 +285,7 @@ static void _help(FILE *fp) {
 	SAY("═════════════");
 	SAY("    -s|--sink <name>  ──────── Memory sink ID. No default.\n");
 	SAY("    -t|--sink-timeout <sec>  ─ Timeout for the upcoming frame. Default: 1.\n");
-	SAY("    -o|--output  ───────────── Filename to dump. Use '-' for stdout. Default: just consume the sink.\n");
+	SAY("    -o|--output <filename> ─── Filename to dump output to. Use '-' for stdout. Default: just consume the sink.\n");
 	SAY("    -j|--output-json  ──────── Format output as JSON. Required option --output. Default: disabled.\n");
 	SAY("Logging options:");
 	SAY("════════════════");
