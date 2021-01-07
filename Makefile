@@ -85,6 +85,7 @@ install: $(USTR) $(DUMP)
 	install -Dm755 $(USTR) $(DESTDIR)$(PREFIX)/bin/$(USTR)
 	install -Dm755 $(DUMP) $(DESTDIR)$(PREFIX)/bin/$(DUMP)
 	install -Dm644 man/$(USTR).1 $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
+	install -Dm644 man/$(DUMP).1 $(DESTDIR)$(MANPREFIX)/man1/$(DUMP).1
 	gzip $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
 
 

@@ -1,0 +1,79 @@
+.\" Manpage for ustreamer-dump.
+.\" Open an issue or pull request to https://github.com/pikvm/ustreamer to correct errors or typos
+.TH USTREAMER-DUMP 1 "version 2.2" "January 2021"
+
+.SH NAME
+ustreamer-dump \- Dump uStreamer's memory sink to file
+
+.SH SYNOPSIS
+.B ustreamer-dump
+.RI [OPTION]
+
+.SH DESCRIPTION
+µStreamer-dump (\fBustreamer-dump\fP) writes a local stream from ustreamer to a file or redirect it to other utilities (such as \fBffmpeg\fR).
+
+.SH USAGE
+\fBustreamer\fR requires at least the \fB\-\-sink\fR option to operate.
+
+To output ustreamers sink "test" to ffmpeg, and into a file called test.mp4:
+\fBustreamer-dump \e\fR
+.RS
+\fB\-\-sink=test \e\fR # Use ustreamer sink "test"
+.nf
+\fB\-\-output\ \- \e\fR # Output to stdout
+\fB\ |\ ffmpeg\ \-use_wallclock_as_timestamps\ 1\ \-i\ pipe:\ \-c:v\ libx264\ test\.mp4\fR
+
+.SH OPTIONS
+.SS "Sink options"
+
+.BR \-s ", " \-\-sink\ \fIname
+Memory sink ID. No default.
+.TP
+.BR \-t ", " \-\-sink\-timeout\ \fIsec
+Timeout for the upcoming frame. Default: 1.
+.TP
+.BR \-o ", " \-\-output\ \fIfilename
+Filename to dump output to. Use '-' for stdout. Default: just consume the sink.
+.TP
+.BR \-j ", " \-\-output-json
+Format output as JSON. Required option --output. Default: disabled.
+
+.SS "Logging options"
+.BR \-\-log\-level\ \fIN
+Verbosity level of messages from 0 (info) to 3 (debug). Enabling debugging messages can slow down the program.
+Available levels: 0 (info), 1 (performance), 2 (verbose), 3 (debug).
+Default: 0.
+.TP
+.BR \-\-perf
+Enable performance messages (same as \-\-log\-level=1). Default: disabled.
+.TP
+.BR \-\-verbose
+Enable verbose messages and lower (same as \-\-log\-level=2). Default: disabled.
+.TP
+.BR \-\-debug
+Enable debug messages and lower (same as \-\-log\-level=3). Default: disabled.
+.TP
+.BR \-\-force\-log\-colors
+Force color logging. Default: colored if stderr is a TTY.
+.TP
+.BR \-\-no\-log\-colors
+Disable color logging. Default: ditto.
+
+.SS "Help options"
+.BR \-h ", " \-\-help
+Print this text and exit.
+.TP
+.BR \-v ", " \-\-version
+Print version and exit.
+
+.SH BUGS
+Please file any bugs and issues at \fIhttps://github.com/pikvm/ustreamer/issues\fR
+
+.SH AUTHOR
+Maxim Devaev <mdevaev@gmail.com>
+
+.SH HOMEPAGE
+\fIhttps://pikvm.org/\fR
+
+.SH COPYRIGHT
+GNU General Public License v3.0
