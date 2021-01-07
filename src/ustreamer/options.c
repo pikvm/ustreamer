@@ -570,7 +570,7 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("\nuStreamer - Lightweight and fast MJPG-HTTP streamer");
 	SAY("═══════════════════════════════════════════════════");
 	SAY("Version: %s; license: GPLv3", VERSION);
-	SAY("Copyright (C) 2018 Maxim Devaev <mdevaev@gmail.com>\n");
+	SAY("Copyright (C) 2018-2021 Maxim Devaev <mdevaev@gmail.com>\n");
 	SAY("Capturing options:");
 	SAY("══════════════════");
 	SAY("    -d|--device </dev/path>  ───────────── Path to V4L2 device. Default: %s.\n", dev->path);
