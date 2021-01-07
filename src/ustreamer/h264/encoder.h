@@ -58,7 +58,7 @@ typedef struct {
 
 typedef struct {
 	unsigned gop; // Interval between keyframes
-	unsigned bps; // Bit-per-sec
+	unsigned bitrate; // Kbit-per-sec
 	unsigned fps;
 
 	h264_encoder_runtime_s *run;

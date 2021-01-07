@@ -62,6 +62,10 @@ stream_s *stream_init(device_s *dev, encoder_s *enc) {
 	A_CALLOC(stream, 1);
 	stream->last_as_blank = -1;
 	stream->error_delay = 1;
+#	ifdef WITH_OMX
+	stream->h264_bitrate = 5000; // Kbps
+	stream->h264_gop = 30;
+#	endif
 	stream->proc = proc;
 	stream->video = video;
 	stream->dev = dev;

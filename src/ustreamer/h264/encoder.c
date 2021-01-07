@@ -48,7 +48,7 @@ h264_encoder_s *h264_encoder_init(void) {
 	h264_encoder_s *enc;
 	A_CALLOC(enc, 1);
 	enc->gop = 45; // 60
-	enc->bps = 5000 * 1000; // Kbps * 1000
+	enc->bitrate = 5000; // Kbps
 	enc->fps = 0; // FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L210
 	enc->run = run;
 
@@ -175,7 +175,7 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame) {
 		OFMT(type) = MMAL_ES_TYPE_VIDEO;
 		OFMT(encoding) = MMAL_ENCODING_H264;
 		OFMT(encoding_variant) = MMAL_ENCODING_VARIANT_H264_DEFAULT;
-		OFMT(bitrate) = enc->bps;
+		OFMT(bitrate) = enc->bitrate * 1000;
 		OFMT(es->video.frame_rate.num) = enc->fps;
 		OFMT(es->video.frame_rate.den) = 1;
 		RUN(output_port->buffer_size) = RUN(output_port->buffer_size_recommended) * 4;
@@ -205,8 +205,8 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame) {
 		SET_PORT_PARAM(output, boolean,	VIDEO_IMMUTABLE_INPUT,		MMAL_FALSE);
 		SET_PORT_PARAM(output, boolean,	VIDEO_DROPPABLE_PFRAMES,	MMAL_FALSE);
 		SET_PORT_PARAM(output, boolean,	VIDEO_ENCODE_INLINE_HEADER,	MMAL_TRUE); // SPS/PPS: https://github.com/raspberrypi/userland/issues/443
-		SET_PORT_PARAM(output, uint32,	VIDEO_BIT_RATE,				enc->bps);
-		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_PEAK_RATE,		enc->bps);
+		SET_PORT_PARAM(output, uint32,	VIDEO_BIT_RATE,				enc->bitrate * 1000);
+		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_PEAK_RATE,		enc->bitrate * 1000);
 		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_MIN_QUANT,				16);
 		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_MAX_QUANT,				34);
 		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_FRAME_LIMIT_BITS,		1000000);

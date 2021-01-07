@@ -90,6 +90,8 @@ enum _OPT_VALUES {
 	ADD_SINK(JPEG)
 #	ifdef WITH_OMX
 	ADD_SINK(H264)
+	_O_H264_BITRATE,
+	_O_H264_GOP,
 #	endif
 #	undef ADD_SINK
 
@@ -179,6 +181,8 @@ static const struct option _LONG_OPTS[] = {
 	ADD_SINK(jpeg, JPEG)
 #	ifdef WITH_OMX
 	ADD_SINK(h264, H264)
+	{"h264-bitrate",			required_argument,	NULL,	_O_H264_BITRATE},
+	{"h264-gop",				required_argument,	NULL,	_O_H264_GOP},
 #	endif
 #	undef ADD_SINK
 
@@ -431,6 +435,8 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			ADD_SINK(jpeg, JPEG)
 #			ifdef WITH_OMX
 			ADD_SINK(h264, H264)
+			case _O_H264_BITRATE:	OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 100, 16000, 0);
+			case _O_H264_GOP:		OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
 #			endif
 #			undef ADD_SINK
 
@@ -662,6 +668,8 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	ADD_SINK(jpeg, JPEG)
 #	ifdef WITH_OMX
 	ADD_SINK(h264, H264)
+	SAY("    --h264-bitrate <kbps>  ───── H264 bitrate in Kbps. Default: %u.\n", stream->h264_bitrate);
+	SAY("    --h264-gop <N>  ──────────── Intarval between keyframes. Default: %u.\n", stream->h264_gop);
 #	endif
 #	undef ADD_SINK
 #	ifdef WITH_GPIO
