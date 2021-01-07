@@ -37,6 +37,8 @@ static const char *_mmal_error_to_string(MMAL_STATUS_T error);
 
 h264_encoder_s *h264_encoder_init(unsigned bitrate, unsigned gop, unsigned fps) {
 	LOG_INFO("H264: Initializing MMAL encoder ...");
+	LOG_INFO("H264: Using bitrate: %u Kbps", bitrate);
+	LOG_INFO("H264: Using GOP: %u", gop);
 
 	h264_encoder_s *enc;
 	A_CALLOC(enc, 1);
