@@ -11,12 +11,14 @@
 #include "../libs/logging.h"
 #include "../libs/frame.h"
 #include "../libs/memsink.h"
+#include "../libs/base64.h"
 
 
 enum _OPT_VALUES {
 	_O_SINK = 's',
-	_O_TIMEOUT = 't',
+	_O_SINK_TIMEOUT = 't',
 	_O_OUTPUT = 'o',
+	_O_OUTPUT_JSON = 'j',
 
 	_O_HELP = 'h',
 	_O_VERSION = 'v',
@@ -31,8 +33,9 @@ enum _OPT_VALUES {
 
 static const struct option _LONG_OPTS[] = {
 	{"sink",				required_argument,	NULL,	_O_SINK},
-	{"output",				no_argument,		NULL,	_O_OUTPUT},
-	{"timeout",				required_argument,	NULL,	_O_TIMEOUT},
+	{"sink-timeout",		required_argument,	NULL,	_O_SINK_TIMEOUT},
+	{"output",				required_argument,	NULL,	_O_OUTPUT},
+	{"output-json",			no_argument,		NULL,	_O_OUTPUT_JSON},
 
 	{"log-level",			required_argument,	NULL,	_O_LOG_LEVEL},
 	{"perf",				no_argument,		NULL,	_O_PERF},
@@ -53,7 +56,9 @@ volatile bool stop = false;
 
 static void _signal_handler(int signum);
 static void _install_signal_handlers(void);
-static int _dump_sink(const char *sink_name, const char *output_path, unsigned timeout);
+
+static int _dump_sink(const char *sink_name, unsigned sink_timeout, const char *output_path, bool output_json);
+
 static void _help(FILE *fp);
 
 
@@ -62,8 +67,9 @@ int main(int argc, char *argv[]) {
 	A_THREAD_RENAME("main");
 
 	char *sink_name = NULL;
+	unsigned sink_timeout = 1;
 	char *output_path = NULL;
-	unsigned timeout = 1;
+	bool output_json = false;
 
 #	define OPT_SET(_dest, _value) { \
 			_dest = _value; \
@@ -80,11 +86,12 @@ int main(int argc, char *argv[]) {
 			break; \
 		}
 
-	for (int ch; (ch = getopt_long(argc, argv, "s:o:t:hv", _LONG_OPTS, NULL)) >= 0;) {
+	for (int ch; (ch = getopt_long(argc, argv, "s:t:o:jhv", _LONG_OPTS, NULL)) >= 0;) {
 		switch (ch) {
-			case _O_SINK:		OPT_SET(sink_name, optarg);
-			case _O_OUTPUT:		OPT_SET(output_path, optarg);
-			case _O_TIMEOUT:	OPT_NUMBER("--timeout", timeout, 1, 60, 0);
+			case _O_SINK:			OPT_SET(sink_name, optarg);
+			case _O_SINK_TIMEOUT:	OPT_NUMBER("--sink-timeout", sink_timeout, 1, 60, 0);
+			case _O_OUTPUT:			OPT_SET(output_path, optarg);
+			case _O_OUTPUT_JSON:	OPT_SET(output_json, true);
 
 			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
 			case _O_PERF:				OPT_SET(log_level, LOG_LEVEL_PERF);
@@ -110,7 +117,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	_install_signal_handlers();
-	return abs(_dump_sink(sink_name, output_path, timeout));
+	return abs(_dump_sink(sink_name, sink_timeout, output_path, output_json));
 }
 
 
@@ -144,10 +151,12 @@ static void _install_signal_handlers(void) {
 	assert(!sigaction(SIGPIPE, &sig_act, NULL));
 }
 
-static int _dump_sink(const char *sink_name, const char *output_path, unsigned timeout) {
+static int _dump_sink(const char *sink_name, unsigned sink_timeout, const char *output_path, bool output_json) {
 	frame_s *frame = frame_init("input");
-	FILE *output_fp = NULL;
 	memsink_s *sink = NULL;
+	FILE *output_fp = NULL;
+	char *base64_data = NULL;
+	size_t base64_allocated = 0;
 
 	if (output_path && output_path[0] != '\0') {
 		if (!strcmp(output_path, "-")) {
@@ -162,7 +171,7 @@ static int _dump_sink(const char *sink_name, const char *output_path, unsigned t
 		}
 	}
 
-	if ((sink = memsink_init("input", sink_name, false, 0, false, timeout)) == NULL) {
+	if ((sink = memsink_init("input", sink_name, false, 0, false, sink_timeout)) == NULL) {
 		goto error;
 	}
 
@@ -191,7 +200,20 @@ static int _dump_sink(const char *sink_name, const char *output_path, unsigned t
 			fps_accum += 1;
 
 			if (output_fp) {
-				fwrite(frame->data, 1, frame->used, output_fp);
+				if (output_json) {
+					base64_encode(frame->data, frame->used, &base64_data, &base64_allocated);
+					fprintf(output_fp,
+						"{\"size\": %zu, \"width\": %u, \"height\": %u,"
+						" \"format\": %u, \"stride\": %u, \"online\": %u,"
+						" \"grab_ts\": %.3Lf, \"encode_begin_ts\": %.3Lf, \"encode_end_ts\": %.3Lf,"
+						" \"data\": \"%s\"}\n",
+						frame->used, frame->width, frame->height,
+						frame->format, frame->stride, frame->online,
+						frame->grab_ts, frame->encode_begin_ts, frame->encode_end_ts,
+						base64_data);
+				} else {
+					fwrite(frame->data, 1, frame->used, output_fp);
+				}
 				fflush(output_fp);
 			}
 		} else if (error != -2) {
@@ -206,13 +228,16 @@ static int _dump_sink(const char *sink_name, const char *output_path, unsigned t
 		retval = -1;
 
 	ok:
-		if (sink) {
-			memsink_destroy(sink);
+		if (base64_data) {
+			free(base64_data);
 		}
 		if (output_fp && output_fp != stdout) {
 			if (fclose(output_fp) < 0) {
 				LOG_PERROR("Can't close output file");
 			}
+		}
+		if (sink) {
+			memsink_destroy(sink);
 		}
 		frame_destroy(frame);
 
@@ -228,13 +253,14 @@ static void _help(FILE *fp) {
 	SAY("Copyright (C) 2018 Maxim Devaev <mdevaev@gmail.com>\n");
 	SAY("Example:");
 	SAY("════════");
-	SAY("    ustreamer-dump --sink test -o - \\");
+	SAY("    ustreamer-dump --sink test --output - \\");
 	SAY("        | ffmpeg -use_wallclock_as_timestamps 1 -i pipe: -c:v libx264 test.mp4\n");
 	SAY("Sink options:");
 	SAY("═════════════");
-	SAY("    -s|--sink <name>  ─── Memory sink ID. No default.\n");
-	SAY("    -t|--timeout <sec>  ─ Timeout for the upcoming frame. Default: 1.\n");
-	SAY("    -o|--output  ──────── Filename to dump. Use '-' for stdout. Default: just consume the sink.\n");
+	SAY("    -s|--sink <name>  ──────── Memory sink ID. No default.\n");
+	SAY("    -t|--sink-timeout <sec>  ─ Timeout for the upcoming frame. Default: 1.\n");
+	SAY("    -o|--output  ───────────── Filename to dump. Use '-' for stdout. Default: just consume the sink.\n");
+	SAY("    -j|--output-json  ──────── Format output as JSON. Required option --output.\n");
 	SAY("Logging options:");
 	SAY("════════════════");
 	SAY("    --log-level <N>  ──── Verbosity level of messages from 0 (info) to 3 (debug).");

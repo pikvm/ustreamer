@@ -149,11 +149,11 @@ int server_listen(server_s *server) {
 
 	if (server->user[0] != '\0') {
 		char *raw_token;
-		char *encoded_token;
+		char *encoded_token = NULL;
 
 		A_CALLOC(raw_token, strlen(server->user) + strlen(server->passwd) + 2);
 		sprintf(raw_token, "%s:%s", server->user, server->passwd);
-		encoded_token = base64_encode((uint8_t *)raw_token);
+		base64_encode((uint8_t *)raw_token, strlen(raw_token), &encoded_token, NULL);
 		free(raw_token);
 
 		A_CALLOC(RUN(auth_token), strlen(encoded_token) + 16);

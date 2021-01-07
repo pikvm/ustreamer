@@ -37,30 +37,36 @@ static const char _ENCODING_TABLE[] = {
 static const unsigned _MOD_TABLE[] = {0, 2, 1};
 
 
-char *base64_encode(const uint8_t *str) {
-	size_t str_len = strlen((const char *)str);
-	size_t encoded_size = 4 * ((str_len + 2) / 3) + 1; // +1 for '\0'
+void base64_encode(const uint8_t *data, size_t size, char **encoded, size_t *allocated) {
+	const size_t encoded_size = 4 * ((size + 2) / 3) + 1; // +1 for '\0'
 
-	char *encoded;
-	A_CALLOC(encoded, encoded_size);
+	if (*encoded == NULL || (allocated && *allocated < encoded_size)) {
+		A_REALLOC(*encoded, encoded_size);
+		if (allocated) {
+			*allocated = encoded_size;
+		}
+	}
 
-	for (unsigned str_index = 0, encoded_index = 0; str_index < str_len;) {
-		unsigned octet_a = (str_index < str_len ? (uint8_t)str[str_index++] : 0);
-		unsigned octet_b = (str_index < str_len ? (uint8_t)str[str_index++] : 0);
-		unsigned octet_c = (str_index < str_len ? (uint8_t)str[str_index++] : 0);
+	for (unsigned data_index = 0, encoded_index = 0; data_index < size;) {
+#		define OCTET(_name) unsigned _name = (data_index < size ? (uint8_t)data[data_index++] : 0)
+		OCTET(octet_a);
+		OCTET(octet_b);
+		OCTET(octet_c);
+#		undef OCTET
 
 		unsigned triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
 
-		encoded[encoded_index++] = _ENCODING_TABLE[(triple >> 3 * 6) & 0x3F];
-		encoded[encoded_index++] = _ENCODING_TABLE[(triple >> 2 * 6) & 0x3F];
-		encoded[encoded_index++] = _ENCODING_TABLE[(triple >> 1 * 6) & 0x3F];
-		encoded[encoded_index++] = _ENCODING_TABLE[(triple >> 0 * 6) & 0x3F];
+#		define ENCODE(_offset) (*encoded)[encoded_index++] = _ENCODING_TABLE[(triple >> _offset * 6) & 0x3F]
+		ENCODE(3);
+		ENCODE(2);
+		ENCODE(1);
+		ENCODE(0);
+#		undef ENCODE
 	}
 
-	for (unsigned index = 0; index < _MOD_TABLE[str_len % 3]; index++) {
-		encoded[encoded_size - 2 - index] = '=';
+	for (unsigned index = 0; index < _MOD_TABLE[size % 3]; index++) {
+		(*encoded)[encoded_size - 2 - index] = '=';
 	}
 
-	encoded[encoded_size - 1] = '\0';
-	return encoded;
+	(*encoded)[encoded_size - 1] = '\0';
 }

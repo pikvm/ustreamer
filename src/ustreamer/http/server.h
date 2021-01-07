@@ -58,6 +58,7 @@
 #include "../../libs/logging.h"
 #include "../../libs/process.h"
 #include "../../libs/frame.h"
+#include "../../libs/base64.h"
 #include "../data/index_html.h"
 #include "../encoder.h"
 #include "../stream.h"
@@ -68,7 +69,6 @@
 #include "bev.h"
 #include "unix.h"
 #include "uri.h"
-#include "base64.h"
 #include "mime.h"
 #include "static.h"
 
