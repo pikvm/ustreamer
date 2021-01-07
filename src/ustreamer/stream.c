@@ -303,7 +303,7 @@ static workers_pool_s *_stream_init_one(stream_s *stream) {
 #	undef RUN
 
 	return workers_pool_init(
-		"jpeg", stream->enc->run->n_workers, desired_interval,
+		"JPEG", "jw", stream->enc->run->n_workers, desired_interval,
 		_worker_job_init, (void *)stream,
 		_worker_job_destroy,
 		_worker_run_job);

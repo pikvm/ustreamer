@@ -27,12 +27,12 @@ static void *_worker_thread(void *v_worker);
 
 
 workers_pool_s *workers_pool_init(
-	const char *name, unsigned n_workers, long double desired_interval,
+	const char *name, const char *wr_prefix, unsigned n_workers, long double desired_interval,
 	void *(*job_init)(worker_s *wr, void *arg), void *job_init_arg,
 	void (*job_destroy)(void *),
 	bool (*run_job)(worker_s *)) {
 
-	LOG_INFO("Creating pool '%s' with %u workers ...", name, n_workers);
+	LOG_INFO("Creating pool %s with %u workers ...", name, n_workers);
 
 	workers_pool_s *pool;
 	A_CALLOC(pool, 1);
@@ -49,14 +49,14 @@ workers_pool_s *workers_pool_init(
 	A_MUTEX_INIT(&pool->free_workers_mutex);
 	A_COND_INIT(&pool->free_workers_cond);
 
-	const size_t name_len = strlen(name) + 64;
+	const size_t wr_name_len = strlen(wr_prefix) + 64;
 
 	for (unsigned number = 0; number < pool->n_workers; ++number) {
 #		define WR(_next) pool->workers[number]._next
 
 		WR(number) = number;
-		A_CALLOC(WR(name), name_len);
-		snprintf(WR(name), name_len, "%s-%u", name, number);
+		A_CALLOC(WR(name), wr_name_len);
+		snprintf(WR(name), wr_name_len, "%s-%u", wr_prefix, number);
 
 		A_MUTEX_INIT(&WR(has_job_mutex));
 		atomic_init(&WR(has_job), false);
@@ -74,7 +74,7 @@ workers_pool_s *workers_pool_init(
 }
 
 void workers_pool_destroy(workers_pool_s *pool) {
-	LOG_INFO("Destroying workers pool '%s' ...", pool->name);
+	LOG_INFO("Destroying workers pool %s ...", pool->name);
 
 	atomic_store(&pool->stop, true);
 	for (unsigned number = 0; number < pool->n_workers; ++number) {
