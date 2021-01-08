@@ -377,11 +377,11 @@ static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame) {
 		if (unjpeg(frame, h264->tmp_src, true) < 0) {
 			return;
 		}
-		LOG_VERBOSE("H264: JPEG decoded; time=%Lf", get_now_monotonic() - now);
+		LOG_VERBOSE("H264: JPEG decoded; time=%.3Lf", get_now_monotonic() - now);
 	} else {
 		LOG_DEBUG("H264: Copying source to tmp buffer ...");
 		frame_copy(frame, h264->tmp_src);
-		LOG_VERBOSE("H264: Source copied; time=%Lf", get_now_monotonic() - now);
+		LOG_VERBOSE("H264: Source copied; time=%.3Lf", get_now_monotonic() - now);
 	}
 
 	if (!h264_encoder_is_prepared_for(h264->enc, h264->tmp_src)) {

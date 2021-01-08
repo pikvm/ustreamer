@@ -119,7 +119,7 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 			LOG_PERROR("%s sink: Can't unlock memory", sink->name);
 			return -1;
 		}
-		LOG_VERBOSE("%s sink: Exposed new frame; full exposition time = %Lf",
+		LOG_VERBOSE("%s sink: Exposed new frame; full exposition time = %.3Lf",
 			sink->name, get_now_monotonic() - now);
 
 	} else if (errno == EWOULDBLOCK) {
