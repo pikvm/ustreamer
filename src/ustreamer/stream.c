@@ -23,21 +23,9 @@
 #include "stream.h"
 
 
-typedef struct {
-	encoder_s	*enc;
-	hw_buffer_s	*hw;
-	char		*dest_role;
-	frame_s		*dest;
-} _job_s;
-
-
 static workers_pool_s *_stream_init_loop(stream_s *stream);
 static workers_pool_s *_stream_init_one(stream_s *stream);
 static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps);
-
-static void *_worker_job_init(worker_s *wr, void *v_enc);
-static void _worker_job_destroy(void *v_job);
-static bool _worker_run_job(worker_s *wr);
 
 #ifdef WITH_OMX
 static h264_stream_s *_h264_stream_init(memsink_s *sink, unsigned bitrate, unsigned gop);
@@ -105,7 +93,7 @@ void stream_loop(stream_s *stream) {
 			LOG_DEBUG("Waiting for worker ...");
 
 			worker_s *ready_wr = workers_pool_wait(pool);
-			_job_s *ready_job = (_job_s *)(ready_wr->job);
+			encoder_job_s *ready_job = (encoder_job_s *)(ready_wr->job);
 
 			if (ready_job->hw) {
 				if (device_release_buffer(stream->dev, ready_job->hw) < 0) {
@@ -290,24 +278,7 @@ static workers_pool_s *_stream_init_one(stream_s *stream) {
 	if (device_switch_capturing(stream->dev, true) < 0) {
 		goto error;
 	}
-
-	encoder_prepare(stream->enc, stream->dev);
-
-#	define DEV(_next) stream->dev->_next
-#	define RUN(_next) stream->dev->run->_next
-	long double desired_interval = 0;
-	if (DEV(desired_fps) > 0 && (DEV(desired_fps) < RUN(hw_fps) || RUN(hw_fps) == 0)) {
-		desired_interval = (long double)1 / DEV(desired_fps);
-	}
-#	undef DEV
-#	undef RUN
-
-	return workers_pool_init(
-		"JPEG", "jw", stream->enc->run->n_workers, desired_interval,
-		_worker_job_init, (void *)stream->enc,
-		_worker_job_destroy,
-		_worker_run_job);
-
+	return encoder_workers_pool_init(stream->enc, stream->dev);
 	error:
 		device_close(stream->dev);
 		return NULL;
@@ -368,43 +339,6 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 	return changed;
 
 #	undef VID
-}
-
-static void *_worker_job_init(worker_s *wr, void *v_enc) {
-	_job_s *job;
-	A_CALLOC(job, 1);
-	job->enc = (encoder_s *)v_enc;
-
-	const size_t dest_role_len = strlen(wr->name) + 16;
-	A_CALLOC(job->dest_role, dest_role_len);
-	snprintf(job->dest_role, dest_role_len, "%s_dest", wr->name);
-	job->dest = frame_init(job->dest_role);
-
-	return (void *)job;
-}
-
-static void _worker_job_destroy(void *v_job) {
-	_job_s *job = (_job_s *)v_job;
-	frame_destroy(job->dest);
-	free(job->dest_role);
-	free(job);
-}
-
-static bool _worker_run_job(worker_s *wr) {
-	_job_s *job = (_job_s *)wr->job;
-
-	LOG_DEBUG("Worker %s compressing JPEG from buffer %u ...", wr->name, job->hw->buf_info.index);
-	bool ok = !encoder_compress(job->enc, wr->number, &job->hw->raw, job->dest);
-	if (ok) {
-		LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%s, buffer=%u",
-			job->dest->used,
-			job->dest->encode_end_ts - job->dest->encode_begin_ts,
-			wr->name,
-			job->hw->buf_info.index);
-	} else {
-		LOG_VERBOSE("Compression failed: worker=%s, buffer=%u", wr->name, job->hw->buf_info.index);
-	}
-	return ok;
 }
 
 #ifdef WITH_OMX

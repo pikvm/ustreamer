@@ -36,6 +36,7 @@
 #include "../libs/frame.h"
 
 #include "device.h"
+#include "workers.h"
 
 #include "encoders/cpu/encoder.h"
 #include "encoders/hw/encoder.h"
@@ -69,8 +70,6 @@ typedef struct {
 	bool			cpu_forced;
 	pthread_mutex_t	mutex;
 
-	unsigned n_workers;
-
 #	ifdef WITH_OMX
 	unsigned		n_omxs;
 	omx_encoder_s	**omxs;
@@ -84,6 +83,13 @@ typedef struct {
 	encoder_runtime_s *run;
 } encoder_s;
 
+typedef struct {
+	encoder_s	*enc;
+	hw_buffer_s	*hw;
+	char		*dest_role;
+	frame_s		*dest;
+} encoder_job_s;
+
 
 encoder_s *encoder_init(void);
 void encoder_destroy(encoder_s *enc);
@@ -91,7 +97,7 @@ void encoder_destroy(encoder_s *enc);
 encoder_type_e encoder_parse_type(const char *str);
 const char *encoder_type_to_string(encoder_type_e type);
 
-void encoder_prepare(encoder_s *enc, device_s *dev);
+workers_pool_s *encoder_workers_pool_init(encoder_s *enc, device_s *dev);
 void encoder_get_runtime_params(encoder_s *enc, encoder_type_e *type, unsigned *quality);
 
 int encoder_compress(encoder_s *enc, unsigned worker_number, frame_s *src, frame_s *dest);
