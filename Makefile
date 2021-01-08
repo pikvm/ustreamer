@@ -7,7 +7,7 @@ PREFIX ?= /usr/local
 MANPREFIX ?= $(PREFIX)/share/man
 
 CC ?= gcc
-CFLAGS ?= -O3
+CFLAGS ?= -O3 -MD
 LDFLAGS ?=
 
 RPI_VC_HEADERS ?= /opt/vc/include
@@ -179,3 +179,7 @@ clean:
 
 
 .PHONY: linters
+
+
+_OBJS = $(_USTR_SRCS:%.c=$(BUILD)/%.o) $(_DUMP_SRCS:%.c=$(BUILD)/%.o)
+-include $(_OBJS:%.o=%.d)
