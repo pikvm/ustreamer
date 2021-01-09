@@ -42,6 +42,7 @@ static bool _expose_new_frame(server_s *server);
 
 #define RUN(_next)		server->run->_next
 #define STREAM(_next)	RUN(stream->_next)
+#define VID(_next)		STREAM(run->video->_next)
 #define EX(_next)		RUN(exposed->_next)
 
 
@@ -747,7 +748,7 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 	bool stream_updated = false;
 	bool frame_updated = false;
 
-	if (atomic_load(&STREAM(video->updated))) {
+	if (atomic_load(&VID(updated))) {
 		frame_updated = _expose_new_frame(server);
 		stream_updated = true;
 	} else if (EX(expose_end_ts) + 1 < get_now_monotonic()) {
@@ -780,19 +781,19 @@ static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_serv
 static bool _expose_new_frame(server_s *server) {
 	bool updated = false;
 
-	A_MUTEX_LOCK(&STREAM(video->mutex));
+	A_MUTEX_LOCK(&VID(mutex));
 
-	LOG_DEBUG("HTTP: Updating exposed frame (online=%d) ...", STREAM(video->frame->online));
+	LOG_DEBUG("HTTP: Updating exposed frame (online=%d) ...", VID(frame->online));
 
-	EX(captured_fps) = STREAM(video->captured_fps);
+	EX(captured_fps) = VID(captured_fps);
 	EX(expose_begin_ts) = get_now_monotonic();
 
-	if (server->drop_same_frames && STREAM(video->frame->online)) {
+	if (server->drop_same_frames && VID(frame->online)) {
 		bool need_drop = false;
 		bool maybe_same = false;
 		if (
 			(need_drop = (EX(dropped) < server->drop_same_frames))
-			&& (maybe_same = frame_compare(EX(frame), STREAM(video->frame)))
+			&& (maybe_same = frame_compare(EX(frame), VID(frame)))
 		) {
 			EX(expose_cmp_ts) = get_now_monotonic();
 			EX(expose_end_ts) = EX(expose_cmp_ts);
@@ -807,7 +808,7 @@ static bool _expose_new_frame(server_s *server) {
 		}
 	}
 
-	frame_copy(STREAM(video->frame), EX(frame));
+	frame_copy(VID(frame), EX(frame));
 
 	EX(dropped) = 0;
 	EX(expose_cmp_ts) = EX(expose_begin_ts);
@@ -818,11 +819,12 @@ static bool _expose_new_frame(server_s *server) {
 
 	updated = true;
 	not_updated:
-		atomic_store(&STREAM(video->updated), false);
-		A_MUTEX_UNLOCK(&STREAM(video->mutex));
+		atomic_store(&VID(updated), false);
+		A_MUTEX_UNLOCK(&VID(mutex));
 		return updated;
 }
 
 #undef EX
+#undef VID
 #undef STREAM
 #undef RUN

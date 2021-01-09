@@ -52,15 +52,9 @@
 
 
 typedef struct {
-	atomic_bool stop;
-	atomic_bool slowdown;
-} process_s;
-
-typedef struct {
 	frame_s			*frame;
 	unsigned		captured_fps;
 	atomic_bool		updated;
-	long double		last_as_blank_ts;
 	pthread_mutex_t	mutex;
 } video_s;
 
@@ -74,24 +68,35 @@ typedef struct {
 #endif
 
 typedef struct {
+	video_s		*video;
+	long double	last_as_blank_ts;
+
+#	ifdef WITH_OMX
+	h264_stream_s *h264;
+#	endif
+
+	atomic_bool stop;
+	atomic_bool slowdown;
+} stream_runtime_s;
+
+typedef struct {
+	device_s	*dev;
+	encoder_s	*enc;
+
 	int			last_as_blank;
 	unsigned	error_delay;
 
-	device_s	*dev;
-	encoder_s	*enc;
 	frame_s		*blank;
+
 	memsink_s	*jpeg_sink;
+
 #	ifdef WITH_OMX
 	memsink_s	*h264_sink;
 	unsigned	h264_bitrate;
 	unsigned	h264_gop;
 #	endif
 
-	process_s		*proc;
-	video_s			*video;
-#	ifdef WITH_OMX
-	h264_stream_s	*h264;
-#	endif
+	stream_runtime_s *run;
 } stream_s;
 
 

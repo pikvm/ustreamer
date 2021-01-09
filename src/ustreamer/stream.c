@@ -34,42 +34,47 @@ static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame);
 #endif
 
 
+#define RUN(_next) stream->run->_next
+
+
 stream_s *stream_init(device_s *dev, encoder_s *enc) {
-	process_s *proc;
-	A_CALLOC(proc, 1);
-	atomic_init(&proc->stop, false);
-	atomic_init(&proc->slowdown, false);
+	stream_runtime_s *run;
+	A_CALLOC(run, 1);
+	atomic_init(&run->stop, false);
+	atomic_init(&run->slowdown, false);
 
 	video_s *video;
 	A_CALLOC(video, 1);
 	video->frame = frame_init("stream_video");
 	atomic_init(&video->updated, false);
 	A_MUTEX_INIT(&video->mutex);
+	run->video = video;
 
 	stream_s *stream;
 	A_CALLOC(stream, 1);
+	stream->dev = dev;
+	stream->enc = enc;
 	stream->last_as_blank = -1;
 	stream->error_delay = 1;
 #	ifdef WITH_OMX
 	stream->h264_bitrate = 5000; // Kbps
 	stream->h264_gop = 30;
 #	endif
-	stream->proc = proc;
-	stream->video = video;
-	stream->dev = dev;
-	stream->enc = enc;
+	stream->run = run;
 	return stream;
 }
 
 void stream_destroy(stream_s *stream) {
-	A_MUTEX_DESTROY(&stream->video->mutex);
-	frame_destroy(stream->video->frame);
-	free(stream->video);
-	free(stream->proc);
+	A_MUTEX_DESTROY(&RUN(video->mutex));
+	frame_destroy(RUN(video->frame));
+	free(RUN(video));
+	free(stream->run);
 	free(stream);
 }
 
 void stream_loop(stream_s *stream) {
+	assert(stream->blank);
+
 	LOG_INFO("Using V4L2 device: %s", stream->dev->path);
 	LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
 
@@ -88,7 +93,7 @@ void stream_loop(stream_s *stream) {
 
 		LOG_INFO("Capturing ...");
 
-		while (!atomic_load(&stream->proc->stop)) {
+		while (!atomic_load(&RUN(stop))) {
 			SEP_DEBUG('-');
 			LOG_DEBUG("Waiting for worker ...");
 
@@ -116,11 +121,11 @@ void stream_loop(stream_s *stream) {
 				}
 			}
 
-			if (atomic_load(&stream->proc->stop)) {
+			if (atomic_load(&RUN(stop))) {
 				break;
 			}
 
-			if (atomic_load(&stream->proc->slowdown)) {
+			if (atomic_load(&RUN(slowdown))) {
 				usleep(1000000);
 			}
 
@@ -221,11 +226,11 @@ void stream_loop(stream_s *stream) {
 }
 
 void stream_loop_break(stream_s *stream) {
-	atomic_store(&stream->proc->stop, true);
+	atomic_store(&RUN(stop), true);
 }
 
 void stream_switch_slowdown(stream_s *stream, bool slowdown) {
-	atomic_store(&stream->proc->slowdown, slowdown);
+	atomic_store(&RUN(slowdown), slowdown);
 }
 
 static workers_pool_s *_stream_init_loop(stream_s *stream) {
@@ -233,9 +238,9 @@ static workers_pool_s *_stream_init_loop(stream_s *stream) {
 	workers_pool_s *pool = NULL;
 	int access_error = 0;
 
-	LOG_DEBUG("%s: stream->proc->stop=%d", __FUNCTION__, atomic_load(&stream->proc->stop));
+	LOG_DEBUG("%s: stream->run->stop=%d", __FUNCTION__, atomic_load(&RUN(stop)));
 
-	while (!atomic_load(&stream->proc->stop)) {
+	while (!atomic_load(&RUN(stop))) {
 		if (_stream_expose_frame(stream, NULL, 0)) {
 			if (stream->jpeg_sink) {
 				memsink_server_put(stream->jpeg_sink, stream->blank);
@@ -285,7 +290,7 @@ static workers_pool_s *_stream_init_one(stream_s *stream) {
 }
 
 static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps) {
-#	define VID(_next) stream->video->_next
+#	define VID(_next) RUN(video->_next)
 
 	frame_s *new = NULL;
 	bool changed = false;
@@ -294,7 +299,7 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 
 	if (frame) {
 		new = frame;
-		VID(last_as_blank_ts) = 0; // Останавливаем таймер
+		RUN(last_as_blank_ts) = 0; // Останавливаем таймер
 		LOG_DEBUG("Exposed ALIVE video frame");
 
 	} else {
@@ -303,7 +308,7 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 				new = stream->blank;
 				LOG_INFO("Changed video frame to BLANK");
 			} else if (stream->last_as_blank > 0) { // // Если нужен таймер - запустим
-				VID(last_as_blank_ts) = get_now_monotonic() + stream->last_as_blank;
+				RUN(last_as_blank_ts) = get_now_monotonic() + stream->last_as_blank;
 				LOG_INFO("Freezed last ALIVE video frame for %d seconds", stream->last_as_blank);
 			} else {  // last_as_blank == 0 - показываем последний фрейм вечно
 				LOG_INFO("Freezed last ALIVE video frame forever");
@@ -315,11 +320,11 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 
 		if ( // Если уже оффлайн, включена фича last_as_blank с таймером и он запущен
 			stream->last_as_blank > 0
-			&& VID(last_as_blank_ts) != 0
-			&& VID(last_as_blank_ts) < get_now_monotonic()
+			&& RUN(last_as_blank_ts) != 0
+			&& RUN(last_as_blank_ts) < get_now_monotonic()
 		) {
 			new = stream->blank;
-			VID(last_as_blank_ts) = 0; // // Останавливаем таймер
+			RUN(last_as_blank_ts) = 0; // // Останавливаем таймер
 			LOG_INFO("Changed last ALIVE video frame to BLANK");
 		}
 	}
@@ -395,3 +400,5 @@ static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame) {
 	}
 }
 #endif
+
+#undef RUN
