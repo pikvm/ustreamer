@@ -80,7 +80,7 @@ void stream_loop(stream_s *stream) {
 
 #	ifdef WITH_OMX
 	if (stream->h264_sink) {
-		stream->h264 = _h264_stream_init(stream->h264_sink, stream->h264_bitrate, stream->h264_gop);
+		RUN(h264) = _h264_stream_init(stream->h264_sink, stream->h264_bitrate, stream->h264_gop);
 	}
 #	endif
 
@@ -185,8 +185,8 @@ void stream_loop(stream_s *stream) {
 							LOG_DEBUG("Assigned new frame in buffer %d to worker %s", buf_index, ready_wr->name);
 
 #							ifdef WITH_OMX
-							if (stream->h264) {
-								_h264_stream_process(stream->h264, &hw->raw);
+							if (RUN(h264)) {
+								_h264_stream_process(RUN(h264), &hw->raw);
 							}
 #							endif
 						}
@@ -219,8 +219,8 @@ void stream_loop(stream_s *stream) {
 	}
 
 #	ifdef WITH_OMX
-	if (stream->h264) {
-		_h264_stream_destroy(stream->h264);
+	if (RUN(h264)) {
+		_h264_stream_destroy(RUN(h264));
 	}
 #	endif
 }
@@ -246,8 +246,8 @@ static workers_pool_s *_stream_init_loop(stream_s *stream) {
 				memsink_server_put(stream->jpeg_sink, stream->blank);
 			}
 #			ifdef WITH_OMX
-			if (stream->h264) {
-				_h264_stream_process(stream->h264, stream->blank);
+			if (RUN(h264)) {
+				_h264_stream_process(RUN(h264), stream->blank);
 			}
 #			endif
 		}
