@@ -122,9 +122,6 @@ int server_listen(server_s *server) {
 	}
 
 	frame_copy(STREAM(blank), EX(frame));
-	EX(expose_begin_ts) = 0;
-	EX(expose_cmp_ts) = 0;
-	EX(expose_end_ts) = 0;
 	EX(notify_last_width) = EX(frame->width);
 	EX(notify_last_height) = EX(frame->height);
 
