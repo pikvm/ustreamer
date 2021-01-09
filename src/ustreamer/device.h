@@ -40,6 +40,9 @@
 #include <pthread.h>
 #include <linux/videodev2.h>
 #include <linux/v4l2-controls.h>
+#ifdef WITH_OMX
+#	include <interface/vcsm/user-vcsm.h>
+#endif
 
 #include "../libs/tools.h"
 #include "../libs/logging.h"
@@ -71,6 +74,11 @@ typedef struct {
 	frame_s raw;
 
 	struct v4l2_buffer buf_info;
+
+#	ifdef WITH_OMX
+	int dma_fd;
+	int vcsm_handle;
+#	endif
 
 	pthread_mutex_t grabbed_mutex;
 	bool			grabbed;
@@ -150,6 +158,9 @@ int device_parse_io_method(const char *str);
 int device_open(device_s *dev);
 void device_close(device_s *dev);
 
+#ifdef WITH_OMX
+int device_export_to_vcsm(device_s *dev);
+#endif
 int device_switch_capturing(device_s *dev, bool enable);
 int device_select(device_s *dev, bool *has_read, bool *has_write, bool *has_error);
 int device_grab_buffer(device_s *dev, hw_buffer_s **hw);

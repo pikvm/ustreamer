@@ -24,7 +24,7 @@
 
 
 static void _h264_encoder_cleanup(h264_encoder_s *enc);
-static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key);
+static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src, int src_vcsm_handle, frame_s *dest, bool force_key);
 
 static void _mmal_callback(MMAL_WRAPPER_T *wrapper);
 static const char *_mmal_error_to_string(MMAL_STATUS_T error);
@@ -89,13 +89,13 @@ void h264_encoder_destroy(h264_encoder_s *enc) {
 	free(enc);
 }
 
-bool h264_encoder_is_prepared_for(h264_encoder_s *enc, const frame_s *frame) {
-#	define EQ(_field) (frame->_field == enc->_field)
-	return (EQ(width) && EQ(height) && EQ(format) && EQ(stride));
+bool h264_encoder_is_prepared_for(h264_encoder_s *enc, const frame_s *frame, bool zero_copy) {
+#	define EQ(_field) (enc->_field == frame->_field)
+	return (EQ(width) && EQ(height) && EQ(format) && EQ(stride) && (enc->zero_copy == zero_copy));
 #	undef EQ
 }
 
-int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame) {
+int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame, bool zero_copy) {
 	LOG_INFO("H264: Configuring MMAL encoder ...");
 
 	_h264_encoder_cleanup(enc);
@@ -104,6 +104,7 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame) {
 	enc->height = frame->height;
 	enc->format = frame->format;
 	enc->stride = frame->stride;
+	enc->zero_copy = zero_copy;
 
 	if (align_size(frame->width, 32) != frame->width && frame_get_padding(frame) == 0) {
 		LOG_ERROR("H264: MMAL encoder can't handle unaligned width");
@@ -167,7 +168,7 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame) {
 #		undef IFMT
 
 		COMMIT_PORT(input);
-		SET_PORT_PARAM(input, boolean, ZERO_COPY, MMAL_FALSE);
+		SET_PORT_PARAM(input, boolean, ZERO_COPY, zero_copy);
 	}
 
 	{
@@ -204,7 +205,7 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame) {
 		SET_PORT_PARAM(output, uint32,	NALUNITFORMAT,				MMAL_VIDEO_NALUNITFORMAT_STARTCODES);
 		SET_PORT_PARAM(output, boolean,	MINIMISE_FRAGMENTATION,		MMAL_TRUE);
 		SET_PORT_PARAM(output, uint32,	MB_ROWS_PER_SLICE,			0);
-		SET_PORT_PARAM(output, boolean,	VIDEO_IMMUTABLE_INPUT,		MMAL_FALSE);
+		SET_PORT_PARAM(output, boolean,	VIDEO_IMMUTABLE_INPUT,		MMAL_TRUE);
 		SET_PORT_PARAM(output, boolean,	VIDEO_DROPPABLE_PFRAMES,	MMAL_FALSE);
 		SET_PORT_PARAM(output, boolean,	VIDEO_ENCODE_INLINE_HEADER,	MMAL_TRUE); // SPS/PPS: https://github.com/raspberrypi/userland/issues/443
 		SET_PORT_PARAM(output, uint32,	VIDEO_BIT_RATE,				enc->bitrate * 1000);
@@ -254,13 +255,13 @@ static void _h264_encoder_cleanup(h264_encoder_s *enc) {
 	enc->ready = false;
 }
 
-int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest) {
+int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, int src_vcsm_handle, frame_s *dest) {
 	assert(enc->ready);
 	assert(src->used > 0);
-	assert(src->width == enc->width);
-	assert(src->height == enc->height);
-	assert(src->format == enc->format);
-	assert(src->stride == enc->stride);
+	assert(enc->width == src->width);
+	assert(enc->height == src->height);
+	assert(enc->format == src->format);
+	assert(enc->stride == src->stride);
 
 	frame_copy_meta(src, dest);
 	dest->encode_begin_ts = get_now_monotonic();
@@ -269,7 +270,7 @@ int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest
 
 	bool force_key = (enc->last_online != src->online);
 
-	if (_h264_encoder_compress_raw(enc, src, dest, force_key) < 0) {
+	if (_h264_encoder_compress_raw(enc, src, src_vcsm_handle, dest, force_key) < 0) {
 		_h264_encoder_cleanup(enc);
 		return -1;
 	}
@@ -282,7 +283,7 @@ int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest
 	return 0;
 }
 
-static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key) {
+static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src, int src_vcsm_handle, frame_s *dest, bool force_key) {
 	LOG_DEBUG("H264: Compressing new frame; force_key=%d ...", force_key);
 
 	MMAL_STATUS_T error;
@@ -316,7 +317,12 @@ static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src, f
 
 		in = NULL;
 		if (!sent && mmal_wrapper_buffer_get_empty(enc->input_port, &in, 0) == MMAL_SUCCESS) {
-			in->data = src->data;
+			if (enc->zero_copy && src_vcsm_handle > 0) {
+				in->data = (uint8_t *)vcsm_vc_hdl_from_hdl(src_vcsm_handle);
+				in->alloc_size = src->used;
+			} else {
+				in->data = src->data;
+			}
 			in->length = src->used;
 			in->offset = 0;
 			in->flags = MMAL_BUFFER_HEADER_FLAG_EOS;

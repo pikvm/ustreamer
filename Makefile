@@ -46,7 +46,7 @@ endef
 
 
 ifneq ($(call optbool,$(WITH_OMX)),)
-_USTR_LIBS += -lbcm_host -lvcos -lopenmaxil -lmmal -lmmal_core -lmmal_util -lmmal_vc_client -lmmal_components -L$(RPI_VC_LIBS)
+_USTR_LIBS += -lbcm_host -lvcos -lvcsm -lopenmaxil -lmmal -lmmal_core -lmmal_util -lmmal_vc_client -lmmal_components -L$(RPI_VC_LIBS)
 override CFLAGS += -DWITH_OMX -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
 _USTR_SRCS += $(shell ls \
 	src/ustreamer/encoders/omx/*.c \

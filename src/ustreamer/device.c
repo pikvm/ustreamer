@@ -178,6 +178,17 @@ void device_close(device_s *dev) {
 		for (unsigned index = 0; index < RUN(n_bufs); ++index) {
 #			define HW(_next) RUN(hw_bufs)[index]._next
 
+#			ifdef WITH_OMX
+			if (HW(vcsm_handle) > 0) {
+				vcsm_free(HW(vcsm_handle));
+				HW(vcsm_handle) = -1;
+			}
+			if (HW(dma_fd) >= 0) {
+				close(HW(dma_fd));
+				HW(dma_fd) = -1;
+			}
+#			endif
+
 			if (dev->io_method == V4L2_MEMORY_MMAP) {
 				if (HW(raw.allocated) > 0 && HW(raw.data) != MAP_FAILED) {
 					if (munmap(HW(raw.data), HW(raw.allocated)) < 0) {
@@ -208,6 +219,53 @@ void device_close(device_s *dev) {
 		RUN(fd) = -1;
 	}
 }
+
+#ifdef WITH_OMX
+int device_export_to_vcsm(device_s *dev) {
+#	define DMA_FD		RUN(hw_bufs[index].dma_fd)
+#	define VCSM_HANDLE	RUN(hw_bufs[index].vcsm_handle)
+
+	for (unsigned index = 0; index < RUN(n_bufs); ++index) {
+		struct v4l2_exportbuffer exp;
+		MEMSET_ZERO(exp);
+		exp.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		exp.index = index;
+
+		LOG_DEBUG("Calling ioctl(VIDIOC_EXPBUF) for buffer index=%u ...", index);
+		if (xioctl(RUN(fd), VIDIOC_EXPBUF, &exp) < 0) {
+			LOG_PERROR("Unable to export device buffer index=%u", index);
+			goto error;
+		}
+		DMA_FD = exp.fd;
+
+		LOG_DEBUG("Importing DMA buffer fd=%d into VCSM ...", DMA_FD);
+		int vcsm_handle = vcsm_import_dmabuf(DMA_FD, "v4l2_buf");
+		if (vcsm_handle <= 0) {
+			LOG_PERROR("Unable to import DMA buffer fd=%d into VCSM", DMA_FD);
+			goto error;
+		}
+		VCSM_HANDLE = vcsm_handle;
+	}
+
+	return 0;
+
+	error:
+		for (unsigned index = 0; index < RUN(n_bufs); ++index) {
+			if (VCSM_HANDLE > 0) {
+				vcsm_free(VCSM_HANDLE);
+				VCSM_HANDLE = -1;
+			}
+			if (DMA_FD >= 0) {
+				close(DMA_FD);
+				DMA_FD = -1;
+			}
+		}
+		return -1;
+
+#	undef VCSM_HANDLE
+#	undef DMA_FD
+}
+#endif
 
 int device_switch_capturing(device_s *dev, bool enable) {
 	if (enable != RUN(capturing)) {
@@ -647,6 +705,11 @@ static int _device_open_io_method_mmap(device_s *dev) {
 		}
 
 #		define HW(_next) RUN(hw_bufs)[RUN(n_bufs)]._next
+
+#		ifdef WITH_OMX
+		HW(dma_fd) = -1;
+		HW(vcsm_handle) = -1;
+#		endif
 
 		A_MUTEX_INIT(&HW(grabbed_mutex));
 

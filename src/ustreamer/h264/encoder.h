@@ -33,6 +33,7 @@
 #include <interface/mmal/util/mmal_default_components.h>
 #include <interface/mmal/util/mmal_component_wrapper.h>
 #include <interface/mmal/util/mmal_util_params.h>
+#include <interface/vcsm/user-vcsm.h>
 
 #include "../../libs/tools.h"
 #include "../../libs/logging.h"
@@ -56,6 +57,7 @@ typedef struct {
 	unsigned	height;
 	unsigned	format;
 	unsigned	stride;
+	bool		zero_copy;
 	bool		ready;
 } h264_encoder_s;
 
@@ -63,6 +65,6 @@ typedef struct {
 h264_encoder_s *h264_encoder_init(unsigned bitrate, unsigned gop, unsigned fps);
 void h264_encoder_destroy(h264_encoder_s *enc);
 
-bool h264_encoder_is_prepared_for(h264_encoder_s *enc, const frame_s *frame);
-int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame);
-int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, frame_s *dest);
+bool h264_encoder_is_prepared_for(h264_encoder_s *enc, const frame_s *frame, bool zero_copy);
+int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame, bool zero_copy);
+int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, int src_vcsm_handle, frame_s *dest);

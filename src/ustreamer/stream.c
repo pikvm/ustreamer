@@ -30,7 +30,7 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 #ifdef WITH_OMX
 static h264_stream_s *_h264_stream_init(memsink_s *sink, unsigned bitrate, unsigned gop);
 static void _h264_stream_destroy(h264_stream_s *h264);
-static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame);
+static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_handle);
 #endif
 
 
@@ -186,7 +186,7 @@ void stream_loop(stream_s *stream) {
 
 #							ifdef WITH_OMX
 							if (RUN(h264)) {
-								_h264_stream_process(RUN(h264), &hw->raw);
+								_h264_stream_process(RUN(h264), &hw->raw, hw->vcsm_handle);
 							}
 #							endif
 						}
@@ -247,7 +247,7 @@ static workers_pool_s *_stream_init_loop(stream_s *stream) {
 			}
 #			ifdef WITH_OMX
 			if (RUN(h264)) {
-				_h264_stream_process(RUN(h264), stream->blank);
+				_h264_stream_process(RUN(h264), stream->blank, -1);
 			}
 #			endif
 		}
@@ -280,6 +280,11 @@ static workers_pool_s *_stream_init_one(stream_s *stream) {
 	if (device_open(stream->dev) < 0) {
 		goto error;
 	}
+#	ifdef WITH_OMX
+	if (RUN(h264) && !is_jpeg(stream->dev->run->format)) {
+		device_export_to_vcsm(stream->dev);
+	}
+#	endif
 	if (device_switch_capturing(stream->dev, true) < 0) {
 		goto error;
 	}
@@ -375,26 +380,33 @@ static void _h264_stream_destroy(h264_stream_s *h264) {
 	free(h264);
 }
 
-static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame) {
+static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_handle) {
 	long double now = get_now_monotonic();
+	bool zero_copy = false;
+
 	if (is_jpeg(frame->format)) {
 		LOG_DEBUG("H264: Input frame is JPEG; decoding ...");
 		if (unjpeg(frame, h264->tmp_src, true) < 0) {
 			return;
 		}
+		frame = h264->tmp_src;
 		LOG_VERBOSE("H264: JPEG decoded; time=%.3Lf", get_now_monotonic() - now);
+	} else if (vcsm_handle > 0) {
+		LOG_DEBUG("H264: Zero-copy available for the input");
+		zero_copy = true;
 	} else {
 		LOG_DEBUG("H264: Copying source to tmp buffer ...");
 		frame_copy(frame, h264->tmp_src);
+		frame = h264->tmp_src;
 		LOG_VERBOSE("H264: Source copied; time=%.3Lf", get_now_monotonic() - now);
 	}
 
-	if (!h264_encoder_is_prepared_for(h264->enc, h264->tmp_src)) {
-		h264_encoder_prepare(h264->enc, h264->tmp_src);
+	if (!h264_encoder_is_prepared_for(h264->enc, frame, zero_copy)) {
+		h264_encoder_prepare(h264->enc, frame, zero_copy);
 	}
 
 	if (h264->enc->ready) {
-		if (h264_encoder_compress(h264->enc, h264->tmp_src, h264->dest) == 0) {
+		if (h264_encoder_compress(h264->enc, frame, vcsm_handle, h264->dest) == 0) {
 			memsink_server_put(h264->sink, h264->dest);
 		}
 	}
