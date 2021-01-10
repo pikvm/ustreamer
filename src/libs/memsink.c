@@ -102,7 +102,8 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 		LOG_VERBOSE("%s-sink: >>>>> Exposing new frame ...", sink->name);
 
 #		define COPY(_field) sink->mem->_field = frame->_field
-		sink->mem->id = get_now_id();
+		sink->last_id = get_now_id();
+		sink->mem->id = sink->last_id;
 		COPY(used);
 		COPY(width);
 		COPY(height);
@@ -145,11 +146,11 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 
 	bool same = false;
 
-	if (sink->mem->id == sink->consumed_id) {
+	if (sink->mem->id == sink->last_id) {
 		same = true;
 	} else {
 #		define COPY(_field) frame->_field = sink->mem->_field
-		sink->consumed_id = sink->mem->id;
+		sink->last_id = sink->mem->id;
 		COPY(width);
 		COPY(height);
 		COPY(format);

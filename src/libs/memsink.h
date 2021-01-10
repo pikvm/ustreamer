@@ -68,7 +68,7 @@ typedef struct {
 
 	int					fd;
 	memsink_shared_s	*mem;
-	uint64_t			consumed_id; // Client only
+	uint64_t			last_id;
 } memsink_s;
 
 
