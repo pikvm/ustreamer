@@ -83,13 +83,13 @@ enum _OPT_VALUES {
 	_O_SERVER_TIMEOUT,
 
 #	define ADD_SINK(_prefix) \
-		_O_##_prefix##SINK, \
-		_O_##_prefix##SINK_MODE, \
-		_O_##_prefix##SINK_RM, \
-		_O_##_prefix##SINK_TIMEOUT,
-	ADD_SINK(_)
+		_O_##_prefix, \
+		_O_##_prefix##_MODE, \
+		_O_##_prefix##_RM, \
+		_O_##_prefix##_TIMEOUT,
+	ADD_SINK(SINK)
 #	ifdef WITH_OMX
-	ADD_SINK(H264_)
+	ADD_SINK(H264_SINK)
 	_O_H264_BITRATE,
 	_O_H264_GOP,
 #	endif
@@ -174,13 +174,13 @@ static const struct option _LONG_OPTS[] = {
 	{"server-timeout",			required_argument,	NULL,	_O_SERVER_TIMEOUT},
 
 #	define ADD_SINK(_opt, _prefix) \
-		{_opt "sink",			required_argument,	NULL,	_O_##_prefix##SINK}, \
-		{_opt "sink-mode",		required_argument,	NULL,	_O_##_prefix##SINK_MODE}, \
-		{_opt "sink-rm",		no_argument,		NULL,	_O_##_prefix##SINK_RM}, \
-		{_opt "sink-timeout",	required_argument,	NULL,	_O_##_prefix##SINK_TIMEOUT},
-	ADD_SINK("", _)
+		{_opt "sink",			required_argument,	NULL,	_O_##_prefix}, \
+		{_opt "sink-mode",		required_argument,	NULL,	_O_##_prefix##_MODE}, \
+		{_opt "sink-rm",		no_argument,		NULL,	_O_##_prefix##_RM}, \
+		{_opt "sink-timeout",	required_argument,	NULL,	_O_##_prefix##_TIMEOUT},
+	ADD_SINK("", SINK)
 #	ifdef WITH_OMX
-	ADD_SINK("h264-", H264_)
+	ADD_SINK("h264-", H264_SINK)
 	{"h264-bitrate",			required_argument,	NULL,	_O_H264_BITRATE},
 	{"h264-gop",				required_argument,	NULL,	_O_H264_GOP},
 #	endif
@@ -238,13 +238,13 @@ options_s *options_init(unsigned argc, char *argv[]) {
 
 void options_destroy(options_s *options) {
 #	define ADD_SINK(_prefix) { \
-			if (options->_prefix##sink) { \
-				memsink_destroy(options->_prefix##sink); \
+			if (options->_prefix) { \
+				memsink_destroy(options->_prefix); \
 			} \
 		}
-	ADD_SINK();
+	ADD_SINK(sink);
 #	ifdef WITH_OMX
-	ADD_SINK(h264_);
+	ADD_SINK(h264_sink);
 #	endif
 #	undef ADD_SINK
 
@@ -331,13 +331,13 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 	char *blank_path = NULL;
 
 #	define ADD_SINK(_prefix) \
-		char *_prefix##sink_name = NULL; \
-		mode_t _prefix##sink_mode = 0660; \
-		bool _prefix##sink_rm = false; \
-		unsigned _prefix##sink_timeout = 1;
-	ADD_SINK();
+		char *_prefix##_name = NULL; \
+		mode_t _prefix##_mode = 0660; \
+		bool _prefix##_rm = false; \
+		unsigned _prefix##_timeout = 1;
+	ADD_SINK(sink);
 #	ifdef WITH_OMX
-	ADD_SINK(h264_);
+	ADD_SINK(h264_sink);
 #	endif
 #	undef ADD_SINK
 
@@ -428,13 +428,13 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			case _O_SERVER_TIMEOUT:		OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
 #			define ADD_SINK(_opt, _lp, _up) \
-				case _O_##_up##SINK:			OPT_SET(_lp##sink_name, optarg); \
-				case _O_##_up##SINK_MODE:		OPT_NUMBER("--" #_opt "sink-mode", _lp##sink_mode, INT_MIN, INT_MAX, 8); \
-				case _O_##_up##SINK_RM:			OPT_SET(_lp##sink_rm, true); \
-				case _O_##_up##SINK_TIMEOUT:	OPT_NUMBER("--" #_opt "sink-timeout", _lp##sink_timeout, 1, 60, 0);
-			ADD_SINK("", , _)
+				case _O_##_up:				OPT_SET(_lp##_name, optarg); \
+				case _O_##_up##_MODE:		OPT_NUMBER("--" #_opt "sink-mode", _lp##_mode, INT_MIN, INT_MAX, 8); \
+				case _O_##_up##_RM:			OPT_SET(_lp##_rm, true); \
+				case _O_##_up##_TIMEOUT:	OPT_NUMBER("--" #_opt "sink-timeout", _lp##_timeout, 1, 60, 0);
+			ADD_SINK("", sink, SINK)
 #			ifdef WITH_OMX
-			ADD_SINK("h264-", h264_, H264_)
+			ADD_SINK("h264-", h264_sink, H264_sink)
 			case _O_H264_BITRATE:	OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 100, 16000, 0);
 			case _O_H264_GOP:		OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
 #			endif
@@ -479,22 +479,22 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 	options->blank = blank_frame_init(blank_path);
 	stream->blank = options->blank;
 
-#	define ADD_SINK(_name, _prefix) { \
-			if (_prefix##sink_name && _prefix##sink_name[0] != '\0') { \
-				options->_prefix##sink = memsink_init( \
-					_name, \
-					_prefix##sink_name, \
+#	define ADD_SINK(_label, _prefix) { \
+			if (_prefix##_name && _prefix##_name[0] != '\0') { \
+				options->_prefix = memsink_init( \
+					_label, \
+					_prefix##_name, \
 					true, \
-					_prefix##sink_mode, \
-					_prefix##sink_rm, \
-					_prefix##sink_timeout \
+					_prefix##_mode, \
+					_prefix##_rm, \
+					_prefix##_timeout \
 				); \
 			} \
-			stream->_prefix##sink = options->_prefix##sink; \
+			stream->_prefix = options->_prefix; \
 		}
-	ADD_SINK("JPEG",);
+	ADD_SINK("JPEG", sink);
 #	ifdef WITH_OMX
-	ADD_SINK("H264", h264_);
+	ADD_SINK("H264", h264_sink);
 #	endif
 #	undef ADD_SINK
 
