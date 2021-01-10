@@ -37,15 +37,15 @@ memsink_s *memsink_init(const char *name, const char *obj, bool server, mode_t m
 	sink->fd = -1;
 	sink->mem = MAP_FAILED;
 
-	LOG_INFO("Using %s sink: %s", name, obj);
+	LOG_INFO("Using %s-sink: %s", name, obj);
 
 	if ((sink->fd = shm_open(sink->obj, (server ? O_RDWR | O_CREAT : O_RDWR), mode)) == -1) {
-		LOG_PERROR("%s sink: Can't open shared memory", name);
+		LOG_PERROR("%s-sink: Can't open shared memory", name);
 		goto error;
 	}
 
 	if (sink->server && ftruncate(sink->fd, sizeof(memsink_shared_s)) < 0) {
-		LOG_PERROR("%s sink: Can't truncate shared memory", name);
+		LOG_PERROR("%s-sink: Can't truncate shared memory", name);
 		goto error;
 	}
 
@@ -57,7 +57,7 @@ memsink_s *memsink_init(const char *name, const char *obj, bool server, mode_t m
 		sink->fd,
 		0
 	)) == MAP_FAILED) {
-		LOG_PERROR("%s sink: Can't mmap shared memory", name);
+		LOG_PERROR("%s-sink: Can't mmap shared memory", name);
 		goto error;
 	}
 
@@ -71,16 +71,16 @@ memsink_s *memsink_init(const char *name, const char *obj, bool server, mode_t m
 void memsink_destroy(memsink_s *sink) {
 	if (sink->mem != MAP_FAILED) {
 		if (munmap(sink->mem, sizeof(memsink_shared_s)) < 0) {
-			LOG_PERROR("%s sink: Can't unmap shared memory", sink->name);
+			LOG_PERROR("%s-sink: Can't unmap shared memory", sink->name);
 		}
 	}
 	if (sink->fd >= 0) {
 		if (close(sink->fd) < 0) {
-			LOG_PERROR("%s sink: Can't close shared memory fd", sink->name);
+			LOG_PERROR("%s-sink: Can't close shared memory fd", sink->name);
 		}
 		if (sink->rm && shm_unlink(sink->obj) < 0) {
 			if (errno != ENOENT) {
-				LOG_PERROR("%s sink: Can't remove shared memory", sink->name);
+				LOG_PERROR("%s-sink: Can't remove shared memory", sink->name);
 			}
 		}
 	}
@@ -93,13 +93,13 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 	const long double now = get_now_monotonic();
 
 	if (frame->used > MEMSINK_MAX_DATA) {
-		LOG_ERROR("%s sink: Can't put frame: is too big (%zu > %zu)",
+		LOG_ERROR("%s-sink: Can't put frame: is too big (%zu > %zu)",
 			sink->name, frame->used, MEMSINK_MAX_DATA);
 		return 0; // -2
 	}
 
 	if (_flock_timedwait_monotonic(sink->fd, 1) == 0) {
-		LOG_VERBOSE("%s sink: >>>>> Exposing new frame ...", sink->name);
+		LOG_VERBOSE("%s-sink: >>>>> Exposing new frame ...", sink->name);
 
 #		define COPY(_field) sink->mem->_field = frame->_field
 		sink->mem->id = get_now_id();
@@ -116,17 +116,17 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 #		undef COPY
 
 		if (flock(sink->fd, LOCK_UN) < 0) {
-			LOG_PERROR("%s sink: Can't unlock memory", sink->name);
+			LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
 			return -1;
 		}
-		LOG_VERBOSE("%s sink: Exposed new frame; full exposition time = %.3Lf",
+		LOG_VERBOSE("%s-sink: Exposed new frame; full exposition time = %.3Lf",
 			sink->name, get_now_monotonic() - now);
 
 	} else if (errno == EWOULDBLOCK) {
-		LOG_VERBOSE("%s sink: ===== Shared memory is busy now; frame skipped", sink->name);
+		LOG_VERBOSE("%s-sink: ===== Shared memory is busy now; frame skipped", sink->name);
 
 	} else {
-		LOG_PERROR("%s sink: Can't lock memory", sink->name);
+		LOG_PERROR("%s-sink: Can't lock memory", sink->name);
 		return -1;
 	}
 	return 0;
@@ -139,7 +139,7 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 		if (errno == EWOULDBLOCK) {
 			return -2;
 		}
-		LOG_PERROR("%s sink: Can't lock memory", sink->name);
+		LOG_PERROR("%s-sink: Can't lock memory", sink->name);
 		return -1;
 	}
 
@@ -163,7 +163,7 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 	}
 
 	if (flock(sink->fd, LOCK_UN) < 0) {
-		LOG_PERROR("%s sink: Can't unlock memory", sink->name);
+		LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
 		return -1;
 	}
 
