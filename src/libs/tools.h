@@ -23,6 +23,7 @@
 #pragma once
 
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
@@ -62,12 +63,23 @@ INLINE long long floor_ms(long double now) {
 	return (long long)now - (now < (long long)now); // floor()
 }
 
-INLINE void get_now(clockid_t clk_id, time_t *sec, long *msec) {
-	struct timespec spec;
+INLINE uint32_t triple_u32(uint32_t x) {
+	// https://nullprogram.com/blog/2018/07/31/
+	x ^= x >> 17;
+	x *= UINT32_C(0xED5AD4BB);
+	x ^= x >> 11;
+	x *= UINT32_C(0xAC4C1B51);
+	x ^= x >> 15;
+	x *= UINT32_C(0x31848BAB);
+	x ^= x >> 14;
+	return x;
+}
 
-	assert(!clock_gettime(clk_id, &spec));
-	*sec = spec.tv_sec;
-	*msec = round(spec.tv_nsec / 1.0e6);
+INLINE void get_now(clockid_t clk_id, time_t *sec, long *msec) {
+	struct timespec ts;
+	assert(!clock_gettime(clk_id, &ts));
+	*sec = ts.tv_sec;
+	*msec = round(ts.tv_nsec / 1.0e6);
 
 	if (*msec > 999) {
 		*sec += 1;
@@ -75,24 +87,33 @@ INLINE void get_now(clockid_t clk_id, time_t *sec, long *msec) {
 	}
 }
 
+#if defined(CLOCK_MONOTONIC_RAW)
+#	define X_CLOCK_MONOTONIC CLOCK_MONOTONIC_RAW
+#elif defined(CLOCK_MONOTONIC_FAST)
+#	define X_CLOCK_MONOTONIC CLOCK_MONOTONIC_FAST
+#else
+#	define X_CLOCK_MONOTONIC CLOCK_MONOTONIC
+#endif
+
 INLINE long double get_now_monotonic(void) {
 	time_t sec;
 	long msec;
-
-#	if defined(CLOCK_MONOTONIC_RAW)
-	get_now(CLOCK_MONOTONIC_RAW, &sec, &msec);
-#	elif defined(CLOCK_MONOTONIC_FAST)
-	get_now(CLOCK_MONOTONIC_FAST, &sec, &msec);
-#	else
-	get_now(CLOCK_MONOTONIC, &sec, &msec);
-#	endif
+	get_now(X_CLOCK_MONOTONIC, &sec, &msec);
 	return (long double)sec + ((long double)msec) / 1000;
 }
+
+INLINE uint64_t get_now_id(void) {
+	struct timespec ts;
+	assert(!clock_gettime(X_CLOCK_MONOTONIC, &ts));
+	uint64_t now = (uint64_t)(ts.tv_nsec / 1000) + (uint64_t)ts.tv_sec * 1000000;
+	return (uint64_t)triple_u32(now) | ((uint64_t)triple_u32(now + 12345) << 32);
+}
+
+#undef X_CLOCK_MONOTONIC
 
 INLINE long double get_now_real(void) {
 	time_t sec;
 	long msec;
-
 	get_now(CLOCK_REALTIME, &sec, &msec);
 	return (long double)sec + ((long double)msec) / 1000;
 }

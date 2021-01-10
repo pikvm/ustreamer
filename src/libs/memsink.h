@@ -46,7 +46,7 @@
 
 
 typedef struct {
-	uint64_t	seq;
+	uint64_t	id;
 	size_t		used;
 	unsigned	width;
 	unsigned	height;
@@ -68,7 +68,7 @@ typedef struct {
 
 	int					fd;
 	memsink_shared_s	*mem;
-	uint64_t			client_seq;
+	uint64_t			consumed_id; // Client only
 } memsink_s;
 
 
