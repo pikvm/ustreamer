@@ -384,6 +384,7 @@ static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame, int 
 	bool zero_copy = false;
 
 	if (is_jpeg(frame->format)) {
+		assert(vcsm_handle <= 0);
 		LOG_DEBUG("H264: Input frame is JPEG; decoding ...");
 		if (unjpeg(frame, h264->tmp_src, true) < 0) {
 			return;

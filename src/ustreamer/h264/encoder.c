@@ -96,7 +96,7 @@ bool h264_encoder_is_prepared_for(h264_encoder_s *enc, const frame_s *frame, boo
 }
 
 int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame, bool zero_copy) {
-	LOG_INFO("H264: Configuring MMAL encoder ...");
+	LOG_INFO("H264: Configuring MMAL encoder: zero_copy=%d ...", zero_copy);
 
 	_h264_encoder_cleanup(enc);
 
@@ -224,7 +224,7 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame, bool zero_co
 
 	error:
 		_h264_encoder_cleanup(enc);
-		LOG_ERROR("H264: Encoder disabled due error");
+		LOG_ERROR("H264: Encoder disabled due error (prepare)");
 		return -1;
 
 #	undef ENABLE_PORT
@@ -273,7 +273,7 @@ int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, int src_vcsm_
 
 	if (_h264_encoder_compress_raw(enc, src, src_vcsm_handle, dest, force_key) < 0) {
 		_h264_encoder_cleanup(enc);
-		LOG_ERROR("H264: Encoder disabled due error");
+		LOG_ERROR("H264: Encoder disabled due error (compress)");
 		return -1;
 	}
 
@@ -321,10 +321,10 @@ static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src, i
 		if (!sent && mmal_wrapper_buffer_get_empty(enc->input_port, &in, 0) == MMAL_SUCCESS) {
 			if (enc->zero_copy && src_vcsm_handle > 0) {
 				in->data = (uint8_t *)vcsm_vc_hdl_from_hdl(src_vcsm_handle);
-				in->alloc_size = src->used;
 			} else {
 				in->data = src->data;
 			}
+			in->alloc_size = src->used;
 			in->length = src->used;
 			in->offset = 0;
 			in->flags = MMAL_BUFFER_HEADER_FLAG_EOS;
