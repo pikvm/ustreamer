@@ -434,7 +434,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 				case _O_##_up##_TIMEOUT:	OPT_NUMBER("--" #_opt "sink-timeout", _lp##_timeout, 1, 60, 0);
 			ADD_SINK("", sink, SINK)
 #			ifdef WITH_OMX
-			ADD_SINK("h264-", h264_sink, H264_sink)
+			ADD_SINK("h264-", h264_sink, H264_SINK)
 			case _O_H264_BITRATE:	OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 100, 16000, 0);
 			case _O_H264_GOP:		OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
 #			endif
