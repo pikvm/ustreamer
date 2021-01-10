@@ -224,6 +224,7 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame, bool zero_co
 
 	error:
 		_h264_encoder_cleanup(enc);
+		LOG_ERROR("H264: Encoder disabled due error");
 		return -1;
 
 #	undef ENABLE_PORT
@@ -272,6 +273,7 @@ int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, int src_vcsm_
 
 	if (_h264_encoder_compress_raw(enc, src, src_vcsm_handle, dest, force_key) < 0) {
 		_h264_encoder_cleanup(enc);
+		LOG_ERROR("H264: Encoder disabled due error");
 		return -1;
 	}
 
