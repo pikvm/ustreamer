@@ -181,7 +181,7 @@ long double workers_pool_get_fluency_delay(workers_pool_s *pool, worker_s *ready
 static void *_worker_thread(void *v_worker) {
 	worker_s *wr = (worker_s *)v_worker;
 
-	A_THREAD_RENAME(wr->name);
+	A_THREAD_RENAME("%s", wr->name);
 	LOG_DEBUG("Hello! I am a worker %s ^_^", wr->name);
 
 	while (!atomic_load(&wr->pool->stop)) {
