@@ -109,9 +109,6 @@ void stream_loop(stream_s *stream) {
 				if (!ready_wr->job_failed) {
 					if (ready_wr->job_timely) {
 						_stream_expose_frame(stream, ready_job->dest, captured_fps);
-						if (stream->jpeg_sink) {
-							memsink_server_put(stream->jpeg_sink, ready_job->dest);
-						}
 						LOG_PERF("##### Encoded frame exposed; worker=%s", ready_wr->name);
 					} else {
 						LOG_PERF("----- Encoded frame dropped; worker=%s", ready_wr->name);
@@ -242,9 +239,6 @@ static workers_pool_s *_stream_init_loop(stream_s *stream) {
 
 	while (!atomic_load(&RUN(stop))) {
 		if (_stream_expose_frame(stream, NULL, 0)) {
-			if (stream->jpeg_sink) {
-				memsink_server_put(stream->jpeg_sink, stream->blank);
-			}
 #			ifdef WITH_OMX
 			if (RUN(h264)) {
 				_h264_stream_process(RUN(h264), stream->blank, -1);
@@ -346,6 +340,11 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 	VID(captured_fps) = captured_fps;
 	atomic_store(&VID(updated), true);
 	A_MUTEX_UNLOCK(&VID(mutex));
+
+	if (changed && stream->sink) {
+		memsink_server_put(stream->sink, VID(frame));
+	}
+
 	return changed;
 
 #	undef VID

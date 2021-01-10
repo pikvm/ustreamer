@@ -82,14 +82,14 @@ enum _OPT_VALUES {
 	_O_TCP_NODELAY,
 	_O_SERVER_TIMEOUT,
 
-#	define ADD_SINK(_upper) \
-		_O_##_upper##_SINK, \
-		_O_##_upper##_SINK_MODE, \
-		_O_##_upper##_SINK_RM, \
-		_O_##_upper##_SINK_TIMEOUT,
-	ADD_SINK(JPEG)
+#	define ADD_SINK(_prefix) \
+		_O_##_prefix##SINK, \
+		_O_##_prefix##SINK_MODE, \
+		_O_##_prefix##SINK_RM, \
+		_O_##_prefix##SINK_TIMEOUT,
+	ADD_SINK(_)
 #	ifdef WITH_OMX
-	ADD_SINK(H264)
+	ADD_SINK(H264_)
 	_O_H264_BITRATE,
 	_O_H264_GOP,
 #	endif
@@ -173,14 +173,14 @@ static const struct option _LONG_OPTS[] = {
 	{"tcp-nodelay",				no_argument,		NULL,	_O_TCP_NODELAY},
 	{"server-timeout",			required_argument,	NULL,	_O_SERVER_TIMEOUT},
 
-#	define ADD_SINK(_lower, _upper) \
-		{#_lower "-sink",			required_argument,	NULL,	_O_##_upper##_SINK}, \
-		{#_lower "-sink-mode",		required_argument,	NULL,	_O_##_upper##_SINK_MODE}, \
-		{#_lower "-sink-rm",		no_argument,		NULL,	_O_##_upper##_SINK_RM}, \
-		{#_lower "-sink-timeout",	required_argument,	NULL,	_O_##_upper##_SINK_TIMEOUT},
-	ADD_SINK(jpeg, JPEG)
+#	define ADD_SINK(_opt, _prefix) \
+		{_opt "sink",			required_argument,	NULL,	_O_##_prefix##SINK}, \
+		{_opt "sink-mode",		required_argument,	NULL,	_O_##_prefix##SINK_MODE}, \
+		{_opt "sink-rm",		no_argument,		NULL,	_O_##_prefix##SINK_RM}, \
+		{_opt "sink-timeout",	required_argument,	NULL,	_O_##_prefix##SINK_TIMEOUT},
+	ADD_SINK("", _)
 #	ifdef WITH_OMX
-	ADD_SINK(h264, H264)
+	ADD_SINK("h264-", H264_)
 	{"h264-bitrate",			required_argument,	NULL,	_O_H264_BITRATE},
 	{"h264-gop",				required_argument,	NULL,	_O_H264_GOP},
 #	endif
@@ -237,14 +237,14 @@ options_s *options_init(unsigned argc, char *argv[]) {
 }
 
 void options_destroy(options_s *options) {
-#	define ADD_SINK(_lower) { \
-			if (options->_lower##_sink) { \
-				memsink_destroy(options->_lower##_sink); \
+#	define ADD_SINK(_prefix) { \
+			if (options->_prefix##sink) { \
+				memsink_destroy(options->_prefix##sink); \
 			} \
 		}
-	ADD_SINK(jpeg);
+	ADD_SINK();
 #	ifdef WITH_OMX
-	ADD_SINK(h264);
+	ADD_SINK(h264_);
 #	endif
 #	undef ADD_SINK
 
@@ -330,14 +330,14 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 
 	char *blank_path = NULL;
 
-#	define ADD_SINK(_lower) \
-		char *_lower##_sink_name = NULL; \
-		mode_t _lower##_sink_mode = 0660; \
-		bool _lower##_sink_rm = false; \
-		unsigned _lower##_sink_timeout = 1;
-	ADD_SINK(jpeg);
+#	define ADD_SINK(_prefix) \
+		char *_prefix##sink_name = NULL; \
+		mode_t _prefix##sink_mode = 0660; \
+		bool _prefix##sink_rm = false; \
+		unsigned _prefix##sink_timeout = 1;
+	ADD_SINK();
 #	ifdef WITH_OMX
-	ADD_SINK(h264);
+	ADD_SINK(h264_);
 #	endif
 #	undef ADD_SINK
 
@@ -427,14 +427,14 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			case _O_TCP_NODELAY:		OPT_SET(server->tcp_nodelay, true);
 			case _O_SERVER_TIMEOUT:		OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
-#			define ADD_SINK(_lower, _upper) \
-				case _O_##_upper##_SINK:			OPT_SET(_lower##_sink_name, optarg); \
-				case _O_##_upper##_SINK_MODE:		OPT_NUMBER("--" #_lower "-sink-mode", _lower##_sink_mode, INT_MIN, INT_MAX, 8); \
-				case _O_##_upper##_SINK_RM:			OPT_SET(_lower##_sink_rm, true); \
-				case _O_##_upper##_SINK_TIMEOUT:	OPT_NUMBER("--" #_lower "-sink-timeout", _lower##_sink_timeout, 1, 60, 0);
-			ADD_SINK(jpeg, JPEG)
+#			define ADD_SINK(_opt, _lp, _up) \
+				case _O_##_up##SINK:			OPT_SET(_lp##sink_name, optarg); \
+				case _O_##_up##SINK_MODE:		OPT_NUMBER("--" #_opt "sink-mode", _lp##sink_mode, INT_MIN, INT_MAX, 8); \
+				case _O_##_up##SINK_RM:			OPT_SET(_lp##sink_rm, true); \
+				case _O_##_up##SINK_TIMEOUT:	OPT_NUMBER("--" #_opt "sink-timeout", _lp##sink_timeout, 1, 60, 0);
+			ADD_SINK("", , _)
 #			ifdef WITH_OMX
-			ADD_SINK(h264, H264)
+			ADD_SINK("h264-", h264_, H264_)
 			case _O_H264_BITRATE:	OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 100, 16000, 0);
 			case _O_H264_GOP:		OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
 #			endif
@@ -479,22 +479,22 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 	options->blank = blank_frame_init(blank_path);
 	stream->blank = options->blank;
 
-#	define ADD_SINK(_lower, _upper) { \
-			if (_lower##_sink_name && _lower##_sink_name[0] != '\0') { \
-				options->_lower##_sink = memsink_init( \
-					#_upper, \
-					_lower##_sink_name, \
+#	define ADD_SINK(_name, _prefix) { \
+			if (_prefix##sink_name && _prefix##sink_name[0] != '\0') { \
+				options->_prefix##sink = memsink_init( \
+					_name, \
+					_prefix##sink_name, \
 					true, \
-					_lower##_sink_mode, \
-					_lower##_sink_rm, \
-					_lower##_sink_timeout \
+					_prefix##sink_mode, \
+					_prefix##sink_rm, \
+					_prefix##sink_timeout \
 				); \
 			} \
-			stream->_lower##_sink = options->_lower##_sink; \
+			stream->_prefix##sink = options->_prefix##sink; \
 		}
-	ADD_SINK(jpeg, JPEG);
+	ADD_SINK("JPEG",);
 #	ifdef WITH_OMX
-	ADD_SINK(h264, H264);
+	ADD_SINK("H264", h264_);
 #	endif
 #	undef ADD_SINK
 
@@ -658,16 +658,16 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("                                  Default: disabled.\n");
 	SAY("    --allow-origin <str>  ─────── Set Access-Control-Allow-Origin header. Default: disabled.\n");
 	SAY("    --server-timeout <sec>  ───── Timeout for client connections. Default: %u.\n", server->timeout);
-#	define ADD_SINK(_lower, _upper) \
-		SAY(#_upper " sink options:"); \
+#	define ADD_SINK(_name, _opt) \
+		SAY(_name " sink options:"); \
 		SAY("══════════════════"); \
-		SAY("    --" #_lower "-sink <name>  ──────── Use the shared memory to sink " #_upper " frames. Default: disabled.\n"); \
-		SAY("    --" #_lower "-sink-mode <mode>  ─── Set " #_upper " sink permissions (like 777). Default: 660.\n"); \
-		SAY("    --" #_lower "-sink-rm  ──────────── Remove shared memory on stop. Default: disabled.\n"); \
-		SAY("    --" #_lower "-sink-timeout <sec>  ─ Timeout for lock. Default: 1.\n");
-	ADD_SINK(jpeg, JPEG)
+		SAY("    --" _opt "sink <name>  ──────── Use the shared memory to sink " _name " frames. Default: disabled.\n"); \
+		SAY("    --" _opt "sink-mode <mode>  ─── Set " _name " sink permissions (like 777). Default: 660.\n"); \
+		SAY("    --" _opt "sink-rm  ──────────── Remove shared memory on stop. Default: disabled.\n"); \
+		SAY("    --" _opt "sink-timeout <sec>  ─ Timeout for lock. Default: 1.\n");
+	ADD_SINK("JPEG", "")
 #	ifdef WITH_OMX
-	ADD_SINK(h264, H264)
+	ADD_SINK("H264", "h264-")
 	SAY("    --h264-bitrate <kbps>  ───── H264 bitrate in Kbps. Default: %u.\n", stream->h264_bitrate);
 	SAY("    --h264-gop <N>  ──────────── Intarval between keyframes. Default: %u.\n", stream->h264_gop);
 #	endif

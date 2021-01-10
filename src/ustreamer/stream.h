@@ -88,7 +88,7 @@ typedef struct {
 
 	frame_s		*blank;
 
-	memsink_s	*jpeg_sink;
+	memsink_s	*sink;
 
 #	ifdef WITH_OMX
 	memsink_s	*h264_sink;
