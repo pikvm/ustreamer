@@ -37,7 +37,7 @@ memsink_s *memsink_init(const char *name, const char *obj, bool server, mode_t m
 	sink->fd = -1;
 	sink->mem = MAP_FAILED;
 
-	LOG_INFO("Using %s sink: %s", name, name);
+	LOG_INFO("Using %s sink: %s", name, obj);
 
 	if ((sink->fd = shm_open(sink->obj, (server ? O_RDWR | O_CREAT : O_RDWR), mode)) == -1) {
 		LOG_PERROR("%s sink: Can't open shared memory", name);
