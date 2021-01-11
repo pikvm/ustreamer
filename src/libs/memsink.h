@@ -56,6 +56,7 @@ typedef struct {
 	long double	grab_ts;
 	long double	encode_begin_ts;
 	long double	encode_end_ts;
+	long double	last_consumed_ts;
 	uint8_t		data[MEMSINK_MAX_DATA];
 } memsink_shared_s;
 
@@ -69,6 +70,7 @@ typedef struct {
 	int					fd;
 	memsink_shared_s	*mem;
 	uint64_t			last_id;
+	bool				has_clients; // Only for server
 } memsink_s;
 
 

@@ -56,6 +56,8 @@ typedef struct {
 	unsigned		captured_fps;
 	atomic_bool		updated;
 	pthread_mutex_t	mutex;
+
+	atomic_bool		has_clients; // For slowdown
 } video_s;
 
 #ifdef WITH_OMX
@@ -76,17 +78,16 @@ typedef struct {
 #	endif
 
 	atomic_bool stop;
-	atomic_bool slowdown;
 } stream_runtime_s;
 
 typedef struct {
 	device_s	*dev;
 	encoder_s	*enc;
 
-	int			last_as_blank;
-	unsigned	error_delay;
-
 	frame_s		*blank;
+	int			last_as_blank;
+	bool		slowdown;
+	unsigned	error_delay;
 
 	memsink_s	*sink;
 
@@ -105,4 +106,3 @@ void stream_destroy(stream_s *stream);
 
 void stream_loop(stream_s *stream);
 void stream_loop_break(stream_s *stream);
-void stream_switch_slowdown(stream_s *stream, bool slowdown);

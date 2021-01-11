@@ -106,6 +106,9 @@ Path to JPEG file that will be shown when the device is disconnected during the 
 .BR \-K\ \fIsec ", " \-\-last\-as\-blank\ \fIsec
 Show the last frame received from the camera after it was disconnected, but no more than specified time (or endlessly if 0 is specified). If the device has not yet been online, display 'NO SIGNAL' or the image specified by option \-\-blank. Default: disabled.
 .TP
+.BR \-l ", " \-\-slowdown
+Slowdown capturing to 1 FPS or less when no stream or sink clients are connected. Useful to reduce CPU consumption. Default: disabled.
+.TP
 .BR \-\-device\-timeout\ \fIsec
 Timeout for device querying. Default: 1.
 .TP
@@ -181,9 +184,6 @@ Path to dir with static files instead of embedded root index page. Symlinks are 
 .TP
 .BR \-e\ \fIN ", " \-\-drop\-same\-frames\ \fIN
 Don't send identical frames to clients, but no more than specified number. It can significantly reduce the outgoing traffic, but will increase the CPU loading. Don't use this option with analog signal sources or webcams, it's useless. Default: disabled.
-.TP
-.BR \-l ", " \-\-slowdown
-Slowdown capturing to 1 FPS or less when no stream clients are connected. Useful to reduce CPU consumption. Default: disabled.
 .TP
 .BR \-R\ \fIWxH ", " \-\-fake\-resolution\ \fIWxH
 Override image resolution for the /state. Default: disabled.

@@ -139,10 +139,6 @@ int server_listen(server_s *server) {
 		assert(!event_add(RUN(refresh), &refresh_interval));
 	}
 
-	if (server->slowdown) {
-		stream_switch_slowdown(RUN(stream), true);
-	}
-
 	evhttp_set_timeout(RUN(http), server->timeout);
 
 	if (server->user[0] != '\0') {
@@ -476,10 +472,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		RUN(stream_clients_count) += 1;
 
 		if (RUN(stream_clients_count) == 1) {
-			if (server->slowdown) {
-				stream_switch_slowdown(RUN(stream), false);
-			}
-
+			atomic_store(&VID(has_clients), true);
 #			ifdef WITH_GPIO
 			gpio_set_has_http_clients(true);
 #			endif
@@ -650,10 +643,7 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	RUN(stream_clients_count) -= 1;
 
 	if (RUN(stream_clients_count) == 0) {
-		if (client->server->slowdown) {
-			stream_switch_slowdown(RUN(stream), true);
-		}
-
+		atomic_store(&VID(has_clients), false);
 #		ifdef WITH_GPIO
 		gpio_set_has_http_clients(false);
 #		endif

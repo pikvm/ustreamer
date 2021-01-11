@@ -113,6 +113,7 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 		COPY(grab_ts);
 		COPY(encode_begin_ts);
 		COPY(encode_end_ts);
+		sink->has_clients = (sink->mem->last_consumed_ts + 10 > get_now_monotonic());
 		memcpy(sink->mem->data, frame->data, frame->used);
 #		undef COPY
 
@@ -159,6 +160,7 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 		COPY(grab_ts);
 		COPY(encode_begin_ts);
 		COPY(encode_end_ts);
+		sink->mem->last_consumed_ts = get_now_monotonic();
 		frame_set_data(frame, sink->mem->data, sink->mem->used);
 #		undef COPY
 	}

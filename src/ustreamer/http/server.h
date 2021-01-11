@@ -135,7 +135,6 @@ typedef struct server_sx {
 	char		*allow_origin;
 
 	unsigned	drop_same_frames;
-	bool		slowdown;
 	unsigned	fake_width;
 	unsigned	fake_height;
 

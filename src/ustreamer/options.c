@@ -41,16 +41,16 @@ enum _OPT_VALUES {
 #	ifdef WITH_OMX
 	_O_GLITCHED_RESOLUTIONS = 'g',
 #	endif
+	_O_BLANK = 'k',
+	_O_LAST_AS_BLANK = 'K',
+	_O_SLOWDOWN = 'l',
 
 	_O_HOST = 's',
 	_O_PORT = 'p',
 	_O_UNIX = 'U',
 	_O_UNIX_RM = 'D',
 	_O_UNIX_MODE = 'M',
-	_O_BLANK = 'k',
-	_O_LAST_AS_BLANK = 'K',
 	_O_DROP_SAME_FRAMES = 'e',
-	_O_SLOWDOWN = 'l',
 	_O_FAKE_RESOLUTION = 'R',
 
 	_O_HELP = 'h',
@@ -141,6 +141,7 @@ static const struct option _LONG_OPTS[] = {
 #	endif
 	{"blank",					required_argument,	NULL,	_O_BLANK},
 	{"last-as-blank",			required_argument,	NULL,	_O_LAST_AS_BLANK},
+	{"slowdown",				no_argument,		NULL,	_O_SLOWDOWN},
 	{"device-timeout",			required_argument,	NULL,	_O_DEVICE_TIMEOUT},
 	{"device-error-delay",		required_argument,	NULL,	_O_DEVICE_ERROR_DELAY},
 
@@ -167,7 +168,6 @@ static const struct option _LONG_OPTS[] = {
 	{"passwd",					required_argument,	NULL,	_O_PASSWD},
 	{"static",					required_argument,	NULL,	_O_STATIC},
 	{"drop-same-frames",		required_argument,	NULL,	_O_DROP_SAME_FRAMES},
-	{"slowdown",				no_argument,		NULL,	_O_SLOWDOWN},
 	{"allow-origin",			required_argument,	NULL,	_O_ALLOW_ORIGIN},
 	{"fake-resolution",			required_argument,	NULL,	_O_FAKE_RESOLUTION},
 	{"tcp-nodelay",				no_argument,		NULL,	_O_TCP_NODELAY},
@@ -382,6 +382,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 #			endif
 			case _O_BLANK:				OPT_SET(blank_path, optarg);
 			case _O_LAST_AS_BLANK:		OPT_NUMBER("--last-as-blank", stream->last_as_blank, 0, 86400, 0);
+			case _O_SLOWDOWN:			OPT_SET(stream->slowdown, true);
 			case _O_DEVICE_TIMEOUT:		OPT_NUMBER("--device-timeout", dev->timeout, 1, 60, 0);
 			case _O_DEVICE_ERROR_DELAY:	OPT_NUMBER("--device-error-delay", stream->error_delay, 1, 60, 0);
 
@@ -421,7 +422,6 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			case _O_PASSWD:				OPT_SET(server->passwd, optarg);
 			case _O_STATIC:				OPT_SET(server->static_path, optarg);
 			case _O_DROP_SAME_FRAMES:	OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, VIDEO_MAX_FPS, 0);
-			case _O_SLOWDOWN:			OPT_SET(server->slowdown, true);
 			case _O_FAKE_RESOLUTION:	OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, false);
 			case _O_ALLOW_ORIGIN:		OPT_SET(server->allow_origin, optarg);
 			case _O_TCP_NODELAY:		OPT_SET(server->tcp_nodelay, true);
@@ -617,6 +617,8 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("                                           but no more than specified time (or endlessly if 0 is specified).");
 	SAY("                                           If the device has not yet been online, display 'NO SIGNAL' or the image");
 	SAY("                                           specified by option --blank. Default: disabled.\n");
+	SAY("    -l|--slowdown  ─────────────────────── Slowdown capturing to 1 FPS or less when no stream or sink clients");
+	SAY("                                           are connected. Useful to reduce CPU consumption. Default: disabled.\n");
 	SAY("    --device-timeout <sec>  ────────────── Timeout for device querying. Default: %u.\n", dev->timeout);
 	SAY("    --device-error-delay <sec>  ────────── Delay before trying to connect to the device again");
 	SAY("                                           after an error (timeout for example). Default: %u.\n", stream->error_delay);
@@ -651,8 +653,6 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("                                  It can significantly reduce the outgoing traffic, but will increase");
 	SAY("                                  the CPU loading. Don't use this option with analog signal sources");
 	SAY("                                  or webcams, it's useless. Default: disabled.\n");
-	SAY("    -l|--slowdown  ────────────── Slowdown capturing to 1 FPS or less when no stream clients are connected.");
-	SAY("                                  Useful to reduce CPU consumption. Default: disabled.\n");
 	SAY("    -R|--fake-resolution <WxH>  ─ Override image resolution for the /state. Default: disabled.\n");
 	SAY("    --tcp-nodelay  ────────────── Set TCP_NODELAY flag to the client /stream socket. Ignored for --unix.");
 	SAY("                                  Default: disabled.\n");

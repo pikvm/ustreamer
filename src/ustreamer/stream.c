@@ -41,13 +41,13 @@ stream_s *stream_init(device_s *dev, encoder_s *enc) {
 	stream_runtime_s *run;
 	A_CALLOC(run, 1);
 	atomic_init(&run->stop, false);
-	atomic_init(&run->slowdown, false);
 
 	video_s *video;
 	A_CALLOC(video, 1);
 	video->frame = frame_init("stream_video");
 	atomic_init(&video->updated, false);
 	A_MUTEX_INIT(&video->mutex);
+	atomic_init(&video->has_clients, false);
 	run->video = video;
 
 	stream_s *stream;
@@ -122,7 +122,14 @@ void stream_loop(stream_s *stream) {
 				break;
 			}
 
-			if (atomic_load(&RUN(slowdown))) {
+			if (
+				stream->slowdown
+				&& !atomic_load(&RUN(video->has_clients))
+				&& (stream->sink == NULL || !stream->sink->has_clients)
+#				ifdef WITH_OMX
+				&& (stream->h264 == NULL || /*stream->h264->sink == NULL ||*/ !stream->h264->sink->has_clients)
+#				endif
+			) {
 				usleep(1000000);
 			}
 
@@ -224,10 +231,6 @@ void stream_loop(stream_s *stream) {
 
 void stream_loop_break(stream_s *stream) {
 	atomic_store(&RUN(stop), true);
-}
-
-void stream_switch_slowdown(stream_s *stream, bool slowdown) {
-	atomic_store(&RUN(slowdown), slowdown);
 }
 
 static workers_pool_s *_stream_init_loop(stream_s *stream) {
