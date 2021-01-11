@@ -127,7 +127,7 @@ void stream_loop(stream_s *stream) {
 				&& !atomic_load(&RUN(video->has_clients))
 				&& (stream->sink == NULL || !stream->sink->has_clients)
 #				ifdef WITH_OMX
-				&& (h264 == NULL || /*h264->sink == NULL ||*/ !h264->sink->has_clients)
+				&& (RUN(h264) == NULL || /*RUN(h264->sink) == NULL ||*/ !RUN(h264->sink->has_clients))
 #				endif
 			) {
 				usleep(1000000);
