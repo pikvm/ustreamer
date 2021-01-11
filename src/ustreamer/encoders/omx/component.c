@@ -88,7 +88,12 @@ int omx_component_set_state(OMX_HANDLETYPE *comp, OMX_STATETYPE state) {
 			return _omx_component_wait_state_changed(comp, state);
 		} else if (error == OMX_ErrorInsufficientResources && retries) {
 			// Иногда железо не инициализируется, хз почему, просто ретраим, со второй попытки сработает
-			LOG_ERROR_OMX(error, "Can't switch OMX component state to %s, need to retry", state_str);
+			if (retries > 45) {
+				LOG_VERBOSE("Can't switch OMX component state to %s, need to retry: %s",
+					state_str, omx_error_to_string(error));
+			} else {
+				LOG_ERROR_OMX(error, "Can't switch OMX component state to %s, need to retry", state_str);
+			}
 			retries -= 1;
 			usleep(8000);
 		} else {
