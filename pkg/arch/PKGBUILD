@@ -3,7 +3,7 @@
 
 
 pkgname=ustreamer
-pkgver=2.2
+pkgver=3.0
 pkgrel=1
 pkgdesc="Lightweight and fast MJPG-HTTP streamer"
 url="https://github.com/pikvm/ustreamer"
