@@ -67,4 +67,4 @@ void h264_encoder_destroy(h264_encoder_s *enc);
 
 bool h264_encoder_is_prepared_for(h264_encoder_s *enc, const frame_s *frame, bool zero_copy);
 int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame, bool zero_copy);
-int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, int src_vcsm_handle, frame_s *dest);
+int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, int src_vcsm_handle, frame_s *dest, bool force_key);

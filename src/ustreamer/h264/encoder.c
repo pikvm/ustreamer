@@ -256,7 +256,7 @@ static void _h264_encoder_cleanup(h264_encoder_s *enc) {
 	enc->ready = false;
 }
 
-int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, int src_vcsm_handle, frame_s *dest) {
+int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, int src_vcsm_handle, frame_s *dest, bool force_key) {
 	assert(enc->ready);
 	assert(src->used > 0);
 	assert(enc->width == src->width);
@@ -269,7 +269,7 @@ int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, int src_vcsm_
 	dest->format = V4L2_PIX_FMT_H264;
 	dest->stride = 0;
 
-	bool force_key = (enc->last_online != src->online);
+	force_key = (force_key || enc->last_online != src->online);
 
 	if (_h264_encoder_compress_raw(enc, src, src_vcsm_handle, dest, force_key) < 0) {
 		_h264_encoder_cleanup(enc);

@@ -30,7 +30,7 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 #ifdef WITH_OMX
 static h264_stream_s *_h264_stream_init(memsink_s *sink, unsigned bitrate, unsigned gop);
 static void _h264_stream_destroy(h264_stream_s *h264);
-static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_handle);
+static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_handle, bool force_key);
 #endif
 
 
@@ -118,8 +118,12 @@ void stream_loop(stream_s *stream) {
 				}
 			}
 
+#			ifdef WITH_OMX
+			bool h264_force_key = false;
+#			endif
 			if (stream->slowdown) {
-				for (unsigned slc = 0;
+				unsigned slc = 0;
+				while (
 					slc < 10
 					&& !atomic_load(&RUN(stop))
 					&& !atomic_load(&RUN(video->has_clients))
@@ -128,9 +132,11 @@ void stream_loop(stream_s *stream) {
 #					ifdef WITH_OMX
 					&& (RUN(h264) == NULL || /*RUN(h264->sink) == NULL ||*/ !RUN(h264->sink->has_clients))
 #					endif
-				; ++slc) {
+				) {
 					usleep(100000);
+					++slc;
 				}
+				h264_force_key = (slc == 10);
 			}
 
 			if (atomic_load(&RUN(stop))) {
@@ -194,7 +200,7 @@ void stream_loop(stream_s *stream) {
 
 #							ifdef WITH_OMX
 							if (RUN(h264)) {
-								_h264_stream_process(RUN(h264), &hw->raw, hw->vcsm_handle);
+								_h264_stream_process(RUN(h264), &hw->raw, hw->vcsm_handle, h264_force_key);
 							}
 #							endif
 						}
@@ -248,7 +254,7 @@ static workers_pool_s *_stream_init_loop(stream_s *stream) {
 		if (_stream_expose_frame(stream, NULL, 0)) {
 #			ifdef WITH_OMX
 			if (RUN(h264)) {
-				_h264_stream_process(RUN(h264), stream->blank, -1);
+				_h264_stream_process(RUN(h264), stream->blank, -1, false);
 			}
 #			endif
 		}
@@ -386,7 +392,7 @@ static void _h264_stream_destroy(h264_stream_s *h264) {
 	free(h264);
 }
 
-static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_handle) {
+static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_handle, bool force_key) {
 	long double now = get_now_monotonic();
 	bool zero_copy = false;
 
@@ -413,7 +419,7 @@ static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame, int 
 	}
 
 	if (h264->enc->ready) {
-		if (h264_encoder_compress(h264->enc, frame, vcsm_handle, h264->dest) == 0) {
+		if (h264_encoder_compress(h264->enc, frame, vcsm_handle, h264->dest, force_key) == 0) {
 			memsink_server_put(h264->sink, h264->dest);
 		}
 	}
