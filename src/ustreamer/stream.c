@@ -118,19 +118,23 @@ void stream_loop(stream_s *stream) {
 				}
 			}
 
-			if (atomic_load(&RUN(stop))) {
-				break;
+			if (stream->slowdown) {
+				for (unsigned slc = 0;
+					slc < 10
+					&& !atomic_load(&RUN(stop))
+					&& !atomic_load(&RUN(video->has_clients))
+					// has_clients синков НЕ обновляются в реальном времени
+					&& (stream->sink == NULL || !stream->sink->has_clients)
+#					ifdef WITH_OMX
+					&& (RUN(h264) == NULL || /*RUN(h264->sink) == NULL ||*/ !RUN(h264->sink->has_clients))
+#					endif
+				; ++slc) {
+					usleep(100000);
+				}
 			}
 
-			if (
-				stream->slowdown
-				&& !atomic_load(&RUN(video->has_clients))
-				&& (stream->sink == NULL || !stream->sink->has_clients)
-#				ifdef WITH_OMX
-				&& (RUN(h264) == NULL || /*RUN(h264->sink) == NULL ||*/ !RUN(h264->sink->has_clients))
-#				endif
-			) {
-				usleep(1000000);
+			if (atomic_load(&RUN(stop))) {
+				break;
 			}
 
 			bool has_read;
