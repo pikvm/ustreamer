@@ -27,12 +27,6 @@ static workers_pool_s *_stream_init_loop(stream_s *stream);
 static workers_pool_s *_stream_init_one(stream_s *stream);
 static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps);
 
-#ifdef WITH_OMX
-static h264_stream_s *_h264_stream_init(memsink_s *sink, unsigned bitrate, unsigned gop);
-static void _h264_stream_destroy(h264_stream_s *h264);
-static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_handle, bool force_key);
-#endif
-
 
 #define RUN(_next) stream->run->_next
 
@@ -80,7 +74,7 @@ void stream_loop(stream_s *stream) {
 
 #	ifdef WITH_OMX
 	if (stream->h264_sink) {
-		RUN(h264) = _h264_stream_init(stream->h264_sink, stream->h264_bitrate, stream->h264_gop);
+		RUN(h264) = h264_stream_init(stream->h264_sink, stream->h264_bitrate, stream->h264_gop);
 	}
 #	endif
 
@@ -202,7 +196,7 @@ void stream_loop(stream_s *stream) {
 
 #							ifdef WITH_OMX
 							if (RUN(h264)) {
-								_h264_stream_process(RUN(h264), &hw->raw, hw->vcsm_handle, h264_force_key);
+								h264_stream_process(RUN(h264), &hw->raw, hw->vcsm_handle, h264_force_key);
 							}
 #							endif
 						}
@@ -236,7 +230,7 @@ void stream_loop(stream_s *stream) {
 
 #	ifdef WITH_OMX
 	if (RUN(h264)) {
-		_h264_stream_destroy(RUN(h264));
+		h264_stream_destroy(RUN(h264));
 	}
 #	endif
 }
@@ -256,7 +250,7 @@ static workers_pool_s *_stream_init_loop(stream_s *stream) {
 		if (_stream_expose_frame(stream, NULL, 0)) {
 #			ifdef WITH_OMX
 			if (RUN(h264)) {
-				_h264_stream_process(RUN(h264), stream->blank, -1, false);
+				h264_stream_process(RUN(h264), stream->blank, -1, false);
 			}
 #			endif
 		}
@@ -364,68 +358,5 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 
 #	undef VID
 }
-
-#ifdef WITH_OMX
-static h264_stream_s *_h264_stream_init(memsink_s *sink, unsigned bitrate, unsigned gop) {
-	h264_stream_s *h264;
-	A_CALLOC(h264, 1);
-	h264->sink = sink;
-	h264->tmp_src = frame_init("h264_tmp_src");
-	h264->dest = frame_init("h264_dest");
-
-	// FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L210
-	if ((h264->enc = h264_encoder_init(bitrate, gop, 0)) == NULL) {
-		goto error;
-	}
-
-	return h264;
-
-	error:
-		_h264_stream_destroy(h264);
-		return NULL;
-}
-
-static void _h264_stream_destroy(h264_stream_s *h264) {
-	if (h264->enc) {
-		h264_encoder_destroy(h264->enc);
-	}
-	frame_destroy(h264->dest);
-	frame_destroy(h264->tmp_src);
-	free(h264);
-}
-
-static void _h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_handle, bool force_key) {
-	long double now = get_now_monotonic();
-	bool zero_copy = false;
-
-	if (is_jpeg(frame->format)) {
-		assert(vcsm_handle <= 0);
-		LOG_DEBUG("H264: Input frame is JPEG; decoding ...");
-		if (unjpeg(frame, h264->tmp_src, true) < 0) {
-			return;
-		}
-		frame = h264->tmp_src;
-		LOG_VERBOSE("H264: JPEG decoded; time=%.3Lf", get_now_monotonic() - now);
-	} else if (vcsm_handle > 0) {
-		LOG_DEBUG("H264: Zero-copy available for the input");
-		zero_copy = true;
-	} else {
-		LOG_DEBUG("H264: Copying source to tmp buffer ...");
-		frame_copy(frame, h264->tmp_src);
-		frame = h264->tmp_src;
-		LOG_VERBOSE("H264: Source copied; time=%.3Lf", get_now_monotonic() - now);
-	}
-
-	if (!h264_encoder_is_prepared_for(h264->enc, frame, zero_copy)) {
-		h264_encoder_prepare(h264->enc, frame, zero_copy);
-	}
-
-	if (h264->enc->ready) {
-		if (h264_encoder_compress(h264->enc, frame, vcsm_handle, h264->dest, force_key) == 0) {
-			memsink_server_put(h264->sink, h264->dest);
-		}
-	}
-}
-#endif
 
 #undef RUN
