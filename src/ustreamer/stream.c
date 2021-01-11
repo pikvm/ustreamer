@@ -136,7 +136,9 @@ void stream_loop(stream_s *stream) {
 					usleep(100000);
 					++slc;
 				}
+#				ifdef WITH_OMX
 				h264_force_key = (slc == 10);
+#				endif
 			}
 
 			if (atomic_load(&RUN(stop))) {
