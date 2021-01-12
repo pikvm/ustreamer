@@ -23,6 +23,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdatomic.h>
 #include <assert.h>
 
 #include "../../libs/tools.h"
@@ -39,6 +40,7 @@ typedef struct {
 	frame_s			*tmp_src;
 	frame_s			*dest;
 	h264_encoder_s	*enc;
+	atomic_bool		online;
 } h264_stream_s;
 
 
