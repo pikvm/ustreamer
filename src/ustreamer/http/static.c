@@ -32,7 +32,7 @@ char *find_static_file_path(const char *root_path, const char *request_path) {
 		goto error;
 	}
 
-	A_CALLOC(path, strlen(root_path) + strlen(simplified_path) + 32);
+	A_CALLOC(path, strlen(root_path) + strlen(simplified_path) + 16);
 	sprintf(path, "%s/%s", root_path, simplified_path);
 
 	struct stat st;

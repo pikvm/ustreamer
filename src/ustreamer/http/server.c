@@ -145,7 +145,7 @@ int server_listen(server_s *server) {
 		char *raw_token;
 		char *encoded_token = NULL;
 
-		A_CALLOC(raw_token, strlen(server->user) + strlen(server->passwd) + 2);
+		A_CALLOC(raw_token, strlen(server->user) + strlen(server->passwd) + 16);
 		sprintf(raw_token, "%s:%s", server->user, server->passwd);
 		base64_encode((uint8_t *)raw_token, strlen(raw_token), &encoded_token, NULL);
 		free(raw_token);
@@ -404,12 +404,12 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	char header_buf[256];
 
 #	define ADD_TIME_HEADER(_key, _value) { \
-			sprintf(header_buf, "%.06Lf", _value); \
+			snprintf(header_buf, 255, "%.06Lf", _value); \
 			ADD_HEADER(_key, header_buf); \
 		}
 
 #	define ADD_UNSIGNED_HEADER(_key, _value) { \
-			sprintf(header_buf, "%u", _value); \
+			snprintf(header_buf, 255, "%u", _value); \
 			ADD_HEADER(_key, header_buf); \
 		}
 
