@@ -119,23 +119,31 @@ int main(int argc, char *argv[]) {
 	LOGGING_INIT;
 	A_THREAD_RENAME("main");
 
-#	ifdef WITH_OMX
-	bcm_host_init();
-	OMX_ERRORTYPE omx_error;
-	if ((omx_error = OMX_Init()) != OMX_ErrorNone) {
-		LOG_ERROR_OMX(omx_error, "Can't initialize OMX Core");
-		exit_code = -1;
-		goto omx_error;
-	}
-#	endif
-
 	options_s *options = options_init(argc, argv);
 	device_s *dev = device_init();
 	encoder_s *enc = encoder_init();
 	stream_s *stream = stream_init(dev, enc);
 	server_s *server = server_init(stream);
 
+#	ifdef WITH_OMX
+	bool i_bcm_host = false;
+	OMX_ERRORTYPE omx_error = OMX_ErrorUndefined;
+#	endif
+
 	if ((exit_code = options_parse(options, dev, enc, stream, server)) == 0) {
+#		ifdef WITH_OMX
+		if (enc->type == ENCODER_TYPE_OMX || stream->h264_sink) {
+			bcm_host_init();
+			i_bcm_host = true;
+		}
+		if (enc->type == ENCODER_TYPE_OMX) {
+			if ((omx_error = OMX_Init()) != OMX_ErrorNone) {
+				LOG_ERROR_OMX(omx_error, "Can't initialize OMX Core; forced CPU encoder");
+				enc->type = ENCODER_TYPE_CPU;
+			}
+		}
+#		endif
+
 #		ifdef WITH_GPIO
 		gpio_init();
 #		endif
@@ -173,9 +181,12 @@ int main(int argc, char *argv[]) {
 	options_destroy(options);
 
 #	ifdef WITH_OMX
-	OMX_Deinit();
-	omx_error:
-	bcm_host_deinit();
+	if (omx_error == OMX_ErrorNone) {
+		OMX_Deinit();
+	}
+	if (i_bcm_host) {
+		bcm_host_deinit();
+	}
 #	endif
 
 	if (exit_code == 0) {
