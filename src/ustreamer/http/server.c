@@ -368,12 +368,14 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 
 	for (stream_client_s * client = RUN(stream_clients); client != NULL; client = client->next) {
 		assert(evbuffer_add_printf(buf,
-			"\"%s\": {\"fps\": %u, \"extra_headers\": %s, \"advance_headers\": %s, \"dual_final_frames\": %s}%s",
+			"\"%s\": {\"fps\": %u, \"extra_headers\": %s, \"advance_headers\": %s,"
+			" \"dual_final_frames\": %s, \"zero_data\": %s}%s",
 			client->id,
 			client->fps,
 			bool_to_string(client->extra_headers),
 			bool_to_string(client->advance_headers),
 			bool_to_string(client->dual_final_frames),
+			bool_to_string(client->zero_data),
 			(client->next ? ", " : "")
 		));
 	}
@@ -462,10 +464,13 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 
 		struct evkeyvalq params;
 		evhttp_parse_query(evhttp_request_get_uri(request), &params);
-		client->key = uri_get_string(&params, "key");
-		client->extra_headers = uri_get_true(&params, "extra_headers");
-		client->advance_headers = uri_get_true(&params, "advance_headers");
-		client->dual_final_frames = uri_get_true(&params, "dual_final_frames");
+#		define PARSE_PARAM(_type, _name) client->_name = uri_get_##_type(&params, #_name)
+		PARSE_PARAM(string, key);
+		PARSE_PARAM(true, extra_headers);
+		PARSE_PARAM(true, advance_headers);
+		PARSE_PARAM(true, dual_final_frames);
+		PARSE_PARAM(true, zero_data);
+#		undef PARSE_PARAM
 		evhttp_clear_headers(&params);
 
 		uuid_t uuid;
@@ -592,7 +597,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"Content-Length: %zu" RN
 			"X-Timestamp: %.06Lf" RN
 			"%s",
-			EX(frame->used),
+			(!client->zero_data ? EX(frame->used) : 0),
 			get_now_real(),
 			(client->extra_headers ? "" : RN)
 		));
@@ -610,6 +615,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				"X-UStreamer-Expose-Cmp-Time: %.06Lf" RN
 				"X-UStreamer-Expose-End-Time: %.06Lf" RN
 				"X-UStreamer-Send-Time: %.06Lf" RN
+				"X-UStreamer-Latency: %.06Lf" RN
 				RN,
 				bool_to_string(EX(frame->online)),
 				EX(dropped),
@@ -622,12 +628,15 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				EX(expose_begin_ts),
 				EX(expose_cmp_ts),
 				EX(expose_end_ts),
-				now
+				now,
+				now - EX(frame->grab_ts)
 			));
 		}
 	}
 
-	assert(!evbuffer_add(buf, (void *)EX(frame->data), EX(frame->used)));
+	if (!client->zero_data) {
+		assert(!evbuffer_add(buf, (void *)EX(frame->data), EX(frame->used)));
+	}
 	assert(evbuffer_add_printf(buf, RN "--" BOUNDARY RN));
 
 	if (client->advance_headers) {

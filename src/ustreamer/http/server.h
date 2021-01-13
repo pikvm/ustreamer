@@ -81,6 +81,7 @@ typedef struct stream_client_sx {
 	bool			extra_headers;
 	bool			advance_headers;
 	bool			dual_final_frames;
+	bool			zero_data;
 
 	char			id[37]; // ex. "1b4e28ba-2fa1-11d2-883f-0016d3cca427" + "\0"
 	bool			need_initial;

@@ -75,6 +75,11 @@ const char *const HTML_INDEX_PAGE = " \
 						Without this option, when the frame series is completed, WebKit-based browsers<br> \
 						renders the last frame with a delay. \
 					</li> \
+					<br> \
+					<li> \
+						<b>zero_data=1</b><br> \
+						Disables the actual sending of JPEG data and leaves only response headers. \
+					</li> \
 				</ul> \
 			</li> \
 			<br> \
