@@ -250,7 +250,9 @@ static void _h264_encoder_cleanup(h264_encoder_s *enc) {
 
 #	undef DISABLE_PORT
 
-	enc->wrapper->status = MMAL_SUCCESS; // Это реально надо?
+	if (enc->wrapper) {
+		enc->wrapper->status = MMAL_SUCCESS; // Это реально надо?
+	}
 
 	enc->last_online = -1;
 	enc->ready = false;
