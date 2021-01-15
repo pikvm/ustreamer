@@ -33,7 +33,8 @@
 #include "../libs/logging.h"
 #include "../libs/frame.h"
 #include "../libs/memsink.h"
-#include "../libs/base64.h"
+
+#include "file.h"
 
 
 enum _OPT_VALUES {
@@ -73,13 +74,20 @@ static const struct option _LONG_OPTS[] = {
 };
 
 
-volatile bool stop = false;
+volatile bool global_stop = false;
+
+
+typedef struct {
+	void *v_output;
+	void (*write)(void *v_output, const frame_s *frame);
+	void (*destroy)(void *v_output);
+} _output_context_s;
 
 
 static void _signal_handler(int signum);
 static void _install_signal_handlers(void);
 
-static int _dump_sink(const char *sink_name, unsigned sink_timeout, const char *output_path, bool output_json);
+static int _dump_sink(const char *sink_name, unsigned sink_timeout, _output_context_s *ctx);
 
 static void _help(FILE *fp);
 
@@ -138,8 +146,23 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	_output_context_s ctx;
+	MEMSET_ZERO(ctx);
+
+	if (output_path && output_path[0] != '\0') {
+		if ((ctx.v_output = (void *)output_file_init(output_path, output_json)) == NULL) {
+			return 1;
+		}
+		ctx.write = output_file_write;
+		ctx.destroy = output_file_destroy;
+	}
+
 	_install_signal_handlers();
-	return abs(_dump_sink(sink_name, sink_timeout, output_path, output_json));
+	int retval = abs(_dump_sink(sink_name, sink_timeout, &ctx));
+	if (ctx.v_output && ctx.destroy) {
+		ctx.destroy(ctx.v_output);
+	}
+	return retval;
 }
 
 
@@ -150,7 +173,7 @@ static void _signal_handler(int signum) {
 		case SIGPIPE:	LOG_INFO_NOLOCK("===== Stopping by SIGPIPE ====="); break;
 		default:		LOG_INFO_NOLOCK("===== Stopping by %d =====", signum); break;
 	}
-	stop = true;
+	global_stop = true;
 }
 
 static void _install_signal_handlers(void) {
@@ -173,25 +196,9 @@ static void _install_signal_handlers(void) {
 	assert(!sigaction(SIGPIPE, &sig_act, NULL));
 }
 
-static int _dump_sink(const char *sink_name, unsigned sink_timeout, const char *output_path, bool output_json) {
+static int _dump_sink(const char *sink_name, unsigned sink_timeout, _output_context_s *ctx) {
 	frame_s *frame = frame_init("input");
 	memsink_s *sink = NULL;
-	FILE *output_fp = NULL;
-	char *base64_data = NULL;
-	size_t base64_allocated = 0;
-
-	if (output_path && output_path[0] != '\0') {
-		if (!strcmp(output_path, "-")) {
-			LOG_INFO("Using output: <stdout>");
-			output_fp = stdout;
-		} else {
-			LOG_INFO("Using output: %s", output_path);
-			if ((output_fp = fopen(output_path, "wb")) == NULL) {
-				LOG_PERROR("Can't open output file");
-				goto error;
-			}
-		}
-	}
 
 	if ((sink = memsink_init("input", sink_name, false, 0, false, sink_timeout)) == NULL) {
 		goto error;
@@ -201,7 +208,7 @@ static int _dump_sink(const char *sink_name, unsigned sink_timeout, const char *
 	unsigned fps_accum = 0;
 	long long fps_second = 0;
 
-	while (!stop) {
+	while (!global_stop) {
 		int error = memsink_client_get(sink, frame);
 		if (error == 0) {
 			const long double now = get_now_monotonic();
@@ -225,22 +232,8 @@ static int _dump_sink(const char *sink_name, unsigned sink_timeout, const char *
 			}
 			fps_accum += 1;
 
-			if (output_fp) {
-				if (output_json) {
-					base64_encode(frame->data, frame->used, &base64_data, &base64_allocated);
-					fprintf(output_fp,
-						"{\"size\": %zu, \"width\": %u, \"height\": %u,"
-						" \"format\": %u, \"stride\": %u, \"online\": %u,"
-						" \"grab_ts\": %.3Lf, \"encode_begin_ts\": %.3Lf, \"encode_end_ts\": %.3Lf,"
-						" \"data\": \"%s\"}\n",
-						frame->used, frame->width, frame->height,
-						frame->format, frame->stride, frame->online,
-						frame->grab_ts, frame->encode_begin_ts, frame->encode_end_ts,
-						base64_data);
-				} else {
-					fwrite(frame->data, 1, frame->used, output_fp);
-				}
-				fflush(output_fp);
+			if (ctx->v_output) {
+				ctx->write(ctx->v_output, frame);
 			}
 		} else if (error != -2) {
 			goto error;
@@ -254,14 +247,6 @@ static int _dump_sink(const char *sink_name, unsigned sink_timeout, const char *
 		retval = -1;
 
 	ok:
-		if (base64_data) {
-			free(base64_data);
-		}
-		if (output_fp && output_fp != stdout) {
-			if (fclose(output_fp) < 0) {
-				LOG_PERROR("Can't close output file");
-			}
-		}
 		if (sink) {
 			memsink_destroy(sink);
 		}
