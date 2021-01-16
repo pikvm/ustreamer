@@ -53,6 +53,10 @@ void h264_stream_destroy(h264_stream_s *h264) {
 }
 
 void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_handle, bool force_key) {
+	if (memsink_server_check_clients(h264->sink) < 0 || !h264->sink->has_clients) {
+		return;
+	}
+
 	long double now = get_now_monotonic();
 	bool zero_copy = false;
 

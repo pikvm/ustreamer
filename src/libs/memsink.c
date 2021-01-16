@@ -87,6 +87,27 @@ void memsink_destroy(memsink_s *sink) {
 	free(sink);
 }
 
+int memsink_server_check_clients(memsink_s *sink) {
+	assert(sink->server);
+
+	if (flock(sink->fd, LOCK_EX | LOCK_NB) < 0) {
+		if (errno == EWOULDBLOCK) {
+			sink->has_clients = true;
+			return 0;
+		}
+		LOG_PERROR("%s-sink: Can't lock memory", sink->name);
+		return -1;
+	}
+
+	sink->has_clients = (sink->mem->last_client_ts + 10 > get_now_monotonic());
+
+	if (flock(sink->fd, LOCK_UN) < 0) {
+		LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
+		return -1;
+	}
+	return 0;
+}
+
 int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 	assert(sink->server);
 
@@ -113,7 +134,7 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 		COPY(grab_ts);
 		COPY(encode_begin_ts);
 		COPY(encode_end_ts);
-		sink->has_clients = (sink->mem->last_consumed_ts + 10 > get_now_monotonic());
+		sink->has_clients = (sink->mem->last_client_ts + 10 > get_now_monotonic());
 		memcpy(sink->mem->data, frame->data, frame->used);
 #		undef COPY
 
@@ -147,6 +168,7 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 
 	bool same = false;
 
+	sink->mem->last_client_ts = get_now_monotonic();
 	if (sink->mem->id == sink->last_id) {
 		same = true;
 	} else {
@@ -160,7 +182,6 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 		COPY(grab_ts);
 		COPY(encode_begin_ts);
 		COPY(encode_end_ts);
-		sink->mem->last_consumed_ts = get_now_monotonic();
 		frame_set_data(frame, sink->mem->data, sink->mem->used);
 #		undef COPY
 	}

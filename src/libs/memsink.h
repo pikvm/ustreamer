@@ -56,7 +56,7 @@ typedef struct {
 	long double	grab_ts;
 	long double	encode_begin_ts;
 	long double	encode_end_ts;
-	long double	last_consumed_ts;
+	long double	last_client_ts;
 	uint8_t		data[MEMSINK_MAX_DATA];
 } memsink_shared_s;
 
@@ -77,5 +77,6 @@ typedef struct {
 memsink_s *memsink_init(const char *name, const char *obj, bool server, mode_t mode, bool rm, unsigned timeout);
 void memsink_destroy(memsink_s *sink);
 
+int memsink_server_check_clients(memsink_s *sink);
 int memsink_server_put(memsink_s *sink, const frame_s *frame);
 int memsink_client_get(memsink_s *sink, frame_s *frame);

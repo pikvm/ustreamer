@@ -351,7 +351,9 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 	A_MUTEX_UNLOCK(&VID(mutex));
 
 	if (changed && stream->sink) {
-		memsink_server_put(stream->sink, VID(frame));
+		if (memsink_server_check_clients(stream->sink) == 0 && stream->sink->has_clients) {
+			memsink_server_put(stream->sink, VID(frame));
+		}
 	}
 
 	return changed;
