@@ -194,6 +194,12 @@ void stream_loop(stream_s *stream) {
 							workers_pool_assign(pool, ready_wr);
 							LOG_DEBUG("Assigned new frame in buffer %d to worker %s", buf_index, ready_wr->name);
 
+							if (stream->raw_sink) {
+								if (memsink_server_check_clients(stream->raw_sink) == 0 && stream->raw_sink->has_clients) {
+									memsink_server_put(stream->raw_sink, &hw->raw);
+								}
+							}
+
 #							ifdef WITH_OMX
 							if (RUN(h264)) {
 								h264_stream_process(RUN(h264), &hw->raw, hw->vcsm_handle, h264_force_key);

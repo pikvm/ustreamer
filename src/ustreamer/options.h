@@ -55,6 +55,7 @@ typedef struct {
 	char		**argv_copy;
 	frame_s		*blank;
 	memsink_s	*sink;
+	memsink_s	*raw_sink;
 #	ifdef WITH_OMX
 	memsink_s	*h264_sink;
 #	endif

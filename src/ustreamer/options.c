@@ -89,6 +89,7 @@ enum _OPT_VALUES {
 		_O_##_prefix##_CLIENT_TTL, \
 		_O_##_prefix##_TIMEOUT,
 	ADD_SINK(SINK)
+	ADD_SINK(RAW_SINK)
 #	ifdef WITH_OMX
 	ADD_SINK(H264_SINK)
 	_O_H264_BITRATE,
@@ -181,6 +182,7 @@ static const struct option _LONG_OPTS[] = {
 		{_opt "sink-client-ttl",	required_argument,	NULL,	_O_##_prefix##_CLIENT_TTL}, \
 		{_opt "sink-timeout",		required_argument,	NULL,	_O_##_prefix##_TIMEOUT},
 	ADD_SINK("", SINK)
+	ADD_SINK("raw-", RAW_SINK)
 #	ifdef WITH_OMX
 	ADD_SINK("h264-", H264_SINK)
 	{"h264-bitrate",			required_argument,	NULL,	_O_H264_BITRATE},
@@ -245,6 +247,7 @@ void options_destroy(options_s *options) {
 			} \
 		}
 	ADD_SINK(sink);
+	ADD_SINK(raw_sink);
 #	ifdef WITH_OMX
 	ADD_SINK(h264_sink);
 #	endif
@@ -339,6 +342,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 		unsigned _prefix##_client_ttl = 10; \
 		unsigned _prefix##_timeout = 1;
 	ADD_SINK(sink);
+	ADD_SINK(raw_sink);
 #	ifdef WITH_OMX
 	ADD_SINK(h264_sink);
 #	endif
@@ -427,6 +431,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 				case _O_##_up##_CLIENT_TTL:	OPT_NUMBER("--" #_opt "sink-client-ttl", _lp##_client_ttl, 1, 60, 0); \
 				case _O_##_up##_TIMEOUT:	OPT_NUMBER("--" #_opt "sink-timeout", _lp##_timeout, 1, 60, 0);
 			ADD_SINK("", sink, SINK)
+			ADD_SINK("raw-", raw_sink, RAW_SINK)
 #			ifdef WITH_OMX
 			ADD_SINK("h264-", h264_sink, H264_SINK)
 			case _O_H264_BITRATE:	OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 100, 16000, 0);
@@ -488,6 +493,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			stream->_prefix = options->_prefix; \
 		}
 	ADD_SINK("JPEG", sink);
+	ADD_SINK("RAW", raw_sink);
 #	ifdef WITH_OMX
 	ADD_SINK("H264", h264_sink);
 #	endif
@@ -662,6 +668,7 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 		SAY("    --" _opt "sink-client-ttl <sec>  ─ Client TTL. Default: 10.\n"); \
 		SAY("    --" _opt "sink-timeout <sec>  ──── Timeout for lock. Default: 1.\n");
 	ADD_SINK("JPEG", "")
+	ADD_SINK("RAW", "raw-")
 #	ifdef WITH_OMX
 	ADD_SINK("H264", "h264-")
 	SAY("    --h264-bitrate <kbps>  ──────── H264 bitrate in Kbps. Default: %u.\n", stream->h264_bitrate);

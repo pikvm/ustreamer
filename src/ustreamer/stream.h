@@ -80,6 +80,7 @@ typedef struct {
 	unsigned	error_delay;
 
 	memsink_s	*sink;
+	memsink_s	*raw_sink;
 
 #	ifdef WITH_OMX
 	memsink_s	*h264_sink;
