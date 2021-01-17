@@ -466,7 +466,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			case _O_FEATURES:	_features(); return 1;
 
 			case 0:		break;
-			default:	_help(stderr, dev, enc, stream, server); return -1;
+			default:	return -1;
 		}
 	}
 

@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
 			case _O_VERSION:	puts(VERSION); return 0;
 
 			case 0:		break;
-			default:	_help(stderr); return 1;
+			default:	return 1;
 		}
 	}
 
