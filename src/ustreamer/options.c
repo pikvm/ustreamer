@@ -348,18 +348,8 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 	char *process_name_prefix = NULL;
 #	endif
 
-	char short_opts[1024] = {0};
-
-	for (int short_index = 0, opt_index = 0; _LONG_OPTS[opt_index].name != NULL; ++opt_index) {
-		if (isalpha(_LONG_OPTS[opt_index].val)) {
-			short_opts[short_index] = _LONG_OPTS[opt_index].val;
-			++short_index;
-			if (_LONG_OPTS[opt_index].has_arg == required_argument) {
-				short_opts[short_index] = ':';
-				++short_index;
-			}
-		}
-	}
+	char short_opts[128];
+	build_short_options(_LONG_OPTS, short_opts, 128);
 
 	for (int ch; (ch = getopt_long(options->argc, options->argv_copy, short_opts, _LONG_OPTS, NULL)) >= 0;) {
 		switch (ch) {

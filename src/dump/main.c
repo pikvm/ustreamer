@@ -34,6 +34,7 @@
 #include "../libs/logging.h"
 #include "../libs/frame.h"
 #include "../libs/memsink.h"
+#include "../libs/options.h"
 
 #include "file.h"
 
@@ -117,7 +118,10 @@ int main(int argc, char *argv[]) {
 			break; \
 		}
 
-	for (int ch; (ch = getopt_long(argc, argv, "s:t:o:jhv", _LONG_OPTS, NULL)) >= 0;) {
+	char short_opts[128];
+	build_short_options(_LONG_OPTS, short_opts, 128);
+
+	for (int ch; (ch = getopt_long(argc, argv, short_opts, _LONG_OPTS, NULL)) >= 0;) {
 		switch (ch) {
 			case _O_SINK:			OPT_SET(sink_name, optarg);
 			case _O_SINK_TIMEOUT:	OPT_NUMBER("--sink-timeout", sink_timeout, 1, 60, 0);

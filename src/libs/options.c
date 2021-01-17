@@ -20,48 +20,20 @@
 *****************************************************************************/
 
 
-#pragma once
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-#include <strings.h>
-#include <limits.h>
-#include <getopt.h>
-#include <errno.h>
-#include <assert.h>
-
-#include "../libs/config.h"
-#include "../libs/logging.h"
-#include "../libs/process.h"
-#include "../libs/frame.h"
-#include "../libs/memsink.h"
-#include "../libs/options.h"
-
-#include "device.h"
-#include "encoder.h"
-#include "blank.h"
-#include "stream.h"
-#include "http/server.h"
-#ifdef WITH_GPIO
-#	include "gpio/gpio.h"
-#endif
+#include "options.h"
 
 
-typedef struct {
-	unsigned	argc;
-	char		**argv;
-	char		**argv_copy;
-	frame_s		*blank;
-	memsink_s	*sink;
-#	ifdef WITH_OMX
-	memsink_s	*h264_sink;
-#	endif
-} options_s;
-
-
-options_s *options_init(unsigned argc, char *argv[]);
-void options_destroy(options_s *options);
-
-int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *stream, server_s *server);
+void build_short_options(const struct option opts[], char *short_opts, size_t size) {
+	memset(short_opts, 0, size);
+    for (unsigned short_index = 0, opt_index = 0; opts[opt_index].name != NULL; ++opt_index) {
+		assert(short_index < size - 3);
+        if (isalpha(opts[opt_index].val)) {
+            short_opts[short_index] = opts[opt_index].val;
+            ++short_index;
+            if (opts[opt_index].has_arg == required_argument) {
+                short_opts[short_index] = ':';
+                ++short_index;
+            }
+        }
+    }
+}
