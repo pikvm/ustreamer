@@ -52,7 +52,7 @@ int unjpeg(const frame_s *src, frame_s *dest, bool decode) {
 	}
 
 	jpeg_mem_src(&jpeg, src->data, src->used);
-	jpeg_read_header(&jpeg, TRUE);
+	jpeg_read_header(&jpeg, false);
 	jpeg.out_color_space = JCS_RGB;
 
 	jpeg_start_decompress(&jpeg);

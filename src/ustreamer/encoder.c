@@ -64,7 +64,6 @@ void encoder_destroy(encoder_s *enc) {
 	if (ER(omxs)) {
 		for (unsigned index = 0; index < ER(n_omxs); ++index) {
 			if (ER(omxs[index])) {
-				omx_encoder_destroy(ER(omxs[index]));
 			}
 		}
 		free(ER(omxs));
@@ -134,10 +133,6 @@ workers_pool_s *encoder_workers_pool_init(encoder_s *enc, device_s *dev) {
 
 		// Начинаем с нуля и доинициализируем на следующих заходах при необходимости
 		for (; ER(n_omxs) < n_workers; ++ER(n_omxs)) {
-			if ((ER(omxs[ER(n_omxs)]) = omx_encoder_init()) == NULL) {
-				LOG_ERROR("Can't initialize OMX encoder, falling back to CPU");
-				goto force_cpu;
-			}
 		}
 
 		frame_s frame;
@@ -148,12 +143,6 @@ workers_pool_s *encoder_workers_pool_init(encoder_s *enc, device_s *dev) {
 		frame.stride = DR(stride);
 
 		for (unsigned index = 0; index < ER(n_omxs); ++index) {
-			int omx_error = omx_encoder_prepare(ER(omxs[index]), &frame, quality);
-			if (omx_error == -2) {
-				goto use_cpu;
-			} else if (omx_error < 0) {
-				goto force_cpu;
-			}
 		}
 	}
 #	endif
@@ -259,14 +248,6 @@ static bool _worker_run_job(worker_s *wr) {
 		LOG_VERBOSE("Compressing buffer using HW (just copying)");
 		hw_encoder_compress(src, dest);
 	}
-#	ifdef WITH_OMX
-	else if (ER(type) == ENCODER_TYPE_OMX) {
-		LOG_VERBOSE("Compressing buffer using OMX");
-		if (omx_encoder_compress(ER(omxs[wr->number]), src, dest) < 0) {
-			goto error;
-		}
-	}
-#	endif
 	else if (ER(type) == ENCODER_TYPE_NOOP) {
 		LOG_VERBOSE("Compressing buffer using NOOP (do nothing)");
 		usleep(5000); // Просто чтобы работала логика desired_fps

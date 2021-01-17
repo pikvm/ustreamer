@@ -19,373 +19,311 @@
 #                                                                            #
 *****************************************************************************/
 
-
 #include "encoder.h"
 
+#include <fcntl.h>
+
+#include <sys/ioctl.h>
+#include <sys/mman.h>
 
 static void _h264_encoder_cleanup(h264_encoder_s *enc);
-static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src, int src_vcsm_handle, frame_s *dest, bool force_key);
+static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src,
+                                      int src_vcsm_handle, frame_s *dest,
+                                      bool force_key);
 
-static void _mmal_callback(MMAL_WRAPPER_T *wrapper);
-static const char *_mmal_error_to_string(MMAL_STATUS_T error);
+void map(int fd, __uint32_t type, buffer *buffers, int buffer_len) {
+  for (int i = 0; i < buffer_len; ++i) {
+    struct v4l2_buffer *inner = &buffers[i].inner;
 
+    memset(inner, 0, sizeof(*inner));
+    inner->type = type;
+    inner->memory = V4L2_MEMORY_MMAP;
+    inner->index = i;
+    inner->length = 1;
+    inner->m.planes = &buffers[i].planes;
 
-#define LOG_ERROR_MMAL(_error, _msg, ...) { \
-		LOG_ERROR(_msg ": %s", ##__VA_ARGS__, _mmal_error_to_string(_error)); \
-	}
+    if (ioctl(fd, VIDIOC_QUERYBUF, inner) < 0) {
+      perror("VIDIOC_QUERYBUF");
+      exit(EXIT_FAILURE);
+    }
 
+    buffers[i].length = inner->m.planes[0].length;
+    buffers[i].start =
+        mmap(NULL, inner->m.planes[0].length, PROT_READ | PROT_WRITE,
+             MAP_SHARED, fd, inner->m.planes[0].m.mem_offset);
 
-h264_encoder_s *h264_encoder_init(unsigned bitrate, unsigned gop, unsigned fps) {
-	LOG_INFO("H264: Initializing MMAL encoder ...");
-	LOG_INFO("H264: Using bitrate: %u Kbps", bitrate);
-	LOG_INFO("H264: Using GOP: %u", gop);
+    if (MAP_FAILED == buffers[i].start) {
+      perror("mmap");
+      exit(EXIT_FAILURE);
+    }
+  }
+}
 
-	h264_encoder_s *enc;
-	A_CALLOC(enc, 1);
-	enc->bitrate = bitrate; // Kbps
-	enc->gop = gop; // Interval between keyframes
-	enc->fps = fps;
+h264_encoder_s *h264_encoder_init(unsigned bitrate, unsigned gop,
+                                  unsigned fps) {
+  h264_encoder_s *enc;
+  A_CALLOC(enc, 1);
 
-	enc->last_online = -1;
+  enc->output_len = 2;
+  A_CALLOC(enc->output, 2);
 
-	if (vcos_semaphore_create(&enc->handler_sem, "h264_handler_sem", 0) != VCOS_SUCCESS) {
-		LOG_PERROR("H264: Can't create VCOS semaphore");
-		goto error;
-	}
-	enc->i_handler_sem = true;
+  enc->prepared = false;
 
-	MMAL_STATUS_T error = mmal_wrapper_create(&enc->wrapper, MMAL_COMPONENT_DEFAULT_VIDEO_ENCODER);
-	if (error != MMAL_SUCCESS) {
-		LOG_ERROR_MMAL(error, "H264: Can't create MMAL wrapper");
-		enc->wrapper = NULL;
-		goto error;
-	}
-	enc->wrapper->user_data = (void *)enc;
-	enc->wrapper->callback = _mmal_callback;
-
-	return enc;
-
-	error:
-		h264_encoder_destroy(enc);
-		return NULL;
+  return enc;
 }
 
 void h264_encoder_destroy(h264_encoder_s *enc) {
-	LOG_INFO("H264: Destroying MMAL encoder ...");
+  _h264_encoder_cleanup(enc);
 
-	_h264_encoder_cleanup(enc);
-
-	if (enc->wrapper) {
-		MMAL_STATUS_T error = mmal_wrapper_destroy(enc->wrapper);
-		if (error != MMAL_SUCCESS) {
-			LOG_ERROR_MMAL(error, "H264: Can't destroy MMAL encoder");
-		}
-	}
-
-	if (enc->i_handler_sem) {
-		vcos_semaphore_delete(&enc->handler_sem);
-	}
-
-	free(enc);
+  free(enc->output);
+  free(enc);
 }
 
-bool h264_encoder_is_prepared_for(h264_encoder_s *enc, const frame_s *frame, bool zero_copy) {
-#	define EQ(_field) (enc->_field == frame->_field)
-	return (EQ(width) && EQ(height) && EQ(format) && EQ(stride) && (enc->zero_copy == zero_copy));
-#	undef EQ
+void _h264_encoder_cleanup(h264_encoder_s *enc) {
+  if (!enc->prepared)
+    return;
+
+  int type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+  int ret = ioctl(enc->fd, VIDIOC_STREAMOFF, &type);
+  fprintf(stderr, "Output stream: %d %u\n", ret, errno);
+
+  type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+  ret = ioctl(enc->fd, VIDIOC_STREAMOFF, &type);
+  fprintf(stderr, "Capture stream: %d %u\n", ret, errno);
+
+  for (int i = 0; i < enc->output_len; ++i) {
+    munmap(enc->output[i].start, enc->output[i].length);
+  }
+  munmap(enc->capture.start, enc->capture.length);
+
+  close(enc->fd);
+
+  enc->fd = -1;
+  enc->prepared = false;
 }
 
-int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame, bool zero_copy) {
-	LOG_INFO("H264: Configuring MMAL encoder: zero_copy=%d ...", zero_copy);
-
-	_h264_encoder_cleanup(enc);
-
-	enc->width = frame->width;
-	enc->height = frame->height;
-	enc->format = frame->format;
-	enc->stride = frame->stride;
-	enc->zero_copy = zero_copy;
-
-	if (align_size(frame->width, 32) != frame->width && frame_get_padding(frame) == 0) {
-		LOG_ERROR("H264: MMAL encoder can't handle unaligned width");
-		goto error;
-	}
-
-	MMAL_STATUS_T error;
-
-#	define PREPARE_PORT(_id) { \
-			enc->_id##_port = enc->wrapper->_id[0]; \
-			if (enc->_id##_port->is_enabled) { \
-				if ((error = mmal_wrapper_port_disable(enc->_id##_port)) != MMAL_SUCCESS) { \
-					LOG_ERROR_MMAL(error, "H264: Can't disable MMAL %s port while configuring", #_id); \
-					goto error; \
-				} \
-			} \
-		}
-
-#	define COMMIT_PORT(_id) { \
-			if ((error = mmal_port_format_commit(enc->_id##_port)) != MMAL_SUCCESS) { \
-				LOG_ERROR_MMAL(error, "H264: Can't commit MMAL %s port", #_id); \
-				goto error; \
-			} \
-		}
-
-#	define SET_PORT_PARAM(_id, _type, _key, _value) { \
-			if ((error = mmal_port_parameter_set_##_type(enc->_id##_port, MMAL_PARAMETER_##_key, _value)) != MMAL_SUCCESS) { \
-				LOG_ERROR_MMAL(error, "H264: Can't set %s for the %s port", #_key, #_id); \
-				goto error; \
-			} \
-		}
-
-#	define ENABLE_PORT(_id) { \
-			if ((error = mmal_wrapper_port_enable(enc->_id##_port, MMAL_WRAPPER_FLAG_PAYLOAD_ALLOCATE)) != MMAL_SUCCESS) { \
-				LOG_ERROR_MMAL(error, "H264: Can't enable MMAL %s port", #_id); \
-				goto error; \
-			} \
-		}
-
-	{
-		PREPARE_PORT(input);
-
-#		define IFMT(_next) enc->input_port->format->_next
-		IFMT(type) = MMAL_ES_TYPE_VIDEO;
-		switch (frame->format) {
-			case V4L2_PIX_FMT_YUYV:		IFMT(encoding) = MMAL_ENCODING_YUYV; break;
-			case V4L2_PIX_FMT_UYVY:		IFMT(encoding) = MMAL_ENCODING_UYVY; break;
-			case V4L2_PIX_FMT_RGB565:	IFMT(encoding) = MMAL_ENCODING_RGB16; break;
-			case V4L2_PIX_FMT_RGB24:	IFMT(encoding) = MMAL_ENCODING_RGB24; break;
-			default: assert(0 && "Unsupported pixelformat");
-		}
-		IFMT(es->video.width) = align_size(frame->width, 32);
-		IFMT(es->video.height) = align_size(frame->height, 16);
-		IFMT(es->video.crop.x) = 0;
-		IFMT(es->video.crop.y) = 0;
-		IFMT(es->video.crop.width) = frame->width;
-		IFMT(es->video.crop.height) = frame->height;
-		IFMT(flags) = MMAL_ES_FORMAT_FLAG_FRAMED;
-		enc->input_port->buffer_size = 1000 * 1000;
-		enc->input_port->buffer_num = enc->input_port->buffer_num_recommended * 4;
-#		undef IFMT
-
-		COMMIT_PORT(input);
-		SET_PORT_PARAM(input, boolean, ZERO_COPY, zero_copy);
-	}
-
-	{
-		PREPARE_PORT(output);
-
-#		define OFMT(_next) enc->output_port->format->_next
-		OFMT(type) = MMAL_ES_TYPE_VIDEO;
-		OFMT(encoding) = MMAL_ENCODING_H264;
-		OFMT(encoding_variant) = MMAL_ENCODING_VARIANT_H264_DEFAULT;
-		OFMT(bitrate) = enc->bitrate * 1000;
-		OFMT(es->video.frame_rate.num) = enc->fps;
-		OFMT(es->video.frame_rate.den) = 1;
-		enc->output_port->buffer_size = enc->output_port->buffer_size_recommended * 4;
-		enc->output_port->buffer_num = enc->output_port->buffer_num_recommended;
-#		undef OFMT
-
-		COMMIT_PORT(output);
-		{
-			MMAL_PARAMETER_VIDEO_PROFILE_T profile;
-			MEMSET_ZERO(profile);
-			profile.hdr.id = MMAL_PARAMETER_PROFILE;
-			profile.hdr.size = sizeof(profile);
-			// http://blog.mediacoderhq.com/h264-profiles-and-levels
-			profile.profile[0].profile = MMAL_VIDEO_PROFILE_H264_CONSTRAINED_BASELINE;
-			profile.profile[0].level = MMAL_VIDEO_LEVEL_H264_4; // Supports 1080p
-			if ((error = mmal_port_parameter_set(enc->output_port, &profile.hdr)) != MMAL_SUCCESS) {
-				LOG_ERROR_MMAL(error, "H264: Can't set MMAL_PARAMETER_PROFILE for the output port");
-				goto error;
-			}
-		}
-
-		SET_PORT_PARAM(output, boolean,	ZERO_COPY,					MMAL_TRUE);
-		SET_PORT_PARAM(output, uint32,	INTRAPERIOD,				enc->gop);
-		SET_PORT_PARAM(output, uint32,	NALUNITFORMAT,				MMAL_VIDEO_NALUNITFORMAT_STARTCODES);
-		SET_PORT_PARAM(output, boolean,	MINIMISE_FRAGMENTATION,		MMAL_TRUE);
-		SET_PORT_PARAM(output, uint32,	MB_ROWS_PER_SLICE,			0);
-		SET_PORT_PARAM(output, boolean,	VIDEO_IMMUTABLE_INPUT,		MMAL_TRUE);
-		SET_PORT_PARAM(output, boolean,	VIDEO_DROPPABLE_PFRAMES,	MMAL_FALSE);
-		SET_PORT_PARAM(output, boolean,	VIDEO_ENCODE_INLINE_HEADER,	MMAL_TRUE); // SPS/PPS: https://github.com/raspberrypi/userland/issues/443
-		SET_PORT_PARAM(output, uint32,	VIDEO_BIT_RATE,				enc->bitrate * 1000);
-		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_PEAK_RATE,		enc->bitrate * 1000);
-		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_MIN_QUANT,				16);
-		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_MAX_QUANT,				34);
-		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_FRAME_LIMIT_BITS,		1000000);
-		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_H264_AU_DELIMITERS,	MMAL_FALSE);
-	}
-
-	ENABLE_PORT(input);
-	ENABLE_PORT(output);
-
-	enc->ready = true;
-	return 0;
-
-	error:
-		_h264_encoder_cleanup(enc);
-		LOG_ERROR("H264: Encoder disabled due error (prepare)");
-		return -1;
-
-#	undef ENABLE_PORT
-#	undef SET_PORT_PARAM
-#	undef COMMIT_PORT
-#	undef PREPARE_PORT
+bool h264_encoder_is_prepared_for(h264_encoder_s *enc, const frame_s *frame,
+                                  bool zero_copy) {
+  return enc->prepared && enc->width == frame->width && enc->height == frame->height;
 }
 
-static void _h264_encoder_cleanup(h264_encoder_s *enc) {
-	MMAL_STATUS_T error;
+int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame,
+                         bool zero_copy) {
+  _h264_encoder_cleanup(enc);
 
-#	define DISABLE_PORT(_id) { \
-			if (enc->_id##_port) { \
-				if ((error = mmal_wrapper_port_disable(enc->_id##_port)) != MMAL_SUCCESS) { \
-					LOG_ERROR_MMAL(error, "H264: Can't disable MMAL %s port", #_id); \
-				} \
-				enc->_id##_port = NULL; \
-			} \
-		}
+  enc->fd = open("/dev/video11", O_RDWR);
+  assert(enc->fd > 0);
 
-	DISABLE_PORT(input);
-	DISABLE_PORT(output);
+  struct v4l2_capability input;
+  int ret = ioctl(enc->fd, VIDIOC_QUERYCAP, &input);
+  fprintf(stderr, "Caps       : %d %d %X %s\n", ret, errno, input.device_caps,
+          input.driver);
 
-#	undef DISABLE_PORT
+  struct v4l2_format fm;
+  fm.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+  ret = ioctl(enc->fd, VIDIOC_G_FMT, &fm);
 
-	if (enc->wrapper) {
-		enc->wrapper->status = MMAL_SUCCESS; // Это реально надо?
-	}
+  struct v4l2_pix_format_mplane *mp = &fm.fmt.pix_mp;
+  fprintf(stderr, "Output fmt : %d %d (res: %ux%u) (pl: %u) %u %u %u %u\n", ret,
+          errno, mp->height, mp->width, mp->num_planes, mp->colorspace,
+          mp->pixelformat, mp->plane_fmt[0].bytesperline,
+          mp->plane_fmt[0].sizeimage);
 
-	enc->last_online = -1;
-	enc->ready = false;
+  mp->width = frame->width;
+  mp->height = frame->height;
+  mp->pixelformat = V4L2_PIX_FMT_RGB24;
+
+  LOG_DEBUG("Res: %ux%u Pix: %d", mp->width, mp->height, mp->pixelformat);
+
+  printf("Pixel format: %u\n", mp->pixelformat);
+
+  ret = ioctl(enc->fd, VIDIOC_S_FMT, &fm);
+  fprintf(stderr, "Output set: %d %d (res: %ux%u) %u %u %u\n", ret, errno,
+          mp->height, mp->width, mp->plane_fmt[0].bytesperline,
+          mp->plane_fmt[0].sizeimage, mp->pixelformat);
+
+  fm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+  ret = ioctl(enc->fd, VIDIOC_G_FMT, &fm);
+  fprintf(stderr, "Capture fmt : %d %d (res: %ux%u) (pl: %u) %u %u %u %u\n",
+          ret, errno, mp->height, mp->width, mp->num_planes, mp->colorspace,
+          mp->pixelformat, mp->plane_fmt[0].bytesperline,
+          mp->plane_fmt[0].sizeimage);
+
+  struct v4l2_streamparm stream;
+  memset(&stream, 0, sizeof(stream));
+  stream.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+  stream.parm.output.timeperframe.numerator = 1;
+  stream.parm.output.timeperframe.denominator = 30;
+
+  ret = ioctl(enc->fd, VIDIOC_S_PARM, &stream);
+  fprintf(stderr, "Output param set: %u %u %u %u\n", ret, errno,
+          stream.parm.output.timeperframe.numerator,
+          stream.parm.output.timeperframe.denominator);
+
+  struct v4l2_requestbuffers buf;
+  buf.memory = V4L2_MEMORY_MMAP;
+
+  buf.count = 2;
+  buf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+  ret = ioctl(enc->fd, VIDIOC_REQBUFS, &buf);
+  fprintf(stderr, "Req buffers: %d %u %u\n", ret, errno, buf.count);
+
+  map(enc->fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, enc->output, enc->output_len);
+  fprintf(stderr, "Output buffers: (len: %zu)\n", enc->output[0].length);
+
+  buf.count = 1;
+  buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+  ret = ioctl(enc->fd, VIDIOC_REQBUFS, &buf);
+  fprintf(stderr, "Req buffers: %d %u %u\n", ret, errno, buf.count);
+
+  map(enc->fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &enc->capture, 1);
+  fprintf(stderr, "Capture buffers: (len: %zu)\n", enc->capture.length);
+
+  ret = ioctl(enc->fd, VIDIOC_QBUF, &enc->capture.inner);
+  fprintf(stderr, "Queue capture: %d %u\n", ret, errno);
+
+  int type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+  ret = ioctl(enc->fd, VIDIOC_STREAMON, &type);
+  fprintf(stderr, "Output stream: %d %u\n", ret, errno);
+
+  type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+  ret = ioctl(enc->fd, VIDIOC_STREAMON, &type);
+  fprintf(stderr, "Capture stream: %d %u\n", ret, errno);
+
+  int cnt = min_u(frame->used, enc->output[0].length);
+  memcpy(enc->output[0].start, frame->data, cnt);
+  enc->output[0].planes.bytesused = cnt;
+
+  enc->output[0].inner.flags =
+      V4L2_BUF_FLAG_TIMESTAMP_COPY | V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+
+  enc->start_ts = get_now_monotonic();
+  enc->output[0].inner.timestamp.tv_sec = 0;
+  enc->output[0].inner.timestamp.tv_usec = 0;
+
+  struct v4l2_control ctrl;
+  ctrl.id = V4L2_CID_MPEG_VIDEO_REPEAT_SEQ_HEADER;
+  ctrl.value = 1;
+  ret = ioctl(enc->fd, VIDIOC_S_CTRL, &ctrl);
+  if (ret < 0) {
+    LOG_ERROR("Can't force inline header %d", ret);
+    return -1;
+  }
+
+  ctrl.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
+  ctrl.value = 60;
+  ret = ioctl(enc->fd, VIDIOC_S_CTRL, &ctrl);
+  if (ret < 0) {
+    LOG_ERROR("Can't set iframe period %d", ret);
+    return -1;
+  }
+
+  ret = ioctl(enc->fd, VIDIOC_QBUF, &enc->output[0].inner);
+  if (ret < 0) {
+    fprintf(stderr, "Queue output: %d %u\n", ret, errno);
+    return -1;
+  }
+  enc->last_online = -1;
+  enc->frame = 0;
+  enc->prepared = true;
+  enc->width = frame->width;
+  enc->height = frame->height;
+  return 0;
 }
 
-int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, int src_vcsm_handle, frame_s *dest, bool force_key) {
-	assert(enc->ready);
-	assert(src->used > 0);
-	assert(enc->width == src->width);
-	assert(enc->height == src->height);
-	assert(enc->format == src->format);
-	assert(enc->stride == src->stride);
+int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src,
+                          int src_vcsm_handle, frame_s *dest, bool force_key) {
+  assert(src->used > 0);
 
-	frame_copy_meta(src, dest);
-	dest->encode_begin_ts = get_now_monotonic();
-	dest->format = V4L2_PIX_FMT_H264;
-	dest->stride = 0;
+  frame_copy_meta(src, dest);
+  dest->encode_begin_ts = get_now_monotonic();
+  dest->format = V4L2_PIX_FMT_H264;
+  dest->stride = 0;
 
-	force_key = (force_key || enc->last_online != src->online);
+  force_key = (force_key || enc->last_online != src->online);
 
-	if (_h264_encoder_compress_raw(enc, src, src_vcsm_handle, dest, force_key) < 0) {
-		_h264_encoder_cleanup(enc);
-		LOG_ERROR("H264: Encoder disabled due error (compress)");
-		return -1;
-	}
+  if (_h264_encoder_compress_raw(enc, src, src_vcsm_handle, dest, force_key) < 0) {
+    LOG_ERROR("H264: Encoder disabled due error (compress)");
+    return -1;
+  }
 
-	dest->encode_end_ts = get_now_monotonic();
-	LOG_VERBOSE("H264: Compressed new frame: size=%zu, time=%0.3Lf, force_key=%d",
-		dest->used, dest->encode_end_ts - dest->encode_begin_ts, force_key);
+  dest->encode_end_ts = get_now_monotonic();
+  LOG_VERBOSE("H264: Compressed new frame: size=%zu, time=%0.3Lf, force_key=%d",
+              dest->used, dest->encode_end_ts - dest->encode_begin_ts,
+              force_key);
 
-	enc->last_online = src->online;
-	return 0;
+  enc->last_online = src->online;
+  return 0;
 }
 
-static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src, int src_vcsm_handle, frame_s *dest, bool force_key) {
-	LOG_DEBUG("H264: Compressing new frame; force_key=%d ...", force_key);
+static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src,
+                                      int src_vcsm_handle, frame_s *dest,
+                                      bool force_key) {
+  struct v4l2_buffer dq_out;
+  dq_out.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+  dq_out.memory = V4L2_MEMORY_MMAP;
+  dq_out.length = 1;
 
-	MMAL_STATUS_T error;
+  struct v4l2_plane out_planes;
+  memset(&out_planes, 0, sizeof(out_planes));
+  dq_out.m.planes = &out_planes;
 
-	if (force_key) {
-		if ((error = mmal_port_parameter_set_boolean(
-			enc->output_port,
-			MMAL_PARAMETER_VIDEO_REQUEST_I_FRAME,
-			MMAL_TRUE
-		)) != MMAL_SUCCESS) {
-			LOG_ERROR_MMAL(error, "H264: Can't request keyframe");
-			return -1;
-		}
-	}
+  if (force_key) {
+    struct v4l2_control ctrl;
+    ctrl.id = V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME;
+    ctrl.value = 1;
+    int ret = ioctl(enc->fd, VIDIOC_S_CTRL, &ctrl);
+    if (ret < 0) {
+      LOG_ERROR("Can't force keyframe %d", ret);
+		  return -1;
+    }
+  }
 
-	MMAL_BUFFER_HEADER_T *out = NULL;
-	MMAL_BUFFER_HEADER_T *in = NULL;
-	bool eos = false;
-	bool sent = false;
+  int ret = ioctl(enc->fd, VIDIOC_DQBUF, &dq_out);
+  if (ret < 0) {
+    fprintf(stderr, "Dequeue output: %d %u\n", ret, errno);
+    return -1;
+  } else {
+    buffer *avail = &enc->output[dq_out.index];
 
-	dest->used = 0;
+    uint32_t cnt = min_u(src->used, avail->length);
+    memcpy(avail->start, src->data, cnt);
+    avail->planes.bytesused = cnt;
 
-	while (!eos) {
-		out = NULL;
-		while (mmal_wrapper_buffer_get_empty(enc->output_port, &out, 0) == MMAL_SUCCESS) {
-			if ((error = mmal_port_send_buffer(enc->output_port, out)) != MMAL_SUCCESS) {
-				LOG_ERROR_MMAL(error, "H264: Can't send MMAL output buffer");
-				return -1;
-			}
-		}
+    avail->inner.flags =
+        V4L2_BUF_FLAG_TIMESTAMP_COPY | V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 
-		in = NULL;
-		if (!sent && mmal_wrapper_buffer_get_empty(enc->input_port, &in, 0) == MMAL_SUCCESS) {
-			if (enc->zero_copy && src_vcsm_handle > 0) {
-				in->data = (uint8_t *)vcsm_vc_hdl_from_hdl(src_vcsm_handle);
-			} else {
-				in->data = src->data;
-			}
-			in->alloc_size = src->used;
-			in->length = src->used;
-			in->offset = 0;
-			in->flags = MMAL_BUFFER_HEADER_FLAG_EOS;
-			if ((error = mmal_port_send_buffer(enc->input_port, in)) != MMAL_SUCCESS) {
-				LOG_ERROR_MMAL(error, "H264: Can't send MMAL input buffer");
-				return -1;
-			}
-			sent = true;
-		}
+    double now = get_now_monotonic() - enc->start_ts;
+    avail->inner.timestamp.tv_sec = floor(now);
+    avail->inner.timestamp.tv_usec = 1000 * 1000 * (now - floor(now));
 
-		error = mmal_wrapper_buffer_get_full(enc->output_port, &out, 0);
-		if (error == MMAL_EAGAIN) {
-			vcos_semaphore_wait(&enc->handler_sem);
-			continue;
-		} else if (error != MMAL_SUCCESS) {
-			LOG_ERROR_MMAL(error, "H264: Can't get MMAL output buffer");
-			return -1;
-		}
+    ret = ioctl(enc->fd, VIDIOC_QBUF, &avail->inner);
+    if (ret < 0) {
+      fprintf(stderr, "Queue output: %d %u\n", ret, errno);
+      return -1;
+    }
+  }
 
-		frame_append_data(dest, out->data, out->length);
+  struct v4l2_buffer dq_capt;
+  dq_capt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+  dq_capt.memory = V4L2_MEMORY_MMAP;
+  dq_capt.length = 1;
 
-		eos = out->flags & MMAL_BUFFER_HEADER_FLAG_EOS;
-		mmal_buffer_header_release(out);
-	}
+  struct v4l2_plane capt_planes;
+  memset(&capt_planes, 0, sizeof(capt_planes));
+  dq_capt.m.planes = &capt_planes;
 
-	if ((error = mmal_port_flush(enc->output_port)) != MMAL_SUCCESS) {
-		LOG_ERROR_MMAL(error, "H264: Can't flush MMAL output buffer; ignored");
-	}
-	return 0;
+  ret = ioctl(enc->fd, VIDIOC_DQBUF, &dq_capt);
+  if (ret < 0 && errno != EAGAIN) {
+    fprintf(stderr, "Dequeue capture: %d %u\n", ret, errno);
+    return -1;
+  } else if (ret == 0) {
+    frame_set_data(dest, enc->capture.start, dq_capt.m.planes[0].bytesused);
+    ret = ioctl(enc->fd, VIDIOC_QBUF, &enc->capture.inner);
+    if (ret < 0) {
+      fprintf(stderr, "Queue capture: %d %u\n", ret, errno);
+      return -1;
+    }
+  }
+  return 0;
 }
-
-static void _mmal_callback(MMAL_WRAPPER_T *wrapper) {
-	vcos_semaphore_post(&((h264_encoder_s *)(wrapper->user_data))->handler_sem);
-}
-
-static const char *_mmal_error_to_string(MMAL_STATUS_T error) {
-	// http://www.jvcref.com/files/PI/documentation/html/group___mmal_types.html
-#	define CASE_ERROR(_name, _msg) case MMAL_##_name: return "MMAL_" #_name " [" _msg "]"
-	switch (error) {
-		case MMAL_SUCCESS: return "MMAL_SUCCESS";
-		CASE_ERROR(ENOMEM,		"Out of memory");
-		CASE_ERROR(ENOSPC,		"Out of resources");
-		CASE_ERROR(EINVAL,		"Invalid argument");
-		CASE_ERROR(ENOSYS,		"Function not implemented");
-		CASE_ERROR(ENOENT,		"No such file or directory");
-		CASE_ERROR(ENXIO,		"No such device or address");
-		CASE_ERROR(EIO,			"IO error");
-		CASE_ERROR(ESPIPE,		"Illegal seek");
-		CASE_ERROR(ECORRUPT,	"Data is corrupt");
-		CASE_ERROR(ENOTREADY,	"Component is not ready");
-		CASE_ERROR(ECONFIG,		"Component is not configured");
-		CASE_ERROR(EISCONN,		"Port is already connected");
-		CASE_ERROR(ENOTCONN,	"Port is disconnected");
-		CASE_ERROR(EAGAIN,		"Resource temporarily unavailable");
-		CASE_ERROR(EFAULT,		"Bad address");
-		case MMAL_STATUS_MAX: break; // Makes cpplint happy
-	}
-	return "Unknown error";
-#	undef CASE_ERROR
-}
-
-#undef LOG_ERROR_MMAL

@@ -88,11 +88,9 @@ enum _OPT_VALUES {
 		_O_##_prefix##_RM, \
 		_O_##_prefix##_TIMEOUT,
 	ADD_SINK(SINK)
-#	ifdef WITH_OMX
 	ADD_SINK(H264_SINK)
 	_O_H264_BITRATE,
 	_O_H264_GOP,
-#	endif
 #	undef ADD_SINK
 
 #	ifdef WITH_GPIO
@@ -179,11 +177,9 @@ static const struct option _LONG_OPTS[] = {
 		{_opt "sink-rm",		no_argument,		NULL,	_O_##_prefix##_RM}, \
 		{_opt "sink-timeout",	required_argument,	NULL,	_O_##_prefix##_TIMEOUT},
 	ADD_SINK("", SINK)
-#	ifdef WITH_OMX
 	ADD_SINK("h264-", H264_SINK)
 	{"h264-bitrate",			required_argument,	NULL,	_O_H264_BITRATE},
 	{"h264-gop",				required_argument,	NULL,	_O_H264_GOP},
-#	endif
 #	undef ADD_SINK
 
 #	ifdef WITH_GPIO
@@ -243,9 +239,7 @@ void options_destroy(options_s *options) {
 			} \
 		}
 	ADD_SINK(sink);
-#	ifdef WITH_OMX
 	ADD_SINK(h264_sink);
-#	endif
 #	undef ADD_SINK
 
 	if (options->blank) {
@@ -336,9 +330,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 		bool _prefix##_rm = false; \
 		unsigned _prefix##_timeout = 1;
 	ADD_SINK(sink);
-#	ifdef WITH_OMX
 	ADD_SINK(h264_sink);
-#	endif
 #	undef ADD_SINK
 
 #	ifdef WITH_SETPROCTITLE
@@ -433,11 +425,9 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 				case _O_##_up##_RM:			OPT_SET(_lp##_rm, true); \
 				case _O_##_up##_TIMEOUT:	OPT_NUMBER("--" #_opt "sink-timeout", _lp##_timeout, 1, 60, 0);
 			ADD_SINK("", sink, SINK)
-#			ifdef WITH_OMX
 			ADD_SINK("h264-", h264_sink, H264_SINK)
 			case _O_H264_BITRATE:	OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 100, 16000, 0);
 			case _O_H264_GOP:		OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
-#			endif
 #			undef ADD_SINK
 
 #			ifdef WITH_GPIO
@@ -493,9 +483,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			stream->_prefix = options->_prefix; \
 		}
 	ADD_SINK("JPEG", sink);
-#	ifdef WITH_OMX
 	ADD_SINK("H264", h264_sink);
-#	endif
 #	undef ADD_SINK
 
 #	ifdef WITH_SETPROCTITLE
@@ -666,11 +654,9 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 		SAY("    --" _opt "sink-rm  ──────────── Remove shared memory on stop. Default: disabled.\n"); \
 		SAY("    --" _opt "sink-timeout <sec>  ─ Timeout for lock. Default: 1.\n");
 	ADD_SINK("JPEG", "")
-#	ifdef WITH_OMX
 	ADD_SINK("H264", "h264-")
 	SAY("    --h264-bitrate <kbps>  ───── H264 bitrate in Kbps. Default: %u.\n", stream->h264_bitrate);
 	SAY("    --h264-gop <N>  ──────────── Intarval between keyframes. Default: %u.\n", stream->h264_gop);
-#	endif
 #	undef ADD_SINK
 #	ifdef WITH_GPIO
 	SAY("GPIO options:");

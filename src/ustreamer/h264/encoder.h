@@ -28,37 +28,32 @@
 
 #include <linux/videodev2.h>
 
-#include <interface/mmal/mmal.h>
-#include <interface/mmal/mmal_format.h>
-#include <interface/mmal/util/mmal_default_components.h>
-#include <interface/mmal/util/mmal_component_wrapper.h>
-#include <interface/mmal/util/mmal_util_params.h>
-#include <interface/vcsm/user-vcsm.h>
-
 #include "../../libs/tools.h"
 #include "../../libs/logging.h"
 #include "../../libs/frame.h"
 
 
 typedef struct {
-	unsigned bitrate; // Kbit-per-sec
-	unsigned gop; // Interval between keyframes
-	unsigned fps;
+  void *start;
+  size_t length;
+  struct v4l2_buffer inner;
+  struct v4l2_plane planes;
+} buffer;
 
-	MMAL_WRAPPER_T		*wrapper;
-	MMAL_PORT_T			*input_port;
-	MMAL_PORT_T			*output_port;
-	VCOS_SEMAPHORE_T	handler_sem;
-	bool				i_handler_sem;
+typedef struct {
+	int fd;
+	buffer* output;
+	int output_len;
+	buffer capture;
 
-	int last_online;
+  uint32_t width;
+  uint32_t height;
 
-	unsigned	width;
-	unsigned	height;
-	unsigned	format;
-	unsigned	stride;
-	bool		zero_copy;
-	bool		ready;
+  bool prepared;
+  double start_ts;
+
+  int last_online;
+  long frame;
 } h264_encoder_s;
 
 

@@ -80,10 +80,8 @@ void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_han
 		h264_encoder_prepare(h264->enc, frame, zero_copy);
 	}
 
-	if (h264->enc->ready) {
-		if (h264_encoder_compress(h264->enc, frame, vcsm_handle, h264->dest, force_key) == 0) {
-			online = !memsink_server_put(h264->sink, h264->dest);
-		}
+	if (h264_encoder_compress(h264->enc, frame, vcsm_handle, h264->dest, force_key) == 0) {
+		online = !memsink_server_put(h264->sink, h264->dest);
 	}
 
 	atomic_store(&h264->online, online);

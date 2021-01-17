@@ -37,7 +37,6 @@
 #include <pthread.h>
 #ifdef WITH_OMX
 #	include <bcm_host.h>
-#	include <IL/OMX_Core.h>
 #endif
 
 #include "../libs/tools.h"
@@ -136,12 +135,6 @@ int main(int argc, char *argv[]) {
 			bcm_host_init();
 			i_bcm_host = true;
 		}
-		if (enc->type == ENCODER_TYPE_OMX) {
-			if ((omx_error = OMX_Init()) != OMX_ErrorNone) {
-				LOG_ERROR_OMX(omx_error, "Can't initialize OMX Core; forced CPU encoder");
-				enc->type = ENCODER_TYPE_CPU;
-			}
-		}
 #		endif
 
 #		ifdef WITH_GPIO
@@ -181,9 +174,6 @@ int main(int argc, char *argv[]) {
 	options_destroy(options);
 
 #	ifdef WITH_OMX
-	if (omx_error == OMX_ErrorNone) {
-		OMX_Deinit();
-	}
 	if (i_bcm_host) {
 		bcm_host_deinit();
 	}

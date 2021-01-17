@@ -42,9 +42,7 @@
 #include "device.h"
 #include "encoder.h"
 #include "workers.h"
-#ifdef WITH_OMX
 #	include "h264/stream.h"
-#endif
 #ifdef WITH_GPIO
 #	include "gpio/gpio.h"
 #endif
@@ -63,9 +61,7 @@ typedef struct {
 	video_s		*video;
 	long double	last_as_blank_ts;
 
-#	ifdef WITH_OMX
 	h264_stream_s *h264;
-#	endif
 
 	atomic_bool stop;
 } stream_runtime_s;
@@ -81,11 +77,9 @@ typedef struct {
 
 	memsink_s	*sink;
 
-#	ifdef WITH_OMX
 	memsink_s	*h264_sink;
 	unsigned	h264_bitrate;
 	unsigned	h264_gop;
-#	endif
 
 	stream_runtime_s *run;
 } stream_s;

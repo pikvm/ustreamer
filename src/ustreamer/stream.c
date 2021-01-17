@@ -50,10 +50,8 @@ stream_s *stream_init(device_s *dev, encoder_s *enc) {
 	stream->enc = enc;
 	stream->last_as_blank = -1;
 	stream->error_delay = 1;
-#	ifdef WITH_OMX
 	stream->h264_bitrate = 5000; // Kbps
 	stream->h264_gop = 30;
-#	endif
 	stream->run = run;
 	return stream;
 }
@@ -72,11 +70,9 @@ void stream_loop(stream_s *stream) {
 	LOG_INFO("Using V4L2 device: %s", stream->dev->path);
 	LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
 
-#	ifdef WITH_OMX
 	if (stream->h264_sink) {
 		RUN(h264) = h264_stream_init(stream->h264_sink, stream->h264_bitrate, stream->h264_gop);
 	}
-#	endif
 
 	for (workers_pool_s *pool; (pool = _stream_init_loop(stream)) != NULL;) {
 		long double grab_after = 0;
@@ -112,9 +108,7 @@ void stream_loop(stream_s *stream) {
 				}
 			}
 
-#			ifdef WITH_OMX
 			bool h264_force_key = false;
-#			endif
 			if (stream->slowdown) {
 				unsigned slc = 0;
 				while (
@@ -123,16 +117,12 @@ void stream_loop(stream_s *stream) {
 					&& !atomic_load(&RUN(video->has_clients))
 					// has_clients синков НЕ обновляются в реальном времени
 					&& (stream->sink == NULL || !stream->sink->has_clients)
-#					ifdef WITH_OMX
 					&& (RUN(h264) == NULL || /*RUN(h264->sink) == NULL ||*/ !RUN(h264->sink->has_clients))
-#					endif
 				) {
 					usleep(100000);
 					++slc;
 				}
-#				ifdef WITH_OMX
 				h264_force_key = (slc == 10);
-#				endif
 			}
 
 			if (atomic_load(&RUN(stop))) {
@@ -194,11 +184,9 @@ void stream_loop(stream_s *stream) {
 							workers_pool_assign(pool, ready_wr);
 							LOG_DEBUG("Assigned new frame in buffer %d to worker %s", buf_index, ready_wr->name);
 
-#							ifdef WITH_OMX
 							if (RUN(h264)) {
-								h264_stream_process(RUN(h264), &hw->raw, hw->vcsm_handle, h264_force_key);
+								h264_stream_process(RUN(h264), &hw->raw, 0, h264_force_key);
 							}
-#							endif
 						}
 					} else if (buf_index != -2) { // -2 for broken frame
 						break;
@@ -228,11 +216,9 @@ void stream_loop(stream_s *stream) {
 #		endif
 	}
 
-#	ifdef WITH_OMX
 	if (RUN(h264)) {
 		h264_stream_destroy(RUN(h264));
 	}
-#	endif
 }
 
 void stream_loop_break(stream_s *stream) {
@@ -248,11 +234,9 @@ static workers_pool_s *_stream_init_loop(stream_s *stream) {
 
 	while (!atomic_load(&RUN(stop))) {
 		if (_stream_expose_frame(stream, NULL, 0)) {
-#			ifdef WITH_OMX
 			if (RUN(h264)) {
 				h264_stream_process(RUN(h264), stream->blank, -1, false);
 			}
-#			endif
 		}
 
 		if (access(stream->dev->path, R_OK|W_OK) < 0) {
