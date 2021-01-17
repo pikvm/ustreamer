@@ -26,13 +26,17 @@
 static int _flock_timedwait_monotonic(int fd, long double timeout);
 
 
-memsink_s *memsink_init(const char *name, const char *obj, bool server, mode_t mode, bool rm, unsigned timeout) {
+memsink_s *memsink_init(
+	const char *name, const char *obj, bool server,
+	mode_t mode, bool rm, unsigned client_ttl, unsigned timeout) {
+
 	memsink_s *sink;
 	A_CALLOC(sink, 1);
 	sink->name = name;
 	sink->obj = obj;
 	sink->server = server;
 	sink->rm = rm;
+	sink->client_ttl = client_ttl;
 	sink->timeout = timeout;
 	sink->fd = -1;
 	sink->mem = MAP_FAILED;
@@ -99,7 +103,7 @@ int memsink_server_check_clients(memsink_s *sink) {
 		return -1;
 	}
 
-	sink->has_clients = (sink->mem->last_client_ts + 10 > get_now_monotonic());
+	sink->has_clients = (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic());
 
 	if (flock(sink->fd, LOCK_UN) < 0) {
 		LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
@@ -134,7 +138,7 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 		COPY(grab_ts);
 		COPY(encode_begin_ts);
 		COPY(encode_end_ts);
-		sink->has_clients = (sink->mem->last_client_ts + 10 > get_now_monotonic());
+		sink->has_clients = (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic());
 		memcpy(sink->mem->data, frame->data, frame->used);
 #		undef COPY
 
@@ -166,12 +170,8 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 		return -1;
 	}
 
-	bool same = false;
-
-	sink->mem->last_client_ts = get_now_monotonic();
-	if (sink->mem->id == sink->last_id) {
-		same = true;
-	} else {
+	bool updated = (sink->mem->id != sink->last_id);
+	if (updated) {
 #		define COPY(_field) frame->_field = sink->mem->_field
 		sink->last_id = sink->mem->id;
 		COPY(width);
@@ -185,17 +185,13 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 		frame_set_data(frame, sink->mem->data, sink->mem->used);
 #		undef COPY
 	}
+	sink->mem->last_client_ts = get_now_monotonic();
 
 	if (flock(sink->fd, LOCK_UN) < 0) {
 		LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
 		return -1;
 	}
-
-	if (same) {
-		usleep(1000);
-		return -2;
-	}
-	return 0;
+	return (updated ? 0 : -2);
 }
 
 static int _flock_timedwait_monotonic(int fd, long double timeout) {

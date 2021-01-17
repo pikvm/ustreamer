@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <signal.h>
 #include <getopt.h>
 #include <errno.h>
@@ -200,7 +201,7 @@ static int _dump_sink(const char *sink_name, unsigned sink_timeout, _output_cont
 	frame_s *frame = frame_init("input");
 	memsink_s *sink = NULL;
 
-	if ((sink = memsink_init("input", sink_name, false, 0, false, sink_timeout)) == NULL) {
+	if ((sink = memsink_init("input", sink_name, false, 0, false, 0, sink_timeout)) == NULL) {
 		goto error;
 	}
 
@@ -235,7 +236,9 @@ static int _dump_sink(const char *sink_name, unsigned sink_timeout, _output_cont
 			if (ctx->v_output) {
 				ctx->write(ctx->v_output, frame);
 			}
-		} else if (error != -2) {
+		} else if (error == -2) {
+			usleep(1000);
+		} else {
 			goto error;
 		}
 	}

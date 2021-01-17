@@ -65,6 +65,7 @@ typedef struct {
 	const char	*obj;
 	bool		server;
 	bool		rm;
+	unsigned	client_ttl; // Only for server
 	unsigned	timeout;
 
 	int					fd;
@@ -74,7 +75,10 @@ typedef struct {
 } memsink_s;
 
 
-memsink_s *memsink_init(const char *name, const char *obj, bool server, mode_t mode, bool rm, unsigned timeout);
+memsink_s *memsink_init(
+	const char *name, const char *obj, bool server,
+	mode_t mode, bool rm, unsigned client_ttl, unsigned timeout);
+
 void memsink_destroy(memsink_s *sink);
 
 int memsink_server_check_clients(memsink_s *sink);
