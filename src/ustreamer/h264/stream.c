@@ -53,7 +53,7 @@ void h264_stream_destroy(h264_stream_s *h264) {
 }
 
 void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_handle, bool force_key) {
-	if (memsink_server_check_clients(h264->sink) < 0 || !h264->sink->has_clients) {
+	if (!memsink_server_check(h264->sink, frame)) {
 		return;
 	}
 

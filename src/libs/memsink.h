@@ -81,6 +81,7 @@ memsink_s *memsink_init(
 
 void memsink_destroy(memsink_s *sink);
 
-int memsink_server_check_clients(memsink_s *sink);
+bool memsink_server_check(memsink_s *sink, const frame_s *frame);
 int memsink_server_put(memsink_s *sink, const frame_s *frame);
+
 int memsink_client_get(memsink_s *sink, frame_s *frame);

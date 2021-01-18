@@ -195,7 +195,7 @@ void stream_loop(stream_s *stream) {
 							LOG_DEBUG("Assigned new frame in buffer %d to worker %s", buf_index, ready_wr->name);
 
 							if (stream->raw_sink) {
-								if (memsink_server_check_clients(stream->raw_sink) == 0 && stream->raw_sink->has_clients) {
+								if (memsink_server_check(stream->raw_sink, &hw->raw)) {
 									memsink_server_put(stream->raw_sink, &hw->raw);
 								}
 							}
@@ -254,6 +254,11 @@ static workers_pool_s *_stream_init_loop(stream_s *stream) {
 
 	while (!atomic_load(&RUN(stop))) {
 		if (_stream_expose_frame(stream, NULL, 0)) {
+			if (stream->raw_sink) {
+				if (memsink_server_check(stream->raw_sink, stream->blank)) {
+					memsink_server_put(stream->raw_sink, stream->blank);
+				}
+			}
 #			ifdef WITH_OMX
 			if (RUN(h264)) {
 				h264_stream_process(RUN(h264), stream->blank, -1, false);
@@ -357,7 +362,7 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 	A_MUTEX_UNLOCK(&VID(mutex));
 
 	if (changed && stream->sink) {
-		if (memsink_server_check_clients(stream->sink) == 0 && stream->sink->has_clients) {
+		if (memsink_server_check(stream->sink, VID(frame))) {
 			memsink_server_put(stream->sink, VID(frame));
 		}
 	}

@@ -91,25 +91,31 @@ void memsink_destroy(memsink_s *sink) {
 	free(sink);
 }
 
-int memsink_server_check_clients(memsink_s *sink) {
+bool memsink_server_check(memsink_s *sink, const frame_s *frame) {
+	// Возвращает true, если если клиенты ИЛИ изменились метаданные
+
 	assert(sink->server);
 
 	if (flock(sink->fd, LOCK_EX | LOCK_NB) < 0) {
 		if (errno == EWOULDBLOCK) {
 			sink->has_clients = true;
-			return 0;
+			return true;
 		}
 		LOG_PERROR("%s-sink: Can't lock memory", sink->name);
-		return -1;
+		return false;
 	}
 
 	sink->has_clients = (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic());
 
+#	define NEQ(_field) (sink->mem->_field != frame->_field)
+	bool retval = (sink->has_clients || NEQ(width) || NEQ(height) || NEQ(format) || NEQ(stride) || NEQ(online));
+#	undef NEQ
+
 	if (flock(sink->fd, LOCK_UN) < 0) {
 		LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
-		return -1;
+		return false;
 	}
-	return 0;
+	return retval;
 }
 
 int memsink_server_put(memsink_s *sink, const frame_s *frame) {
