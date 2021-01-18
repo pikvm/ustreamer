@@ -39,6 +39,8 @@
 #include "frame.h"
 
 
+#define MEMSINK_MAGIC ((uint64_t)0xCAFEBABECAFEBABE)
+
 #ifndef CFG_MEMSINK_MAX_DATA
 #	define CFG_MEMSINK_MAX_DATA 33554432
 #endif
@@ -46,6 +48,7 @@
 
 
 typedef struct {
+	uint64_t	magic;
 	uint64_t	id;
 	size_t		used;
 	unsigned	width;
