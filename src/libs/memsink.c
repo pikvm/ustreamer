@@ -147,6 +147,7 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 		sink->has_clients = (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic());
 		memcpy(sink->mem->data, frame->data, frame->used);
 		sink->mem->magic = MEMSINK_MAGIC;
+		sink->mem->version = MEMSINK_VERSION;
 #		undef COPY
 
 		if (flock(sink->fd, LOCK_UN) < 0) {
@@ -177,10 +178,15 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 		return -1;
 	}
 
-	bool updated = false;
+	int retval = -2; // Not updated
 	if (sink->mem->magic == MEMSINK_MAGIC) {
-		updated = (sink->mem->id != sink->last_id);
-		if (updated) {
+		if (sink->mem->version != MEMSINK_VERSION) {
+			LOG_ERROR("%s-sink: Protocol version mismatch: sink=%u, required=%u",
+				sink->name, sink->mem->version, MEMSINK_VERSION);
+			retval = -1;
+			goto done;
+		}
+		if (sink->mem->id != sink->last_id) { // When updated
 #			define COPY(_field) frame->_field = sink->mem->_field
 			sink->last_id = sink->mem->id;
 			COPY(width);
@@ -193,15 +199,17 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 			COPY(encode_end_ts);
 			frame_set_data(frame, sink->mem->data, sink->mem->used);
 #			undef COPY
+			retval = 0;
 		}
 		sink->mem->last_client_ts = get_now_monotonic();
 	}
 
-	if (flock(sink->fd, LOCK_UN) < 0) {
-		LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
-		return -1;
-	}
-	return (updated ? 0 : -2);
+	done:
+		if (flock(sink->fd, LOCK_UN) < 0) {
+			LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
+			return -1;
+		}
+		return retval;
 }
 
 static int _flock_timedwait_monotonic(int fd, long double timeout) {
