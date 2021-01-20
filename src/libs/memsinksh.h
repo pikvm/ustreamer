@@ -24,44 +24,37 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <string.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <assert.h>
 
 #include <sys/types.h>
-#include <sys/file.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
 
-#include "tools.h"
-#include "logging.h"
-#include "frame.h"
-#include "memsinksh.h"
+
+#define MEMSINK_MAGIC	((uint64_t)0xCAFEBABECAFEBABE)
+#define MEMSINK_VERSION	((uint32_t)1)
+
+#ifndef CFG_MEMSINK_MAX_DATA
+#	define CFG_MEMSINK_MAX_DATA 33554432
+#endif
+#define MEMSINK_MAX_DATA ((size_t)(CFG_MEMSINK_MAX_DATA))
 
 
 typedef struct {
-	const char	*name;
-	const char	*obj;
-	bool		server;
-	bool		rm;
-	unsigned	client_ttl; // Only for server
-	unsigned	timeout;
+	uint64_t	magic;
+	uint32_t	version;
 
-	int					fd;
-	memsink_shared_s	*mem;
-	uint64_t			last_id;
-	bool				has_clients; // Only for server
-} memsink_s;
+	uint64_t	id;
 
+	size_t		used;
+	unsigned	width;
+	unsigned	height;
+	unsigned	format;
+	unsigned	stride;
+	bool		online;
 
-memsink_s *memsink_init(
-	const char *name, const char *obj, bool server,
-	mode_t mode, bool rm, unsigned client_ttl, unsigned timeout);
+	long double	grab_ts;
+	long double	encode_begin_ts;
+	long double	encode_end_ts;
 
-void memsink_destroy(memsink_s *sink);
+	long double	last_client_ts;
 
-bool memsink_server_check(memsink_s *sink, const frame_s *frame);
-int memsink_server_put(memsink_s *sink, const frame_s *frame);
-
-int memsink_client_get(memsink_s *sink, frame_s *frame);
+	uint8_t		data[MEMSINK_MAX_DATA];
+} memsink_shared_s;
