@@ -90,7 +90,7 @@ install: $(USTR) $(DUMP)
 	gzip $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
 	gzip $(DESTDIR)$(MANPREFIX)/man1/$(DUMP).1
 ifneq ($(call optbool,$(WITH_PYTHON)),)
-	cd src/python && python3 setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
+	cd src/python && python3 setup.py install --prefix=$(PREFIX) --root=$(if $(DESTDIR),$(DESTDIR),/)
 endif
 
 
