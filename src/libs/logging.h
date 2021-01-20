@@ -150,7 +150,7 @@ extern pthread_mutex_t log_mutex;
 #define LOG_VERBOSE_PERROR(_msg, ...) { \
 		if (log_level >= LOG_LEVEL_VERBOSE) { \
 			char _perror_buf[1024] = {0}; \
-			char *_perror_ptr = errno_to_string(errno, _perror_buf, 1024); \
+			char *_perror_ptr = errno_to_string(errno, _perror_buf, 1023); \
 			LOG_PRINTF(COLOR_BLUE, "VERB ", COLOR_BLUE, _msg ": %s", ##__VA_ARGS__, _perror_ptr); \
 		} \
 	}
