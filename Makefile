@@ -78,7 +78,7 @@ endif
 
 
 # =====
-all: $(USTR) $(DUMP)
+all: $(USTR) $(DUMP) python
 
 
 install: $(USTR) $(DUMP)
@@ -89,18 +89,14 @@ install: $(USTR) $(DUMP)
 	install -m644 man/$(DUMP).1 $(DESTDIR)$(MANPREFIX)/man1/$(DUMP).1
 	gzip $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
 	gzip $(DESTDIR)$(MANPREFIX)/man1/$(DUMP).1
+ifneq ($(call optbool,$(WITH_PYTHON)),)
+	cd src/python && python3 setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
+endif
 
 
 install-strip: install
 	strip $(DESTDIR)$(PREFIX)/bin/$(USTR)
 	strip $(DESTDIR)$(PREFIX)/bin/$(DUMP)
-
-
-uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin/$(USTR) \
-		$(DESTDIR)$(PREFIX)/bin/$(DUMP) \
-		$(DESTDIR)$(MANPREFIX)/man1/$(USTR).1 \
-		$(DESTDIR)$(MANPREFIX)/man1/$(DUMP).1
 
 
 regen:
@@ -133,6 +129,14 @@ $(BUILD)/%.o: %.c
 	@ mkdir -p $(dir $@) || true
 	@ $(CC) $< -o $@ $(CFLAGS)
 
+
+python:
+ifneq ($(call optbool,$(WITH_PYTHON)),)
+	cd src/python && python3 setup.py build
+	ln -sf src/python/build/lib.*/*.so .
+else
+	@ true
+endif
 
 release:
 	make clean
@@ -176,10 +180,10 @@ clean-all: linters clean
 		-it $(LINTERS_IMAGE) bash -c "cd src && rm -rf linters/{.tox,.mypy_cache}"
 clean:
 	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.{xz,zst}
-	rm -rf $(USTR) $(DUMP) $(BUILD) vgcore.* *.sock
+	rm -rf $(USTR) $(DUMP) $(BUILD) src/python/build vgcore.* *.sock *.so
 
 
-.PHONY: linters
+.PHONY: python linters
 
 
 _OBJS = $(_USTR_SRCS:%.c=$(BUILD)/%.o) $(_DUMP_SRCS:%.c=$(BUILD)/%.o)

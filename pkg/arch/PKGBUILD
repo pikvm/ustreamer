@@ -15,15 +15,24 @@ makedepends=(gcc make)
 source=(${pkgname}::"git+https://github.com/pikvm/ustreamer#commit=v${pkgver}")
 md5sums=(SKIP)
 
+_options="WITH_GPIO=1"
+if [ -e /usr/lib/python3 ]; then
+	_options="$_options WITH_PYTHON=1"
+	depends+=(python)
+	makedepends+=(python-setuptools)
+fi
+if [ -e /opt/vc/include/IL/OMX_Core.h ]; then
+	depends+=(raspberrypi-firmware)
+	makedepends+=(raspberrypi-firmware)
+	_options="$_options WITH_OMX=1"
+fi
+
 
 build() {
 	cd "$srcdir"
 	rm -rf $pkgname-build
 	cp -r $pkgname $pkgname-build
 	cd $pkgname-build
-
-	local _options="WITH_GPIO=1"
-	[ -e /opt/vc/include/IL/OMX_Core.h ] && _options="$_options WITH_OMX=1"
 
 	# LD does not link mmal with this option
 	LDFLAGS="${LDFLAGS//--as-needed/}"
