@@ -40,7 +40,11 @@ memsink_s *memsink_init(
 
 	LOG_INFO("Using %s-sink: %s", name, obj);
 
-	if ((sink->fd = shm_open(sink->obj, (server ? O_RDWR | O_CREAT : O_RDWR), mode)) == -1) {
+	mode_t mask = umask(0);
+	sink->fd = shm_open(sink->obj, (server ? O_RDWR | O_CREAT : O_RDWR), mode);
+	umask(mask);
+	if (sink->fd == -1) {
+		umask(mask);
 		LOG_PERROR("%s-sink: Can't open shared memory", name);
 		goto error;
 	}
