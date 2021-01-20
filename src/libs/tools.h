@@ -32,6 +32,8 @@
 #include <time.h>
 #include <assert.h>
 
+#include <sys/file.h>
+
 
 #define A_CALLOC(_dest, _nmemb)		assert((_dest = calloc(_nmemb, sizeof(*(_dest)))))
 #define A_REALLOC(_dest, _nmemb)	assert((_dest = realloc(_dest, _nmemb * sizeof(*(_dest)))))
@@ -122,4 +124,18 @@ INLINE unsigned get_cores_available(void) {
 	long cores_sysconf = sysconf(_SC_NPROCESSORS_ONLN);
 	cores_sysconf = (cores_sysconf < 0 ? 0 : cores_sysconf);
 	return max_u(min_u(cores_sysconf, 4), 1);
+}
+
+INLINE int flock_timedwait_monotonic(int fd, long double timeout) {
+	long double deadline_ts = get_now_monotonic() + timeout;
+	int retval = -1;
+
+	while (true) {
+		retval = flock(fd, LOCK_EX | LOCK_NB);
+		if (retval == 0 || errno != EWOULDBLOCK || get_now_monotonic() > deadline_ts) {
+			break;
+		}
+		usleep(1000);
+	}
+	return retval;
 }

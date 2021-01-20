@@ -23,9 +23,6 @@
 #include "memsink.h"
 
 
-static int _flock_timedwait_monotonic(int fd, long double timeout);
-
-
 memsink_s *memsink_init(
 	const char *name, const char *obj, bool server,
 	mode_t mode, bool rm, unsigned client_ttl, unsigned timeout) {
@@ -129,7 +126,7 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 		return 0; // -2
 	}
 
-	if (_flock_timedwait_monotonic(sink->fd, 1) == 0) {
+	if (flock_timedwait_monotonic(sink->fd, 1) == 0) {
 		LOG_VERBOSE("%s-sink: >>>>> Exposing new frame ...", sink->name);
 
 #		define COPY(_field) sink->mem->_field = frame->_field
@@ -170,7 +167,7 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress unusedFunction
 	assert(!sink->server); // Client only
 
-	if (_flock_timedwait_monotonic(sink->fd, sink->timeout) < 0) {
+	if (flock_timedwait_monotonic(sink->fd, sink->timeout) < 0) {
 		if (errno == EWOULDBLOCK) {
 			return -2;
 		}
@@ -210,18 +207,4 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 			return -1;
 		}
 		return retval;
-}
-
-static int _flock_timedwait_monotonic(int fd, long double timeout) {
-	long double deadline_ts = get_now_monotonic() + timeout;
-	int retval = -1;
-
-	while (true) {
-		retval = flock(fd, LOCK_EX | LOCK_NB);
-		if (retval == 0 || errno != EWOULDBLOCK || get_now_monotonic() > deadline_ts) {
-			break;
-		}
-		usleep(1000);
-	}
-	return retval;
 }
