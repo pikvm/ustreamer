@@ -135,7 +135,9 @@ INLINE int flock_timedwait_monotonic(int fd, long double timeout) {
 		if (retval == 0 || errno != EWOULDBLOCK || get_now_monotonic() > deadline_ts) {
 			break;
 		}
-		usleep(1000);
+		if (usleep(1000) < 0) {
+			break;
+		}
 	}
 	return retval;
 }
