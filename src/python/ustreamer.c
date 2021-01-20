@@ -29,10 +29,16 @@ typedef struct {
 	uint8_t				*tmp_data;
 	size_t				tmp_data_allocated;
 	uint64_t			last_id;
+
+	PyObject *frame; // PyDict
 } MemsinkObject;
 
 
 static void MemsinkObject_destroy_internals(MemsinkObject *self) {
+	if (self->frame != NULL) {
+		Py_DECREF(self->frame);
+		self->frame = NULL;
+	}
 	if (self->mem != NULL) {
 		munmap(self->mem, sizeof(memsink_shared_s));
 		self->mem = NULL;
@@ -93,6 +99,10 @@ static int MemsinkObject_init(MemsinkObject *self, PyObject *args, PyObject *kwa
 	}
 	if (self->mem == NULL) {
 		PyErr_SetString(PyExc_RuntimeError, "Memory mapping is NULL"); \
+		goto error;
+	}
+
+	if ((self->frame = PyDict_New()) == NULL) {
 		goto error;
 	}
 
@@ -201,8 +211,8 @@ static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUS
 		return PyErr_SetFromErrno(PyExc_OSError);
 	}
 
-	PyObject *frame = PyDict_New();
-#	define SET_VALUE(_field, _from, _to) PyDict_SetItemString(frame, #_field, Py##_to##_From##_from(tmp_##_field))
+	PyDict_Clear(self->frame);
+#	define SET_VALUE(_field, _from, _to) PyDict_SetItemString(self->frame, #_field, Py##_to##_From##_from(tmp_##_field))
 	SET_VALUE(width, Long, Long);
 	SET_VALUE(height, Long, Long);
 	SET_VALUE(format, Long, Long);
@@ -212,8 +222,8 @@ static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUS
 	SET_VALUE(encode_begin_ts, Double, Float);
 	SET_VALUE(encode_end_ts, Double, Float);
 #	undef SET_VALUE
-	PyDict_SetItemString(frame, "data", PyBytes_FromStringAndSize((const char *)self->tmp_data, tmp_used));
-	return frame;
+	PyDict_SetItemString(self->frame, "data", PyBytes_FromStringAndSize((const char *)self->tmp_data, tmp_used));
+	return self->frame;
 }
 
 static PyObject *MemsinkObject_is_opened(MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
