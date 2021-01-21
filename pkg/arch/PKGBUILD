@@ -10,13 +10,13 @@ url="https://github.com/pikvm/ustreamer"
 license=(GPL)
 arch=(i686 x86_64 armv6h armv7h aarch64)
 depends=(libjpeg libevent libutil-linux libbsd libgpiod)
-# optional: raspberrypi-firmware for OMX encoder
 makedepends=(gcc make)
 source=(${pkgname}::"git+https://github.com/pikvm/ustreamer#commit=v${pkgver}")
 md5sums=(SKIP)
 
+
 _options="WITH_GPIO=1"
-if [ -e /usr/lib/python3 ]; then
+if [ -e /usr/bin/python3 ]; then
 	_options="$_options WITH_PYTHON=1"
 	depends+=(python)
 	makedepends+=(python-setuptools)
