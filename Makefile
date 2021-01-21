@@ -87,8 +87,8 @@ install: $(USTR) $(DUMP)
 	install -m755 $(DUMP) $(DESTDIR)$(PREFIX)/bin/$(DUMP)
 	install -m644 man/$(USTR).1 $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
 	install -m644 man/$(DUMP).1 $(DESTDIR)$(MANPREFIX)/man1/$(DUMP).1
-	gzip $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
-	gzip $(DESTDIR)$(MANPREFIX)/man1/$(DUMP).1
+	gzip -f $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
+	gzip -f $(DESTDIR)$(MANPREFIX)/man1/$(DUMP).1
 ifneq ($(call optbool,$(WITH_PYTHON)),)
 	cd src/python && python3 setup.py install --prefix=$(PREFIX) --root=$(if $(DESTDIR),$(DESTDIR),/)
 endif
