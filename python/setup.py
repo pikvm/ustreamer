@@ -17,6 +17,10 @@ if __name__ == "__main__":
                 libraries=["rt", "m", "pthread"],
                 undef_macros=["NDEBUG"],
                 sources=["ustreamer.c"],
+                depends=[
+                    "../src/libs/tools.h",
+                    "../src/libs/memsinksh.h",
+                ],
             ),
         ],
     )

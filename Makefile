@@ -134,7 +134,7 @@ $(BUILD)/%.o: %.c
 python:
 ifneq ($(call optbool,$(WITH_PYTHON)),)
 	$(info == PY_BUILD ustreamer-*.so)
-	@ cd python && $(PY) setup.py --quiet build
+	@ cd python && $(PY) setup.py build
 	@ ln -sf python/build/lib.*/*.so .
 else
 	@ true
