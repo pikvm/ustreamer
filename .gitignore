@@ -5,8 +5,8 @@
 /pkg/arch/v*.tar.gz
 /pkg/arch/ustreamer-*.pkg.tar.xz
 /pkg/arch/ustreamer-*.pkg.tar.zst
-/src/python/build/
 /build/
+/python/build/
 /config.mk
 /vgcore.*
 /ustreamer

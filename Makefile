@@ -7,6 +7,7 @@ PREFIX ?= /usr/local
 MANPREFIX ?= $(PREFIX)/share/man
 
 CC ?= gcc
+PY ?= python3
 CFLAGS ?= -O3 -MD
 LDFLAGS ?=
 
@@ -90,7 +91,7 @@ install: $(USTR) $(DUMP)
 	gzip -f $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
 	gzip -f $(DESTDIR)$(MANPREFIX)/man1/$(DUMP).1
 ifneq ($(call optbool,$(WITH_PYTHON)),)
-	cd src/python && python3 setup.py install --prefix=$(PREFIX) --root=$(if $(DESTDIR),$(DESTDIR),/)
+	cd python && $(PY) setup.py install --prefix=$(PREFIX) --root=$(if $(DESTDIR),$(DESTDIR),/)
 endif
 
 
@@ -132,8 +133,9 @@ $(BUILD)/%.o: %.c
 
 python:
 ifneq ($(call optbool,$(WITH_PYTHON)),)
-	cd src/python && python3 setup.py build
-	ln -sf src/python/build/lib.*/*.so .
+	$(info == PY_BUILD ustreamer-*.so)
+	@ cd python && $(PY) setup.py --quiet build
+	@ ln -sf python/build/lib.*/*.so .
 else
 	@ true
 endif
@@ -180,7 +182,7 @@ clean-all: linters clean
 		-it $(LINTERS_IMAGE) bash -c "cd src && rm -rf linters/{.tox,.mypy_cache}"
 clean:
 	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.{xz,zst}
-	rm -rf $(USTR) $(DUMP) $(BUILD) src/python/build vgcore.* *.sock *.so
+	rm -rf $(USTR) $(DUMP) $(BUILD) python/build vgcore.* *.sock *.so
 
 
 .PHONY: python linters

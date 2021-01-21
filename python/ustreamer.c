@@ -13,8 +13,8 @@
 
 #include <Python.h>
 
-#include "../libs/tools.h" // Just a header without C-sources
-#include "../libs/memsinksh.h" // No sources again
+#include "../src/libs/tools.h" // Just a header without C-sources
+#include "../src/libs/memsinksh.h" // No sources again
 
 
 typedef struct {
