@@ -267,12 +267,13 @@ FIELD_GETTER(wait_timeout, Double, Float)
 #undef FIELD_GETTER
 
 static PyMethodDef MemsinkObject_methods[] = {
-#	define ADD_METHOD(_meth, _flags) {.ml_name = #_meth, .ml_meth = (PyCFunction)MemsinkObject_##_meth, .ml_flags = (_flags)}
-	ADD_METHOD(close, METH_NOARGS),
-	ADD_METHOD(enter, METH_NOARGS),
-	ADD_METHOD(exit, METH_VARARGS),
-	ADD_METHOD(wait_frame, METH_NOARGS),
-	ADD_METHOD(is_opened, METH_NOARGS),
+#	define ADD_METHOD(_name, _method, _flags) \
+		{.ml_name = _name, .ml_meth = (PyCFunction)MemsinkObject_##_method, .ml_flags = (_flags)}
+	ADD_METHOD("close", close, METH_NOARGS),
+	ADD_METHOD("__enter__", enter, METH_NOARGS),
+	ADD_METHOD("__exit__", exit, METH_VARARGS),
+	ADD_METHOD("wait_frame", wait_frame, METH_NOARGS),
+	ADD_METHOD("is_opened", is_opened, METH_NOARGS),
 	{},
 #	undef ADD_METHOD
 };
