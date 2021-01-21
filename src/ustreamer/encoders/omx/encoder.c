@@ -221,18 +221,20 @@ static int _vcos_semwait(VCOS_SEMAPHORE_T *sem) {
 		if (sem_status == VCOS_SUCCESS) {
 			return 0;
 		} else if (sem_status != VCOS_EAGAIN || get_now_monotonic() > deadline_ts) {
-			goto error;
+			break;
 		}
-		usleep(1000);
+		if (usleep(1000) < 0) {
+			break;
+		}
 	}
 
-	error:
-		switch (sem_status) {
-			case VCOS_EAGAIN: LOG_ERROR("Can't wait VCOS semaphore: EAGAIN (timeout)"); break;
-			case VCOS_EINVAL: LOG_ERROR("Can't wait VCOS semaphore: EINVAL"); break;
-			default: LOG_ERROR("Can't wait VCOS semaphore: %d", sem_status); break;
-		}
-		return -1;
+	switch (sem_status) {
+		case VCOS_EAGAIN: LOG_ERROR("Can't wait VCOS semaphore: EAGAIN (timeout)"); break;
+		case VCOS_EINVAL: LOG_ERROR("Can't wait VCOS semaphore: EINVAL"); break;
+		default: LOG_ERROR("Can't wait VCOS semaphore: %d", sem_status); break;
+	}
+	return -1;
+
 #	else
 	return (vcos_semaphore_wait(sem) == VCOS_SUCCESS ? 0 : -1);
 #	endif
