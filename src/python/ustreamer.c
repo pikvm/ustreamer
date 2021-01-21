@@ -138,53 +138,55 @@ static PyObject *MemsinkObject_exit(MemsinkObject *self, PyObject *Py_UNUSED(ign
 	return PyObject_CallMethod((PyObject *)self, "close", "");
 }
 
+#define MEM(_next) self->mem->_next
+
+static int wait_frame(MemsinkObject *self) {
+	long double deadline_ts = get_now_monotonic() + self->wait_timeout;
+
+#	define RETURN_OS_ERROR { \
+			Py_BLOCK_THREADS \
+			PyErr_SetFromErrno(PyExc_OSError); \
+			return -1; \
+		}
+
+	Py_BEGIN_ALLOW_THREADS
+	do {
+		int retval = flock_timedwait_monotonic(self->fd, self->lock_timeout);
+		if (retval < 0 && errno != EWOULDBLOCK) {
+			RETURN_OS_ERROR;
+		} else if (retval == 0) {
+			if (MEM(magic) == MEMSINK_MAGIC && MEM(version) == MEMSINK_VERSION && MEM(id) != self->last_id) {
+				Py_BLOCK_THREADS
+				return 0;
+			}
+			if (flock(self->fd, LOCK_UN) < 0) {
+				RETURN_OS_ERROR;
+			}
+		}
+		if (usleep(1000) < 0) {
+			RETURN_OS_ERROR;
+		}
+	} while (get_now_monotonic() < deadline_ts);
+	Py_END_ALLOW_THREADS
+
+#	undef RETURN_OS_ERROR
+
+	return -2;
+}
+
 static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
 	if (self->mem == NULL || self->fd <= 0) {
 		PyErr_SetString(PyExc_RuntimeError, "Closed");
 		return NULL;
 	}
 
-	bool found = false;
-	bool failed = false;
-
-	Py_BEGIN_ALLOW_THREADS
-	long double deadline_ts = get_now_monotonic() + self->wait_timeout;
-	do {
-		int retval = flock_timedwait_monotonic(self->fd, self->lock_timeout);
-		if (retval < 0 && errno != EWOULDBLOCK) {
-			failed = true;
-			break;
-		} else if (retval == 0) {
-			if (
-				self->mem->magic == MEMSINK_MAGIC
-				&& self->mem->version == MEMSINK_VERSION
-				&& self->mem->id != self->last_id
-			) {
-				found = true;
-				break;
-			}
-			if (flock(self->fd, LOCK_UN) < 0) {
-				failed = true;
-				break;
-			}
-		}
-		errno = 0;
-		usleep(1000);
-		if (errno == EINTR) {
-			failed = true;
-			break;
-		}
-	} while (get_now_monotonic() < deadline_ts);
-	Py_END_ALLOW_THREADS
-
-	if (failed) {
-		return PyErr_SetFromErrno(PyExc_OSError);
-	}
-	if (!found) {
-		Py_RETURN_NONE;
+	switch (wait_frame(self)) {
+		case 0: break;
+		case -2: Py_RETURN_NONE;
+		default: return NULL;
 	}
 
-#	define COPY(_type, _field) _type tmp_##_field = self->mem->_field
+#	define COPY(_type, _field) _type tmp_##_field = MEM(_field)
 	COPY(unsigned, width);
 	COPY(unsigned, height);
 	COPY(unsigned, format);
@@ -197,34 +199,50 @@ static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUS
 #	undef COPY
 
 	// Временный буффер используется для скорейшего разблокирования синка
-	if (self->tmp_data_allocated < self->mem->used) {
-		size_t size = self->mem->used + (512 * 1024);
+	if (self->tmp_data_allocated < MEM(used)) {
+		size_t size = MEM(used) + (512 * 1024);
 		A_REALLOC(self->tmp_data, size);
 		self->tmp_data_allocated = size;
 	}
-	memcpy(self->tmp_data, self->mem->data, self->mem->used);
+	memcpy(self->tmp_data, MEM(data), MEM(used));
 
-	self->mem->last_client_ts = get_now_monotonic();
-	self->last_id = self->mem->id;
+	MEM(last_client_ts) = get_now_monotonic();
+	self->last_id = MEM(id);
 
 	if (flock(self->fd, LOCK_UN) < 0) {
 		return PyErr_SetFromErrno(PyExc_OSError);
 	}
 
 	PyDict_Clear(self->frame);
-#	define SET_VALUE(_field, _from, _to) PyDict_SetItemString(self->frame, #_field, Py##_to##_From##_from(tmp_##_field))
-	SET_VALUE(width, Long, Long);
-	SET_VALUE(height, Long, Long);
-	SET_VALUE(format, Long, Long);
-	SET_VALUE(stride, Long, Long);
-	SET_VALUE(online, Long, Bool);
-	SET_VALUE(grab_ts, Double, Float);
-	SET_VALUE(encode_begin_ts, Double, Float);
-	SET_VALUE(encode_end_ts, Double, Float);
+
+#	define SET_VALUE(_key, _maker) { \
+			PyObject *_tmp = _maker; \
+			if (_tmp == NULL) { \
+				return NULL; \
+			} \
+			if (PyDict_SetItemString(self->frame, _key, _tmp) < 0) { \
+				Py_DECREF(_tmp); \
+				return NULL; \
+			} \
+			Py_DECREF(_tmp); \
+		}
+
+	SET_VALUE("width", PyLong_FromLong(tmp_width));
+	SET_VALUE("height", PyLong_FromLong(tmp_height));
+	SET_VALUE("format", PyLong_FromLong(tmp_format));
+	SET_VALUE("stride", PyLong_FromLong(tmp_stride));
+	SET_VALUE("online", PyBool_FromLong(tmp_online));
+	SET_VALUE("grab_ts", PyFloat_FromDouble(tmp_grab_ts));
+	SET_VALUE("encode_begin_ts", PyFloat_FromDouble(tmp_encode_begin_ts));
+	SET_VALUE("encode_end_ts", PyFloat_FromDouble(tmp_encode_end_ts));
+	SET_VALUE("data", PyBytes_FromStringAndSize((const char *)self->tmp_data, tmp_used));
+
 #	undef SET_VALUE
-	PyDict_SetItemString(self->frame, "data", PyBytes_FromStringAndSize((const char *)self->tmp_data, tmp_used));
+
 	return self->frame;
 }
+
+#undef MEM
 
 static PyObject *MemsinkObject_is_opened(MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
 	return PyBool_FromLong(self->mem != NULL && self->fd > 0);
