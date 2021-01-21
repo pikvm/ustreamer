@@ -239,6 +239,7 @@ static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUS
 
 #	undef SET_VALUE
 
+	Py_INCREF(self->frame);
 	return self->frame;
 }
 
