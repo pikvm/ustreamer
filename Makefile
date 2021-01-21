@@ -83,7 +83,7 @@ endif
 all: $(USTR) $(DUMP) python
 
 
-install: $(USTR) $(DUMP)
+install: all
 	mkdir -p $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(MANPREFIX)/man1
 	install -m755 $(USTR) $(DESTDIR)$(PREFIX)/bin/$(USTR)
 	install -m755 $(DUMP) $(DESTDIR)$(PREFIX)/bin/$(DUMP)
