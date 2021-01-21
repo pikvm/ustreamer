@@ -149,8 +149,9 @@ static int wait_frame(MemsinkObject *self) {
 			return -1; \
 		}
 
-	Py_BEGIN_ALLOW_THREADS
 	do {
+		Py_BEGIN_ALLOW_THREADS
+
 		int retval = flock_timedwait_monotonic(self->fd, self->lock_timeout);
 		if (retval < 0 && errno != EWOULDBLOCK) {
 			RETURN_OS_ERROR;
@@ -166,8 +167,13 @@ static int wait_frame(MemsinkObject *self) {
 		if (usleep(1000) < 0) {
 			RETURN_OS_ERROR;
 		}
+
+		Py_END_ALLOW_THREADS
+
+		if (PyErr_CheckSignals() < 0) {
+			return -1;
+		}
 	} while (get_now_monotonic() < deadline_ts);
-	Py_END_ALLOW_THREADS
 
 #	undef RETURN_OS_ERROR
 
