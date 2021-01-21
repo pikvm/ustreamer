@@ -8,7 +8,7 @@ MANPREFIX ?= $(PREFIX)/share/man
 
 CC ?= gcc
 PY ?= python3
-CFLAGS ?= -O3 -MD
+CFLAGS ?= -O3
 LDFLAGS ?=
 
 RPI_VC_HEADERS ?= /opt/vc/include
@@ -20,7 +20,8 @@ LINTERS_IMAGE ?= $(USTR)-linters
 
 
 # =====
-override CFLAGS += -c -std=c11 -Wall -Wextra -D_GNU_SOURCE
+_CFLAGS = -MD -c -std=c11 -Wall -Wextra -D_GNU_SOURCE $(CFLAGS)
+_LDFLAGS = $(LDFLAGS)
 
 _COMMON_LIBS = -lm -ljpeg -pthread -lrt
 
@@ -48,7 +49,7 @@ endef
 
 ifneq ($(call optbool,$(WITH_OMX)),)
 _USTR_LIBS += -lbcm_host -lvcos -lvcsm -lopenmaxil -lmmal -lmmal_core -lmmal_util -lmmal_vc_client -lmmal_components -L$(RPI_VC_LIBS)
-override CFLAGS += -DWITH_OMX -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
+override _CFLAGS += -DWITH_OMX -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
 _USTR_SRCS += $(shell ls \
 	src/ustreamer/encoders/omx/*.c \
 	src/ustreamer/h264/*.c \
@@ -58,14 +59,14 @@ endif
 
 ifneq ($(call optbool,$(WITH_GPIO)),)
 _USTR_LIBS += -lgpiod
-override CFLAGS += -DWITH_GPIO
+override _CFLAGS += -DWITH_GPIO
 _USTR_SRCS += $(shell ls src/ustreamer/gpio/*.c)
 endif
 
 
 WITH_PTHREAD_NP ?= 1
 ifneq ($(call optbool,$(WITH_PTHREAD_NP)),)
-override CFLAGS += -DWITH_PTHREAD_NP
+override _CFLAGS += -DWITH_PTHREAD_NP
 endif
 
 
@@ -74,7 +75,7 @@ ifneq ($(call optbool,$(WITH_SETPROCTITLE)),)
 ifeq ($(shell uname -s | tr A-Z a-z),linux)
 _USTR_LIBS += -lbsd
 endif
-override CFLAGS += -DWITH_SETPROCTITLE
+override _CFLAGS += -DWITH_SETPROCTITLE
 endif
 
 
@@ -108,27 +109,27 @@ regen:
 $(USTR): $(_USTR_SRCS:%.c=$(BUILD)/%.o)
 #	$(info ========================================)
 	$(info == LD $@)
-	@ $(CC) $^ -o $@ $(LDFLAGS) $(_USTR_LIBS)
+	@ $(CC) $^ -o $@ $(_LDFLAGS) $(_USTR_LIBS)
 #	$(info :: CC      = $(CC))
 #	$(info :: LIBS    = $(_USTR_LIBS))
-#	$(info :: CFLAGS  = $(CFLAGS))
-#	$(info :: LDFLAGS = $(LDFLAGS))
+#	$(info :: CFLAGS  = $(_CFLAGS))
+#	$(info :: LDFLAGS = $(_LDFLAGS))
 
 
 $(DUMP): $(_DUMP_SRCS:%.c=$(BUILD)/%.o)
 #	$(info ========================================)
 	$(info == LD $@)
-	@ $(CC) $^ -o $@ $(LDFLAGS) $(_DUMP_LIBS)
+	@ $(CC) $^ -o $@ $(_LDFLAGS) $(_DUMP_LIBS)
 #	$(info :: CC      = $(CC))
 #	$(info :: LIBS    = $(_DUMP_LIBS))
-#	$(info :: CFLAGS  = $(CFLAGS))
-#	$(info :: LDFLAGS = $(LDFLAGS))
+#	$(info :: CFLAGS  = $(_CFLAGS))
+#	$(info :: LDFLAGS = $(_LDFLAGS))
 
 
 $(BUILD)/%.o: %.c
 	$(info -- CC $<)
 	@ mkdir -p $(dir $@) || true
-	@ $(CC) $< -o $@ $(CFLAGS)
+	@ $(CC) $< -o $@ $(_CFLAGS)
 
 
 python:
