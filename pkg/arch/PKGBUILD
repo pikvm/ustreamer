@@ -28,20 +28,21 @@ if [ -e /opt/vc/include/IL/OMX_Core.h ]; then
 fi
 
 
+# LD does not link mmal with this option
+# This DOESN'T affect setup.py
+LDFLAGS="${LDFLAGS//--as-needed/}"
+export LDFLAGS="${LDFLAGS//,,/,}"
+
+
 build() {
 	cd "$srcdir"
 	rm -rf $pkgname-build
 	cp -r $pkgname $pkgname-build
 	cd $pkgname-build
-
-	# LD does not link mmal with this option
-	LDFLAGS="${LDFLAGS//--as-needed/}"
-	LDFLAGS="${LDFLAGS//,,/,}"
-
 	make $_options CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" $MAKEFLAGS
 }
 
 package() {
 	cd "$srcdir/$pkgname-build"
-	make $_options DESTDIR="$pkgdir" PREFIX=/usr install
+	make $_options CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" DESTDIR="$pkgdir" PREFIX=/usr install
 }
