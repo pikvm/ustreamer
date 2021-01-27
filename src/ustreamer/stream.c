@@ -25,10 +25,24 @@
 
 static workers_pool_s *_stream_init_loop(stream_s *stream);
 static workers_pool_s *_stream_init_one(stream_s *stream);
-static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps);
+static void _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps);
 
 
 #define RUN(_next) stream->run->_next
+
+#define SINK_PUT(_sink, _frame) { \
+		if (stream->_sink && memsink_server_check(stream->_sink, _frame)) {\
+			memsink_server_put(stream->_sink, _frame); \
+		} \
+	}
+
+#ifdef WITH_OMX
+#	define H264_PUT(_frame, _vcsm_handle, _force_key) { \
+			if (RUN(h264)) { \
+				h264_stream_process(RUN(h264), _frame, _vcsm_handle, _force_key); \
+			} \
+		}
+#endif
 
 
 stream_s *stream_init(device_s *dev, encoder_s *enc) {
@@ -194,16 +208,9 @@ void stream_loop(stream_s *stream) {
 							workers_pool_assign(pool, ready_wr);
 							LOG_DEBUG("Assigned new frame in buffer %d to worker %s", buf_index, ready_wr->name);
 
-							if (stream->raw_sink) {
-								if (memsink_server_check(stream->raw_sink, &hw->raw)) {
-									memsink_server_put(stream->raw_sink, &hw->raw);
-								}
-							}
-
+							SINK_PUT(raw_sink, &hw->raw);
 #							ifdef WITH_OMX
-							if (RUN(h264)) {
-								h264_stream_process(RUN(h264), &hw->raw, hw->vcsm_handle, h264_force_key);
-							}
+							H264_PUT(&hw->raw, hw->vcsm_handle, h264_force_key);
 #							endif
 						}
 					} else if (buf_index != -2) { // -2 for broken frame
@@ -253,18 +260,7 @@ static workers_pool_s *_stream_init_loop(stream_s *stream) {
 	LOG_DEBUG("%s: stream->run->stop=%d", __FUNCTION__, atomic_load(&RUN(stop)));
 
 	while (!atomic_load(&RUN(stop))) {
-		if (_stream_expose_frame(stream, NULL, 0)) {
-			if (stream->raw_sink) {
-				if (memsink_server_check(stream->raw_sink, stream->blank)) {
-					memsink_server_put(stream->raw_sink, stream->blank);
-				}
-			}
-#			ifdef WITH_OMX
-			if (RUN(h264)) {
-				h264_stream_process(RUN(h264), stream->blank, -1, false);
-			}
-#			endif
-		}
+		_stream_expose_frame(stream, NULL, 0);
 
 		if (access(stream->dev->path, R_OK|W_OK) < 0) {
 			if (access_error != errno) {
@@ -308,11 +304,10 @@ static workers_pool_s *_stream_init_one(stream_s *stream) {
 		return NULL;
 }
 
-static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps) {
+static void _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps) {
 #	define VID(_next) RUN(video->_next)
 
 	frame_s *new = NULL;
-	bool changed = false;
 
 	A_MUTEX_LOCK(&VID(mutex));
 
@@ -322,7 +317,11 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 		LOG_DEBUG("Exposed ALIVE video frame");
 
 	} else {
-		if (VID(frame->online)) { // Если переходим из online в offline
+		if (VID(frame->used == 0)) {
+			new = stream->blank; // Инициализация
+			RUN(last_as_blank_ts) = 0;
+
+		} else if (VID(frame->online)) { // Если переходим из online в offline
 			if (stream->last_as_blank < 0) { // Если last_as_blank выключен, просто покажем старую картинку
 				new = stream->blank;
 				LOG_INFO("Changed video frame to BLANK");
@@ -332,6 +331,7 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 			} else {  // last_as_blank == 0 - показываем последний фрейм вечно
 				LOG_INFO("Freezed last ALIVE video frame forever");
 			}
+
 		} else if (stream->last_as_blank < 0) {
 			new = stream->blank;
 			// LOG_INFO("Changed video frame to BLANK");
@@ -350,26 +350,28 @@ static bool _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 
 	if (new) {
 		frame_copy(new, VID(frame));
-		changed = true;
-	} else if (VID(frame->used) == 0) { // Инициализация
-		frame_copy(stream->blank, VID(frame));
-		frame = NULL;
-		changed = true;
 	}
-	VID(frame->online) = frame;
+	VID(frame->online) = (bool)frame;
 	VID(captured_fps) = captured_fps;
 	atomic_store(&VID(updated), true);
+
 	A_MUTEX_UNLOCK(&VID(mutex));
 
-	if (changed && stream->sink) {
-		if (memsink_server_check(stream->sink, VID(frame))) {
-			memsink_server_put(stream->sink, VID(frame));
-		}
-	}
+	new = (frame ? frame : stream->blank);
+	SINK_PUT(sink, new);
 
-	return changed;
+	if (frame == NULL) {
+		SINK_PUT(raw_sink, stream->blank);
+#		ifdef WITH_OMX
+		H264_PUT(stream->blank, -1, false);
+#		endif
+	}
 
 #	undef VID
 }
 
+#ifdef WITH_OMX
+#	undef H264_PUT
+#endif
+#undef SINK_PUT
 #undef RUN

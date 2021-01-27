@@ -617,7 +617,8 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("    -K|--last-as-blank <sec>  ──────────── Show the last frame received from the camera after it was disconnected,");
 	SAY("                                           but no more than specified time (or endlessly if 0 is specified).");
 	SAY("                                           If the device has not yet been online, display 'NO SIGNAL' or the image");
-	SAY("                                           specified by option --blank. Default: disabled.\n");
+	SAY("                                           specified by option --blank. Default: disabled.");
+	SAY("                                           Note: currently this option has no effect on memory sinks.\n");
 	SAY("    -l|--slowdown  ─────────────────────── Slowdown capturing to 1 FPS or less when no stream or sink clients");
 	SAY("                                           are connected. Useful to reduce CPU consumption. Default: disabled.\n");
 	SAY("    --device-timeout <sec>  ────────────── Timeout for device querying. Default: %u.\n", dev->timeout);

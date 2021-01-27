@@ -104,7 +104,7 @@ It doesn't do anything. Still here for compatibility. Required \fBWITH_OMX\fR fe
 Path to JPEG file that will be shown when the device is disconnected during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.
 .TP
 .BR \-K\ \fIsec ", " \-\-last\-as\-blank\ \fIsec
-Show the last frame received from the camera after it was disconnected, but no more than specified time (or endlessly if 0 is specified). If the device has not yet been online, display 'NO SIGNAL' or the image specified by option \-\-blank. Default: disabled.
+Show the last frame received from the camera after it was disconnected, but no more than specified time (or endlessly if 0 is specified). If the device has not yet been online, display 'NO SIGNAL' or the image specified by option \-\-blank. Note: currently this option has no effect on memory sinks. Default: disabled.
 .TP
 .BR \-l ", " \-\-slowdown
 Slowdown capturing to 1 FPS or less when no stream or sink clients are connected. Useful to reduce CPU consumption. Default: disabled.
