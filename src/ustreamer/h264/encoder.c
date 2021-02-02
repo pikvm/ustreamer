@@ -149,6 +149,13 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame,
           mp->pixelformat, mp->plane_fmt[0].bytesperline,
           mp->plane_fmt[0].sizeimage);
 
+  mp->width = frame->width;
+  mp->height = frame->height;
+  ret = ioctl(enc->fd, VIDIOC_S_FMT, &fm);
+  fprintf(stderr, "Capture set: %d %d (res: %ux%u) %u %u %u\n", ret, errno,
+          mp->height, mp->width, mp->plane_fmt[0].bytesperline,
+          mp->plane_fmt[0].sizeimage, mp->pixelformat);
+
   struct v4l2_streamparm stream;
   memset(&stream, 0, sizeof(stream));
   stream.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
