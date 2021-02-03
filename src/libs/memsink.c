@@ -109,7 +109,7 @@ bool memsink_server_check(memsink_s *sink, const frame_s *frame) {
 	sink->has_clients = (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic());
 
 #	define NEQ(_field) (sink->mem->_field != frame->_field)
-	bool retval = (sink->has_clients || NEQ(width) || NEQ(height) || NEQ(format) || NEQ(stride) || NEQ(online));
+	bool retval = (sink->has_clients || NEQ(width) || NEQ(height) || NEQ(format) || NEQ(stride) || NEQ(online) || NEQ(key));
 #	undef NEQ
 
 	if (flock(sink->fd, LOCK_UN) < 0) {
@@ -142,6 +142,7 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 		COPY(format);
 		COPY(stride);
 		COPY(online);
+		COPY(key);
 		COPY(grab_ts);
 		COPY(encode_begin_ts);
 		COPY(encode_end_ts);
@@ -195,6 +196,7 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 			COPY(format);
 			COPY(stride);
 			COPY(online);
+			COPY(key);
 			COPY(grab_ts);
 			COPY(encode_begin_ts);
 			COPY(encode_end_ts);

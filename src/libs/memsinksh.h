@@ -29,7 +29,7 @@
 
 
 #define MEMSINK_MAGIC	((uint64_t)0xCAFEBABECAFEBABE)
-#define MEMSINK_VERSION	((uint32_t)1)
+#define MEMSINK_VERSION	((uint32_t)2)
 
 #ifndef CFG_MEMSINK_MAX_DATA
 #	define CFG_MEMSINK_MAX_DATA 33554432
@@ -49,6 +49,7 @@ typedef struct {
 	unsigned	format;
 	unsigned	stride;
 	bool		online;
+	bool		key;
 
 	long double	grab_ts;
 	long double	encode_begin_ts;

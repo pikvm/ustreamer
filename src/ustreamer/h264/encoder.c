@@ -347,6 +347,7 @@ static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src, i
 		}
 
 		frame_append_data(dest, out->data, out->length);
+		dest->key = out->flags & MMAL_BUFFER_HEADER_FLAG_KEYFRAME;
 
 		eos = out->flags & MMAL_BUFFER_HEADER_FLAG_EOS;
 		mmal_buffer_header_release(out);

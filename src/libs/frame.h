@@ -51,6 +51,7 @@ typedef struct {
 	// https://medium.com/@oleg.shipitko/what-does-stride-mean-in-image-processing-bba158a72bcd
 
 	bool online;
+	bool key;
 
 	long double	grab_ts;
 	long double	encode_begin_ts;

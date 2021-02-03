@@ -81,6 +81,7 @@ void frame_copy_meta(const frame_s *src, frame_s *dest) {
 	COPY(format);
 	COPY(stride);
 	COPY(online);
+	COPY(key);
 	COPY(grab_ts);
 	COPY(encode_begin_ts);
 	COPY(encode_end_ts);
@@ -98,6 +99,7 @@ bool frame_compare(const frame_s *a, const frame_s *b) {
 		&& CMP(format)
 		&& CMP(stride)
 		&& CMP(online)
+		&& CMP(key)
 		&& !memcmp(a->data, b->data, b->used)
 	);
 #	undef CMP

@@ -31,6 +31,7 @@ typedef struct {
 	unsigned stride;
 
 	bool online;
+	bool key;
 
 	long double	grab_ts;
 	long double	encode_begin_ts;
@@ -195,6 +196,7 @@ static int wait_frame(MemsinkObject *self) {
 						&& CMP(format)
 						&& CMP(stride)
 						&& CMP(online)
+						&& CMP(key)
 						&& (TMP(ts) + self->drop_same_frames > now)
 						&& !memcmp(TMP(data), MEM(data), MEM(used))
 					) {
@@ -249,6 +251,7 @@ static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUS
 	COPY(format);
 	COPY(stride);
 	COPY(online);
+	COPY(key);
 	COPY(grab_ts);
 	COPY(encode_begin_ts);
 	COPY(encode_end_ts);
@@ -291,6 +294,7 @@ static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUS
 	SET_NUMBER(format, Long, Long);
 	SET_NUMBER(stride, Long, Long);
 	SET_NUMBER(online, Long, Bool);
+	SET_NUMBER(key, Long, Bool);
 	SET_NUMBER(grab_ts, Double, Float);
 	SET_NUMBER(encode_begin_ts, Double, Float);
 	SET_NUMBER(encode_end_ts, Double, Float);
