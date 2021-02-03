@@ -212,7 +212,8 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame, bool zero_co
 		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_PEAK_RATE,		enc->bitrate * 1000);
 		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_MIN_QUANT,				16);
 		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_MAX_QUANT,				34);
-		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_FRAME_LIMIT_BITS,		1000000);
+		// Этот параметр с этим значением фризит кодирование изображения из черно-белой консоли
+		// SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_FRAME_LIMIT_BITS,		1000000);
 		SET_PORT_PARAM(output, uint32,	VIDEO_ENCODE_H264_AU_DELIMITERS,	MMAL_FALSE);
 	}
 
