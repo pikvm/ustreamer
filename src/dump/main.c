@@ -213,7 +213,7 @@ static int _dump_sink(const char *sink_name, unsigned sink_timeout, _output_cont
 	unsigned fps_accum = 0;
 	long long fps_second = 0;
 
-	long double last = 0;
+	long double last_ts = 0;
 
 	while (!global_stop) {
 		int error = memsink_client_get(sink, frame);
@@ -226,8 +226,8 @@ static int _dump_sink(const char *sink_name, unsigned sink_timeout, _output_cont
 				frame->used, frame->width, frame->height,
 				fourcc_to_string(frame->format, fourcc_str, 8),
 				frame->stride, frame->online, frame->key,
-				now - frame->grab_ts, (last ? now - last : 0));
-			last = now;
+				now - frame->grab_ts, (last_ts ? now - last_ts : 0));
+			last_ts = now;
 
 			LOG_DEBUG("       grab_ts=%.3Lf, encode_begin_ts=%.3Lf, encode_end_ts=%.3Lf",
 				frame->grab_ts, frame->encode_begin_ts, frame->encode_end_ts);
