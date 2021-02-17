@@ -25,7 +25,7 @@
 
 Footnotes:
   * ```1``` Long before µStreamer, I made a [patch](https://github.com/jacksonliam/mjpg-streamer/pull/164) to add DV-timings support to mjpg-streamer and to keep it from hanging up no device disconnection. Alas, the patch is far from perfect and I can't guarantee it will work every time - mjpg-streamer's source code is very complicated and its structure is hard to understand. With this in mind, along with needing multithreading and JPEG hardware acceleration in the future, I decided to make my own stream server from scratch instead of supporting legacy code.
-  
+
   * ```2``` This feature allows to cut down outgoing traffic several-fold when streaming HDMI, but it increases CPU usage a little bit. The idea is that HDMI is a fully digital interface and each captured frame can be identical to the previous one byte-wise. There's no need to stream the same image over the net several times a second. With the `--drop-same-frames=20` option enabled, µStreamer will drop all the matching frames (with a limit of 20 in a row). Each new frame is matched with the previous one first by length, then using ```memcmp()```.
 
 -----
@@ -50,7 +50,7 @@ $ make
 $ ./ustreamer --help
 ```
 
-AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer. It should compile automatically with OpenMAX IL on Raspberry Pi, if the corresponding headers are present in ```/opt/vc/include```.  
+AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer. It should compile automatically with OpenMAX IL on Raspberry Pi, if the corresponding headers are present in ```/opt/vc/include```.
 FreeBSD port: https://www.freshports.org/multimedia/ustreamer.
 
 -----
