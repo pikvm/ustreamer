@@ -78,6 +78,22 @@ $ ./ustreamer \
 За полным списком опций обращайтесь ко встроенной справке: ```ustreamer --help```.
 
 -----
+# Камера Raspberry Pi
+Пример использования камеры Raspberry Pi v1:
+```bash
+$ sudo modprobe bcm2835-v4l2
+$ ./ustreamer --host :: -m jpeg --device-timeout=5 --buffers=3 -r 2592x1944
+```
+
+:exclamation: Обратите внимание что боле новые модели камеры имеют другое максимальное разрешение. Список поддерживаемых разрешений можно найти в [документации PiCamera](https://picamera.readthedocs.io/en/release-1.13/fov.html#sensor-modes).
+
+:exclamation: Если камера выдает низкий фреймрейт, возможно что она работает в фото-режиме, где производит более низкий фпс, но более качественную кратинку. Это происходит потому что `bcm2835-v4l2` переключает камеру в фото-режим на разрешениях выше `1280x720`. Чтобы обойти это, передайте параметры `max_video_width` и `max_video_height` при загрузке модуля, например:
+
+```bash
+$ modprobe bcm2835-v4l2 max_video_width=2592 max_video_height=1944
+```
+
+-----
 # Смотрите также
 * [Запуск с помощью systemd-сервиса](https://github.com/pikvm/ustreamer/issues/16).
 * [uStreamer Ansible Role](https://github.com/mtlynch/ansible-role-ustreamer): Использование [Ansible](https://docs.ansible.com/ansible/latest/index.html) для сборки и установки стримера как systemd-сервиса.

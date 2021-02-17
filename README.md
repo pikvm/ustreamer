@@ -79,15 +79,13 @@ You can always view the full list of options with ```ustreamer --help```.
 
 -----
 # Raspberry Pi Camera Example
-
 Example usage for the Raspberry Pi v1 camera:
-
 ```bash
 $ sudo modprobe bcm2835-v4l2
 $ ./ustreamer --host :: -m jpeg --device-timeout=5 --buffers=3 -r 2592x1944
 ```
 
-:exclamation: Please note that newer camera models have a different maximum resolution. You can see the supported resolutions at the [PiCamera documentation](https://picamera.readthedocs.io/en/release-1.13/fov.html#sensor-modes)
+:exclamation: Please note that newer camera models have a different maximum resolution. You can see the supported resolutions at the [PiCamera documentation](https://picamera.readthedocs.io/en/release-1.13/fov.html#sensor-modes).
 
 :exclamation: If you get a poor framerate, it could be that the camera is switched to photo mode, which produces a low framerate (but a higher quality picture). This is because `bcm2835-v4l2` switches to photo mode at resolutions higher than `1280x720`. To work around this, pass the `max_video_width` and `max_video_height` module parameters like so:
 
