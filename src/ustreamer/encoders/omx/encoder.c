@@ -27,7 +27,6 @@ static const OMX_U32 _INPUT_PORT = 340;
 static const OMX_U32 _OUTPUT_PORT = 341;
 
 
-static int _vcos_semwait(VCOS_SEMAPHORE_T *sem);
 static int _omx_init_component(omx_encoder_s *omx);
 static int _omx_init_disable_ports(omx_encoder_s *omx);
 static int _omx_setup_input(omx_encoder_s *omx, const frame_s *frame);
@@ -194,7 +193,7 @@ int omx_encoder_compress(omx_encoder_s *omx, const frame_s *src, frame_s *dest) 
 			}
 		}
 
-		if (_vcos_semwait(&omx->handler_sem) != 0) {
+		if (vcos_my_semwait("", &omx->handler_sem, 1) < 0) {
 			return -1;
 		}
 	}
@@ -202,42 +201,6 @@ int omx_encoder_compress(omx_encoder_s *omx, const frame_s *src, frame_s *dest) 
 #	undef OUT
 #	undef IN
 	return 0;
-}
-
-static int _vcos_semwait(VCOS_SEMAPHORE_T *sem) {
-	// vcos_semaphore_wait() can wait infinite
-	// vcos_semaphore_wait_timeout() is broken by design:
-	//   - https://github.com/pikvm/ustreamer/issues/56
-	//   - https://github.com/raspberrypi/userland/issues/658
-	// CFG_OMX_SEMWAIT_TIMEOUT is ugly busyloop
-	// Три стула.
-
-#	ifdef CFG_OMX_SEMWAIT_TIMEOUT
-	long double deadline_ts = get_now_monotonic() + (long double)CFG_OMX_SEMWAIT_TIMEOUT; // Seconds
-	VCOS_STATUS_T sem_status;
-
-	while (true) {
-		sem_status = vcos_semaphore_trywait(sem);
-		if (sem_status == VCOS_SUCCESS) {
-			return 0;
-		} else if (sem_status != VCOS_EAGAIN || get_now_monotonic() > deadline_ts) {
-			break;
-		}
-		if (usleep(1000) < 0) {
-			break;
-		}
-	}
-
-	switch (sem_status) {
-		case VCOS_EAGAIN: LOG_ERROR("Can't wait VCOS semaphore: EAGAIN (timeout)"); break;
-		case VCOS_EINVAL: LOG_ERROR("Can't wait VCOS semaphore: EINVAL"); break;
-		default: LOG_ERROR("Can't wait VCOS semaphore: %d", sem_status); break;
-	}
-	return -1;
-
-#	else
-	return (vcos_semaphore_wait(sem) == VCOS_SUCCESS ? 0 : -1);
-#	endif
 }
 
 static int _omx_init_component(omx_encoder_s *omx) {

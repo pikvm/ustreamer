@@ -225,7 +225,7 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame, bool zero_co
 
 	error:
 		_h264_encoder_cleanup(enc);
-		LOG_ERROR("H264: Encoder disabled due error (prepare)");
+		LOG_ERROR("H264: Encoder destroyed due an error (prepare)");
 		return -1;
 
 #	undef ENABLE_PORT
@@ -276,7 +276,7 @@ int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, int src_vcsm_
 
 	if (_h264_encoder_compress_raw(enc, src, src_vcsm_handle, dest, force_key) < 0) {
 		_h264_encoder_cleanup(enc);
-		LOG_ERROR("H264: Encoder disabled due error (compress)");
+		LOG_ERROR("H264: Encoder destroyed due an error (compress)");
 		return -1;
 	}
 
@@ -340,7 +340,9 @@ static int _h264_encoder_compress_raw(h264_encoder_s *enc, const frame_s *src, i
 
 		error = mmal_wrapper_buffer_get_full(enc->output_port, &out, 0);
 		if (error == MMAL_EAGAIN) {
-			vcos_semaphore_wait(&enc->handler_sem);
+			if (vcos_my_semwait("H264: ", &enc->handler_sem, 1) < 0) {
+				return -1;
+			}
 			continue;
 		} else if (error != MMAL_SUCCESS) {
 			LOG_ERROR_MMAL(error, "H264: Can't get MMAL output buffer");

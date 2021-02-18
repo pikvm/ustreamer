@@ -39,6 +39,7 @@
 #include "../../../libs/logging.h"
 #include "../../../libs/frame.h"
 
+#include "vcos.h"
 #include "formatters.h"
 #include "component.h"
 

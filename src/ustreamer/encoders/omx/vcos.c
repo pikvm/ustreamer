@@ -20,52 +20,36 @@
 *****************************************************************************/
 
 
-#pragma once
-
-#include <stdlib.h>
-#include <stdbool.h>
-#include <assert.h>
-
-#include <linux/videodev2.h>
-
-#include <interface/mmal/mmal.h>
-#include <interface/mmal/mmal_format.h>
-#include <interface/mmal/util/mmal_default_components.h>
-#include <interface/mmal/util/mmal_component_wrapper.h>
-#include <interface/mmal/util/mmal_util_params.h>
-#include <interface/vcsm/user-vcsm.h>
-
-#include "../../libs/tools.h"
-#include "../../libs/logging.h"
-#include "../../libs/frame.h"
-#include "../encoders/omx/vcos.h"
+#include "vcos.h"
 
 
-typedef struct {
-	unsigned bitrate; // Kbit-per-sec
-	unsigned gop; // Interval between keyframes
-	unsigned fps;
+int vcos_my_semwait(const char *prefix, VCOS_SEMAPHORE_T *sem, long double timeout) {
+	// vcos_semaphore_wait() can wait infinite
+	// vcos_semaphore_wait_timeout() is broken by design:
+	//   - https://github.com/pikvm/ustreamer/issues/56
+	//   - https://github.com/raspberrypi/userland/issues/658
+	//   - The current approach is an ugly busyloop
+	// Три стула.
 
-	MMAL_WRAPPER_T		*wrapper;
-	MMAL_PORT_T			*input_port;
-	MMAL_PORT_T			*output_port;
-	VCOS_SEMAPHORE_T	handler_sem;
-	bool				i_handler_sem;
+	long double deadline_ts = get_now_monotonic() + timeout;
+	VCOS_STATUS_T sem_status;
 
-	int last_online;
+	while (true) {
+		sem_status = vcos_semaphore_trywait(sem);
+		if (sem_status == VCOS_SUCCESS) {
+			return 0;
+		} else if (sem_status != VCOS_EAGAIN || get_now_monotonic() > deadline_ts) {
+			break;
+		}
+		if (usleep(1000) < 0) {
+			break;
+		}
+	}
 
-	unsigned	width;
-	unsigned	height;
-	unsigned	format;
-	unsigned	stride;
-	bool		zero_copy;
-	bool		ready;
-} h264_encoder_s;
-
-
-h264_encoder_s *h264_encoder_init(unsigned bitrate, unsigned gop, unsigned fps);
-void h264_encoder_destroy(h264_encoder_s *enc);
-
-bool h264_encoder_is_prepared_for(h264_encoder_s *enc, const frame_s *frame, bool zero_copy);
-int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame, bool zero_copy);
-int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, int src_vcsm_handle, frame_s *dest, bool force_key);
+	switch (sem_status) {
+		case VCOS_EAGAIN: LOG_ERROR("%sCan't wait VCOS semaphore: EAGAIN (timeout)", prefix); break;
+		case VCOS_EINVAL: LOG_ERROR("%sCan't wait VCOS semaphore: EINVAL", prefix); break;
+		default: LOG_ERROR("%sCan't wait VCOS semaphore: %d", prefix, sem_status); break;
+	}
+	return -1;
+}
