@@ -94,6 +94,18 @@ $ modprobe bcm2835-v4l2 max_video_width=2592 max_video_height=1944
 ```
 
 -----
+# Tips & tricks for v4l2
+v4l2 utilities provide the tools to manage USB webcam setting and information. Scripts can be use to make adjustments and run manually or with cron. Running in cron for example to change the exposure settings at certain times of day. The package is available in all Linux distributions and is usually called `v4l-utils`.
+
+* List of available video devices: `v4l2-ctl --list-devices`.
+* List available control settings: `v4l2-ctl -d /dev/video0 --list-ctrls`.
+* List available video formats: `v4l2-ctl -d /dev/video0 --list-formats-ext`.
+* Read the current setting: `v4l2-ctl d /dev/video0 --get-ctrl=exposure_auto`.
+* Change the setting value: `v4l2-ctl d /dev/video0 --set-ctrl=exposure_auto=1`.
+
+[Here](https://www.kurokesu.com/main/2016/01/16/manual-usb-camera-settings-in-linux/) you can find more examples. Also see [`man v4l2-ctl`](https://www.mankier.com/1/v4l2-ctl).
+
+-----
 # See also
 * [Running uStreamer via systemd service](https://github.com/pikvm/ustreamer/issues/16).
 * [uStreamer Ansible Role](https://github.com/mtlynch/ansible-role-ustreamer): Use [Ansible](https://docs.ansible.com/ansible/latest/index.html) to compile uStreamer and install it as a systemd service automatically.
