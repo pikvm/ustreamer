@@ -11,17 +11,17 @@
 
 | **Feature** | **µStreamer** | **mjpg-streamer** |
 |----------|---------------|-------------------|
-| Multithreaded JPEG encoding | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
-| [OpenMAX IL](https://www.khronos.org/openmaxil) hardware acceleration<br>on Raspberry Pi | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
-| Behavior when the device<br>is disconnected while streaming | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Shows a black screen<br>with ```NO SIGNAL``` on it<br>until reconnected | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) Stops the streaming <sup>1</sup> |
-| [DV-timings](https://linuxtv.org/downloads/v4l-dvb-apis-new/userspace-api/v4l/dv-timings.html) support -<br>the ability to change resolution<br>on the fly by source signal | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#ffaa00](https://placehold.it/15/ffaa00/000000?text=+) Partially yes <sup>1</sup> |
-| Option to skip frames when streaming<br>static images by HTTP to save the traffic | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes <sup>2</sup> | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
-| Streaming via UNIX domain socket | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
-| Debug logs without recompiling,<br>performance statistics log,<br>access to HTTP streaming parameters | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
-| Option to serve files<br>with a built-in HTTP server | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#ffaa00](https://placehold.it/15/ffaa00/000000?text=+) Regular files only |
-| Signaling about the stream state<br>on GPIO using [libgpiod](https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/about) | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No |
-| Access to webcam controls (focus, servos)<br>and settings such as brightness via HTTP | ![#f03c15](https://placehold.it/15/f03c15/000000?text=+) No | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes |
-| Compatibility with mjpg-streamer's API | ![#00aa00](https://placehold.it/15/00aa00/000000?text=+) Yes | :) |
+| Multithreaded JPEG encoding | ✔ | ✘ |
+| [OpenMAX IL](https://www.khronos.org/openmaxil) hardware acceleration<br>on Raspberry Pi | ✔ | ✘ |
+| Behavior when the device<br>is disconnected while streaming | ✔ Shows a black screen<br>with ```NO SIGNAL``` on it<br>until reconnected | ✘ Stops the streaming <sup>1</sup> |
+| [DV-timings](https://linuxtv.org/downloads/v4l-dvb-apis-new/userspace-api/v4l/dv-timings.html) support -<br>the ability to change resolution<br>on the fly by source signal | ✔ | ☹ Partially yes <sup>1</sup> |
+| Option to skip frames when streaming<br>static images by HTTP to save the traffic | ✔ <sup>2</sup> | ✘ |
+| Streaming via UNIX domain socket | ✔ | ✘ |
+| Debug logs without recompiling,<br>performance statistics log,<br>access to HTTP streaming parameters | ✔ | ✘ |
+| Option to serve files<br>with a built-in HTTP server | ✔ | ☹ Regular files only |
+| Signaling about the stream state<br>on GPIO using [libgpiod](https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/about) | ✔ | ✘ |
+| Access to webcam controls (focus, servos)<br>and settings such as brightness via HTTP | ✘ | ✔ |
+| Compatibility with mjpg-streamer's API | ✔ | :) |
 
 Footnotes:
   * ```1``` Long before µStreamer, I made a [patch](https://github.com/jacksonliam/mjpg-streamer/pull/164) to add DV-timings support to mjpg-streamer and to keep it from hanging up no device disconnection. Alas, the patch is far from perfect and I can't guarantee it will work every time - mjpg-streamer's source code is very complicated and its structure is hard to understand. With this in mind, along with needing multithreading and JPEG hardware acceleration in the future, I decided to make my own stream server from scratch instead of supporting legacy code.
