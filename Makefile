@@ -25,7 +25,7 @@ _LDFLAGS = $(LDFLAGS)
 
 _COMMON_LIBS = -lm -ljpeg -pthread -lrt
 
-_USTR_LIBS = $(_COMMON_LIBS) -levent -levent_pthreads -luuid
+_USTR_LIBS = $(_COMMON_LIBS) -levent -levent_pthreads
 _USTR_SRCS = $(shell ls \
 	src/libs/*.c \
 	src/ustreamer/*.c \

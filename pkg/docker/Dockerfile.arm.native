@@ -20,7 +20,6 @@ RUN apt-get update \
 		libevent-2.1 \
 		libevent-pthreads-2.1-6 \
 		libjpeg8 \
-		uuid \
 		libbsd0 \
 		libgpiod2 \
 	&& rm -rf /var/lib/apt/lists/*

@@ -17,7 +17,6 @@ IUSE=""
 DEPEND="
 	>=dev-libs/libevent-2.1.8
 	>=media-libs/libjpeg-turbo-1.5.3
-	>=sys-apps/util-linux-2.33
 	>=dev-libs/libbsd-0.9.1
 "
 RDEPEND="${DEPEND}"

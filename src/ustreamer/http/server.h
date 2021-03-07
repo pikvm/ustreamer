@@ -28,6 +28,7 @@
 #include <stdbool.h>
 #include <stdatomic.h>
 #include <string.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <assert.h>
@@ -46,8 +47,6 @@
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <event2/keyvalq_struct.h>
-
-#include <uuid/uuid.h>
 
 #ifndef EVTHREAD_USE_PTHREADS_IMPLEMENTED
 #	error Required libevent-pthreads support
@@ -83,7 +82,7 @@ typedef struct stream_client_sx {
 	bool			dual_final_frames;
 	bool			zero_data;
 
-	char			id[37]; // ex. "1b4e28ba-2fa1-11d2-883f-0016d3cca427" + "\0"
+	uint64_t		id;
 	bool			need_initial;
 	bool			need_first_frame;
 	bool			updated_prev;

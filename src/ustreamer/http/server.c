@@ -368,7 +368,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 
 	for (stream_client_s * client = RUN(stream_clients); client != NULL; client = client->next) {
 		assert(evbuffer_add_printf(buf,
-			"\"%s\": {\"fps\": %u, \"extra_headers\": %s, \"advance_headers\": %s,"
+			"\"%" PRIx64 "\": {\"fps\": %u, \"extra_headers\": %s, \"advance_headers\": %s,"
 			" \"dual_final_frames\": %s, \"zero_data\": %s}%s",
 			client->id,
 			client->fps,
@@ -473,9 +473,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 #		undef PARSE_PARAM
 		evhttp_clear_headers(&params);
 
-		uuid_t uuid;
-		uuid_generate(uuid);
-		uuid_unparse_lower(uuid, client->id);
+		client->id = get_now_id();
 
 		if (RUN(stream_clients) == NULL) {
 			RUN(stream_clients) = client;
@@ -499,7 +497,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		unsigned short client_port;
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
 
-		LOG_INFO("HTTP: Registered client: [%s]:%u, id=%s; clients now: %u",
+		LOG_INFO("HTTP: Registered client: [%s]:%u, id=%" PRIx64 "; clients now: %u",
 			client_addr, client_port, client->id, RUN(stream_clients_count));
 
 
@@ -575,7 +573,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, pre-check=0, post-check=0, max-age=0" RN
 			"Pragma: no-cache" RN
 			"Expires: Mon, 3 Jan 2000 12:34:56 GMT" RN
-			"Set-Cookie: stream_client=%s/%s; path=/; max-age=30" RN
+			"Set-Cookie: stream_client=%s/%" PRIx64 "; path=/; max-age=30" RN
 			"Content-Type: multipart/x-mixed-replace;boundary=" BOUNDARY RN
 			RN
 			"--" BOUNDARY RN,
@@ -678,7 +676,7 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 		evhttp_connection_get_peer(conn, &client_addr, &client_port);
 	}
 
-	LOG_INFO("HTTP: Disconnected client: [%s]:%u, id=%s, %s; clients now: %u",
+	LOG_INFO("HTTP: Disconnected client: [%s]:%u, id=%" PRIx64 ", %s; clients now: %u",
 		client_addr, client_port, client->id, reason, RUN(stream_clients_count));
 
 	if (conn) {
