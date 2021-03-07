@@ -94,6 +94,18 @@ $ modprobe bcm2835-v4l2 max_video_width=2592 max_video_height=1944
 ```
 
 -----
+# Утилиты V4L2
+V4L2 предоставляет ряд официальных утилит для управления USB-вебкамерами и получения информации об устройствах. С их помощью можно писать всякие настроечные скрипты и запускать их по крону, если, например, вам требуется изменять настройки экспозиции в зависимости от времени суток. Пакет с этими утилитами доступен на всех дистрибутивах Linux и обычно называется `v4l-utils`.
+
+* Вывести список видеоустройств: `v4l2-ctl --list-devices`.
+* Вывести список доступных контролов устройства: `v4l2-ctl -d /dev/video0 --list-ctrls`.
+* Вывести список доступных форматов видео: `v4l2-ctl -d /dev/video0 --list-formats-ext`.
+* Показать текущее значение контрола: `v4l2-ctl d /dev/video0 --get-ctrl=exposure_auto`.
+* Изменить значение контрола: `v4l2-ctl d /dev/video0 --set-ctrl=exposure_auto=1`.
+
+Больше примеров вы можете найти [здесь](https://www.kurokesu.com/main/2016/01/16/manual-usb-camera-settings-in-linux/), а документацию в [`man v4l2-ctl`](https://www.mankier.com/1/v4l2-ctl).
+
+-----
 # Смотрите также
 * [Запуск с помощью systemd-сервиса](https://github.com/pikvm/ustreamer/issues/16).
 * [uStreamer Ansible Role](https://github.com/mtlynch/ansible-role-ustreamer): Использование [Ansible](https://docs.ansible.com/ansible/latest/index.html) для сборки и установки стримера как systemd-сервиса.
