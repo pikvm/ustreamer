@@ -50,7 +50,6 @@ typedef struct {
 	memsink_shared_s	*mem;
 
 	tmp_frame_s	*tmp_frame;
-	PyObject	*dict_frame; // PyDict
 } MemsinkObject;
 
 
@@ -66,10 +65,6 @@ static void MemsinkObject_destroy_internals(MemsinkObject *self) {
 	if (self->fd > 0) {
 		close(self->fd);
 		self->fd = -1;
-	}
-	if (self->dict_frame != NULL) {
-		Py_DECREF(self->dict_frame);
-		self->dict_frame = NULL;
 	}
 	if (self->tmp_frame) {
 		if (TMP(data)) {
@@ -107,10 +102,6 @@ static int MemsinkObject_init(MemsinkObject *self, PyObject *args, PyObject *kwa
 	A_CALLOC(self->tmp_frame, 1);
 	TMP(allocated) = 512 * 1024;
 	A_REALLOC(TMP(data), TMP(allocated));
-
-	if ((self->dict_frame = PyDict_New()) == NULL) {
-		goto error;
-	}
 
 	if ((self->fd = shm_open(self->obj, O_RDWR, 0)) == -1) {
 		PyErr_SetFromErrno(PyExc_OSError);
@@ -274,14 +265,17 @@ static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUS
 		return PyErr_SetFromErrno(PyExc_OSError);
 	}
 
-	PyDict_Clear(self->dict_frame);
+	PyObject *dict_frame = PyDict_New();
+	if (dict_frame  == NULL) {
+		return NULL;
+	}
 
 #	define SET_VALUE(_key, _maker) { \
 			PyObject *_tmp = _maker; \
 			if (_tmp == NULL) { \
 				return NULL; \
 			} \
-			if (PyDict_SetItemString(self->dict_frame, _key, _tmp) < 0) { \
+			if (PyDict_SetItemString(dict_frame, _key, _tmp) < 0) { \
 				Py_DECREF(_tmp); \
 				return NULL; \
 			} \
@@ -303,8 +297,7 @@ static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUS
 #	undef SET_NUMBER
 #	undef SET_VALUE
 
-	Py_INCREF(self->dict_frame);
-	return self->dict_frame;
+	return dict_frame;
 }
 
 static PyObject *MemsinkObject_is_opened(MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
