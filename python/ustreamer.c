@@ -59,10 +59,6 @@ typedef struct {
 
 
 static void MemsinkObject_destroy_internals(MemsinkObject *self) {
-	if (self->dict_frame != NULL) {
-		Py_DECREF(self->dict_frame);
-		self->dict_frame = NULL;
-	}
 	if (self->mem != NULL) {
 		munmap(self->mem, sizeof(memsink_shared_s));
 		self->mem = NULL;
@@ -70,6 +66,10 @@ static void MemsinkObject_destroy_internals(MemsinkObject *self) {
 	if (self->fd > 0) {
 		close(self->fd);
 		self->fd = -1;
+	}
+	if (self->dict_frame != NULL) {
+		Py_DECREF(self->dict_frame);
+		self->dict_frame = NULL;
 	}
 	if (self->tmp_frame) {
 		if (TMP(data)) {
@@ -108,6 +108,10 @@ static int MemsinkObject_init(MemsinkObject *self, PyObject *args, PyObject *kwa
 	TMP(allocated) = 512 * 1024;
 	A_REALLOC(TMP(data), TMP(allocated));
 
+	if ((self->dict_frame = PyDict_New()) == NULL) {
+		goto error;
+	}
+
 	if ((self->fd = shm_open(self->obj, O_RDWR, 0)) == -1) {
 		PyErr_SetFromErrno(PyExc_OSError);
 		goto error;
@@ -127,10 +131,6 @@ static int MemsinkObject_init(MemsinkObject *self, PyObject *args, PyObject *kwa
 	}
 	if (self->mem == NULL) {
 		PyErr_SetString(PyExc_RuntimeError, "Memory mapping is NULL"); \
-		goto error;
-	}
-
-	if ((self->dict_frame = PyDict_New()) == NULL) {
 		goto error;
 	}
 
