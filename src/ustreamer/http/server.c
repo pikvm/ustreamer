@@ -39,6 +39,8 @@ static void _http_queue_send_stream(server_s *server, bool stream_updated, bool 
 
 static bool _expose_new_frame(server_s *server);
 
+static char *_http_get_client_hostport(struct evhttp_request *request);
+
 
 #define RUN(_next)		server->run->_next
 #define STREAM(_next)	RUN(stream->_next)
@@ -94,6 +96,7 @@ void server_destroy(server_s *server) {
 	for (stream_client_s *client = RUN(stream_clients); client != NULL;) {
 		stream_client_s *next = client->next;
 		free(client->key);
+		free(client->hostport);
 		free(client);
 		client = next;
 	}
@@ -473,6 +476,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 #		undef PARSE_PARAM
 		evhttp_clear_headers(&params);
 
+		client->hostport = _http_get_client_hostport(request);
 		client->id = get_now_id();
 
 		if (RUN(stream_clients) == NULL) {
@@ -493,23 +497,18 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 #			endif
 		}
 
-		char *client_addr;
-		unsigned short client_port;
-		evhttp_connection_get_peer(conn, &client_addr, &client_port);
-
-		LOG_INFO("HTTP: Registered client: [%s]:%u, id=%" PRIx64 "; clients now: %u",
-			client_addr, client_port, client->id, RUN(stream_clients_count));
-
+		LOG_INFO("HTTP: Registered client: %s, id=%" PRIx64 "; clients now: %u",
+			client->hostport, client->id, RUN(stream_clients_count));
 
 		struct bufferevent *buf_event = evhttp_connection_get_bufferevent(conn);
 		if (server->tcp_nodelay && !RUN(unix_fd)) {
 			evutil_socket_t fd;
 			int on = 1;
 
-			LOG_DEBUG("HTTP: Setting up TCP_NODELAY to the client [%s]:%u ...", client_addr, client_port);
+			LOG_DEBUG("HTTP: Setting up TCP_NODELAY to the client %s ...", client->hostport);
 			assert((fd = bufferevent_getfd(buf_event)) >= 0);
 			if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (void *)&on, sizeof(on)) != 0) {
-				LOG_PERROR("HTTP: Can't set TCP_NODELAY to the client [%s]:%u", client_addr, client_port);
+				LOG_PERROR("HTTP: Can't set TCP_NODELAY to the client %s", client->hostport);
 			}
 		}
 		bufferevent_setcb(buf_event, NULL, NULL, _http_callback_stream_error, (void *)client);
@@ -668,17 +667,10 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 #		endif
 	}
 
-	char *client_addr = "???";
-	unsigned short client_port = 0;
+	LOG_INFO("HTTP: Disconnected client: %s, id=%" PRIx64 ", %s; clients now: %u",
+		client->hostport, client->id, reason, RUN(stream_clients_count));
 
 	struct evhttp_connection *conn = evhttp_request_get_connection(client->request);
-	if (conn) {
-		evhttp_connection_get_peer(conn, &client_addr, &client_port);
-	}
-
-	LOG_INFO("HTTP: Disconnected client: [%s]:%u, id=%" PRIx64 ", %s; clients now: %u",
-		client_addr, client_port, client->id, reason, RUN(stream_clients_count));
-
 	if (conn) {
 		evhttp_connection_free(conn);
 	}
@@ -692,6 +684,7 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 		client->next->prev = client->prev;
 	}
 	free(client->key);
+	free(client->hostport);
 	free(client);
 
 	free(reason);
@@ -834,3 +827,40 @@ static bool _expose_new_frame(server_s *server) {
 #undef VID
 #undef STREAM
 #undef RUN
+
+static char *_http_get_client_hostport(struct evhttp_request *request) {
+	char *addr = NULL;
+	unsigned short port = 0;
+	struct evhttp_connection *conn = evhttp_request_get_connection(request);
+	if (conn) {
+		char *peer;
+		evhttp_connection_get_peer(conn, &peer, &port);
+		assert(addr = strdup(peer));
+	}
+
+	const char *xff = evhttp_find_header(evhttp_request_get_input_headers(request), "X-Forwarded-For");
+	if (xff) {
+		if (addr) {
+			free(addr);
+		}
+		assert(addr = strndup(xff, 1024));
+		for (unsigned index = 0; addr[index]; ++index) {
+			if (addr[index] == ',') {
+				addr[index] = '\0';
+				break;
+			}
+		}
+	}
+
+	if (addr == NULL) {
+		assert(addr = strdup("???"));
+	}
+
+	char *hostport;
+	size_t hostport_len = strlen(addr) + 64;
+	A_CALLOC(hostport, hostport_len);
+
+	snprintf(hostport, hostport_len, "[%s]:%u", addr, port);
+	free(addr);
+	return hostport;
+}

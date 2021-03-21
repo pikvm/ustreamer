@@ -82,6 +82,7 @@ typedef struct stream_client_sx {
 	bool			dual_final_frames;
 	bool			zero_data;
 
+	char			*hostport;
 	uint64_t		id;
 	bool			need_initial;
 	bool			need_first_frame;
