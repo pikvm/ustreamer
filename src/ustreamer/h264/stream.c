@@ -31,8 +31,10 @@ h264_stream_s *h264_stream_init(memsink_s *sink, unsigned bitrate, unsigned gop)
 	h264->dest = frame_init("h264_dest");
 	atomic_init(&h264->online, false);
 
-	// FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L210
-	if ((h264->enc = h264_encoder_init(bitrate, gop, 0)) == NULL) {
+	// FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L2100
+	// По логике вещей правильно 0, но почему-то на низких разрешениях типа 640x480
+	// енкодер через несколько секунд перестает производить корректные фреймы.
+	if ((h264->enc = h264_encoder_init(bitrate, gop, 30)) == NULL) {
 		goto error;
 	}
 
