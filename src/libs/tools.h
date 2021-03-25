@@ -45,7 +45,7 @@
 #define UNUSED __attribute__((unused))
 
 
-INLINE char *bool_to_string(bool flag) {
+INLINE const char *bool_to_string(bool flag) {
 	return (flag ? "true" : "false");
 }
 
