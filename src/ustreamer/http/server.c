@@ -145,16 +145,14 @@ int server_listen(server_s *server) {
 	evhttp_set_timeout(RUN(http), server->timeout);
 
 	if (server->user[0] != '\0') {
-		char *raw_token;
 		char *encoded_token = NULL;
 
-		A_CALLOC(raw_token, strlen(server->user) + strlen(server->passwd) + 16);
-		sprintf(raw_token, "%s:%s", server->user, server->passwd);
+		char *raw_token;
+		A_ASPRINTF(raw_token, "%s:%s", server->user, server->passwd);
 		base64_encode((uint8_t *)raw_token, strlen(raw_token), &encoded_token, NULL);
 		free(raw_token);
 
-		A_CALLOC(RUN(auth_token), strlen(encoded_token) + 16);
-		sprintf(RUN(auth_token), "Basic %s", encoded_token);
+		A_ASPRINTF(RUN(auth_token), "Basic %s", encoded_token);
 		free(encoded_token);
 
 		LOG_INFO("Using HTTP basic auth");
@@ -857,10 +855,7 @@ static char *_http_get_client_hostport(struct evhttp_request *request) {
 	}
 
 	char *hostport;
-	size_t hostport_len = strlen(addr) + 64;
-	A_CALLOC(hostport, hostport_len);
-
-	snprintf(hostport, hostport_len, "[%s]:%u", addr, port);
+	A_ASPRINTF(hostport, "[%s]:%u", addr, port);
 	free(addr);
 	return hostport;
 }

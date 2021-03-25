@@ -217,9 +217,7 @@ static void *_worker_job_init(worker_s *wr, void *v_enc) {
 	A_CALLOC(job, 1);
 	job->enc = (encoder_s *)v_enc;
 
-	const size_t dest_role_len = strlen(wr->name) + 16;
-	A_CALLOC(job->dest_role, dest_role_len);
-	snprintf(job->dest_role, dest_role_len, "%s_dest", wr->name);
+	A_ASPRINTF(job->dest_role, "%s_dest", wr->name);
 	job->dest = frame_init(job->dest_role);
 
 	return (void *)job;

@@ -49,14 +49,11 @@ workers_pool_s *workers_pool_init(
 	A_MUTEX_INIT(&pool->free_workers_mutex);
 	A_COND_INIT(&pool->free_workers_cond);
 
-	const size_t wr_name_len = strlen(wr_prefix) + 64;
-
 	for (unsigned number = 0; number < pool->n_workers; ++number) {
 #		define WR(_next) pool->workers[number]._next
 
 		WR(number) = number;
-		A_CALLOC(WR(name), wr_name_len);
-		snprintf(WR(name), wr_name_len, "%s-%u", wr_prefix, number);
+		A_ASPRINTF(WR(name), "%s-%u", wr_prefix, number);
 
 		A_MUTEX_INIT(&WR(has_job_mutex));
 		atomic_init(&WR(has_job), false);

@@ -39,6 +39,8 @@
 #define A_REALLOC(_dest, _nmemb)	assert((_dest = realloc(_dest, _nmemb * sizeof(*(_dest)))))
 #define MEMSET_ZERO(_obj)			memset(&(_obj), 0, sizeof(_obj))
 
+#define A_ASPRINTF(_dest, _fmt, ...) assert(asprintf(&(_dest), _fmt, ##__VA_ARGS__) >= 0)
+
 #define ARRAY_LEN(_array) (sizeof(_array) / sizeof(_array[0]))
 
 #define INLINE inline __attribute__((always_inline))

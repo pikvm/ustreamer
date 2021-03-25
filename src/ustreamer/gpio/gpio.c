@@ -102,8 +102,7 @@ static void _gpio_output_init(gpio_output_s *output) {
 	assert(gpio.chip);
 	assert(output->line == NULL);
 
-	A_CALLOC(output->consumer, strlen(gpio.consumer_prefix) + strlen(output->role) + 16);
-	sprintf(output->consumer, "%s::%s", gpio.consumer_prefix, output->role);
+	A_ASPRINTF(output->consumer, "%s::%s", gpio.consumer_prefix, output->role);
 
 	if (output->pin >= 0) {
 		if ((output->line = gpiod_chip_get_line(gpio.chip, output->pin)) != NULL) {
