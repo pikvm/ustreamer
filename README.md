@@ -99,8 +99,8 @@ v4l2 utilities provide the tools to manage USB webcam setting and information. S
 * List of available video devices: `v4l2-ctl --list-devices`.
 * List available control settings: `v4l2-ctl -d /dev/video0 --list-ctrls`.
 * List available video formats: `v4l2-ctl -d /dev/video0 --list-formats-ext`.
-* Read the current setting: `v4l2-ctl d /dev/video0 --get-ctrl=exposure_auto`.
-* Change the setting value: `v4l2-ctl d /dev/video0 --set-ctrl=exposure_auto=1`.
+* Read the current setting: `v4l2-ctl -d /dev/video0 --get-ctrl=exposure_auto`.
+* Change the setting value: `v4l2-ctl -d /dev/video0 --set-ctrl=exposure_auto=1`.
 
 [Here](https://www.kurokesu.com/main/2016/01/16/manual-usb-camera-settings-in-linux/) you can find more examples. Documentation is available in [`man v4l2-ctl`](https://www.mankier.com/1/v4l2-ctl).
 
