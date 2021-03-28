@@ -35,6 +35,9 @@
 #include <sys/file.h>
 
 
+#define INLINE inline __attribute__((always_inline))
+#define UNUSED __attribute__((unused))
+
 #define A_CALLOC(_dest, _nmemb)		assert((_dest = calloc(_nmemb, sizeof(*(_dest)))))
 #define A_REALLOC(_dest, _nmemb)	assert((_dest = realloc(_dest, _nmemb * sizeof(*(_dest)))))
 #define MEMSET_ZERO(_obj)			memset(&(_obj), 0, sizeof(_obj))
@@ -43,8 +46,35 @@
 
 #define ARRAY_LEN(_array) (sizeof(_array) / sizeof(_array[0]))
 
-#define INLINE inline __attribute__((always_inline))
-#define UNUSED __attribute__((unused))
+#define LIST_ITERATE(_first, _item, ...) { \
+		for (__typeof__(_first) _item = _first; _item;) { \
+			__typeof__(_first) _next = _item->next; \
+			__VA_ARGS__ \
+			_item = _next; \
+		} \
+	}
+
+#define LIST_APPEND(_first, _item) { \
+		if (_first == NULL) { \
+			_first = _item; \
+		} else { \
+			__typeof__(_first) _last = _first; \
+			for (; _last->next; _last = _last->next); \
+			_item->prev = _last; \
+			_last->next = _item; \
+		} \
+	}
+
+#define LIST_REMOVE(_first, _item) { \
+		if (_item->prev == NULL) { \
+			_first = _item->next; \
+		} else { \
+			_item->prev->next = _item->next; \
+		} \
+		if (_item->next != NULL) { \
+			_item->next->prev = _item->prev; \
+		} \
+	}
 
 
 INLINE const char *bool_to_string(bool flag) {

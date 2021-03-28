@@ -93,13 +93,11 @@ void server_destroy(server_s *server) {
 	libevent_global_shutdown();
 #	endif
 
-	for (stream_client_s *client = RUN(stream_clients); client != NULL;) {
-		stream_client_s *next = client->next;
+	LIST_ITERATE(RUN(stream_clients), client, {
 		free(client->key);
 		free(client->hostport);
 		free(client);
-		client = next;
-	}
+	});
 
 	if (RUN(auth_token)) {
 		free(RUN(auth_token));
@@ -367,7 +365,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		RUN(stream_clients_count)
 	));
 
-	for (stream_client_s * client = RUN(stream_clients); client != NULL; client = client->next) {
+	LIST_ITERATE(RUN(stream_clients), client, {
 		assert(evbuffer_add_printf(buf,
 			"\"%" PRIx64 "\": {\"fps\": %u, \"extra_headers\": %s, \"advance_headers\": %s,"
 			" \"dual_final_frames\": %s, \"zero_data\": %s}%s",
@@ -379,7 +377,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 			bool_to_string(client->zero_data),
 			(client->next ? ", " : "")
 		));
-	}
+	});
 
 	assert(evbuffer_add_printf(buf, "}}}}"));
 
@@ -477,15 +475,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		client->hostport = _http_get_client_hostport(request);
 		client->id = get_now_id();
 
-		if (RUN(stream_clients) == NULL) {
-			RUN(stream_clients) = client;
-		} else {
-			stream_client_s *last = RUN(stream_clients);
-
-			for (; last->next != NULL; last = last->next);
-			client->prev = last;
-			last->next = client;
-		}
+		LIST_APPEND(RUN(stream_clients), client);
 		RUN(stream_clients_count) += 1;
 
 		if (RUN(stream_clients_count) == 1) {
@@ -673,14 +663,7 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 		evhttp_connection_free(conn);
 	}
 
-	if (client->prev == NULL) {
-		RUN(stream_clients) = client->next;
-	} else {
-		client->prev->next = client->next;
-	}
-	if (client->next != NULL) {
-		client->next->prev = client->prev;
-	}
+	LIST_REMOVE(RUN(stream_clients), client);
 	free(client->key);
 	free(client->hostport);
 	free(client);
@@ -692,7 +675,7 @@ static void _http_queue_send_stream(server_s *server, bool stream_updated, bool 
 	bool has_clients = false;
 	bool queued = false;
 
-	for (stream_client_s *client = RUN(stream_clients); client != NULL; client = client->next) {
+	LIST_ITERATE(RUN(stream_clients), client, {
 		struct evhttp_connection *conn = evhttp_request_get_connection(client->request);
 		if (conn) {
 			// Фикс для бага WebKit. При включенной опции дропа одинаковых фреймов,
@@ -723,7 +706,7 @@ static void _http_queue_send_stream(server_s *server, bool stream_updated, bool 
 
 			has_clients = true;
 		}
-	}
+	});
 
 	if (queued) {
 		static unsigned queued_fps_accum = 0;
