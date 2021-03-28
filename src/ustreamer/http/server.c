@@ -475,8 +475,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		client->hostport = _http_get_client_hostport(request);
 		client->id = get_now_id();
 
-		LIST_APPEND(RUN(stream_clients), client);
-		RUN(stream_clients_count) += 1;
+		LIST_APPEND_C(RUN(stream_clients), client, RUN(stream_clients_count));
 
 		if (RUN(stream_clients_count) == 1) {
 			atomic_store(&VID(has_clients), true);
@@ -643,10 +642,7 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	stream_client_s *client = (stream_client_s *)v_client;
 	server_s *server = client->server;
 
-	char *reason = bufferevent_my_format_reason(what);
-
-	assert(RUN(stream_clients_count) > 0);
-	RUN(stream_clients_count) -= 1;
+	LIST_REMOVE_C(RUN(stream_clients), client, RUN(stream_clients_count));
 
 	if (RUN(stream_clients_count) == 0) {
 		atomic_store(&VID(has_clients), false);
@@ -655,20 +651,19 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 #		endif
 	}
 
+	char *reason = bufferevent_my_format_reason(what);
 	LOG_INFO("HTTP: Disconnected client: %s, id=%" PRIx64 ", %s; clients now: %u",
 		client->hostport, client->id, reason, RUN(stream_clients_count));
+	free(reason);
 
 	struct evhttp_connection *conn = evhttp_request_get_connection(client->request);
 	if (conn) {
 		evhttp_connection_free(conn);
 	}
 
-	LIST_REMOVE(RUN(stream_clients), client);
 	free(client->key);
 	free(client->hostport);
 	free(client);
-
-	free(reason);
 }
 
 static void _http_queue_send_stream(server_s *server, bool stream_updated, bool frame_updated) {

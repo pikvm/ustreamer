@@ -58,6 +58,7 @@
 #include "../../libs/process.h"
 #include "../../libs/frame.h"
 #include "../../libs/base64.h"
+#include "../../libs/list.h"
 #include "../data/index_html.h"
 #include "../encoder.h"
 #include "../stream.h"
@@ -91,8 +92,7 @@ typedef struct stream_client_sx {
 	unsigned		fps_accum;
 	long long		fps_accum_second;
 
-	struct stream_client_sx *prev;
-	struct stream_client_sx *next;
+	LIST_STRUCT(struct stream_client_sx);
 } stream_client_s;
 
 typedef struct {
