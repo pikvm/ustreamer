@@ -22,6 +22,11 @@
 
 #pragma once
 
-#ifndef VERSION
-#	define VERSION "3.23"
-#endif
+#define VERSION_MAJOR 3
+#define VERSION_MINOR 23
+
+#define MAKE_VERSION2(_major, _minor) #_major "." #_minor
+#define MAKE_VERSION1(_major, _minor) MAKE_VERSION2(_major, _minor)
+#define VERSION MAKE_VERSION1(VERSION_MAJOR, VERSION_MINOR)
+
+#define VERSION_U ((unsigned)(VERSION_MAJOR * 1000 + VERSION_MINOR))
