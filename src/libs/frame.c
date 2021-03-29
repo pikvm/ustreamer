@@ -43,8 +43,8 @@ void frame_destroy(frame_s *frame) {
 void frame_realloc_data(frame_s *frame, size_t size) {
 	assert(frame->managed);
 	if (frame->allocated < size) {
-		LOG_DEBUG("Increasing frame buffer '%s': %zu -> %zu (+%zu)",
-			frame->name, frame->allocated, size, size - frame->allocated);
+		//LOG_DEBUG("Increasing frame buffer '%s': %zu -> %zu (+%zu)",
+		//	frame->name, frame->allocated, size, size - frame->allocated);
 		A_REALLOC(frame->data, size);
 		frame->allocated = size;
 	}
@@ -65,44 +65,18 @@ void frame_append_data(frame_s *frame, const uint8_t *data, size_t size) {
 	frame->used = new_used;
 }
 
-#define COPY(_field) dest->_field = src->_field
-
 void frame_copy(const frame_s *src, frame_s *dest) {
 	assert(dest->managed);
 	frame_set_data(dest, src->data, src->used);
-	COPY(used);
-	frame_copy_meta(src, dest);
+	FRAME_COPY_META(src, dest);
 }
-
-void frame_copy_meta(const frame_s *src, frame_s *dest) {
-	// Don't copy the name
-	COPY(width);
-	COPY(height);
-	COPY(format);
-	COPY(stride);
-	COPY(online);
-	COPY(key);
-	COPY(grab_ts);
-	COPY(encode_begin_ts);
-	COPY(encode_end_ts);
-}
-
-#undef COPY
 
 bool frame_compare(const frame_s *a, const frame_s *b) {
-#	define CMP(_field) (a->_field == b->_field)
 	return (
 		a->allocated && b->allocated
-		&& CMP(used)
-		&& CMP(width)
-		&& CMP(height)
-		&& CMP(format)
-		&& CMP(stride)
-		&& CMP(online)
-		&& CMP(key)
+		&& FRAME_COMPARE_META_USED_NOTS(a, b)
 		&& !memcmp(a->data, b->data, b->used)
 	);
-#	undef CMP
 }
 
 unsigned frame_get_padding(const frame_s *frame) {

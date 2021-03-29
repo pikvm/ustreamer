@@ -1,3 +1,5 @@
+import os
+
 from distutils.core import Extension
 from distutils.core import setup
 
@@ -16,11 +18,8 @@ if __name__ == "__main__":
                 "ustreamer",
                 libraries=["rt", "m", "pthread"],
                 undef_macros=["NDEBUG"],
-                sources=["ustreamer.c"],
-                depends=[
-                    "../src/libs/tools.h",
-                    "../src/libs/memsinksh.h",
-                ],
+                sources=[name for name in os.listdir(".") if name.endswith(".c")],
+                depends=[name for name in os.listdir(".") if name.endswith(".h")],
             ),
         ],
     )

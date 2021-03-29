@@ -244,7 +244,7 @@ static bool _worker_run_job(worker_s *wr) {
 	assert(ER(type) != ENCODER_TYPE_UNKNOWN);
 	assert(src->used > 0);
 
-	frame_copy_meta(src, dest);
+	FRAME_COPY_META(src, dest);
 	dest->format = V4L2_PIX_FMT_JPEG;
 	dest->stride = 0;
 	dest->encode_begin_ts = get_now_monotonic();

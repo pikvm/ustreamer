@@ -32,7 +32,7 @@
 #include <linux/videodev2.h>
 
 #include "tools.h"
-#include "logging.h"
+//#include "logging.h"
 
 
 typedef struct {
@@ -61,6 +61,29 @@ typedef struct {
 } frame_s;
 
 
+#define FRAME_COPY_META(_src, _dest) { \
+		_dest->width = _src->width; \
+		_dest->height = _src->height; \
+		_dest->format = _src->format; \
+		_dest->stride = _src->stride; \
+		_dest->online = _src->online; \
+		_dest->key = _src->key; \
+		_dest->grab_ts = _src->grab_ts; \
+		_dest->encode_begin_ts = _src->encode_begin_ts; \
+		_dest->encode_end_ts = _src->encode_end_ts; \
+	}
+
+#define FRAME_COMPARE_META_USED_NOTS(_a, _b) ( \
+		_a->used == _b->used \
+		&& _a->width == _b->width \
+		&& _a->height == _b->height \
+		&& _a->format == _b->format \
+		&& _a->stride == _b->stride \
+		&& _a->online == _b->online \
+		&& _a->key == _b->key \
+	)
+
+
 frame_s *frame_init(const char *name);
 void frame_destroy(frame_s *frame);
 
@@ -69,7 +92,6 @@ void frame_set_data(frame_s *frame, const uint8_t *data, size_t size);
 void frame_append_data(frame_s *frame, const uint8_t *data, size_t size);
 
 void frame_copy(const frame_s *src, frame_s *dest);
-void frame_copy_meta(const frame_s *src, frame_s *dest);
 bool frame_compare(const frame_s *a, const frame_s *b);
 
 unsigned frame_get_padding(const frame_s *frame);

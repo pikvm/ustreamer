@@ -93,7 +93,7 @@ void memsink_destroy(memsink_s *sink) {
 }
 
 bool memsink_server_check(memsink_s *sink, const frame_s *frame) {
-	// Возвращает true, если если клиенты ИЛИ изменились метаданные
+	// Возвращает true, если есть клиенты ИЛИ изменились метаданные
 
 	assert(sink->server);
 
@@ -108,9 +108,7 @@ bool memsink_server_check(memsink_s *sink, const frame_s *frame) {
 
 	sink->has_clients = (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic());
 
-#	define NEQ(_field) (sink->mem->_field != frame->_field)
-	bool retval = (sink->has_clients || NEQ(width) || NEQ(height) || NEQ(format) || NEQ(stride) || NEQ(online) || NEQ(key));
-#	undef NEQ
+	bool retval = (sink->has_clients || !FRAME_COMPARE_META_USED_NOTS(sink->mem, frame));
 
 	if (flock(sink->fd, LOCK_UN) < 0) {
 		LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
@@ -133,24 +131,16 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 	if (flock_timedwait_monotonic(sink->fd, 1) == 0) {
 		LOG_VERBOSE("%s-sink: >>>>> Exposing new frame ...", sink->name);
 
-#		define COPY(_field) sink->mem->_field = frame->_field
 		sink->last_id = get_now_id();
 		sink->mem->id = sink->last_id;
-		COPY(used);
-		COPY(width);
-		COPY(height);
-		COPY(format);
-		COPY(stride);
-		COPY(online);
-		COPY(key);
-		COPY(grab_ts);
-		COPY(encode_begin_ts);
-		COPY(encode_end_ts);
-		sink->has_clients = (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic());
+
 		memcpy(sink->mem->data, frame->data, frame->used);
+		sink->mem->used = frame->used;
+		FRAME_COPY_META(frame, sink->mem);
+
 		sink->mem->magic = MEMSINK_MAGIC;
 		sink->mem->version = MEMSINK_VERSION;
-#		undef COPY
+		sink->has_clients = (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic());
 
 		if (flock(sink->fd, LOCK_UN) < 0) {
 			LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
@@ -189,19 +179,9 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 			goto done;
 		}
 		if (sink->mem->id != sink->last_id) { // When updated
-#			define COPY(_field) frame->_field = sink->mem->_field
 			sink->last_id = sink->mem->id;
-			COPY(width);
-			COPY(height);
-			COPY(format);
-			COPY(stride);
-			COPY(online);
-			COPY(key);
-			COPY(grab_ts);
-			COPY(encode_begin_ts);
-			COPY(encode_end_ts);
 			frame_set_data(frame, sink->mem->data, sink->mem->used);
-#			undef COPY
+			FRAME_COPY_META(sink->mem, frame);
 			retval = 0;
 		}
 		sink->mem->last_client_ts = get_now_monotonic();

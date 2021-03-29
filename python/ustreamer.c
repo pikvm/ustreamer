@@ -13,30 +13,10 @@
 
 #include <Python.h>
 
-#include "../src/libs/tools.h" // Just a header without C-sources
-#include "../src/libs/memsinksh.h" // No sources again
+#include "tools.h"
+#include "frame.h"
+#include "memsinksh.h"
 
-
-typedef struct {
-	uint64_t	id;
-	long double	ts;
-
-	uint8_t	*data;
-	size_t	used;
-	size_t	allocated;
-
-	unsigned width;
-	unsigned height;
-	unsigned format;
-	unsigned stride;
-
-	bool online;
-	bool key;
-
-	long double	grab_ts;
-	long double	encode_begin_ts;
-	long double	encode_end_ts;
-} tmp_frame_s;
 
 typedef struct {
 	PyObject_HEAD
@@ -49,12 +29,14 @@ typedef struct {
 	int					fd;
 	memsink_shared_s	*mem;
 
-	tmp_frame_s	*tmp_frame;
+	uint64_t	frame_id;
+	long double	frame_ts;
+	frame_s		*frame;
 } MemsinkObject;
 
 
-#define MEM(_next) self->mem->_next
-#define TMP(_next) self->tmp_frame->_next
+#define MEM(_next)		self->mem->_next
+#define FRAME(_next)	self->frame->_next
 
 
 static void MemsinkObject_destroy_internals(MemsinkObject *self) {
@@ -66,12 +48,9 @@ static void MemsinkObject_destroy_internals(MemsinkObject *self) {
 		close(self->fd);
 		self->fd = -1;
 	}
-	if (self->tmp_frame) {
-		if (TMP(data)) {
-			free(TMP(data));
-		}
-		free(self->tmp_frame);
-		self->tmp_frame = NULL;
+	if (self->frame) {
+		frame_destroy(self->frame);
+		self->frame = NULL;
 	}
 }
 
@@ -99,9 +78,7 @@ static int MemsinkObject_init(MemsinkObject *self, PyObject *args, PyObject *kwa
 
 #	undef SET_DOUBLE
 
-	A_CALLOC(self->tmp_frame, 1);
-	TMP(allocated) = 512 * 1024;
-	A_REALLOC(TMP(data), TMP(allocated));
+	self->frame = frame_init("memsink_client");
 
 	if ((self->fd = shm_open(self->obj, O_RDWR, 0)) == -1) {
 		PyErr_SetFromErrno(PyExc_OSError);
@@ -177,24 +154,16 @@ static int wait_frame(MemsinkObject *self) {
 			RETURN_OS_ERROR;
 
 		} else if (retval == 0) {
-			if (MEM(magic) == MEMSINK_MAGIC && MEM(version) == MEMSINK_VERSION && TMP(id) != MEM(id)) {
+			if (MEM(magic) == MEMSINK_MAGIC && MEM(version) == MEMSINK_VERSION && MEM(id) != self->frame_id) {
 				if (self->drop_same_frames > 0) {
-#					define CMP(_field) (TMP(_field) == MEM(_field))
 					if (
-						CMP(used)
-						&& CMP(width)
-						&& CMP(height)
-						&& CMP(format)
-						&& CMP(stride)
-						&& CMP(online)
-						&& CMP(key)
-						&& (TMP(ts) + self->drop_same_frames > now)
-						&& !memcmp(TMP(data), MEM(data), MEM(used))
+						FRAME_COMPARE_META_USED_NOTS(self->mem, self->frame)
+						&& (self->frame_ts + self->drop_same_frames > now)
+						&& !memcmp(FRAME(data), MEM(data), MEM(used))
 					) {
-						TMP(id) = MEM(id);
+						self->frame_id = MEM(id);
 						goto drop;
 					}
-#					undef CMP
 				}
 
 				Py_BLOCK_THREADS
@@ -236,30 +205,11 @@ static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUS
 		default: return NULL;
 	}
 
-#	define COPY(_field) TMP(_field) = MEM(_field)
-	COPY(width);
-	COPY(height);
-	COPY(format);
-	COPY(stride);
-	COPY(online);
-	COPY(key);
-	COPY(grab_ts);
-	COPY(encode_begin_ts);
-	COPY(encode_end_ts);
-	COPY(used);
-#	undef COPY
-
-	if (TMP(allocated) < MEM(used)) {
-		size_t size = MEM(used) + (512 * 1024);
-		A_REALLOC(TMP(data), size);
-		TMP(allocated) = size;
-	}
-	memcpy(TMP(data), MEM(data), MEM(used));
-	TMP(used) = MEM(used);
-
-	TMP(id) = MEM(id);
-	TMP(ts) = get_now_monotonic();
-	MEM(last_client_ts) = TMP(ts);
+	frame_set_data(self->frame, MEM(data), MEM(used));
+	FRAME_COPY_META(self->mem, self->frame);
+	self->frame_id = MEM(id);
+	self->frame_ts = get_now_monotonic();
+	MEM(last_client_ts) = self->frame_ts;
 
 	if (flock(self->fd, LOCK_UN) < 0) {
 		return PyErr_SetFromErrno(PyExc_OSError);
@@ -281,7 +231,7 @@ static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUS
 			} \
 			Py_DECREF(_tmp); \
 		}
-#	define SET_NUMBER(_key, _from, _to) SET_VALUE(#_key, Py##_to##_From##_from(TMP(_key)))
+#	define SET_NUMBER(_key, _from, _to) SET_VALUE(#_key, Py##_to##_From##_from(FRAME(_key)))
 
 	SET_NUMBER(width, Long, Long);
 	SET_NUMBER(height, Long, Long);
@@ -292,7 +242,7 @@ static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUS
 	SET_NUMBER(grab_ts, Double, Float);
 	SET_NUMBER(encode_begin_ts, Double, Float);
 	SET_NUMBER(encode_end_ts, Double, Float);
-	SET_VALUE("data", PyBytes_FromStringAndSize((const char *)TMP(data), TMP(used)));
+	SET_VALUE("data", PyBytes_FromStringAndSize((const char *)FRAME(data), FRAME(used)));
 
 #	undef SET_NUMBER
 #	undef SET_VALUE
@@ -376,5 +326,5 @@ PyMODINIT_FUNC PyInit_ustreamer(void) { // cppcheck-suppress unusedFunction
 	return module;
 }
 
-#undef TMP
+#undef FRAME
 #undef MEM
