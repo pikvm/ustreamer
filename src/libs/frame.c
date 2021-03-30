@@ -26,13 +26,11 @@
 frame_s *frame_init(void) {
 	frame_s *frame;
 	A_CALLOC(frame, 1);
-	frame->managed = true;
 	frame_realloc_data(frame, 512 * 1024);
 	return frame;
 }
 
 void frame_destroy(frame_s *frame) {
-	assert(frame->managed);
 	if (frame->data) {
 		free(frame->data);
 	}
@@ -40,7 +38,6 @@ void frame_destroy(frame_s *frame) {
 }
 
 void frame_realloc_data(frame_s *frame, size_t size) {
-	assert(frame->managed);
 	if (frame->allocated < size) {
 		A_REALLOC(frame->data, size);
 		frame->allocated = size;
@@ -48,14 +45,12 @@ void frame_realloc_data(frame_s *frame, size_t size) {
 }
 
 void frame_set_data(frame_s *frame, const uint8_t *data, size_t size) {
-	assert(frame->managed);
 	frame_realloc_data(frame, size);
 	memcpy(frame->data, data, size);
 	frame->used = size;
 }
 
 void frame_append_data(frame_s *frame, const uint8_t *data, size_t size) {
-	assert(frame->managed);
 	size_t new_used = frame->used + size;
 	frame_realloc_data(frame, new_used);
 	memcpy(frame->data + frame->used, data, size);
@@ -63,7 +58,6 @@ void frame_append_data(frame_s *frame, const uint8_t *data, size_t size) {
 }
 
 void frame_copy(const frame_s *src, frame_s *dest) {
-	assert(dest->managed);
 	frame_set_data(dest, src->data, src->used);
 	FRAME_COPY_META(src, dest);
 }
