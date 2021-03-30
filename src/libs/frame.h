@@ -73,6 +73,10 @@ typedef struct {
 		_dest->encode_end_ts = _src->encode_end_ts; \
 	}
 
+inline void frame_copy_meta(const frame_s *src, frame_s *dest) {
+	FRAME_COPY_META(src, dest);
+}
+
 #define FRAME_COMPARE_META_USED_NOTS(_a, _b) ( \
 		_a->used == _b->used \
 		&& _a->width == _b->width \

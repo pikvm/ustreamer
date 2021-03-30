@@ -57,7 +57,7 @@ int unjpeg(const frame_s *src, frame_s *dest, bool decode) {
 
 	jpeg_start_decompress(&jpeg);
 
-	FRAME_COPY_META(src, dest);
+	frame_copy_meta(src, dest);
 	dest->format = V4L2_PIX_FMT_RGB24;
 	dest->width = jpeg.output_width;
 	dest->height = jpeg.output_height;

@@ -267,7 +267,7 @@ int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, int src_vcsm_
 	assert(enc->format == src->format);
 	assert(enc->stride == src->stride);
 
-	FRAME_COPY_META(src, dest);
+	frame_copy_meta(src, dest);
 	dest->encode_begin_ts = get_now_monotonic();
 	dest->format = V4L2_PIX_FMT_H264;
 	dest->stride = 0;
