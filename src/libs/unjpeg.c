@@ -87,6 +87,6 @@ static void _jpeg_error_handler(j_common_ptr jpeg) {
 	char msg[JMSG_LENGTH_MAX];
 
 	(*jpeg_error->mgr.format_message)(jpeg, msg);
-	LOG_ERROR("Can't decompress %s JPEG: %s", jpeg_error->frame->name, msg);
+	LOG_ERROR("Can't decompress JPEG: %s", msg);
 	longjmp(jpeg_error->jmp, -1);
 }

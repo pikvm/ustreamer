@@ -52,7 +52,7 @@ stream_s *stream_init(device_s *dev, encoder_s *enc) {
 
 	video_s *video;
 	A_CALLOC(video, 1);
-	video->frame = frame_init("stream_video");
+	video->frame = frame_init();
 	atomic_init(&video->updated, false);
 	A_MUTEX_INIT(&video->mutex);
 	atomic_init(&video->has_clients, false);

@@ -44,7 +44,7 @@ frame_s *blank_frame_init(const char *path) {
 }
 
 static frame_s *_init_internal(void) {
-	frame_s *blank = frame_init("blank_internal");
+	frame_s *blank = frame_init();
 	frame_set_data(blank, BLANK_JPEG_DATA, BLANK_JPEG_DATA_SIZE);
 	blank->width = BLANK_JPEG_WIDTH;
 	blank->height = BLANK_JPEG_HEIGHT;
@@ -55,7 +55,7 @@ static frame_s *_init_internal(void) {
 static frame_s *_init_external(const char *path) {
 	FILE *fp = NULL;
 
-	frame_s *blank = frame_init("blank_external");
+	frame_s *blank = frame_init();
 	blank->format = V4L2_PIX_FMT_JPEG;
 
 	if ((fp = fopen(path, "rb")) == NULL) {
@@ -83,7 +83,7 @@ static frame_s *_init_external(const char *path) {
 	}
 #	undef CHUNK_SIZE
 
-	frame_s *decoded = frame_init("blank_external_decoded");
+	frame_s *decoded = frame_init();
 	if (unjpeg(blank, decoded, false) < 0) {
 		frame_destroy(decoded);
 		goto error;

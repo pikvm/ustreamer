@@ -78,7 +78,7 @@ static int MemsinkObject_init(MemsinkObject *self, PyObject *args, PyObject *kwa
 
 #	undef SET_DOUBLE
 
-	self->frame = frame_init("memsink_client");
+	self->frame = frame_init();
 
 	if ((self->fd = shm_open(self->obj, O_RDWR, 0)) == -1) {
 		PyErr_SetFromErrno(PyExc_OSError);

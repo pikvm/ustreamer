@@ -202,7 +202,7 @@ static void _install_signal_handlers(void) {
 }
 
 static int _dump_sink(const char *sink_name, unsigned sink_timeout, _output_context_s *ctx) {
-	frame_s *frame = frame_init("input");
+	frame_s *frame = frame_init();
 	memsink_s *sink = NULL;
 
 	if ((sink = memsink_init("input", sink_name, false, 0, false, 0, sink_timeout)) == NULL) {

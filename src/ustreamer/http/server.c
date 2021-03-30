@@ -51,7 +51,7 @@ static char *_http_get_client_hostport(struct evhttp_request *request);
 server_s *server_init(stream_s *stream) {
 	exposed_s *exposed;
 	A_CALLOC(exposed, 1);
-	exposed->frame = frame_init("http_exposed");
+	exposed->frame = frame_init();
 
 	server_runtime_s *run;
 	A_CALLOC(run, 1);

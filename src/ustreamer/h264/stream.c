@@ -27,8 +27,8 @@ h264_stream_s *h264_stream_init(memsink_s *sink, unsigned bitrate, unsigned gop)
 	h264_stream_s *h264;
 	A_CALLOC(h264, 1);
 	h264->sink = sink;
-	h264->tmp_src = frame_init("h264_tmp_src");
-	h264->dest = frame_init("h264_dest");
+	h264->tmp_src = frame_init();
+	h264->dest = frame_init();
 	atomic_init(&h264->online, false);
 
 	// FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L2100

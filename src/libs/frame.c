@@ -23,10 +23,9 @@
 #include "frame.h"
 
 
-frame_s *frame_init(const char *name) {
+frame_s *frame_init(void) {
 	frame_s *frame;
 	A_CALLOC(frame, 1);
-	frame->name = name;
 	frame->managed = true;
 	frame_realloc_data(frame, 512 * 1024);
 	return frame;
@@ -43,8 +42,6 @@ void frame_destroy(frame_s *frame) {
 void frame_realloc_data(frame_s *frame, size_t size) {
 	assert(frame->managed);
 	if (frame->allocated < size) {
-		//LOG_DEBUG("Increasing frame buffer '%s': %zu -> %zu (+%zu)",
-		//	frame->name, frame->allocated, size, size - frame->allocated);
 		A_REALLOC(frame->data, size);
 		frame->allocated = size;
 	}

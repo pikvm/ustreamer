@@ -212,21 +212,17 @@ void encoder_get_runtime_params(encoder_s *enc, encoder_type_e *type, unsigned *
 	A_MUTEX_UNLOCK(&ER(mutex));
 }
 
-static void *_worker_job_init(worker_s *wr, void *v_enc) {
+static void *_worker_job_init(void *v_enc) {
 	encoder_job_s *job;
 	A_CALLOC(job, 1);
 	job->enc = (encoder_s *)v_enc;
-
-	A_ASPRINTF(job->dest_role, "%s_dest", wr->name);
-	job->dest = frame_init(job->dest_role);
-
+	job->dest = frame_init();
 	return (void *)job;
 }
 
 static void _worker_job_destroy(void *v_job) {
 	encoder_job_s *job = (encoder_job_s *)v_job;
 	frame_destroy(job->dest);
-	free(job->dest_role);
 	free(job);
 }
 

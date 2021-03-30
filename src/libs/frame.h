@@ -32,12 +32,9 @@
 #include <linux/videodev2.h>
 
 #include "tools.h"
-//#include "logging.h"
 
 
 typedef struct {
-	const char *name;
-
 	uint8_t	*data;
 	size_t	used;
 	size_t	allocated;
@@ -88,7 +85,7 @@ inline void frame_copy_meta(const frame_s *src, frame_s *dest) {
 	)
 
 
-frame_s *frame_init(const char *name);
+frame_s *frame_init(void);
 void frame_destroy(frame_s *frame);
 
 void frame_realloc_data(frame_s *frame, size_t size);
