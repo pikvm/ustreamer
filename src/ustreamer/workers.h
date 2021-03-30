@@ -55,12 +55,16 @@ typedef struct worker_sx {
 	struct workers_pool_sx *pool;
 } worker_s;
 
+typedef void *(*workers_pool_job_init_f)(void *arg);
+typedef void (*workers_pool_job_destroy_f)(void *job);
+typedef bool (*workers_pool_run_job_f)(worker_s *wr);
+
 typedef struct workers_pool_sx {
 	const char		*name;
 	long double		desired_interval;
 
-	bool (*run_job)(worker_s *wr);
-	void (*job_destroy)(void *job);
+	workers_pool_job_destroy_f	job_destroy;
+	workers_pool_run_job_f		run_job;
 
 	unsigned		n_workers;
 	worker_s		*workers;
@@ -79,9 +83,9 @@ typedef struct workers_pool_sx {
 
 workers_pool_s *workers_pool_init(
 	const char *name, const char *wr_prefix, unsigned n_workers, long double desired_interval,
-	void *(*job_init)(void *arg), void *job_init_arg,
-	void (*job_destroy)(void *job),
-	bool (*run_job)(worker_s *));
+	workers_pool_job_init_f job_init, void *job_init_arg,
+	workers_pool_job_destroy_f job_destroy,
+	workers_pool_run_job_f run_job);
 
 void workers_pool_destroy(workers_pool_s *pool);
 

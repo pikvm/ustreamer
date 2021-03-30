@@ -36,7 +36,7 @@ static const struct {
 };
 
 
-static void *_worker_job_init(worker_s *wr, void *v_enc);
+static void *_worker_job_init(void *v_enc);
 static void _worker_job_destroy(void *v_job);
 static bool _worker_run_job(worker_s *wr);
 
