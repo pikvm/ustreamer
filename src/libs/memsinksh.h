@@ -26,6 +26,7 @@
 #include <stdbool.h>
 
 #include <sys/types.h>
+#include <sys/mman.h>
 
 
 #define MEMSINK_MAGIC	((uint64_t)0xCAFEBABECAFEBABE)
@@ -59,3 +60,20 @@ typedef struct {
 
 	uint8_t		data[MEMSINK_MAX_DATA];
 } memsink_shared_s;
+
+
+INLINE memsink_shared_s *memsink_shared_map(int fd) {
+	memsink_shared_s *mem = mmap(
+		NULL,
+		sizeof(memsink_shared_s),
+		PROT_READ | PROT_WRITE,
+		MAP_SHARED,
+		fd,
+		0
+	);
+	if (mem == MAP_FAILED) {
+		return NULL;
+	}
+	assert(mem != NULL);
+	return mem;
+}

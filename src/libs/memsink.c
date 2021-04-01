@@ -54,14 +54,7 @@ memsink_s *memsink_init(
 		goto error;
 	}
 
-	if ((sink->mem = mmap(
-		NULL,
-		sizeof(memsink_shared_s),
-		PROT_READ | PROT_WRITE,
-		MAP_SHARED,
-		sink->fd,
-		0
-	)) == MAP_FAILED) {
+	if ((sink->mem = memsink_shared_map(sink->fd)) == NULL) {
 		LOG_PERROR("%s-sink: Can't mmap shared memory", name);
 		goto error;
 	}

@@ -85,20 +85,8 @@ static int MemsinkObject_init(MemsinkObject *self, PyObject *args, PyObject *kwa
 		goto error;
 	}
 
-	if ((self->mem = mmap(
-		NULL,
-		sizeof(memsink_shared_s),
-		PROT_READ | PROT_WRITE,
-		MAP_SHARED,
-		self->fd,
-		0
-	)) == MAP_FAILED) {
+	if ((self->mem = memsink_shared_map(self->fd)) == NULL) {
 		PyErr_SetFromErrno(PyExc_OSError);
-		self->mem = NULL;
-		goto error;
-	}
-	if (self->mem == NULL) {
-		PyErr_SetString(PyExc_RuntimeError, "Memory mapping is NULL"); \
 		goto error;
 	}
 
