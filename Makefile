@@ -1,7 +1,5 @@
 -include config.mk
 
-USTR ?= ustreamer
-DUMP ?= ustreamer-dump
 DESTDIR ?=
 PREFIX ?= /usr/local
 MANPREFIX ?= $(PREFIX)/share/man
@@ -14,132 +12,57 @@ LDFLAGS ?=
 RPI_VC_HEADERS ?= /opt/vc/include
 RPI_VC_LIBS ?= /opt/vc/lib
 
-BUILD ?= build
+export
 
-LINTERS_IMAGE ?= $(USTR)-linters
+_LINTERS_IMAGE ?= ustreamer-linters
 
 
 # =====
-_CFLAGS = -MD -c -std=c11 -Wall -Wextra -D_GNU_SOURCE $(CFLAGS)
-_LDFLAGS = $(LDFLAGS)
-
-_COMMON_LIBS = -lm -ljpeg -pthread -lrt
-
-_USTR_LIBS = $(_COMMON_LIBS) -levent -levent_pthreads
-_USTR_SRCS = $(shell ls \
-	src/libs/*.c \
-	src/ustreamer/*.c \
-	src/ustreamer/http/*.c \
-	src/ustreamer/data/*.c \
-	src/ustreamer/encoders/cpu/*.c \
-	src/ustreamer/encoders/hw/*.c \
-)
-
-_DUMP_LIBS = $(_COMMON_LIBS)
-_DUMP_SRCS = $(shell ls \
-	src/libs/*.c \
-	src/dump/*.c \
-)
-
-
 define optbool
 $(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
 endef
 
 
-ifneq ($(call optbool,$(WITH_OMX)),)
-_USTR_LIBS += -lbcm_host -lvcos -lvcsm -lopenmaxil -lmmal -lmmal_core -lmmal_util -lmmal_vc_client -lmmal_components -L$(RPI_VC_LIBS)
-override _CFLAGS += -DWITH_OMX -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
-_USTR_SRCS += $(shell ls \
-	src/ustreamer/encoders/omx/*.c \
-	src/ustreamer/h264/*.c \
-)
-endif
-
-
-ifneq ($(call optbool,$(WITH_GPIO)),)
-_USTR_LIBS += -lgpiod
-override _CFLAGS += -DWITH_GPIO
-_USTR_SRCS += $(shell ls src/ustreamer/gpio/*.c)
-endif
-
-
-WITH_PTHREAD_NP ?= 1
-ifneq ($(call optbool,$(WITH_PTHREAD_NP)),)
-override _CFLAGS += -DWITH_PTHREAD_NP
-endif
-
-
-WITH_SETPROCTITLE ?= 1
-ifneq ($(call optbool,$(WITH_SETPROCTITLE)),)
-ifeq ($(shell uname -s | tr A-Z a-z),linux)
-_USTR_LIBS += -lbsd
-endif
-override _CFLAGS += -DWITH_SETPROCTITLE
-endif
-
-
 # =====
-all: $(USTR) $(DUMP) python
+all:
+	+ make apps
+	+ make python
+
+
+apps:
+	make -C src
+	@ ln -sf src/*.bin .
+
+
+python:
+ifneq ($(call optbool,$(WITH_PYTHON)),)
+	make -C python
+	@ ln -sf python/build/lib.*/*.so .
+else
+	@ true
+endif
 
 
 install: all
-	mkdir -p $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(MANPREFIX)/man1
-	install -m755 $(USTR) $(DESTDIR)$(PREFIX)/bin/$(USTR)
-	install -m755 $(DUMP) $(DESTDIR)$(PREFIX)/bin/$(DUMP)
-	install -m644 man/$(USTR).1 $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
-	install -m644 man/$(DUMP).1 $(DESTDIR)$(MANPREFIX)/man1/$(DUMP).1
-	gzip -f $(DESTDIR)$(MANPREFIX)/man1/$(USTR).1
-	gzip -f $(DESTDIR)$(MANPREFIX)/man1/$(DUMP).1
+	make -C src install
 ifneq ($(call optbool,$(WITH_PYTHON)),)
-	cd python && $(PY) setup.py install --prefix=$(PREFIX) --root=$(if $(DESTDIR),$(DESTDIR),/)
+	make -C python install
 endif
+	mkdir -p $(DESTDIR)$(MANPREFIX)/man1
+	for man in $(shell ls man); do \
+		install -m644 man/$$man $(DESTDIR)$(MANPREFIX)/man1/$$man; \
+		gzip -f $(DESTDIR)$(MANPREFIX)/man1/$$man; \
+	done
 
 
 install-strip: install
-	strip $(DESTDIR)$(PREFIX)/bin/$(USTR)
-	strip $(DESTDIR)$(PREFIX)/bin/$(DUMP)
+	make -C src install-strip
 
 
 regen:
 	tools/make-jpeg-h.py src/ustreamer/data/blank.jpeg src/ustreamer/data/blank_jpeg.c BLANK
 	tools/make-html-h.py src/ustreamer/data/index.html src/ustreamer/data/index_html.c INDEX
 
-
-$(USTR): $(_USTR_SRCS:%.c=$(BUILD)/%.o)
-#	$(info ========================================)
-	$(info == LD $@)
-	@ $(CC) $^ -o $@ $(_LDFLAGS) $(_USTR_LIBS)
-#	$(info :: CC      = $(CC))
-#	$(info :: LIBS    = $(_USTR_LIBS))
-#	$(info :: CFLAGS  = $(_CFLAGS))
-#	$(info :: LDFLAGS = $(_LDFLAGS))
-
-
-$(DUMP): $(_DUMP_SRCS:%.c=$(BUILD)/%.o)
-#	$(info ========================================)
-	$(info == LD $@)
-	@ $(CC) $^ -o $@ $(_LDFLAGS) $(_DUMP_LIBS)
-#	$(info :: CC      = $(CC))
-#	$(info :: LIBS    = $(_DUMP_LIBS))
-#	$(info :: CFLAGS  = $(_CFLAGS))
-#	$(info :: LDFLAGS = $(_LDFLAGS))
-
-
-$(BUILD)/%.o: %.c
-	$(info -- CC $<)
-	@ mkdir -p $(dir $@) || true
-	@ $(CC) $< -o $@ $(_CFLAGS)
-
-
-python:
-ifneq ($(call optbool,$(WITH_PYTHON)),)
-	$(info == PY_BUILD ustreamer-*.so)
-	@ cd python && $(PY) setup.py build
-	@ ln -sf python/build/lib.*/*.so .
-else
-	@ true
-endif
 
 release:
 	make clean
@@ -154,7 +77,7 @@ tox: linters
 	time docker run --rm \
 			--volume `pwd`:/src:ro \
 			--volume `pwd`/linters:/src/linters:rw \
-		-t $(LINTERS_IMAGE) bash -c " \
+		-t $(_LINTERS_IMAGE) bash -c " \
 			cd /src \
 			&& tox -q -c linters/tox.ini $(if $(E),-e $(E),-p auto) \
 		"
@@ -164,7 +87,7 @@ linters:
 	docker build \
 			$(if $(call optbool,$(NC)),--no-cache,) \
 			--rm \
-			--tag $(LINTERS_IMAGE) \
+			--tag $(_LINTERS_IMAGE) \
 		-f linters/Dockerfile linters
 
 
@@ -180,14 +103,12 @@ push:
 clean-all: linters clean
 	- docker run --rm \
 			--volume `pwd`:/src \
-		-it $(LINTERS_IMAGE) bash -c "cd src && rm -rf linters/{.tox,.mypy_cache}"
+		-it $(_LINTERS_IMAGE) bash -c "cd src && rm -rf linters/{.tox,.mypy_cache}"
 clean:
 	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.{xz,zst}
-	rm -rf $(USTR) $(DUMP) $(BUILD) python/build vgcore.* *.sock *.so
+	rm -f *.bin *.so
+	make -C src clean
+	make -C python clean
 
 
 .PHONY: python linters
-
-
-_OBJS = $(_USTR_SRCS:%.c=$(BUILD)/%.o) $(_DUMP_SRCS:%.c=$(BUILD)/%.o)
--include $(_OBJS:%.o=%.d)
