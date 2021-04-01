@@ -160,13 +160,3 @@ extern pthread_mutex_t log_mutex;
 			LOG_PRINTF(COLOR_GRAY, "DEBUG", COLOR_GRAY, _msg, ##__VA_ARGS__); \
 		} \
 	}
-
-
-INLINE char *errno_to_string(int error, char *buf, size_t size) {
-#	if defined(__GLIBC__) && defined(_GNU_SOURCE)
-	return strerror_r(error, buf, size);
-#	else
-	strerror_r(error, buf, size);
-	return buf;
-#	endif
-}

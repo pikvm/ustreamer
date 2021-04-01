@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <math.h>
@@ -142,4 +143,13 @@ INLINE int flock_timedwait_monotonic(int fd, long double timeout) {
 		}
 	}
 	return retval;
+}
+
+INLINE char *errno_to_string(int error, char *buf, size_t size) {
+#	if defined(__GLIBC__) && defined(_GNU_SOURCE)
+	return strerror_r(error, buf, size);
+#	else
+	strerror_r(error, buf, size);
+	return buf;
+#	endif
 }
