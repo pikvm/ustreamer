@@ -28,6 +28,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
+#include <locale.h>
 #include <errno.h>
 #include <math.h>
 #include <time.h>
@@ -146,10 +147,14 @@ INLINE int flock_timedwait_monotonic(int fd, long double timeout) {
 }
 
 INLINE char *errno_to_string(int error, char *buf, size_t size) {
-#	if defined(__GLIBC__) && defined(_GNU_SOURCE)
-	return strerror_r(error, buf, size);
-#	else
-	strerror_r(error, buf, size);
+	assert(buf);
+	assert(size > 0);
+	locale_t locale = newlocale(LC_MESSAGES_MASK, "C", NULL);
+	char *str = "!!! newlocale() error !!!";
+	strncpy(buf, (locale ? strerror_l(error, locale) : str), size - 1);
+	buf[size - 1] = '\0';
+	if (locale) {
+		freelocale(locale);
+	}
 	return buf;
-#	endif
 }
