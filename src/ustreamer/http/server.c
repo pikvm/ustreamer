@@ -509,7 +509,6 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 
 static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_client) {
 #	define BOUNDARY "boundarydonotcross"
-#	define RN "\r\n"
 
 	stream_client_s *client = (stream_client_s *)v_client;
 	server_s *server = client->server;
@@ -634,7 +633,6 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	bufferevent_enable(buf_event, EV_READ);
 
 #	undef ADD_ADVANCE_HEADERS
-#	undef RN
 #	undef BOUNDARY
 }
 

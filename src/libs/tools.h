@@ -37,6 +37,8 @@
 #include <sys/file.h>
 
 
+#define RN "\r\n"
+
 #define INLINE inline __attribute__((always_inline))
 #define UNUSED __attribute__((unused))
 
