@@ -26,21 +26,22 @@ endef
 # =====
 all:
 	+ make apps
+ifneq ($(call optbool,$(WITH_PYTHON)),)
 	+ make python
+else
+	@ true
+endif
 
 
 apps:
 	make -C src
-	@ ln -sf src/*.bin .
+	@ ln -sf src/ustreamer.bin ustreamer
+	@ ln -sf src/ustreamer-dump.bin ustreamer-dump
 
 
 python:
-ifneq ($(call optbool,$(WITH_PYTHON)),)
 	make -C python
 	@ ln -sf python/build/lib.*/*.so .
-else
-	@ true
-endif
 
 
 install: all
@@ -104,9 +105,11 @@ clean-all: linters clean
 	- docker run --rm \
 			--volume `pwd`:/src \
 		-it $(_LINTERS_IMAGE) bash -c "cd src && rm -rf linters/{.tox,.mypy_cache}"
+
+
 clean:
 	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.{xz,zst}
-	rm -f *.bin *.so
+	rm -f ustreamer ustreamer-dump *.so
 	make -C src clean
 	make -C python clean
 

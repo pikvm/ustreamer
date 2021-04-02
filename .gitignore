@@ -6,9 +6,11 @@
 /pkg/arch/ustreamer-*.pkg.tar.xz
 /pkg/arch/ustreamer-*.pkg.tar.zst
 /src/build/
+/src/*.bin
 /python/build/
+/ustreamer
+/ustreamer-dump
 /config.mk
 /vgcore.*
 /*.sock
 *.so
-*.bin
