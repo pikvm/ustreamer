@@ -23,7 +23,7 @@
 #include "gpio.h"
 
 
-gpio_s gpio = {
+gpio_s us_gpio = {
 	.path = "/dev/gpiochip0",
 	.consumer_prefix = "ustreamer",
 
@@ -51,42 +51,42 @@ static void _gpio_output_destroy(gpio_output_s *output);
 
 
 void gpio_init(void) {
-	assert(gpio.chip == NULL);
+	assert(us_gpio.chip == NULL);
 	if (
-		gpio.prog_running.pin >= 0
-		|| gpio.stream_online.pin >= 0
-		|| gpio.has_http_clients.pin >= 0
+		us_gpio.prog_running.pin >= 0
+		|| us_gpio.stream_online.pin >= 0
+		|| us_gpio.has_http_clients.pin >= 0
 	) {
-		A_MUTEX_INIT(&gpio.mutex);
-		LOG_INFO("GPIO: Using chip device: %s", gpio.path);
-		if ((gpio.chip = gpiod_chip_open(gpio.path)) != NULL) {
-			_gpio_output_init(&gpio.prog_running);
-			_gpio_output_init(&gpio.stream_online);
-			_gpio_output_init(&gpio.has_http_clients);
+		A_MUTEX_INIT(&us_gpio.mutex);
+		LOG_INFO("GPIO: Using chip device: %s", us_gpio.path);
+		if ((us_gpio.chip = gpiod_chip_open(us_gpio.path)) != NULL) {
+			_gpio_output_init(&us_gpio.prog_running);
+			_gpio_output_init(&us_gpio.stream_online);
+			_gpio_output_init(&us_gpio.has_http_clients);
 		} else {
-			LOG_PERROR("GPIO: Can't initialize chip device %s", gpio.path);
+			LOG_PERROR("GPIO: Can't initialize chip device %s", us_gpio.path);
 		}
 	}
 }
 
 void gpio_destroy(void) {
-	_gpio_output_destroy(&gpio.prog_running);
-	_gpio_output_destroy(&gpio.stream_online);
-	_gpio_output_destroy(&gpio.has_http_clients);
-	if (gpio.chip) {
-		gpiod_chip_close(gpio.chip);
-		gpio.chip = NULL;
-		A_MUTEX_DESTROY(&gpio.mutex);
+	_gpio_output_destroy(&us_gpio.prog_running);
+	_gpio_output_destroy(&us_gpio.stream_online);
+	_gpio_output_destroy(&us_gpio.has_http_clients);
+	if (us_gpio.chip) {
+		gpiod_chip_close(us_gpio.chip);
+		us_gpio.chip = NULL;
+		A_MUTEX_DESTROY(&us_gpio.mutex);
 	}
 }
 
 int gpio_inner_set(gpio_output_s *output, bool state) {
 	int retval = 0;
 
-	assert(gpio.chip);
+	assert(us_gpio.chip);
 	assert(output->line);
 	assert(output->state != state); // Must be checked in macro for the performance
-	A_MUTEX_LOCK(&gpio.mutex);
+	A_MUTEX_LOCK(&us_gpio.mutex);
 
 	if (gpiod_line_set_value(output->line, (int)state) < 0) { \
 		LOG_PERROR("GPIO: Can't write value %d to line %s (will be disabled)", state, output->consumer); \
@@ -94,18 +94,18 @@ int gpio_inner_set(gpio_output_s *output, bool state) {
 		retval = -1;
 	}
 
-	A_MUTEX_UNLOCK(&gpio.mutex);
+	A_MUTEX_UNLOCK(&us_gpio.mutex);
 	return retval;
 }
 
 static void _gpio_output_init(gpio_output_s *output) {
-	assert(gpio.chip);
+	assert(us_gpio.chip);
 	assert(output->line == NULL);
 
-	A_ASPRINTF(output->consumer, "%s::%s", gpio.consumer_prefix, output->role);
+	A_ASPRINTF(output->consumer, "%s::%s", us_gpio.consumer_prefix, output->role);
 
 	if (output->pin >= 0) {
-		if ((output->line = gpiod_chip_get_line(gpio.chip, output->pin)) != NULL) {
+		if ((output->line = gpiod_chip_get_line(us_gpio.chip, output->pin)) != NULL) {
 			if (gpiod_line_request_output(output->line, output->consumer, 0) < 0) {
 				LOG_PERROR("GPIO: Can't request pin=%d as %s", output->pin, output->consumer);
 				_gpio_output_destroy(output);

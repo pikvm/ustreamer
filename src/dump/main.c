@@ -128,12 +128,12 @@ int main(int argc, char *argv[]) {
 			case _O_OUTPUT:			OPT_SET(output_path, optarg);
 			case _O_OUTPUT_JSON:	OPT_SET(output_json, true);
 
-			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
-			case _O_PERF:				OPT_SET(log_level, LOG_LEVEL_PERF);
-			case _O_VERBOSE:			OPT_SET(log_level, LOG_LEVEL_VERBOSE);
-			case _O_DEBUG:				OPT_SET(log_level, LOG_LEVEL_DEBUG);
-			case _O_FORCE_LOG_COLORS:	OPT_SET(log_colored, true);
-			case _O_NO_LOG_COLORS:		OPT_SET(log_colored, false);
+			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", us_log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
+			case _O_PERF:				OPT_SET(us_log_level, LOG_LEVEL_PERF);
+			case _O_VERBOSE:			OPT_SET(us_log_level, LOG_LEVEL_VERBOSE);
+			case _O_DEBUG:				OPT_SET(us_log_level, LOG_LEVEL_DEBUG);
+			case _O_FORCE_LOG_COLORS:	OPT_SET(us_log_colored, true);
+			case _O_NO_LOG_COLORS:		OPT_SET(us_log_colored, false);
 
 			case _O_HELP:		_help(stdout); return 0;
 			case _O_VERSION:	puts(VERSION); return 0;
@@ -287,7 +287,7 @@ static void _help(FILE *fp) {
 	SAY("    --log-level <N>  ──── Verbosity level of messages from 0 (info) to 3 (debug).");
 	SAY("                          Enabling debugging messages can slow down the program.");
 	SAY("                          Available levels: 0 (info), 1 (performance), 2 (verbose), 3 (debug).");
-	SAY("                          Default: %d.\n", log_level);
+	SAY("                          Default: %d.\n", us_log_level);
 	SAY("    --perf  ───────────── Enable performance messages (same as --log-level=1). Default: disabled.\n");
 	SAY("    --verbose  ────────── Enable verbose messages and lower (same as --log-level=2). Default: disabled.\n");
 	SAY("    --debug  ──────────── Enable debug messages and lower (same as --log-level=3). Default: disabled.\n");

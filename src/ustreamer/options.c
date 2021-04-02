@@ -440,11 +440,11 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 #			undef ADD_SINK
 
 #			ifdef WITH_GPIO
-			case _O_GPIO_DEVICE:			OPT_SET(gpio.path, optarg);
-			case _O_GPIO_CONSUMER_PREFIX:	OPT_SET(gpio.consumer_prefix, optarg);
-			case _O_GPIO_PROG_RUNNING:		OPT_NUMBER("--gpio-prog-running", gpio.prog_running.pin, 0, 256, 0);
-			case _O_GPIO_STREAM_ONLINE:		OPT_NUMBER("--gpio-stream-online", gpio.stream_online.pin, 0, 256, 0);
-			case _O_GPIO_HAS_HTTP_CLIENTS:	OPT_NUMBER("--gpio-has-http-clients", gpio.has_http_clients.pin, 0, 256, 0);
+			case _O_GPIO_DEVICE:			OPT_SET(us_gpio.path, optarg);
+			case _O_GPIO_CONSUMER_PREFIX:	OPT_SET(us_gpio.consumer_prefix, optarg);
+			case _O_GPIO_PROG_RUNNING:		OPT_NUMBER("--gpio-prog-running", us_gpio.prog_running.pin, 0, 256, 0);
+			case _O_GPIO_STREAM_ONLINE:		OPT_NUMBER("--gpio-stream-online", us_gpio.stream_online.pin, 0, 256, 0);
+			case _O_GPIO_HAS_HTTP_CLIENTS:	OPT_NUMBER("--gpio-has-http-clients", us_gpio.has_http_clients.pin, 0, 256, 0);
 #			endif
 
 #			ifdef HAS_PDEATHSIG
@@ -459,12 +459,12 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 #			endif
 			case _O_NOTIFY_PARENT:			OPT_SET(server->notify_parent, true);
 
-			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
-			case _O_PERF:				OPT_SET(log_level, LOG_LEVEL_PERF);
-			case _O_VERBOSE:			OPT_SET(log_level, LOG_LEVEL_VERBOSE);
-			case _O_DEBUG:				OPT_SET(log_level, LOG_LEVEL_DEBUG);
-			case _O_FORCE_LOG_COLORS:	OPT_SET(log_colored, true);
-			case _O_NO_LOG_COLORS:		OPT_SET(log_colored, false);
+			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", us_log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
+			case _O_PERF:				OPT_SET(us_log_level, LOG_LEVEL_PERF);
+			case _O_VERBOSE:			OPT_SET(us_log_level, LOG_LEVEL_VERBOSE);
+			case _O_DEBUG:				OPT_SET(us_log_level, LOG_LEVEL_DEBUG);
+			case _O_FORCE_LOG_COLORS:	OPT_SET(us_log_colored, true);
+			case _O_NO_LOG_COLORS:		OPT_SET(us_log_colored, false);
 
 			case _O_HELP:		_help(stdout, dev, enc, stream, server); return 1;
 			case _O_VERSION:	puts(VERSION); return 1;
@@ -679,8 +679,8 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 #	ifdef WITH_GPIO
 	SAY("GPIO options:");
 	SAY("═════════════");
-	SAY("    --gpio-device </dev/path>  ───── Path to GPIO character device. Default: %s.\n", gpio.path);
-	SAY("    --gpio-consumer-prefix <str>  ── Consumer prefix for GPIO outputs. Default: %s.\n", gpio.consumer_prefix);
+	SAY("    --gpio-device </dev/path>  ───── Path to GPIO character device. Default: %s.\n", us_gpio.path);
+	SAY("    --gpio-consumer-prefix <str>  ── Consumer prefix for GPIO outputs. Default: %s.\n", us_gpio.consumer_prefix);
 	SAY("    --gpio-prog-running <pin>  ───── Set 1 on GPIO pin while uStreamer is running. Default: disabled.\n");
 	SAY("    --gpio-stream-online <pin>  ──── Set 1 while streaming. Default: disabled.\n");
 	SAY("    --gpio-has-http-clients <pin>  ─ Set 1 while stream has at least one client. Default: disabled.\n");
@@ -703,7 +703,7 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("    --log-level <N>  ──── Verbosity level of messages from 0 (info) to 3 (debug).");
 	SAY("                          Enabling debugging messages can slow down the program.");
 	SAY("                          Available levels: 0 (info), 1 (performance), 2 (verbose), 3 (debug).");
-	SAY("                          Default: %d.\n", log_level);
+	SAY("                          Default: %d.\n", us_log_level);
 	SAY("    --perf  ───────────── Enable performance messages (same as --log-level=1). Default: disabled.\n");
 	SAY("    --verbose  ────────── Enable verbose messages and lower (same as --log-level=2). Default: disabled.\n");
 	SAY("    --debug  ──────────── Enable debug messages and lower (same as --log-level=3). Default: disabled.\n");

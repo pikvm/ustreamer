@@ -23,8 +23,8 @@
 #include "logging.h"
 
 
-enum log_level_t log_level;
+enum log_level_t us_log_level;
 
-bool log_colored;
+bool us_log_colored;
 
-pthread_mutex_t log_mutex;
+pthread_mutex_t us_log_mutex;
