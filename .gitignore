@@ -13,4 +13,4 @@
 /config.mk
 /vgcore.*
 /*.sock
-*.so
+/*.so
