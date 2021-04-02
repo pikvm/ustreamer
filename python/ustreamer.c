@@ -41,7 +41,7 @@ typedef struct {
 
 static void MemsinkObject_destroy_internals(MemsinkObject *self) {
 	if (self->mem != NULL) {
-		munmap(self->mem, sizeof(memsink_shared_s));
+		memsink_shared_unmap(self->mem);
 		self->mem = NULL;
 	}
 	if (self->fd > 0) {

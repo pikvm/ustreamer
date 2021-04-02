@@ -77,3 +77,8 @@ INLINE memsink_shared_s *memsink_shared_map(int fd) {
 	assert(mem != NULL);
 	return mem;
 }
+
+INLINE int memsink_shared_unmap(memsink_shared_s *mem) {
+	assert(mem != NULL);
+	return munmap(mem, sizeof(memsink_shared_s));
+}

@@ -68,7 +68,7 @@ memsink_s *memsink_init(
 
 void memsink_destroy(memsink_s *sink) {
 	if (sink->mem != MAP_FAILED) {
-		if (munmap(sink->mem, sizeof(memsink_shared_s)) < 0) {
+		if (memsink_shared_unmap(sink->mem) < 0) {
 			LOG_PERROR("%s-sink: Can't unmap shared memory", sink->name);
 		}
 	}
