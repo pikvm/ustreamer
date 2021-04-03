@@ -28,8 +28,6 @@ all:
 	+ make apps
 ifneq ($(call optbool,$(WITH_PYTHON)),)
 	+ make python
-else
-	@ true
 endif
 
 
