@@ -25,27 +25,27 @@ endef
 
 # =====
 all:
-	+ make apps
+	+ $(MAKE) apps
 ifneq ($(call optbool,$(WITH_PYTHON)),)
-	+ make python
+	+ $(MAKE) python
 endif
 
 
 apps:
-	make -C src
+	$(MAKE) -C src
 	@ ln -sf src/ustreamer.bin ustreamer
 	@ ln -sf src/ustreamer-dump.bin ustreamer-dump
 
 
 python:
-	make -C python
+	$(MAKE) -C python
 	@ ln -sf python/build/lib.*/*.so .
 
 
 install: all
-	make -C src install
+	$(MAKE) -C src install
 ifneq ($(call optbool,$(WITH_PYTHON)),)
-	make -C python install
+	$(MAKE) -C python install
 endif
 	mkdir -p $(DESTDIR)$(MANPREFIX)/man1
 	for man in $(shell ls man); do \
@@ -55,21 +55,21 @@ endif
 
 
 install-strip: install
-	make -C src install-strip
+	$(MAKE) -C src install-strip
 
 
 regen:
-	tools/make-jpeg-h.py src/ustreamer/data/blank.jpeg src/ustreamer/data/blank_jpeg.c BLANK
-	tools/make-html-h.py src/ustreamer/data/index.html src/ustreamer/data/index_html.c INDEX
+	tools/$(MAKE)-jpeg-h.py src/ustreamer/data/blank.jpeg src/ustreamer/data/blank_jpeg.c BLANK
+	tools/$(MAKE)-html-h.py src/ustreamer/data/index.html src/ustreamer/data/index_html.c INDEX
 
 
 release:
-	make clean
-	make tox
-	make push
-	make bump V=$(V)
-	make push
-	make clean
+	$(MAKE) clean
+	$(MAKE) tox
+	$(MAKE) push
+	$(MAKE) bump V=$(V)
+	$(MAKE) push
+	$(MAKE) clean
 
 
 tox: linters
@@ -108,8 +108,8 @@ clean-all: linters clean
 clean:
 	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.{xz,zst}
 	rm -f ustreamer ustreamer-dump *.so
-	make -C src clean
-	make -C python clean
+	$(MAKE) -C src clean
+	$(MAKE) -C python clean
 
 
 .PHONY: python linters
