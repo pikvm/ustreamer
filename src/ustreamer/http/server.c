@@ -342,6 +342,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		encoder_type_to_string(enc_type),
 		enc_quality
 	));
+
 #	ifdef WITH_OMX
 	if (STREAM(run->h264)) {
 		assert(evbuffer_add_printf(buf,
@@ -352,6 +353,32 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		));
 	}
 #	endif
+
+	if (
+		STREAM(sink)
+#	ifdef WITH_OMX
+		|| STREAM(h264_sink)
+#	endif
+	) {
+		assert(evbuffer_add_printf(buf, " \"sinks\": {"));
+		if (STREAM(sink)) {
+			assert(evbuffer_add_printf(buf,
+				"\"jpeg\": {\"has_clients\": %s}",
+				bool_to_string(atomic_load(&STREAM(sink->has_clients)))
+			));
+		}
+#	ifdef WITH_OMX
+		if (STREAM(h264_sink)) {
+			assert(evbuffer_add_printf(buf,
+				"%s\"h264\": {\"has_clients\": %s}",
+				(STREAM(sink) ? ", " : ""),
+				bool_to_string(atomic_load(&STREAM(h264_sink->has_clients)))
+			));
+		}
+#	endif
+		assert(evbuffer_add_printf(buf, "},"));
+	}
+
 	assert(evbuffer_add_printf(buf,
 		" \"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
 		" \"online\": %s, \"desired_fps\": %u, \"captured_fps\": %u},"

@@ -24,6 +24,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -51,7 +52,7 @@ typedef struct {
 	int					fd;
 	memsink_shared_s	*mem;
 	uint64_t			last_id;
-	bool				has_clients; // Only for server
+	atomic_bool			has_clients; // Only for server
 } memsink_s;
 
 

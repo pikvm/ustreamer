@@ -37,6 +37,7 @@ memsink_s *memsink_init(
 	sink->timeout = timeout;
 	sink->fd = -1;
 	sink->mem = MAP_FAILED;
+	atomic_init(&sink->has_clients, false);
 
 	LOG_INFO("Using %s-sink: %s", name, obj);
 
@@ -92,16 +93,16 @@ bool memsink_server_check(memsink_s *sink, const frame_s *frame) {
 
 	if (flock(sink->fd, LOCK_EX | LOCK_NB) < 0) {
 		if (errno == EWOULDBLOCK) {
-			sink->has_clients = true;
+			atomic_store(&sink->has_clients, true);
 			return true;
 		}
 		LOG_PERROR("%s-sink: Can't lock memory", sink->name);
 		return false;
 	}
 
-	sink->has_clients = (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic());
+	atomic_store(&sink->has_clients, (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic()));
 
-	bool retval = (sink->has_clients || !FRAME_COMPARE_META_USED_NOTS(sink->mem, frame));
+	bool retval = (atomic_load(&sink->has_clients) || !FRAME_COMPARE_META_USED_NOTS(sink->mem, frame));
 
 	if (flock(sink->fd, LOCK_UN) < 0) {
 		LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
@@ -133,7 +134,7 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 
 		sink->mem->magic = MEMSINK_MAGIC;
 		sink->mem->version = MEMSINK_VERSION;
-		sink->has_clients = (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic());
+		atomic_store(&sink->has_clients, (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic()));
 
 		if (flock(sink->fd, LOCK_UN) < 0) {
 			LOG_PERROR("%s-sink: Can't unlock memory", sink->name);

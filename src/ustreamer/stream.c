@@ -136,9 +136,9 @@ void stream_loop(stream_s *stream) {
 					&& !atomic_load(&RUN(stop))
 					&& !atomic_load(&RUN(video->has_clients))
 					// has_clients синков НЕ обновляются в реальном времени
-					&& (stream->sink == NULL || !stream->sink->has_clients)
+					&& (stream->sink == NULL || !atomic_load(&stream->sink->has_clients))
 #					ifdef WITH_OMX
-					&& (RUN(h264) == NULL || /*RUN(h264->sink) == NULL ||*/ !RUN(h264->sink->has_clients))
+					&& (RUN(h264) == NULL || /*RUN(h264->sink) == NULL ||*/ !atomic_load(&RUN(h264->sink->has_clients)))
 #					endif
 				) {
 					usleep(100000);
