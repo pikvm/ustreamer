@@ -18,8 +18,8 @@ if __name__ == "__main__":
                 "ustreamer",
                 libraries=["rt", "m", "pthread"],
                 undef_macros=["NDEBUG"],
-                sources=[name for name in os.listdir(".") if name.endswith(".c")],
-                depends=[name for name in os.listdir(".") if name.endswith(".h")],
+                sources=["src/" + name for name in os.listdir("src") if name.endswith(".c")],
+                depends=["src/" + name for name in os.listdir("src") if name.endswith(".h")],
             ),
         ],
     )
