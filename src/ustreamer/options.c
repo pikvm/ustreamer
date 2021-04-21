@@ -72,6 +72,7 @@ enum _OPT_VALUES {
 	_O_WHITE_BALANCE,
 	_O_GAIN,
 	_O_COLOR_EFFECT,
+	_O_ROTATE,
 	_O_FLIP_VERTICAL,
 	_O_FLIP_HORIZONTAL,
 
@@ -158,6 +159,7 @@ static const struct option _LONG_OPTS[] = {
 	{"white-balance",			required_argument,	NULL,	_O_WHITE_BALANCE},
 	{"gain",					required_argument,	NULL,	_O_GAIN},
 	{"color-effect",			required_argument,	NULL,	_O_COLOR_EFFECT},
+	{"rotate",				required_argument,	NULL,	_O_ROTATE},
 	{"flip-vertical",			required_argument,	NULL,	_O_FLIP_VERTICAL},
 	{"flip-horizontal",			required_argument,	NULL,	_O_FLIP_HORIZONTAL},
 
@@ -394,6 +396,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 				OPT_CTL_DEFAULT_NOBREAK(white_balance);
 				OPT_CTL_DEFAULT_NOBREAK(gain);
 				OPT_CTL_DEFAULT_NOBREAK(color_effect);
+				OPT_CTL_DEFAULT_NOBREAK(rotate);
 				OPT_CTL_DEFAULT_NOBREAK(flip_vertical);
 				OPT_CTL_DEFAULT_NOBREAK(flip_horizontal);
 				break;
@@ -407,6 +410,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			case _O_WHITE_BALANCE:			OPT_CTL_AUTO(white_balance);
 			case _O_GAIN:					OPT_CTL_AUTO(gain);
 			case _O_COLOR_EFFECT:			OPT_CTL_MANUAL(color_effect);
+			case _O_ROTATE:			 	OPT_CTL_MANUAL(rotate);
 			case _O_FLIP_VERTICAL:			OPT_CTL_MANUAL(flip_vertical);
 			case _O_FLIP_HORIZONTAL:		OPT_CTL_MANUAL(flip_horizontal);
 
@@ -637,6 +641,7 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("    --white-balance <N|auto|default>  ───── Set white balance. Default: no change.\n");
 	SAY("    --gain <N|auto|default>  ────────────── Set gain. Default: no change.\n");
 	SAY("    --color-effect <N|default>  ─────────── Set color effect. Default: no change.\n");
+	SAY("    --rotate <N|default>  ───────────────── Set rotation. Default: no change.\n");
 	SAY("    --flip-vertical <1|0|default>  ──────── Set vertical flip. Default: no change.\n");
 	SAY("    --flip-horizontal <1|0|default>  ────── Set horizontal flip. Default: no change.\n");
 	SAY("    Hint: use v4l2-ctl --list-ctrls-menus to query available controls of the device.\n");
