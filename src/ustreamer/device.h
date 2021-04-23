@@ -122,6 +122,7 @@ typedef struct {
 	control_s white_balance;
 	control_s gain;
 	control_s color_effect;
+	control_s rotate;
 	control_s flip_vertical;
 	control_s flip_horizontal;
 } controls_s;
