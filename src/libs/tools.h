@@ -110,10 +110,14 @@ INLINE long double get_now_monotonic(void) {
 	return (long double)sec + ((long double)msec) / 1000;
 }
 
-INLINE uint64_t get_now_id(void) {
+INLINE uint64_t get_now_monotonic_u64(void) {
 	struct timespec ts;
 	assert(!clock_gettime(X_CLOCK_MONOTONIC, &ts));
-	uint64_t now = (uint64_t)(ts.tv_nsec / 1000) + (uint64_t)ts.tv_sec * 1000000;
+	return (uint64_t)(ts.tv_nsec / 1000) + (uint64_t)ts.tv_sec * 1000000;
+}
+
+INLINE uint64_t get_now_id(void) {
+	uint64_t now = get_now_monotonic_u64();
 	return (uint64_t)triple_u32(now) | ((uint64_t)triple_u32(now + 12345) << 32);
 }
 
