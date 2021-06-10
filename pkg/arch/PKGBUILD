@@ -27,6 +27,8 @@ if [ -e /opt/vc/include/IL/OMX_Core.h ]; then
 	_options="$_options WITH_OMX=1"
 fi
 if [ -e /usr/include/janus/plugins/plugin.h ];then
+	depends+=(janus-gateway-pikvm)
+	makedepends+=(janus-gateway-pikvm)
 	_options="$_options WITH_JANUS=1"
 fi
 
