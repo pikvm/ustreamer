@@ -8,7 +8,7 @@ from distutils.core import setup
 if __name__ == "__main__":
     setup(
         name="ustreamer",
-        version="4.0",
+        version="4.1",
         description="uStreamer tools",
         author="Maxim Devaev",
         author_email="mdevaev@gmail.com",
