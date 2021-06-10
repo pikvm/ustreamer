@@ -26,6 +26,9 @@ if [ -e /opt/vc/include/IL/OMX_Core.h ]; then
 	makedepends+=(raspberrypi-firmware)
 	_options="$_options WITH_OMX=1"
 fi
+if [ -e /usr/include/janus/plugins/plugin.h ];then
+	_options="$_options WITH_JANUS=1"
+fi
 
 
 # LD does not link mmal with this option
