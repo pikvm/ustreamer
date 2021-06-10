@@ -55,7 +55,7 @@ install: all
 ifneq ($(call optbool,$(WITH_PYTHON)),)
 	$(MAKE) -C python install
 endif
-ifneq ($(call optbool,$(WITH_PYTHON)),)
+ifneq ($(call optbool,$(WITH_JANUS)),)
 	$(MAKE) -C janus install
 endif
 	mkdir -p $(DESTDIR)$(MANPREFIX)/man1
