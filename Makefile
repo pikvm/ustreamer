@@ -29,6 +29,9 @@ all:
 ifneq ($(call optbool,$(WITH_PYTHON)),)
 	+ $(MAKE) python
 endif
+ifneq ($(call optbool,$(WITH_JANUS)),)
+	+ $(MAKE) janus
+endif
 
 
 apps:
@@ -42,10 +45,18 @@ python:
 	@ ln -sf python/build/lib.*/*.so .
 
 
+janus:
+	$(MAKE) -C janus
+	@ ln -sf janus/*.so .
+
+
 install: all
 	$(MAKE) -C src install
 ifneq ($(call optbool,$(WITH_PYTHON)),)
 	$(MAKE) -C python install
+endif
+ifneq ($(call optbool,$(WITH_PYTHON)),)
+	$(MAKE) -C janus install
 endif
 	mkdir -p $(DESTDIR)$(MANPREFIX)/man1
 	for man in $(shell ls man); do \
@@ -110,6 +121,7 @@ clean:
 	rm -f ustreamer ustreamer-dump *.so
 	$(MAKE) -C src clean
 	$(MAKE) -C python clean
+	$(MAKE) -C janus clean
 
 
-.PHONY: python linters
+.PHONY: python janus linters

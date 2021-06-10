@@ -8,6 +8,7 @@
 /src/build/
 /src/*.bin
 /python/build/
+/janus/build/
 /ustreamer
 /ustreamer-dump
 /config.mk
