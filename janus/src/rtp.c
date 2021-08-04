@@ -30,7 +30,7 @@
 #define PRE 3 // Annex B prefix length
 
 
-void _rtp_process_nalu(rtp_s *rtp, const uint8_t *data, size_t size, uint32_t pts, rtp_callback_f callback);
+void _rtp_process_nalu(rtp_s *rtp, const uint8_t *data, size_t size, uint32_t pts, bool marked, rtp_callback_f callback);
 static void _rtp_write_header(rtp_s *rtp, uint32_t pts, bool marked);
 
 static ssize_t _find_annexb(const uint8_t *data, size_t size);
@@ -118,7 +118,7 @@ void rtp_wrap_h264(rtp_s *rtp, const frame_s *frame, rtp_callback_f callback) {
 			if (data[size - 1] == 0) { // Check for extra 00
 				--size;
 			}
-			_rtp_process_nalu(rtp, data, size, pts, callback);
+			_rtp_process_nalu(rtp, data, size, pts, false, callback);
 		}
 
 		last_offset = offset;
@@ -127,18 +127,16 @@ void rtp_wrap_h264(rtp_s *rtp, const frame_s *frame, rtp_callback_f callback) {
 	if (last_offset >= 0) {
 		const uint8_t *data = frame->data + last_offset + PRE;
 		size_t size = frame->used - last_offset - PRE;
-		_rtp_process_nalu(rtp, data, size, pts, callback);
+		_rtp_process_nalu(rtp, data, size, pts, true, callback);
 	}
 }
 
-void _rtp_process_nalu(rtp_s *rtp, const uint8_t *data, size_t size, uint32_t pts, rtp_callback_f callback) {
+void _rtp_process_nalu(rtp_s *rtp, const uint8_t *data, size_t size, uint32_t pts, bool marked, rtp_callback_f callback) {
 	const unsigned ref_idc = (data[0] >> 5) & 3;
 	const unsigned type = data[0] & 0x1F;
 
-	bool marked = false; // M=1 if this is an access unit
 	frame_s *ps = NULL;
 	switch (type) {
-		case 1 ... 5: marked = true; break;
 		case 7: ps = rtp->sps; break;
 		case 8: ps = rtp->pps; break;
 	}
