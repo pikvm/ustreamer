@@ -59,6 +59,24 @@ memsink_s *memsink_init(
 		LOG_PERROR("%s-sink: Can't mmap shared memory", name);
 		goto error;
 	}
+    if (server)
+    {
+        if (flock_timedwait_monotonic(sink->fd, 1) == 0) {
+            sink->mem->magic = MEMSINK_MAGIC;
+            sink->mem->version = MEMSINK_VERSION;
+            sink->mem->read_by_client = false;
+            sink->mem->last_client_ts = get_now_monotonic()-sink->client_ttl;
+            if (flock(sink->fd, LOCK_UN) < 0) {
+                LOG_PERROR("%s-sink: Can't initialize sink for server", name);
+                goto error;
+            }
+        }
+        else
+        {
+            LOG_PERROR("%s-sink: Can't initialize sink for server", name);
+            goto error;
+        }
+    }
 
 	return sink;
 
@@ -122,34 +140,45 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 		return 0; // -2
 	}
 
-	if (flock_timedwait_monotonic(sink->fd, 1) == 0) {
-		LOG_VERBOSE("%s-sink: >>>>> Exposing new frame ...", sink->name);
-
-		sink->last_id = get_now_id();
-		sink->mem->id = sink->last_id;
-
-		memcpy(sink->mem->data, frame->data, frame->used);
-		sink->mem->used = frame->used;
-		FRAME_COPY_META(frame, sink->mem);
-
-		sink->mem->magic = MEMSINK_MAGIC;
-		sink->mem->version = MEMSINK_VERSION;
-		atomic_store(&sink->has_clients, (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic()));
-
-		if (flock(sink->fd, LOCK_UN) < 0) {
-			LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
-			return -1;
-		}
-		LOG_VERBOSE("%s-sink: Exposed new frame; full exposition time = %.3Lf",
-			sink->name, get_now_monotonic() - now);
-
-	} else if (errno == EWOULDBLOCK) {
-		LOG_VERBOSE("%s-sink: ===== Shared memory is busy now; frame skipped", sink->name);
-
-	} else {
-		LOG_PERROR("%s-sink: Can't lock memory", sink->name);
-		return -1;
-	}
+    bool frame_exposed = false;
+    while (!frame_exposed)
+    {
+        if (flock_timedwait_monotonic(sink->fd, 1) == 0) {
+            atomic_store(&sink->has_clients, (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic()));
+            if (!atomic_load(&sink->has_clients) || sink->mem->read_by_client)
+            {
+                LOG_VERBOSE("%s-sink: >>>>> Exposing new frame ...", sink->name);
+                sink->last_id = get_now_id();
+                sink->mem->id = sink->last_id;
+                LOG_INFO("sink->mem->id %" PRIu64"", sink->mem->id);
+                sink->mem->read_by_client=false;
+                memcpy(sink->mem->data, frame->data, frame->used);
+                sink->mem->used = frame->used;
+                FRAME_COPY_META(frame, sink->mem);
+                frame_exposed = true;
+            }
+            if (flock(sink->fd, LOCK_UN) < 0) {
+                LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
+                return -1;
+            }
+            if (!frame_exposed)
+            {
+                LOG_VERBOSE("%s-sink: Could not expose frame; will sleep and try again",sink->name);
+                usleep(1000);
+            }
+            else
+            {
+                LOG_VERBOSE("%s-sink: Exposed new frame; full exposition time = %.3Lf",
+                    sink->name, get_now_monotonic() - now);
+            }
+        } else if (errno == EWOULDBLOCK) {
+            LOG_VERBOSE("%s-sink: ===== Shared memory is busy now; frame skipped", sink->name);
+            break;
+        } else {
+            LOG_PERROR("%s-sink: Can't lock memory", sink->name);
+            return -1;
+        }
+    }
 	return 0;
 }
 
@@ -179,6 +208,7 @@ int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress u
 			retval = 0;
 		}
 		sink->mem->last_client_ts = get_now_monotonic();
+		sink->mem->read_by_client=true;
 	}
 
 	done:

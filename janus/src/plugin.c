@@ -182,6 +182,7 @@ static int _get_frame(int fd, memsink_shared_s *mem, frame_s *frame, uint64_t *f
 	FRAME_COPY_META(mem, frame);
 	*frame_id = mem->id;
 	mem->last_client_ts = get_now_monotonic();
+    mem->read_by_client = true;
 	int retval = 0;
 	if (frame->format != V4L2_PIX_FMT_H264) {
 		JLOG_ERROR("Got non-H264 frame from memsink");
