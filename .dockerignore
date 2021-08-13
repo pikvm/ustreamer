@@ -4,3 +4,6 @@
 # Allow source code
 !Makefile
 !src/**
+!python/**
+!janus/**
+!man/**
