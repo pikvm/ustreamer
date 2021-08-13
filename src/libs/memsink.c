@@ -87,7 +87,11 @@ void memsink_destroy(memsink_s *sink) {
 }
 
 bool memsink_server_check(memsink_s *sink, const frame_s *frame) {
-	// Возвращает true, если есть клиенты ИЛИ изменились метаданные
+	// Return true (the need to write to memsink) on any of these conditions:
+	//   - EWOULDBLOCK - we have an active client;
+	//   - Incorrect magic or version - need to first write;
+	//   - We have some active clients by last_client_ts;
+	//   - Frame meta differs (like size, format, but not timestamp).
 
 	assert(sink->server);
 
@@ -100,15 +104,18 @@ bool memsink_server_check(memsink_s *sink, const frame_s *frame) {
 		return false;
 	}
 
-	atomic_store(&sink->has_clients, (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic()));
+	if (sink->mem->magic != MEMSINK_MAGIC || sink->mem->version != MEMSINK_VERSION) {
+		return true;
+	}
 
-	bool retval = (atomic_load(&sink->has_clients) || !FRAME_COMPARE_META_USED_NOTS(sink->mem, frame));
+	bool has_clients = (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic());
+	atomic_store(&sink->has_clients, has_clients);
 
 	if (flock(sink->fd, LOCK_UN) < 0) {
 		LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
 		return false;
 	}
-	return retval;
+	return (has_clients || !FRAME_COMPARE_META_USED_NOTS(sink->mem, frame));;
 }
 
 int memsink_server_put(memsink_s *sink, const frame_s *frame) {
