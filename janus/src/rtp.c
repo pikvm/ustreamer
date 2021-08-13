@@ -99,6 +99,9 @@ char *rtp_make_sdp(rtp_s *rtp) {
 }
 
 void rtp_wrap_h264(rtp_s *rtp, const frame_s *frame, rtp_callback_f callback) {
+	// There is a complicated logic here but everything works as it should:
+	//   - https://github.com/pikvm/ustreamer/issues/115#issuecomment-893071775
+
 	assert(frame->format == V4L2_PIX_FMT_H264);
 
 	const uint32_t pts = get_now_monotonic_u64() * 9 / 100; // PTS units are in 90 kHz
