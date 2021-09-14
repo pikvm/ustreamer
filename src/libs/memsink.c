@@ -138,10 +138,28 @@ int memsink_server_put(memsink_s *sink, const frame_s *frame) {
 		memcpy(sink->mem->data, frame->data, frame->used);
 		sink->mem->used = frame->used;
 		FRAME_COPY_META(frame, sink->mem);
-
-		sink->mem->magic = MEMSINK_MAGIC;
-		sink->mem->version = MEMSINK_VERSION;
-		atomic_store(&sink->has_clients, (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic()));
+		bool has_clients = false;
+		if (sink->mem->magic != MEMSINK_MAGIC || sink->mem->version != MEMSINK_VERSION) {
+			sink->mem->magic = MEMSINK_MAGIC;
+			sink->mem->version = MEMSINK_VERSION;
+			sink->mem->last_client_ts = now;
+			sink->mem->last_server_ts = now;
+			sink->mem->last_server_missed = false;
+			has_clients = true;
+		}
+		else {
+			has_clients = (sink->mem->last_client_ts + sink->client_ttl > now);
+		}
+		atomic_store(&sink->has_clients, has_clients);
+		bool prev_last_server_missed = sink->mem->last_server_missed;
+		sink->mem->last_server_missed = sink->mem->last_server_ts > sink->mem->last_client_ts;
+		//To avoid spamming the log, only print out on the first server write missed, and only
+		//if there are clients.
+		if (has_clients && !prev_last_server_missed && sink->mem->last_server_missed)
+		{
+			LOG_INFO("Sink has_clients but write without previous value being read. Should only happen when last client expiring.");
+		}
+		sink->mem->last_server_ts = now;
 
 		if (flock(sink->fd, LOCK_UN) < 0) {
 			LOG_PERROR("%s-sink: Can't unlock memory", sink->name);

@@ -36,13 +36,14 @@
 #include <jansson.h>
 #include <janus/config.h>
 #include <janus/plugins/plugin.h>
+#include <janus/utils.h>
 
 #include "config.h"
 #include "tools.h"
 #include "threading.h"
 #include "list.h"
 #include "memsinksh.h"
-
+#include "c-ringbuf/ringbuf.h"
 #include "rtp.h"
 
 
@@ -107,19 +108,27 @@ typedef struct _client_sx {
 
 
 static char				*_g_memsink_obj = NULL;
+static uint32_t			_g_relay_buffer_size = 0;
 const long double		_g_wait_timeout = 1;
 const long double		_g_lock_timeout = 1;
 const useconds_t		_g_lock_polling = 1000;
+const useconds_t		_g_relay_polling = 1000;
 const useconds_t		_g_watchers_polling = 100000;
 
 static _client_s		*_g_clients = NULL;
 static janus_callbacks	*_g_gw = NULL;
 static rtp_s			*_g_rtp = NULL;
+static ringbuf_t		_g_relay_ringbuf = NULL;
+static uint32_t			_g_relay_ringbuf_frame_count = 0;
 
 static pthread_t		_g_tid;
+static pthread_t		_g_relay_tid;
 static pthread_mutex_t	_g_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t	_g_relay_lock = PTHREAD_MUTEX_INITIALIZER;
 static atomic_bool		_g_ready = ATOMIC_VAR_INIT(false);
+static atomic_bool		_g_relay_ready = ATOMIC_VAR_INIT(false);
 static atomic_bool		_g_stop = ATOMIC_VAR_INIT(false);
+static atomic_bool		_g_relay_stop = ATOMIC_VAR_INIT(false);
 static atomic_bool		_g_has_watchers = ATOMIC_VAR_INIT(false);
 
 
@@ -134,9 +143,13 @@ static atomic_bool		_g_has_watchers = ATOMIC_VAR_INIT(false);
 	}
 
 #define LOCK			A_MUTEX_LOCK(&_g_lock)
+#define RELAY_LOCK		A_MUTEX_LOCK(&_g_relay_lock)
 #define UNLOCK			A_MUTEX_UNLOCK(&_g_lock)
+#define RELAY_UNLOCK	A_MUTEX_UNLOCK(&_g_relay_lock)
 #define READY			atomic_load(&_g_ready)
+#define RELAY_READY		atomic_load(&_g_relay_ready)
 #define STOP			atomic_load(&_g_stop)
+#define RELAY_STOP		atomic_load(&_g_relay_stop)
 #define HAS_WATCHERS	atomic_load(&_g_has_watchers)
 
 
@@ -152,6 +165,92 @@ static void _relay_rtp_clients(const uint8_t *datagram, size_t size) {
 			_g_gw->relay_rtp(client->session, &packet);
 		}
 	});
+}
+
+static void _rtp_wrap_h264(const frame_s *frame, bool push_to_thread) {
+	if (!push_to_thread){
+		rtp_wrap_h264(_g_rtp, frame, _relay_rtp_clients);
+	}
+	else {
+		bool sent_to_other_thread = false;
+		while (!sent_to_other_thread) {
+			size_t size = frame->used;
+			RELAY_LOCK;
+			if (size + sizeof(size_t) <= ringbuf_bytes_free(_g_relay_ringbuf)) {
+				ringbuf_memcpy_into(_g_relay_ringbuf, &size, sizeof(size_t));
+				ringbuf_memcpy_into(_g_relay_ringbuf, frame->data, size);
+				sent_to_other_thread = true;
+				_g_relay_ringbuf_frame_count++;
+				RELAY_UNLOCK;
+			}
+			else{
+				RELAY_UNLOCK;
+				JLOG_WARN("Relay buffer does not have room for message of size %zu", size);
+				usleep(_g_relay_polling);
+			}
+		}
+	}
+}
+
+static void *_relay_thread(UNUSED void *arg) {
+	JLOG_INFO("Starting relay thread");
+	A_THREAD_RENAME("us_relay");
+	atomic_store(&_g_relay_ready, true);
+	bool reading_size = true;
+	size_t entry_size = 0;
+	frame_s *frame = frame_init();
+	frame->format = V4L2_PIX_FMT_H264;
+	bool draining_for_backlog = false;
+	while (!RELAY_STOP) {
+		bool not_ready = false;
+		bool got_frame = false;
+		uint32_t updated_remaining_frame_count = 0;
+		RELAY_LOCK;
+		if (reading_size)
+		{
+			if (ringbuf_memcpy_from(&entry_size, _g_relay_ringbuf, sizeof(size_t)) != 0) {
+				reading_size = false;
+			}
+			else {
+				not_ready = true;
+			}
+		}
+		else
+		{
+			frame_realloc_data(frame, entry_size);
+			if (ringbuf_memcpy_from(frame->data, _g_relay_ringbuf, entry_size) != 0) {
+				frame->used = entry_size;
+				reading_size = true;
+				entry_size=0;
+				got_frame = true;
+				_g_relay_ringbuf_frame_count--;
+				if (_g_relay_ringbuf_frame_count > 50) {
+					draining_for_backlog = true;
+				}
+				if (_g_relay_ringbuf_frame_count < 5) {
+					draining_for_backlog = false;
+				}
+				updated_remaining_frame_count = _g_relay_ringbuf_frame_count;
+			}
+			else {
+				not_ready = true;
+			}
+		}
+		RELAY_UNLOCK;
+		if (got_frame) {
+			if (draining_for_backlog) {
+				JLOG_INFO("Buffer backed up. Will skip frames. Frame count %" PRIu32, updated_remaining_frame_count);
+			}
+			else {
+				_rtp_wrap_h264(frame, false);
+			}
+		}
+		if (not_ready) {
+			usleep(_g_relay_polling);
+		}
+	}
+	frame_destroy(frame);
+	return NULL;
 }
 
 static int _wait_frame(int fd, memsink_shared_s* mem, uint64_t last_id) {
@@ -236,17 +335,26 @@ static void *_clients_thread(UNUSED void *arg) {
 		error_reported = 0;
 
 		JLOG_INFO("Memsink opened; reading frames ...");
+		double max_elapsed = 0;
 		while (!STOP && HAS_WATCHERS) {
 			int result = _wait_frame(fd, mem, frame_id);
+			double start = get_now_monotonic();
 			if (result == 0) {
 				if (_get_frame(fd, mem, frame, &frame_id) != 0) {
 					goto close_memsink;
 				}
 				LOCK;
-				rtp_wrap_h264(_g_rtp, frame, _relay_rtp_clients);
+				_rtp_wrap_h264(frame, _g_relay_buffer_size != 0);
 				UNLOCK;
 			} else if (result == -1) {
 				goto close_memsink;
+			}
+			double end = get_now_monotonic();
+			double elapsed = end - start;
+			if (elapsed > max_elapsed)
+			{
+				max_elapsed = elapsed;
+				JLOG_INFO("New max_elapsed %lf",max_elapsed);
 			}
 		}
 
@@ -290,6 +398,15 @@ static int _read_config(const char *config_dir_path) {
 		goto error;
 	}
 	_g_memsink_obj = strdup(config_memsink_obj->value);
+	janus_config_item *config_memsink_relay_buffer_size = janus_config_get(
+		config, config_memsink, janus_config_type_item, "relay_buffer_size");
+	uint32_t parsed_relay_buffer_size = 0;
+	if (config_memsink_relay_buffer_size != NULL && config_memsink_relay_buffer_size->value != NULL &&
+		!janus_string_to_uint32(config_memsink_relay_buffer_size->value, &parsed_relay_buffer_size))
+	{
+		_g_relay_buffer_size = parsed_relay_buffer_size;
+	}
+	JLOG_INFO("Relay buffer size is %" PRIu32, _g_relay_buffer_size);
 
 	int retval = 0;
 	goto ok;
@@ -319,6 +436,11 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	_g_gw = gw;
 	_g_rtp = rtp_init();
 	A_THREAD_CREATE(&_g_tid, _clients_thread, NULL);
+	if (_g_relay_buffer_size > 0)
+	{
+		_g_relay_ringbuf = ringbuf_new(_g_relay_buffer_size);
+		A_THREAD_CREATE(&_g_relay_tid, _relay_thread, NULL);
+	}
 	return 0;
 }
 
@@ -328,7 +450,13 @@ static void _plugin_destroy(void) {
 	if (READY) {
 		A_THREAD_JOIN(_g_tid);
 	}
-
+	atomic_store(&_g_relay_stop, true);
+	if (RELAY_READY) {
+		A_THREAD_JOIN(_g_relay_tid);
+	}
+	if (_g_relay_ringbuf) {
+		ringbuf_free(&_g_relay_ringbuf);
+	}
 	LIST_ITERATE(_g_clients, client, {
 		LIST_REMOVE(_g_clients, client);
 		free(client);
