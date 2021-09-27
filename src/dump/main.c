@@ -25,6 +25,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <signal.h>
+#include <limits.h>
+#include <float.h>
 #include <getopt.h>
 #include <errno.h>
 #include <assert.h>
@@ -44,6 +46,8 @@ enum _OPT_VALUES {
 	_O_SINK_TIMEOUT = 't',
 	_O_OUTPUT = 'o',
 	_O_OUTPUT_JSON = 'j',
+	_O_COUNT = 'c',
+	_O_INTERVAL = 'i',
 
 	_O_HELP = 'h',
 	_O_VERSION = 'v',
@@ -61,6 +65,8 @@ static const struct option _LONG_OPTS[] = {
 	{"sink-timeout",		required_argument,	NULL,	_O_SINK_TIMEOUT},
 	{"output",				required_argument,	NULL,	_O_OUTPUT},
 	{"output-json",			no_argument,		NULL,	_O_OUTPUT_JSON},
+	{"count",				required_argument,	NULL,	_O_COUNT},
+	{"interval",			required_argument,	NULL,	_O_INTERVAL},
 
 	{"log-level",			required_argument,	NULL,	_O_LOG_LEVEL},
 	{"perf",				no_argument,		NULL,	_O_PERF},
@@ -89,7 +95,10 @@ typedef struct {
 static void _signal_handler(int signum);
 static void _install_signal_handlers(void);
 
-static int _dump_sink(const char *sink_name, unsigned sink_timeout, _output_context_s *ctx);
+static int _dump_sink(
+	const char *sink_name, unsigned sink_timeout,
+	long long count, long double interval,
+	_output_context_s *ctx);
 
 static void _help(FILE *fp);
 
@@ -102,6 +111,8 @@ int main(int argc, char *argv[]) {
 	unsigned sink_timeout = 1;
 	char *output_path = NULL;
 	bool output_json = false;
+	long long count = 0;
+	long double interval = 0;
 
 #	define OPT_SET(_dest, _value) { \
 			_dest = _value; \
@@ -118,6 +129,16 @@ int main(int argc, char *argv[]) {
 			break; \
 		}
 
+#	define OPT_LDOUBLE(_name, _dest, _min, _max) { \
+			errno = 0; char *_end = NULL; long double _tmp = strtold(optarg, &_end); \
+			if (errno || *_end || _tmp < _min || _tmp > _max) { \
+				printf("Invalid value for '%s=%s': min=%Lf, max=%Lf\n", _name, optarg, (long double)_min, (long double)_max); \
+				return 1; \
+			} \
+			_dest = _tmp; \
+			break; \
+		}
+
 	char short_opts[128];
 	build_short_options(_LONG_OPTS, short_opts, 128);
 
@@ -127,6 +148,8 @@ int main(int argc, char *argv[]) {
 			case _O_SINK_TIMEOUT:	OPT_NUMBER("--sink-timeout", sink_timeout, 1, 60, 0);
 			case _O_OUTPUT:			OPT_SET(output_path, optarg);
 			case _O_OUTPUT_JSON:	OPT_SET(output_json, true);
+			case _O_COUNT:			OPT_NUMBER("--count", count, 0, LLONG_MAX, 0);
+			case _O_INTERVAL:		OPT_LDOUBLE("--interval", interval, 0, 60);
 
 			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", us_log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
 			case _O_PERF:				OPT_SET(us_log_level, LOG_LEVEL_PERF);
@@ -143,6 +166,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+#	undef OPT_LDOUBLE
 #	undef OPT_NUMBER
 #	undef OPT_SET
 
@@ -163,7 +187,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	_install_signal_handlers();
-	int retval = abs(_dump_sink(sink_name, sink_timeout, &ctx));
+	int retval = abs(_dump_sink(sink_name, sink_timeout, count, interval, &ctx));
 	if (ctx.v_output && ctx.destroy) {
 		ctx.destroy(ctx.v_output);
 	}
@@ -201,7 +225,17 @@ static void _install_signal_handlers(void) {
 	assert(!sigaction(SIGPIPE, &sig_act, NULL));
 }
 
-static int _dump_sink(const char *sink_name, unsigned sink_timeout, _output_context_s *ctx) {
+static int _dump_sink(
+	const char *sink_name, unsigned sink_timeout,
+	long long count, long double interval,
+	_output_context_s *ctx) {
+
+	if (count == 0) {
+		count = -1;
+	}
+
+	useconds_t interval_us = interval * 1000000;
+
 	frame_s *frame = frame_init();
 	memsink_s *sink = NULL;
 
@@ -243,6 +277,17 @@ static int _dump_sink(const char *sink_name, unsigned sink_timeout, _output_cont
 			if (ctx->v_output) {
 				ctx->write(ctx->v_output, frame);
 			}
+
+			if (count >= 0) {
+				--count;
+				if (count <= 0) {
+					break;
+				}
+			}
+
+			if (interval_us > 0) {
+				usleep(interval_us);
+			}
 		} else if (error == -2) {
 			usleep(1000);
 		} else {
@@ -282,6 +327,8 @@ static void _help(FILE *fp) {
 	SAY("    -t|--sink-timeout <sec>  ─ Timeout for the upcoming frame. Default: 1.\n");
 	SAY("    -o|--output <filename> ─── Filename to dump output to. Use '-' for stdout. Default: just consume the sink.\n");
 	SAY("    -j|--output-json  ──────── Format output as JSON. Required option --output. Default: disabled.\n");
+	SAY("    -c|--count  <N>  ───────── Limit the number of frames. Default: 0 (infinite).\n");
+	SAY("    -i|--interval <sec>  ───── Delay between reading frames (float). Default: 0.\n");
 	SAY("Logging options:");
 	SAY("════════════════");
 	SAY("    --log-level <N>  ──── Verbosity level of messages from 0 (info) to 3 (debug).");
