@@ -66,14 +66,16 @@ const char *const HTML_INDEX_PAGE = " \
 					<li> \
 						<b>advance_headers=1</b><br> \
 						Enable workaround for the Chromium/Blink bug \
-						<a href=\"https://bugs.chromium.org/p/chromium/issues/detail?id=527446\">#527446</a>. \
+						<a href=\"https://bugs.chromium.org/p/chromium/issues/detail?id=527446\">#527446</a>.<br> \
+						This parameter cannot be used in conjunction with <i>dual_final_frames=1</i>. \
 					</li> \
 					<br> \
 					<li> \
 						<b>dual_final_frames=1</b><br> \
 						Enable workaround for a common web browser bug when using option <i>--drop-same-frames</i>.<br> \
 						Without this option, when the frame series is completed, most browsers<br> \
-						render the last frame with a delay. \
+						render the last frame with a delay.<br> \
+						This parameter cannot be used in conjunction with <i>advance_headers=1</i>. \
 					</li> \
 					<br> \
 					<li> \
