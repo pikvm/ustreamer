@@ -3,6 +3,9 @@
 /pkg/arch/pkg/
 /pkg/arch/src/
 /src/build/
+# We derive the .c files from other source files, so we don't need to
+# store the derived files in source.
+/src/ustreamer/data/*.c
 /python/build/
 /janus/build/
 /ustreamer

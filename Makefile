@@ -35,6 +35,7 @@ endif
 
 
 apps:
+	$(MAKE) regen
 	$(MAKE) -C src
 	@ ln -sf src/ustreamer.bin ustreamer
 	@ ln -sf src/ustreamer-dump.bin ustreamer-dump
