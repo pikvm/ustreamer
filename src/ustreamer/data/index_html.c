@@ -71,9 +71,9 @@ const char *const HTML_INDEX_PAGE = " \
 					<br> \
 					<li> \
 						<b>dual_final_frames=1</b><br> \
-						Enable workaround for the Safari/WebKit bug when using option <i>--drop-same-frames</i>.<br> \
-						Without this option, when the frame series is completed, WebKit-based browsers<br> \
-						renders the last frame with a delay. \
+						Enable workaround for a common web browser bug when using option <i>--drop-same-frames</i>.<br> \
+						Without this option, when the frame series is completed, most browsers<br> \
+						render the last frame with a delay. \
 					</li> \
 					<br> \
 					<li> \
