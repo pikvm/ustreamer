@@ -76,24 +76,6 @@ $ ./ustreamer \
 
 You can always view the full list of options with ```ustreamer --help```.
 
----
-# Integrations
-
-## nginx
-
-When uStreamer is behind an nginx proxy, nginx's buffering behavior introduces latency into the video stream. It's possible to disable nginx's buffering to eliminate the additional latency:
-
-```text
-location /stream {
-  # Disable buffering for uStreamer video stream
-  postpone_output 0;
-  proxy_buffering off;
-  proxy_ignore_headers X-Accel-Buffering;
-
-  proxy_pass http://ustreamer;
-}
-```
-
 -----
 # Raspberry Pi Camera Example
 Example usage for the Raspberry Pi v1 camera:
@@ -108,6 +90,21 @@ $ ./ustreamer --host :: -m jpeg --device-timeout=5 --buffers=3 -r 2592x1944
 
 ```bash
 $ modprobe bcm2835-v4l2 max_video_width=2592 max_video_height=1944
+```
+
+-----
+# Integrations
+
+## Nginx
+When uStreamer is behind an Nginx proxy, it's buffering behavior introduces latency into the video stream. It's possible to disable Nginx's buffering to eliminate the additional latency:
+
+```nginx
+location /stream {
+    postpone_output 0;
+    proxy_buffering off;
+    proxy_ignore_headers X-Accel-Buffering;
+    proxy_pass http://ustreamer;
+}
 ```
 
 -----
