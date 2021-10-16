@@ -25,6 +25,8 @@
 
 static int _http_preprocess_request(struct evhttp_request *request, server_s *server);
 
+static int _http_check_run_compat_action(struct evhttp_request *request, void *v_server);
+
 static void _http_callback_root(struct evhttp_request *request, void *v_server);
 static void _http_callback_static(struct evhttp_request *request, void *v_server);
 static void _http_callback_state(struct evhttp_request *request, void *v_server);
@@ -220,40 +222,62 @@ static int _http_preprocess_request(struct evhttp_request *request, server_s *se
 		} \
 	}
 
-static void _http_callback_root(struct evhttp_request *request, void *v_server) {
-	server_s *server = (server_s *)v_server;
+static int _http_check_run_compat_action(struct evhttp_request *request, void *v_server) {
+	// MJPG-Streamer compatibility layer
 
-	PREPROCESS_REQUEST;
+	struct evkeyvalq params;
+	int error = 0;
 
-	struct evkeyvalq params; // For mjpg-streamer compatibility
 	evhttp_parse_query(evhttp_request_get_uri(request), &params);
 	const char *action = evhttp_find_header(&params, "action");
 
 	if (action && !strcmp(action, "snapshot")) {
 		_http_callback_snapshot(request, v_server);
+		goto ok;
 	} else if (action && !strcmp(action, "stream")) {
 		_http_callback_stream(request, v_server);
-	} else {
-		struct evbuffer *buf;
-		assert((buf = evbuffer_new()));
-		assert(evbuffer_add_printf(buf, "%s", HTML_INDEX_PAGE));
-		ADD_HEADER("Content-Type", "text/html");
-		evhttp_send_reply(request, HTTP_OK, "OK", buf);
-		evbuffer_free(buf);
+		goto ok;
 	}
 
-	evhttp_clear_headers(&params);
+	error = -1;
+	ok:
+		evhttp_clear_headers(&params);
+		return error;
+}
+
+#define COMPAT_REQUEST { \
+		if (_http_check_run_compat_action(request, v_server) == 0) { \
+			return; \
+		} \
+	}
+
+static void _http_callback_root(struct evhttp_request *request, void *v_server) {
+	server_s *server = (server_s *)v_server;
+
+	PREPROCESS_REQUEST;
+	COMPAT_REQUEST;
+
+	struct evbuffer *buf;
+
+	assert((buf = evbuffer_new()));
+	assert(evbuffer_add_printf(buf, "%s", HTML_INDEX_PAGE));
+	ADD_HEADER("Content-Type", "text/html");
+	evhttp_send_reply(request, HTTP_OK, "OK", buf);
+
+	evbuffer_free(buf);
 }
 
 static void _http_callback_static(struct evhttp_request *request, void *v_server) {
 	server_s *server = (server_s *)v_server;
+
+	PREPROCESS_REQUEST;
+	COMPAT_REQUEST;
+
 	struct evbuffer *buf = NULL;
 	struct evhttp_uri *uri = NULL;
 	char *decoded_path = NULL;
 	char *static_path = NULL;
 	int fd = -1;
-
-	PREPROCESS_REQUEST;
 
 	{
 		char *uri_path;
@@ -323,6 +347,8 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 			evhttp_uri_free(uri);
 		}
 }
+
+#undef COMPAT_REQUEST
 
 static void _http_callback_state(struct evhttp_request *request, void *v_server) {
 	server_s *server = (server_s *)v_server;
