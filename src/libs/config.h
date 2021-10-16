@@ -23,7 +23,7 @@
 #pragma once
 
 #define VERSION_MAJOR 4
-#define VERSION_MINOR 6
+#define VERSION_MINOR 7
 
 #define MAKE_VERSION2(_major, _minor) #_major "." #_minor
 #define MAKE_VERSION1(_major, _minor) MAKE_VERSION2(_major, _minor)
