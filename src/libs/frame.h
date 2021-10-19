@@ -68,7 +68,7 @@ typedef struct {
 		_dest->encode_end_ts = _src->encode_end_ts; \
 	}
 
-inline void frame_copy_meta(const frame_s *src, frame_s *dest) {
+static inline void frame_copy_meta(const frame_s *src, frame_s *dest) {
 	FRAME_COPY_META(src, dest);
 }
 
@@ -97,6 +97,6 @@ unsigned frame_get_padding(const frame_s *frame);
 
 const char *fourcc_to_string(unsigned format, char *buf, size_t size);
 
-inline bool is_jpeg(unsigned format) {
+static inline bool is_jpeg(unsigned format) {
 	return (format == V4L2_PIX_FMT_JPEG || format == V4L2_PIX_FMT_MJPEG);
 }
