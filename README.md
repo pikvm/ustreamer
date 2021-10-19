@@ -122,7 +122,6 @@ v4l2 utilities provide the tools to manage USB webcam setting and information. S
 -----
 # See also
 * [Running uStreamer via systemd service](https://github.com/pikvm/ustreamer/issues/16).
-* [uStreamer Ansible Role](https://github.com/mtlynch/ansible-role-ustreamer): Use [Ansible](https://docs.ansible.com/ansible/latest/index.html) to compile uStreamer and install it as a systemd service automatically.
 
 -----
 # License

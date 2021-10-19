@@ -122,7 +122,6 @@ V4L2 предоставляет ряд официальных утилит дл�
 -----
 # Смотрите также
 * [Запуск с помощью systemd-сервиса](https://github.com/pikvm/ustreamer/issues/16).
-* [uStreamer Ansible Role](https://github.com/mtlynch/ansible-role-ustreamer): Использование [Ansible](https://docs.ansible.com/ansible/latest/index.html) для сборки и установки стримера как systemd-сервиса.
 
 -----
 # Лицензия
