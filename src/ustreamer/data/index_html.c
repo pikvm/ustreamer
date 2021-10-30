@@ -37,30 +37,30 @@ const char *const HTML_INDEX_PAGE = " \
 		<hr> \
 		<ul> \
 			<li> \
-				<a href=\"/state\"><b>/state</b></a><br> \
+				<a href=\"state\"><b>/state</b></a><br> \
 				Get JSON structure with the state of the server. \
 			</li> \
 			<br> \
 			<li> \
-				<a href=\"/snapshot\"><b>/snapshot</b></a><br> \
+				<a href=\"snapshot\"><b>/snapshot</b></a><br> \
 				Get a current actual image from the server. \
 			</li> \
 			<br> \
 			<li> \
-				<a href=\"/stream\"><b>/stream</b></a><br> \
+				<a href=\"stream\"><b>/stream</b></a><br> \
 				Get a live stream. Query params:<br> \
 				<br> \
 				<ul> \
 					<li> \
 						<b>key=abc123</b><br> \
 						The user-defined key, which is part of cookie <i>stream_client</i>, which allows<br> \
-						the stream client to determine its identifier and view statistics using <a href=\"/state\">/state</a>. \
+						the stream client to determine its identifier and view statistics using <a href=\"state\">/state</a>. \
 					</li> \
 					<br> \
 					<li> \
 						<b>extra_headers=1</b><br> \
-						Add <i>X-UStreamer-*</i> headers to the <a href=\"/stream\">/stream</a> handle \
-						(like with the <a href=\"/snapshot\">/snapshot</a>). \
+						Add <i>X-UStreamer-*</i> headers to the <a href=\"stream\">/stream</a> handle \
+						(like with the <a href=\"snapshot\">/snapshot</a>). \
 					</li> \
 					<br> \
 					<li> \
@@ -87,9 +87,9 @@ const char *const HTML_INDEX_PAGE = " \
 				The mjpg-streamer compatibility layer:<br> \
 				<br> \
 				<ul> \
-					<li><a href=\"/?action=snapshot\">/?action=snapshot</a> as alias to the <a href=\"/snapshot\">/snapshot</a>.</li> \
+					<li><a href=\"?action=snapshot\">/?action=snapshot</a> as alias to the <a href=\"snapshot\">/snapshot</a>.</li> \
 					<br> \
-					<li><a href=\"/?action=stream\">/?action=stream</a> as alias to the <a href=\"/stream\">/stream</a>.</li> \
+					<li><a href=\"?action=stream\">/?action=stream</a> as alias to the <a href=\"stream\">/stream</a>.</li> \
 				</ul> \
 			</li> \
 		</ul> \
