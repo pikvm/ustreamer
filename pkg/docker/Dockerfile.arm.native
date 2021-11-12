@@ -3,7 +3,7 @@ FROM balenalib/raspberrypi3-debian:build as build
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \
 		gcc \
-		libjpeg8-dev \
+		libjpeg9-dev \
 		libbsd-dev \
 		libraspberrypi-dev \
 		libgpiod-dev \
@@ -19,7 +19,7 @@ RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \
 		libevent-2.1 \
 		libevent-pthreads-2.1-6 \
-		libjpeg8 \
+		libjpeg9 \
 		libbsd0 \
 		libgpiod2 \
 	&& rm -rf /var/lib/apt/lists/*
