@@ -73,7 +73,7 @@
 typedef struct {
 	frame_s raw;
 
-	struct v4l2_buffer buf_info;
+	struct v4l2_buffer buf;
 
 #	ifdef WITH_OMX
 	int dma_fd;

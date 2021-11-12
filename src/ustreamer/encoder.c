@@ -235,7 +235,7 @@ static bool _worker_run_job(worker_s *wr) {
 
 #	define ER(_next) job->enc->run->_next
 
-	LOG_DEBUG("Worker %s compressing JPEG from buffer %u ...", wr->name, job->hw->buf_info.index);
+	LOG_DEBUG("Worker %s compressing JPEG from buffer %u ...", wr->name, job->hw->buf.index);
 
 	assert(ER(type) != ENCODER_TYPE_UNKNOWN);
 	assert(src->used > 0);
@@ -271,13 +271,13 @@ static bool _worker_run_job(worker_s *wr) {
 		job->dest->used,
 		job->dest->encode_end_ts - job->dest->encode_begin_ts,
 		wr->name,
-		job->hw->buf_info.index);
+		job->hw->buf.index);
 
 	return true;
 
 #	ifdef WITH_OMX
 	error:
-		LOG_ERROR("Compression failed: worker=%s, buffer=%u", wr->name, job->hw->buf_info.index);
+		LOG_ERROR("Compression failed: worker=%s, buffer=%u", wr->name, job->hw->buf.index);
 		LOG_ERROR("Error while compressing buffer, falling back to CPU");
 		A_MUTEX_LOCK(&ER(mutex));
 		ER(cpu_forced) = true;
