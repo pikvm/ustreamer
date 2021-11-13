@@ -94,8 +94,7 @@ static void _signal_handler(int signum) {
 }
 
 static void _install_signal_handlers(void) {
-	struct sigaction sig_act;
-	MEMSET_ZERO(sig_act);
+	struct sigaction sig_act = {0};
 
 	assert(!sigemptyset(&sig_act.sa_mask));
 	sig_act.sa_handler = _signal_handler;

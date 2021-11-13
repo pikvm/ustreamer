@@ -140,8 +140,7 @@ workers_pool_s *encoder_workers_pool_init(encoder_s *enc, device_s *dev) {
 			}
 		}
 
-		frame_s frame;
-		MEMSET_ZERO(frame);
+		frame_s frame = {0};
 		frame.width = DR(width);
 		frame.height = DR(height);
 		frame.format = DR(format);

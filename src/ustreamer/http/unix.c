@@ -24,7 +24,7 @@
 
 
 evutil_socket_t evhttp_my_bind_unix(struct evhttp *http, const char *path, bool rm, mode_t mode) {
-	struct sockaddr_un addr;
+	struct sockaddr_un addr = {0};
 
 #	define MAX_SUN_PATH (sizeof(addr.sun_path) - 1)
 
@@ -33,7 +33,6 @@ evutil_socket_t evhttp_my_bind_unix(struct evhttp *http, const char *path, bool 
 		return -1;
 	}
 
-	MEMSET_ZERO(addr);
 	strncpy(addr.sun_path, path, MAX_SUN_PATH);
 	addr.sun_family = AF_UNIX;
 

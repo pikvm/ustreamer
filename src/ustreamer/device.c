@@ -226,8 +226,7 @@ int device_export_to_vcsm(device_s *dev) {
 #	define VCSM_HANDLE	RUN(hw_bufs[index].vcsm_handle)
 
 	for (unsigned index = 0; index < RUN(n_bufs); ++index) {
-		struct v4l2_exportbuffer exp;
-		MEMSET_ZERO(exp);
+		struct v4l2_exportbuffer exp = {0};
 		exp.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		exp.index = index;
 
@@ -334,8 +333,7 @@ int device_select(device_s *dev, bool *has_read, bool *has_write, bool *has_erro
 int device_grab_buffer(device_s *dev, hw_buffer_s **hw) {
 	*hw = NULL;
 
-	struct v4l2_buffer buf;
-	MEMSET_ZERO(buf);
+	struct v4l2_buffer buf = {0};
 	buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	buf.memory = dev->io_method;
 
@@ -430,8 +428,7 @@ int device_consume_event(device_s *dev) {
 }
 
 static int _device_open_check_cap(device_s *dev) {
-	struct v4l2_capability cap;
-	MEMSET_ZERO(cap);
+	struct v4l2_capability cap = {0};
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_QUERYCAP) ...");
 	if (xioctl(RUN(fd), VIDIOC_QUERYCAP, &cap) < 0) {
@@ -477,9 +474,7 @@ static int _device_open_dv_timings(device_s *dev) {
 			return -1;
 		}
 
-		struct v4l2_event_subscription sub;
-
-		MEMSET_ZERO(sub);
+		struct v4l2_event_subscription sub = {0};
 		sub.type = V4L2_EVENT_SOURCE_CHANGE;
 
 		LOG_DEBUG("Calling ioctl(VIDIOC_SUBSCRIBE_EVENT) ...");
@@ -492,8 +487,7 @@ static int _device_open_dv_timings(device_s *dev) {
 }
 
 static int _device_apply_dv_timings(device_s *dev) {
-	struct v4l2_dv_timings dv;
-	MEMSET_ZERO(dv);
+	struct v4l2_dv_timings dv = {0};
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_QUERY_DV_TIMINGS) ...");
 	if (xioctl(RUN(fd), VIDIOC_QUERY_DV_TIMINGS, &dv) == 0) {
@@ -540,8 +534,7 @@ static int _device_apply_dv_timings(device_s *dev) {
 static int _device_open_format(device_s *dev, bool first) {
 	const unsigned stride = align_size(RUN(width), 32) << 1;
 
-	struct v4l2_format fmt;
-	MEMSET_ZERO(fmt);
+	struct v4l2_format fmt = {0};
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	fmt.fmt.pix.width = RUN(width);
 	fmt.fmt.pix.height = RUN(height);
@@ -599,8 +592,7 @@ static int _device_open_format(device_s *dev, bool first) {
 static void _device_open_hw_fps(device_s *dev) {
 	RUN(hw_fps) = 0;
 
-	struct v4l2_streamparm setfps;
-	MEMSET_ZERO(setfps);
+	struct v4l2_streamparm setfps = {0};
 	setfps.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_G_PARM) ...");
@@ -654,8 +646,7 @@ static void _device_open_jpeg_quality(device_s *dev) {
 	unsigned quality = 0;
 
 	if (is_jpeg(RUN(format))) {
-		struct v4l2_jpegcompression comp;
-		MEMSET_ZERO(comp);
+		struct v4l2_jpegcompression comp = {0};
 
 		if (xioctl(RUN(fd), VIDIOC_G_JPEGCOMP, &comp) < 0) {
 			LOG_ERROR("Device does not support setting of HW encoding quality parameters");
@@ -683,8 +674,7 @@ static int _device_open_io_method(device_s *dev) {
 }
 
 static int _device_open_io_method_mmap(device_s *dev) {
-	struct v4l2_requestbuffers req;
-	MEMSET_ZERO(req);
+	struct v4l2_requestbuffers req = {0};
 	req.count = dev->n_bufs;
 	req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	req.memory = V4L2_MEMORY_MMAP;
@@ -706,8 +696,7 @@ static int _device_open_io_method_mmap(device_s *dev) {
 
 	A_CALLOC(RUN(hw_bufs), req.count);
 	for (RUN(n_bufs) = 0; RUN(n_bufs) < req.count; ++RUN(n_bufs)) {
-		struct v4l2_buffer buf;
-		MEMSET_ZERO(buf);
+		struct v4l2_buffer buf = {0};
 		buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		buf.memory = V4L2_MEMORY_MMAP;
 		buf.index = RUN(n_bufs);
@@ -747,8 +736,7 @@ static int _device_open_io_method_mmap(device_s *dev) {
 }
 
 static int _device_open_io_method_userptr(device_s *dev) {
-	struct v4l2_requestbuffers req;
-	MEMSET_ZERO(req);
+	struct v4l2_requestbuffers req = {0};
 	req.count = dev->n_bufs;
 	req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	req.memory = V4L2_MEMORY_USERPTR;
@@ -785,8 +773,7 @@ static int _device_open_io_method_userptr(device_s *dev) {
 
 static int _device_open_queue_buffers(device_s *dev) {
 	for (unsigned index = 0; index < RUN(n_bufs); ++index) {
-		struct v4l2_buffer buf;
-		MEMSET_ZERO(buf);
+		struct v4l2_buffer buf = {0};
 		buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		buf.memory = dev->io_method;
 		buf.index = index;
@@ -905,8 +892,7 @@ static void _device_set_control(
 		return;
 	}
 
-	struct v4l2_control ctl;
-	MEMSET_ZERO(ctl);
+	struct v4l2_control ctl = {0};
 	ctl.id = cid;
 	ctl.value = value;
 
