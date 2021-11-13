@@ -221,7 +221,8 @@ Timeout for lock. Default: 1.
 
 .SS "H264 sink options"
 .TP
-Available only if \fBWITH_OMX\fR feature enabled.
+.BR \-\-h264\-device\ \fI/dev/path
+Path to V4L2 mem-to-mem encoder device. Default: /dev/video11.
 .TP
 .BR \-\-h264\-sink\ \fIname
 Use the specified shared memory object to sink H264 frames encoded by MMAL. Default: disabled.

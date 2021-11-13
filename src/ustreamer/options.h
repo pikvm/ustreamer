@@ -56,9 +56,7 @@ typedef struct {
 	frame_s		*blank;
 	memsink_s	*sink;
 	memsink_s	*raw_sink;
-#	ifdef WITH_OMX
 	memsink_s	*h264_sink;
-#	endif
 } options_s;
 
 

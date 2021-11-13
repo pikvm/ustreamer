@@ -44,6 +44,6 @@ typedef struct {
 } h264_stream_s;
 
 
-h264_stream_s *h264_stream_init(memsink_s *sink, unsigned bitrate, unsigned gop);
+h264_stream_s *h264_stream_init(memsink_s *sink, const char *path, unsigned bitrate, unsigned gop);
 void h264_stream_destroy(h264_stream_s *h264);
-void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_handle, bool force_key);
+void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int dma_fd, bool force_key);

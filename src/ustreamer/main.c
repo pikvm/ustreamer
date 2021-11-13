@@ -131,11 +131,9 @@ int main(int argc, char *argv[]) {
 
 	if ((exit_code = options_parse(options, dev, enc, stream, server)) == 0) {
 #		ifdef WITH_OMX
-		if (enc->type == ENCODER_TYPE_OMX || stream->h264_sink) {
+		if (enc->type == ENCODER_TYPE_OMX) {
 			bcm_host_init();
 			i_bcm_host = true;
-		}
-		if (enc->type == ENCODER_TYPE_OMX) {
 			if ((omx_error = OMX_Init()) != OMX_ErrorNone) {
 				LOG_ERROR_OMX(omx_error, "Can't initialize OMX Core; forced CPU encoder");
 				enc->type = ENCODER_TYPE_CPU;

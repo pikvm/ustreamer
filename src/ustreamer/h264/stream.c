@@ -23,7 +23,7 @@
 #include "stream.h"
 
 
-h264_stream_s *h264_stream_init(memsink_s *sink, unsigned bitrate, unsigned gop) {
+h264_stream_s *h264_stream_init(memsink_s *sink, const char *path, unsigned bitrate, unsigned gop) {
 	h264_stream_s *h264;
 	A_CALLOC(h264, 1);
 	h264->sink = sink;
@@ -34,15 +34,9 @@ h264_stream_s *h264_stream_init(memsink_s *sink, unsigned bitrate, unsigned gop)
 	// FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L2100
 	// По логике вещей правильно 0, но почему-то на низких разрешениях типа 640x480
 	// енкодер через несколько секунд перестает производить корректные фреймы.
-	if ((h264->enc = h264_encoder_init(bitrate, gop, 30)) == NULL) {
-		goto error;
-	}
-
+	// TODO: Это было актуально для MMAL, надо проверить для V4L2.
+	h264->enc = h264_encoder_init(path, bitrate, gop, 30);
 	return h264;
-
-	error:
-		h264_stream_destroy(h264);
-		return NULL;
 }
 
 void h264_stream_destroy(h264_stream_s *h264) {
@@ -54,7 +48,7 @@ void h264_stream_destroy(h264_stream_s *h264) {
 	free(h264);
 }
 
-void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_handle, bool force_key) {
+void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int dma_fd, bool force_key) {
 	if (!memsink_server_check(h264->sink, frame)) {
 		return;
 	}
@@ -63,14 +57,14 @@ void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_han
 	bool zero_copy = false;
 
 	if (is_jpeg(frame->format)) {
-		assert(vcsm_handle <= 0);
+		assert(dma_fd <= 0);
 		LOG_DEBUG("H264: Input frame is JPEG; decoding ...");
 		if (unjpeg(frame, h264->tmp_src, true) < 0) {
 			return;
 		}
 		frame = h264->tmp_src;
 		LOG_VERBOSE("H264: JPEG decoded; time=%.3Lf", get_now_monotonic() - now);
-	} else if (vcsm_handle > 0) {
+	} else if (dma_fd > 0) {
 		LOG_DEBUG("H264: Zero-copy available for the input");
 		zero_copy = true;
 	} else {
@@ -87,7 +81,7 @@ void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int vcsm_han
 	}
 
 	if (h264->enc->ready) {
-		if (h264_encoder_compress(h264->enc, frame, vcsm_handle, h264->dest, force_key) == 0) {
+		if (h264_encoder_compress(h264->enc, frame, dma_fd, h264->dest, force_key) == 0) {
 			online = !memsink_server_put(h264->sink, h264->dest);
 		}
 	}

@@ -393,7 +393,6 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		enc_quality
 	));
 
-#	ifdef WITH_OMX
 	if (STREAM(run->h264)) {
 		assert(evbuffer_add_printf(buf,
 			" \"h264\": {\"bitrate\": %u, \"gop\": %u, \"online\": %s},",
@@ -402,14 +401,8 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 			bool_to_string(atomic_load(&STREAM(run->h264->online)))
 		));
 	}
-#	endif
 
-	if (
-		STREAM(sink)
-#	ifdef WITH_OMX
-		|| STREAM(h264_sink)
-#	endif
-	) {
+	if (STREAM(sink) || STREAM(h264_sink)) {
 		assert(evbuffer_add_printf(buf, " \"sinks\": {"));
 		if (STREAM(sink)) {
 			assert(evbuffer_add_printf(buf,
@@ -417,7 +410,6 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 				bool_to_string(atomic_load(&STREAM(sink->has_clients)))
 			));
 		}
-#	ifdef WITH_OMX
 		if (STREAM(h264_sink)) {
 			assert(evbuffer_add_printf(buf,
 				"%s\"h264\": {\"has_clients\": %s}",
@@ -425,7 +417,6 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 				bool_to_string(atomic_load(&STREAM(h264_sink->has_clients)))
 			));
 		}
-#	endif
 		assert(evbuffer_add_printf(buf, "},"));
 	}
 

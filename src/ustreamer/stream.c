@@ -36,13 +36,11 @@ static void _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 		} \
 	}
 
-#ifdef WITH_OMX
-#	define H264_PUT(_frame, _vcsm_handle, _force_key) { \
-			if (RUN(h264)) { \
-				h264_stream_process(RUN(h264), _frame, _vcsm_handle, _force_key); \
-			} \
-		}
-#endif
+#define H264_PUT(_frame, _dma_fd, _force_key) { \
+		if (RUN(h264)) { \
+			h264_stream_process(RUN(h264), _frame, _dma_fd, _force_key); \
+		} \
+	}
 
 
 stream_s *stream_init(device_s *dev, encoder_s *enc) {
@@ -64,10 +62,9 @@ stream_s *stream_init(device_s *dev, encoder_s *enc) {
 	stream->enc = enc;
 	stream->last_as_blank = -1;
 	stream->error_delay = 1;
-#	ifdef WITH_OMX
+	stream->h264_path = "/dev/video11";
 	stream->h264_bitrate = 5000; // Kbps
 	stream->h264_gop = 30;
-#	endif
 	stream->run = run;
 	return stream;
 }
@@ -86,11 +83,9 @@ void stream_loop(stream_s *stream) {
 	LOG_INFO("Using V4L2 device: %s", stream->dev->path);
 	LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
 
-#	ifdef WITH_OMX
 	if (stream->h264_sink) {
-		RUN(h264) = h264_stream_init(stream->h264_sink, stream->h264_bitrate, stream->h264_gop);
+		RUN(h264) = h264_stream_init(stream->h264_sink, stream->h264_path, stream->h264_bitrate, stream->h264_gop);
 	}
-#	endif
 
 	for (workers_pool_s *pool; (pool = _stream_init_loop(stream)) != NULL;) {
 		long double grab_after = 0;
@@ -126,18 +121,14 @@ void stream_loop(stream_s *stream) {
 				}
 			}
 
-#			ifdef WITH_OMX
 			bool h264_force_key = false;
-#			endif
 			if (stream->slowdown) {
 				unsigned slc = 0;
 				for (; slc < 10 && !atomic_load(&RUN(stop)) && !stream_has_clients(stream); ++slc) {
 					usleep(100000);
 					++slc;
 				}
-#				ifdef WITH_OMX
 				h264_force_key = (slc == 10);
-#				endif
 			}
 
 			if (atomic_load(&RUN(stop))) {
@@ -200,9 +191,7 @@ void stream_loop(stream_s *stream) {
 							LOG_DEBUG("Assigned new frame in buffer %d to worker %s", buf_index, ready_wr->name);
 
 							SINK_PUT(raw_sink, &hw->raw);
-#							ifdef WITH_OMX
-							H264_PUT(&hw->raw, hw->vcsm_handle, h264_force_key);
-#							endif
+							H264_PUT(&hw->raw, hw->dma_fd, h264_force_key);
 						}
 					} else if (buf_index != -2) { // -2 for broken frame
 						break;
@@ -232,11 +221,9 @@ void stream_loop(stream_s *stream) {
 #		endif
 	}
 
-#	ifdef WITH_OMX
 	if (RUN(h264)) {
 		h264_stream_destroy(RUN(h264));
 	}
-#	endif
 }
 
 void stream_loop_break(stream_s *stream) {
@@ -248,9 +235,7 @@ bool stream_has_clients(stream_s *stream) {
 		atomic_load(&RUN(video->has_clients))
 		// has_clients синков НЕ обновляются в реальном времени
 		|| (stream->sink != NULL && atomic_load(&stream->sink->has_clients))
-#		ifdef WITH_OMX
 		|| (RUN(h264) != NULL && /*RUN(h264->sink) == NULL ||*/ atomic_load(&RUN(h264->sink->has_clients)))
-#		endif
 	);
 }
 
@@ -292,11 +277,9 @@ static workers_pool_s *_stream_init_one(stream_s *stream) {
 	if (device_open(stream->dev) < 0) {
 		goto error;
 	}
-#	ifdef WITH_OMX
 	if (RUN(h264) && !is_jpeg(stream->dev->run->format)) {
-		device_export_to_vcsm(stream->dev);
+		device_export_to_dma(stream->dev);
 	}
-#	endif
 	if (device_switch_capturing(stream->dev, true) < 0) {
 		goto error;
 	}
@@ -364,16 +347,12 @@ static void _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 
 	if (frame == NULL) {
 		SINK_PUT(raw_sink, stream->blank);
-#		ifdef WITH_OMX
 		H264_PUT(stream->blank, -1, false);
-#		endif
 	}
 
 #	undef VID
 }
 
-#ifdef WITH_OMX
-#	undef H264_PUT
-#endif
+#undef H264_PUT
 #undef SINK_PUT
 #undef RUN
