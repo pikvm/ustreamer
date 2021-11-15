@@ -601,7 +601,7 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("    -z|--min-frame-size <N>  ───────────── Drop frames smaller then this limit. Useful if the device");
 	SAY("                                           produces small-sized garbage frames. Default: %zu bytes.\n", dev->min_frame_size);
 	SAY("    -n|--persistent  ───────────────────── Don't re-initialize device on timeout. Default: disabled.\n");
-	SAY("    -t|--dv-timings  ───────────────────── Enable DV timings querying and events processing");
+	SAY("    -t|--dv-timings  ───────────────────── Enable DV-timings querying and events processing");
 	SAY("                                           to automatic resolution change. Default: disabled.\n");
 	SAY("    -b|--buffers <N>  ──────────────────── The number of buffers to receive data from the device.");
 	SAY("                                           Each buffer may processed using an independent thread.");

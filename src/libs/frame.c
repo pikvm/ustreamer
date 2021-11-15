@@ -80,7 +80,7 @@ unsigned frame_get_padding(const frame_s *frame) {
 		// case V4L2_PIX_FMT_H264:
 		case V4L2_PIX_FMT_MJPEG:
 		case V4L2_PIX_FMT_JPEG: bytes_per_pixel = 0; break;
-		default: assert(0 && "Unknown pixelformat");
+		default: assert(0 && "Unknown format");
 	}
 	if (bytes_per_pixel > 0 && frame->stride > frame->width) {
 		return (frame->stride - frame->width * bytes_per_pixel);

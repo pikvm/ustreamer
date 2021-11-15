@@ -234,7 +234,7 @@ static bool _worker_run_job(worker_s *wr) {
 
 #	define ER(_next) job->enc->run->_next
 
-	LOG_DEBUG("Worker %s compressing JPEG from buffer %u ...", wr->name, job->hw->buf.index);
+	LOG_DEBUG("Worker %s compressing JPEG from buffer index=%u ...", wr->name, job->hw->buf.index);
 
 	assert(ER(type) != ENCODER_TYPE_UNKNOWN);
 	assert(src->used > 0);

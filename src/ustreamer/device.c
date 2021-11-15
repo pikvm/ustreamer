@@ -186,7 +186,7 @@ void device_close(device_s *dev) {
 			if (dev->io_method == V4L2_MEMORY_MMAP) {
 				if (HW(raw.allocated) > 0 && HW(raw.data) != MAP_FAILED) {
 					if (munmap(HW(raw.data), HW(raw.allocated)) < 0) {
-						LOG_PERROR("Can't unmap device buffer %u", index);
+						LOG_PERROR("Can't unmap device buffer index=%u", index);
 					}
 				}
 			} else { // V4L2_MEMORY_USERPTR
@@ -222,9 +222,9 @@ int device_export_to_dma(device_s *dev) {
 		exp.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		exp.index = index;
 
-		LOG_DEBUG("Calling ioctl(VIDIOC_EXPBUF) for buffer index=%u ...", index);
+		LOG_DEBUG("Exporting device buffer index=%u to DMA ...", index);
 		if (xioctl(RUN(fd), VIDIOC_EXPBUF, &exp) < 0) {
-			LOG_PERROR("Unable to export device buffer index=%u", index);
+			LOG_PERROR("Unable to export device buffer index=%u to DMA", index);
 			goto error;
 		}
 		DMA_FD = exp.fd;
@@ -248,7 +248,7 @@ int device_switch_capturing(device_s *dev, bool enable) {
 	if (enable != RUN(capturing)) {
 		enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-		LOG_DEBUG("Calling ioctl(%s) ...", (enable ? "VIDIOC_STREAMON" : "VIDIOC_STREAMOFF"));
+		LOG_DEBUG("%s device capturing ...", (enable ? "Starting" : "Stopping"));
 		if (xioctl(RUN(fd), (enable ? VIDIOC_STREAMON : VIDIOC_STREAMOFF), &type) < 0) {
 			LOG_PERROR("Unable to %s capturing", (enable ? "start" : "stop"));
 			if (enable) {
@@ -389,7 +389,7 @@ int device_release_buffer(device_s *dev, hw_buffer_s *hw) {
 int device_consume_event(device_s *dev) {
 	struct v4l2_event event;
 
-	LOG_DEBUG("Calling ioctl(VIDIOC_DQEVENT) ...");
+	LOG_DEBUG("Consuming V4L2 event ...");
 	if (xioctl(RUN(fd), VIDIOC_DQEVENT, &event) == 0) {
 		switch (event.type) {
 			case V4L2_EVENT_SOURCE_CHANGE:
@@ -408,14 +408,14 @@ int device_consume_event(device_s *dev) {
 static int _device_open_check_cap(device_s *dev) {
 	struct v4l2_capability cap = {0};
 
-	LOG_DEBUG("Calling ioctl(VIDIOC_QUERYCAP) ...");
+	LOG_DEBUG("Querying device capabilities ...");
 	if (xioctl(RUN(fd), VIDIOC_QUERYCAP, &cap) < 0) {
-		LOG_PERROR("Can't query device (VIDIOC_QUERYCAP)");
+		LOG_PERROR("Can't query device capabilities");
 		return -1;
 	}
 
 	if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
-		LOG_ERROR("Video capture not supported by the device");
+		LOG_ERROR("Video capture is not supported by device");
 		return -1;
 	}
 
@@ -446,7 +446,7 @@ static int _device_open_check_cap(device_s *dev) {
 static int _device_open_dv_timings(device_s *dev) {
 	_device_apply_resolution(dev, dev->width, dev->height);
 	if (dev->dv_timings) {
-		LOG_DEBUG("Using DV timings");
+		LOG_DEBUG("Using DV-timings");
 
 		if (_device_apply_dv_timings(dev) < 0) {
 			return -1;
@@ -455,9 +455,9 @@ static int _device_open_dv_timings(device_s *dev) {
 		struct v4l2_event_subscription sub = {0};
 		sub.type = V4L2_EVENT_SOURCE_CHANGE;
 
-		LOG_DEBUG("Calling ioctl(VIDIOC_SUBSCRIBE_EVENT) ...");
+		LOG_DEBUG("Subscribing to DV-timings events ...")
 		if (xioctl(RUN(fd), VIDIOC_SUBSCRIBE_EVENT, &sub) < 0) {
-			LOG_PERROR("Can't subscribe to V4L2_EVENT_SOURCE_CHANGE");
+			LOG_PERROR("Can't subscribe to DV-timings events");
 			return -1;
 		}
 	}
@@ -488,7 +488,7 @@ static int _device_apply_dv_timings(device_s *dev) {
 
 		LOG_DEBUG("Calling ioctl(VIDIOC_S_DV_TIMINGS) ...");
 		if (xioctl(RUN(fd), VIDIOC_S_DV_TIMINGS, &dv) < 0) {
-			LOG_PERROR("Failed to set DV timings");
+			LOG_PERROR("Failed to set DV-timings");
 			return -1;
 		}
 
@@ -521,10 +521,10 @@ static int _device_open_format(device_s *dev, bool first) {
 	fmt.fmt.pix.bytesperline = stride;
 
 	// Set format
-	LOG_DEBUG("Calling ioctl(VIDIOC_S_FMT) ...");
+	LOG_DEBUG("Probing device format=%s, stride=%u, resolution=%ux%u ...",
+		_format_to_string_supported(dev->format), stride, RUN(width), RUN(height));
 	if (xioctl(RUN(fd), VIDIOC_S_FMT, &fmt) < 0) {
-		LOG_PERROR("Unable to set pixelformat=%s, stride=%u, resolution=%ux%u",
-			_format_to_string_supported(dev->format), stride, RUN(width), RUN(height));
+		LOG_PERROR("Unable to set device format");
 		return -1;
 	}
 
@@ -544,23 +544,23 @@ static int _device_open_format(device_s *dev, bool first) {
 
 	// Check format
 	if (fmt.fmt.pix.pixelformat != dev->format) {
-		LOG_ERROR("Could not obtain the requested pixelformat=%s; driver gave us %s",
+		LOG_ERROR("Could not obtain the requested format=%s; driver gave us %s",
 			_format_to_string_supported(dev->format),
 			_format_to_string_supported(fmt.fmt.pix.pixelformat));
 
 		char *format_str;
 		if ((format_str = (char *)_format_to_string_nullable(fmt.fmt.pix.pixelformat)) != NULL) {
-			LOG_INFO("Falling back to pixelformat=%s", format_str);
+			LOG_INFO("Falling back to format=%s", format_str);
 		} else {
 			char fourcc_str[8];
-			LOG_ERROR("Unsupported pixelformat=%s (fourcc)",
+			LOG_ERROR("Unsupported format=%s (fourcc)",
 				fourcc_to_string(fmt.fmt.pix.pixelformat, fourcc_str, 8));
 			return -1;
 		}
 	}
 
 	RUN(format) = fmt.fmt.pix.pixelformat;
-	LOG_INFO("Using pixelformat: %s", _format_to_string_supported(RUN(format)));
+	LOG_INFO("Using format: %s", _format_to_string_supported(RUN(format)));
 
 	RUN(stride) = fmt.fmt.pix.bytesperline;
 	RUN(raw_size) = fmt.fmt.pix.sizeimage; // Only for userptr
@@ -573,9 +573,9 @@ static void _device_open_hw_fps(device_s *dev) {
 	struct v4l2_streamparm setfps = {0};
 	setfps.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-	LOG_DEBUG("Calling ioctl(VIDIOC_G_PARM) ...");
+	LOG_DEBUG("Querying HW FPS ...");
 	if (xioctl(RUN(fd), VIDIOC_G_PARM, &setfps) < 0) {
-		if (errno == ENOTTY) { // Quiet message for Auvidea B101
+		if (errno == ENOTTY) { // Quiet message for TC358743
 			LOG_INFO("Querying HW FPS changing is not supported");
 		} else {
 			LOG_PERROR("Unable to query HW FPS changing");
@@ -657,9 +657,9 @@ static int _device_open_io_method_mmap(device_s *dev) {
 	req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	req.memory = V4L2_MEMORY_MMAP;
 
-	LOG_DEBUG("Calling ioctl(VIDIOC_REQBUFS) for V4L2_MEMORY_MMAP ...");
+	LOG_DEBUG("Requesting %u device buffers for MMAP ...", req.count);
 	if (xioctl(RUN(fd), VIDIOC_REQBUFS, &req) < 0) {
-		LOG_PERROR("Device '%s' doesn't support V4L2_MEMORY_MMAP", dev->path);
+		LOG_PERROR("Device '%s' doesn't support MMAP method", dev->path);
 		return -1;
 	}
 
@@ -679,7 +679,7 @@ static int _device_open_io_method_mmap(device_s *dev) {
 		buf.memory = V4L2_MEMORY_MMAP;
 		buf.index = RUN(n_bufs);
 
-		LOG_DEBUG("Calling ioctl(VIDIOC_QUERYBUF) for device buffer %u ...", RUN(n_bufs));
+		LOG_DEBUG("Calling ioctl(VIDIOC_QUERYBUF) for device buffer index=%u ...", RUN(n_bufs));
 		if (xioctl(RUN(fd), VIDIOC_QUERYBUF, &buf) < 0) {
 			LOG_PERROR("Can't VIDIOC_QUERYBUF");
 			return -1;
@@ -691,7 +691,7 @@ static int _device_open_io_method_mmap(device_s *dev) {
 
 		A_MUTEX_INIT(&HW(grabbed_mutex));
 
-		LOG_DEBUG("Mapping device buffer %u ...", RUN(n_bufs));
+		LOG_DEBUG("Mapping device buffer index=%u ...", RUN(n_bufs));
 		if ((HW(raw.data) = mmap(
 			NULL,
 			buf.length,
@@ -700,7 +700,7 @@ static int _device_open_io_method_mmap(device_s *dev) {
 			RUN(fd),
 			buf.m.offset
 		)) == MAP_FAILED) {
-			LOG_PERROR("Can't map device buffer %u", RUN(n_bufs));
+			LOG_PERROR("Can't map device buffer index=%u", RUN(n_bufs));
 			return -1;
 		}
 		HW(raw.allocated) = buf.length;
@@ -716,9 +716,9 @@ static int _device_open_io_method_userptr(device_s *dev) {
 	req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	req.memory = V4L2_MEMORY_USERPTR;
 
-	LOG_DEBUG("Calling ioctl(VIDIOC_REQBUFS) for V4L2_MEMORY_USERPTR ...");
+	LOG_DEBUG("Requesting %u device buffers for USERPTR ...", req.count);
 	if (xioctl(RUN(fd), VIDIOC_REQBUFS, &req) < 0) {
-		LOG_PERROR("Device '%s' doesn't support V4L2_MEMORY_USERPTR", dev->path);
+		LOG_PERROR("Device '%s' doesn't support USERPTR method", dev->path);
 		return -1;
 	}
 
@@ -757,7 +757,7 @@ static int _device_open_queue_buffers(device_s *dev) {
 			buf.length = RUN(hw_bufs)[index].raw.allocated;
 		}
 
-		LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) for buffer %u ...", index);
+		LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) for buffer index=%u ...", index);
 		if (xioctl(RUN(fd), VIDIOC_QBUF, &buf) < 0) {
 			LOG_PERROR("Can't VIDIOC_QBUF");
 			return -1;
@@ -768,7 +768,7 @@ static int _device_open_queue_buffers(device_s *dev) {
 
 static int _device_apply_resolution(device_s *dev, unsigned width, unsigned height) {
 	// Тут VIDEO_MIN_* не используются из-за странностей минимального разрешения при отсутствии сигнала
-	// у некоторых устройств, например Auvidea B101
+	// у некоторых устройств, например TC358743
 	if (
 		width == 0 || width > VIDEO_MAX_WIDTH
 		|| height == 0 || height > VIDEO_MAX_HEIGHT

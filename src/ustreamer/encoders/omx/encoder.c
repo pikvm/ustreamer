@@ -279,7 +279,7 @@ static int _omx_setup_input(omx_encoder_s *omx, const frame_s *frame) {
 		// FIXME: RGB24 не работает нормально, нижняя половина экрана зеленая.
 		// FIXME: Китайский EasyCap тоже не работает, мусор на экране.
 		// Вероятно обе проблемы вызваны некорректной реализацией OMX на пае.
-		default: assert(0 && "Unsupported pixelformat");
+		default: assert(0 && "Unsupported format");
 	}
 #	undef IFMT
 
