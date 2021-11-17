@@ -35,7 +35,7 @@ static int _h264_encoder_compress_raw(
 
 
 h264_encoder_s *h264_encoder_init(const char *path, unsigned bitrate, unsigned gop, unsigned fps) {
-	LOG_INFO("H264: Initializing encoder ...");
+	LOG_INFO("H264: Initializing V4L2 encoder ...");
 	LOG_INFO("H264: Using bitrate: %u Kbps", bitrate);
 	LOG_INFO("H264: Using GOP: %u", gop);
 
@@ -86,19 +86,31 @@ int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame, bool dma) {
 	}
 
 	{
-#		define SET_OPTION(_cid, _value) { \
+#		define SET_OPTION(_required, _key, _value) { \
 				struct v4l2_control _ctl = {0}; \
-				_ctl.id = _cid; \
+				_ctl.id = V4L2_CID_MPEG_VIDEO_##_key; \
 				_ctl.value = _value; \
-				LOG_DEBUG("H264: Configuring option %s ...", #_cid); \
-				ENCODER_XIOCTL(VIDIOC_S_CTRL, &_ctl, "H264: Can't set option " #_cid); \
+				LOG_DEBUG("H264: Configuring option %s ...", #_key); \
+				if (_required) { \
+					ENCODER_XIOCTL(VIDIOC_S_CTRL, &_ctl, "H264: Can't set option " #_key); \
+				} else { \
+					if (xioctl(enc->fd, VIDIOC_S_CTRL, &_ctl) < 0) { \
+						if (errno == EINVAL) { \
+							LOG_ERROR("H264: Can't set option " #_key ": Unsupported by encoder"); \
+						} else { \
+							LOG_PERROR("H264: Can't set option " #_key); \
+						} \
+					} \
+				} \
 			}
 
-		SET_OPTION(V4L2_CID_MPEG_VIDEO_BITRATE, enc->bitrate * 1000);
-		SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_I_PERIOD, enc->gop);
-		SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_PROFILE, V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE);
-		SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_LEVEL, V4L2_MPEG_VIDEO_H264_LEVEL_4_0);
-		SET_OPTION(V4L2_CID_MPEG_VIDEO_REPEAT_SEQ_HEADER, 1);
+		SET_OPTION(true, BITRATE, enc->bitrate * 1000);
+		SET_OPTION(true, H264_I_PERIOD, enc->gop);
+		SET_OPTION(true, H264_PROFILE, V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE);
+		SET_OPTION(true, H264_LEVEL, V4L2_MPEG_VIDEO_H264_LEVEL_4_0);
+		SET_OPTION(true, REPEAT_SEQ_HEADER, 1);
+		SET_OPTION(false, H264_MIN_QP, 16);
+		SET_OPTION(false, H264_MAX_QP, 32);
 
 #		undef SET_OPTION
 	}
