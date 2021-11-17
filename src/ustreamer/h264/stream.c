@@ -54,7 +54,7 @@ void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int dma_fd, 
 	}
 
 	long double now = get_now_monotonic();
-	bool zero_copy = false;
+	bool dma = false;
 
 	if (is_jpeg(frame->format)) {
 		assert(dma_fd <= 0);
@@ -65,8 +65,8 @@ void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int dma_fd, 
 		frame = h264->tmp_src;
 		LOG_VERBOSE("H264: JPEG decoded; time=%.3Lf", get_now_monotonic() - now);
 	} else if (dma_fd > 0) {
-		LOG_DEBUG("H264: Zero-copy available for the input");
-		zero_copy = true;
+		LOG_DEBUG("H264: DMA available for the input");
+		dma = true;
 	} else {
 		LOG_DEBUG("H264: Copying source to tmp buffer ...");
 		frame_copy(frame, h264->tmp_src);
@@ -76,8 +76,8 @@ void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int dma_fd, 
 
 	bool online = false;
 
-	if (!h264_encoder_is_prepared_for(h264->enc, frame, zero_copy)) {
-		h264_encoder_prepare(h264->enc, frame, zero_copy);
+	if (!h264_encoder_is_prepared_for(h264->enc, frame, dma)) {
+		h264_encoder_prepare(h264->enc, frame, dma);
 	}
 
 	if (h264->enc->ready) {
