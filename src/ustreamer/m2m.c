@@ -43,20 +43,28 @@ static int _m2m_encoder_compress_raw(
 
 m2m_encoder_s *m2m_encoder_init(const char *name, const char *path, unsigned format, unsigned fps, m2m_option_s *options) {
 	LOG_INFO("%s: Initializing encoder ...", name);
+
 	m2m_encoder_s *enc;
 	A_CALLOC(enc, 1);
 	assert(enc->name = strdup(name));
 	assert(enc->path = strdup(path));
 	enc->output_format = format;
 	enc->fps = fps;
-	enc->options = options;
 	enc->last_online = -1;
+
+	unsigned count = 0;
+	for (; options[count].name != NULL; ++count);
+	++count;
+	A_CALLOC(enc->options, count);
+	memcpy(enc->options, options, sizeof(m2m_option_s) * count);
+
 	return enc;
 }
 
 void m2m_encoder_destroy(m2m_encoder_s *enc) {
 	E_LOG_INFO("Destroying encoder ...");
 	_m2m_encoder_cleanup(enc);
+	free(enc->options);
 	free(enc->path);
 	free(enc->name);
 	free(enc);

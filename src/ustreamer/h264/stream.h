@@ -38,7 +38,6 @@ typedef struct {
 	memsink_s		*sink;
 	frame_s			*tmp_src;
 	frame_s			*dest;
-	m2m_option_s	*options;
 	m2m_encoder_s	*enc;
 	atomic_bool		online;
 } h264_stream_s;
