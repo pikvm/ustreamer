@@ -31,15 +31,15 @@
 #include "../../libs/frame.h"
 #include "../../libs/memsink.h"
 #include "../../libs/unjpeg.h"
-
-#include "encoder.h"
+#include "../m2m.h"
 
 
 typedef struct {
 	memsink_s		*sink;
 	frame_s			*tmp_src;
 	frame_s			*dest;
-	h264_encoder_s	*enc;
+	m2m_option_s	*options;
+	m2m_encoder_s	*enc;
 	atomic_bool		online;
 } h264_stream_s;
 

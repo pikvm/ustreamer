@@ -35,14 +35,30 @@ h264_stream_s *h264_stream_init(memsink_s *sink, const char *path, unsigned bitr
 	// По логике вещей правильно 0, но почему-то на низких разрешениях типа 640x480
 	// енкодер через несколько секунд перестает производить корректные фреймы.
 	// TODO: Это было актуально для MMAL, надо проверить для V4L2.
-	h264->enc = h264_encoder_init(path, bitrate, gop, 30);
+
+#	define ADD_OPTION(_index, _required, _key, _value) { \
+			h264->options[_index] = (m2m_option_s){#_key, _required, V4L2_CID_MPEG_VIDEO_##_key, _value}; \
+		}
+
+	A_CALLOC(h264->options, 8);
+	ADD_OPTION(0, true, BITRATE, bitrate * 1000);
+	ADD_OPTION(1, true, H264_I_PERIOD, gop);
+	ADD_OPTION(2, true, H264_PROFILE, V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE);
+	ADD_OPTION(3, true, H264_LEVEL, V4L2_MPEG_VIDEO_H264_LEVEL_4_0);
+	ADD_OPTION(4, true, REPEAT_SEQ_HEADER, 1);
+	ADD_OPTION(5, false, H264_MIN_QP, 16);
+	ADD_OPTION(6, false, H264_MAX_QP, 32);
+	h264->options[7] = (m2m_option_s){NULL, false, 0, 0};
+
+#	undef ADD_OPTION
+
+	h264->enc = m2m_encoder_init("H264", path, V4L2_PIX_FMT_H264, 30, h264->options);
 	return h264;
 }
 
 void h264_stream_destroy(h264_stream_s *h264) {
-	if (h264->enc) {
-		h264_encoder_destroy(h264->enc);
-	}
+	m2m_encoder_destroy(h264->enc);
+	free(h264->options);
 	frame_destroy(h264->dest);
 	frame_destroy(h264->tmp_src);
 	free(h264);
@@ -76,12 +92,12 @@ void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int dma_fd, 
 
 	bool online = false;
 
-	if (!h264_encoder_is_prepared_for(h264->enc, frame, dma)) {
-		h264_encoder_prepare(h264->enc, frame, dma);
+	if (!m2m_encoder_is_prepared_for(h264->enc, frame, dma)) {
+		m2m_encoder_prepare(h264->enc, frame, dma);
 	}
 
 	if (h264->enc->ready) {
-		if (h264_encoder_compress(h264->enc, frame, dma_fd, h264->dest, force_key) == 0) {
+		if (m2m_encoder_compress(h264->enc, frame, dma_fd, h264->dest, force_key) == 0) {
 			online = !memsink_server_put(h264->sink, h264->dest);
 		}
 	}

@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -34,28 +35,36 @@
 
 #include <linux/videodev2.h>
 
-#include "../../libs/tools.h"
-#include "../../libs/logging.h"
-#include "../../libs/frame.h"
+#include "../libs/tools.h"
+#include "../libs/logging.h"
+#include "../libs/frame.h"
 
-#include "../xioctl.h"
+#include "xioctl.h"
 
 
 typedef struct {
 	uint8_t	*data;
 	size_t	allocated;
-} h264_buffer_s;
+} m2m_buffer_s;
 
 typedef struct {
-	char		*path;
-	unsigned	bitrate; // Kbit-per-sec
-	unsigned	gop; // Interval between keyframes
-	unsigned	fps;
+	char		*name;
+	bool		required;
+	uint32_t	id;
+	int32_t		value;
+} m2m_option_s;
+
+typedef struct {
+	char			*name;
+	char			*path;
+	unsigned		output_format;
+	unsigned		fps;
+	m2m_option_s	*options;
 
 	int				fd;
-	h264_buffer_s	*input_bufs;
+	m2m_buffer_s	*input_bufs;
 	unsigned		n_input_bufs;
-	h264_buffer_s	*output_bufs;
+	m2m_buffer_s	*output_bufs;
 	unsigned		n_output_bufs;
 
 	int last_online;
@@ -66,12 +75,12 @@ typedef struct {
 	unsigned	stride;
 	bool		dma;
 	bool		ready;
-} h264_encoder_s;
+} m2m_encoder_s;
 
 
-h264_encoder_s *h264_encoder_init(const char *path, unsigned bitrate, unsigned gop, unsigned fps);
-void h264_encoder_destroy(h264_encoder_s *enc);
+m2m_encoder_s *m2m_encoder_init(const char *name, const char *path, unsigned format, unsigned fps, m2m_option_s *options);
+void m2m_encoder_destroy(m2m_encoder_s *enc);
 
-bool h264_encoder_is_prepared_for(h264_encoder_s *enc, const frame_s *frame, bool dma);
-int h264_encoder_prepare(h264_encoder_s *enc, const frame_s *frame, bool dma);
-int h264_encoder_compress(h264_encoder_s *enc, const frame_s *src, int src_dma_fd, frame_s *dest, bool force_key);
+bool m2m_encoder_is_prepared_for(m2m_encoder_s *enc, const frame_s *frame, bool dma);
+int m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame, bool dma);
+int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, int src_dma_fd, frame_s *dest, bool force_key);
