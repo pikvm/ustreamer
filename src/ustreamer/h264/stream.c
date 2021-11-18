@@ -62,7 +62,7 @@ void h264_stream_destroy(h264_stream_s *h264) {
 	free(h264);
 }
 
-void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int dma_fd, bool force_key) {
+void h264_stream_process(h264_stream_s *h264, const frame_s *frame, bool force_key) {
 	if (!memsink_server_check(h264->sink, frame)) {
 		return;
 	}
@@ -71,14 +71,14 @@ void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int dma_fd, 
 	bool dma = false;
 
 	if (is_jpeg(frame->format)) {
-		assert(dma_fd <= 0);
+		assert(frame->dma_fd <= 0);
 		LOG_DEBUG("H264: Input frame is JPEG; decoding ...");
 		if (unjpeg(frame, h264->tmp_src, true) < 0) {
 			return;
 		}
 		frame = h264->tmp_src;
 		LOG_VERBOSE("H264: JPEG decoded; time=%.3Lf", get_now_monotonic() - now);
-	} else if (dma_fd > 0) {
+	} else if (frame->dma_fd > 0) {
 		LOG_DEBUG("H264: DMA available for the input");
 		dma = true;
 	} else {
@@ -95,7 +95,7 @@ void h264_stream_process(h264_stream_s *h264, const frame_s *frame, int dma_fd, 
 	}
 
 	if (h264->enc->ready) {
-		if (m2m_encoder_compress(h264->enc, frame, dma_fd, h264->dest, force_key) == 0) {
+		if (m2m_encoder_compress(h264->enc, frame, h264->dest, force_key) == 0) {
 			online = !memsink_server_put(h264->sink, h264->dest);
 		}
 	}

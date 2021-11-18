@@ -357,6 +357,7 @@ int device_grab_buffer(device_s *dev, hw_buffer_s **hw) {
 	HW(grabbed) = true;
 	A_MUTEX_UNLOCK(&HW(grabbed_mutex));
 
+	HW(raw.dma_fd) = HW(dma_fd);
 	HW(raw.used) = buf.bytesused;
 	HW(raw.width) = RUN(width);
 	HW(raw.height) = RUN(height);

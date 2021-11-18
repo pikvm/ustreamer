@@ -30,7 +30,7 @@ static int _m2m_encoder_init_buffers(
 static void _m2m_encoder_cleanup(m2m_encoder_s *enc);
 
 static int _m2m_encoder_compress_raw(
-	m2m_encoder_s *enc, const frame_s *src, int src_dma_fd,
+	m2m_encoder_s *enc, const frame_s *src,
 	frame_s *dest, bool force_key);
 
 
@@ -292,7 +292,7 @@ static void _m2m_encoder_cleanup(m2m_encoder_s *enc) {
 	E_LOG_DEBUG("Encoder state: ~~~ NOT READY ~~~");
 }
 
-int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, int src_dma_fd, frame_s *dest, bool force_key) {
+int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key) {
 	assert(enc->ready);
 	assert(src->used > 0);
 	assert(enc->width == src->width);
@@ -300,9 +300,9 @@ int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, int src_dma_fd,
 	assert(enc->format == src->format);
 	assert(enc->stride == src->stride);
 	if (enc->dma) {
-		assert(src_dma_fd >= 0);
+		assert(src->dma_fd >= 0);
 	} else {
-		assert(src_dma_fd < 0);
+		assert(src->dma_fd < 0);
 	}
 
 	frame_copy_meta(src, dest);
@@ -312,7 +312,7 @@ int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, int src_dma_fd,
 
 	force_key = (force_key || enc->last_online != src->online);
 
-	if (_m2m_encoder_compress_raw(enc, src, src_dma_fd, dest, force_key) < 0) {
+	if (_m2m_encoder_compress_raw(enc, src, dest, force_key) < 0) {
 		_m2m_encoder_cleanup(enc);
 		E_LOG_ERROR("Encoder destroyed due an error (compress)");
 		return -1;
@@ -327,7 +327,7 @@ int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, int src_dma_fd,
 }
 
 static int _m2m_encoder_compress_raw(
-	m2m_encoder_s *enc, const frame_s *src, int src_dma_fd,
+	m2m_encoder_s *enc, const frame_s *src,
 	frame_s *dest, bool force_key) {
 
 	E_LOG_DEBUG("Compressing new frame; force_key=%d ...", force_key);
@@ -347,14 +347,14 @@ static int _m2m_encoder_compress_raw(
 	input_buf.m.planes = &input_plane;
 
 	if (enc->dma) {
-		assert(src_dma_fd >= 0);
+		assert(src->dma_fd >= 0);
 		input_buf.index = 0;
 		input_buf.memory = V4L2_MEMORY_DMABUF;
 		input_buf.field = V4L2_FIELD_NONE;
-		input_plane.m.fd = src_dma_fd;
+		input_plane.m.fd = src->dma_fd;
 		E_LOG_DEBUG("Using INPUT-DMA buffer index=%u", input_buf.index);
 	} else {
-		assert(src_dma_fd < 0);
+		assert(src->dma_fd < 0);
 		input_buf.memory = V4L2_MEMORY_MMAP;
 		E_LOG_DEBUG("Grabbing INPUT buffer ...");
 		E_XIOCTL(VIDIOC_DQBUF, &input_buf, "Can't grab INPUT buffer");

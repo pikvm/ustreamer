@@ -36,9 +36,9 @@ static void _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 		} \
 	}
 
-#define H264_PUT(_frame, _dma_fd, _force_key) { \
+#define H264_PUT(_frame, _force_key) { \
 		if (RUN(h264)) { \
-			h264_stream_process(RUN(h264), _frame, _dma_fd, _force_key); \
+			h264_stream_process(RUN(h264), _frame, _force_key); \
 		} \
 	}
 
@@ -191,7 +191,7 @@ void stream_loop(stream_s *stream) {
 							LOG_DEBUG("Assigned new frame in buffer %d to worker %s", buf_index, ready_wr->name);
 
 							SINK_PUT(raw_sink, &hw->raw);
-							H264_PUT(&hw->raw, hw->dma_fd, h264_force_key);
+							H264_PUT(&hw->raw, h264_force_key);
 						}
 					} else if (buf_index != -2) { // -2 for broken frame
 						break;
@@ -347,7 +347,7 @@ static void _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned capt
 
 	if (frame == NULL) {
 		SINK_PUT(raw_sink, stream->blank);
-		H264_PUT(stream->blank, -1, false);
+		H264_PUT(stream->blank, false);
 	}
 
 #	undef VID

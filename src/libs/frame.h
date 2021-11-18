@@ -38,6 +38,7 @@ typedef struct {
 	uint8_t	*data;
 	size_t	used;
 	size_t	allocated;
+	int		dma_fd;
 
 	unsigned width;
 	unsigned height;

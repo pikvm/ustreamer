@@ -83,4 +83,4 @@ void m2m_encoder_destroy(m2m_encoder_s *enc);
 
 bool m2m_encoder_is_prepared_for(m2m_encoder_s *enc, const frame_s *frame, bool dma);
 int m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame, bool dma);
-int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, int src_dma_fd, frame_s *dest, bool force_key);
+int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key);
