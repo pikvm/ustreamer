@@ -67,38 +67,21 @@ void h264_stream_process(h264_stream_s *h264, const frame_s *frame, bool force_k
 		return;
 	}
 
-	long double now = get_now_monotonic();
-	bool dma = false;
-
 	if (is_jpeg(frame->format)) {
-		assert(frame->dma_fd <= 0);
+		long double now = get_now_monotonic();
 		LOG_DEBUG("H264: Input frame is JPEG; decoding ...");
 		if (unjpeg(frame, h264->tmp_src, true) < 0) {
 			return;
 		}
 		frame = h264->tmp_src;
 		LOG_VERBOSE("H264: JPEG decoded; time=%.3Lf", get_now_monotonic() - now);
-	} else if (frame->dma_fd > 0) {
-		LOG_DEBUG("H264: DMA available for the input");
-		dma = true;
-	} else {
-		LOG_DEBUG("H264: Copying source to tmp buffer ...");
-		frame_copy(frame, h264->tmp_src);
-		frame = h264->tmp_src;
-		LOG_VERBOSE("H264: Source copied; time=%.3Lf", get_now_monotonic() - now);
 	}
 
 	bool online = false;
-
-	if (!m2m_encoder_is_prepared_for(h264->enc, frame, dma)) {
-		m2m_encoder_prepare(h264->enc, frame, dma);
-	}
-
-	if (h264->enc->ready) {
-		if (m2m_encoder_compress(h264->enc, frame, h264->dest, force_key) == 0) {
+	if (!m2m_encoder_ensure_ready(h264->enc, frame)) {
+		if (!m2m_encoder_compress(h264->enc, frame, h264->dest, force_key)) {
 			online = !memsink_server_put(h264->sink, h264->dest);
 		}
 	}
-
 	atomic_store(&h264->online, online);
 }

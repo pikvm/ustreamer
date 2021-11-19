@@ -23,15 +23,16 @@
 #include "m2m.h"
 
 
+static bool _m2m_encoder_is_prepared_for(m2m_encoder_s *enc, const frame_s *frame);
+static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame);
+
 static int _m2m_encoder_init_buffers(
 	m2m_encoder_s *enc, const char *name, enum v4l2_buf_type type,
 	m2m_buffer_s **bufs_ptr, unsigned *n_bufs_ptr, bool dma);
 
 static void _m2m_encoder_cleanup(m2m_encoder_s *enc);
 
-static int _m2m_encoder_compress_raw(
-	m2m_encoder_s *enc, const frame_s *src,
-	frame_s *dest, bool force_key);
+static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key);
 
 
 #define E_LOG_ERROR(_msg, ...)		LOG_ERROR("%s: " _msg, enc->name, ##__VA_ARGS__)
@@ -70,9 +71,16 @@ void m2m_encoder_destroy(m2m_encoder_s *enc) {
 	free(enc);
 }
 
-bool m2m_encoder_is_prepared_for(m2m_encoder_s *enc, const frame_s *frame, bool dma) {
+int m2m_encoder_ensure_ready(m2m_encoder_s *enc, const frame_s *frame) {
+	if (!_m2m_encoder_is_prepared_for(enc, frame)) {
+		return _m2m_encoder_prepare(enc, frame);
+	}
+	return 0;
+}
+
+static bool _m2m_encoder_is_prepared_for(m2m_encoder_s *enc, const frame_s *frame) {
 #	define EQ(_field) (enc->_field == frame->_field)
-	return (EQ(width) && EQ(height) && EQ(format) && EQ(stride) && (enc->dma == dma));
+	return (EQ(width) && EQ(height) && EQ(format) && EQ(stride) && (enc->dma == (frame->dma_fd >= 0)));
 #	undef EQ
 }
 
@@ -83,7 +91,9 @@ bool m2m_encoder_is_prepared_for(m2m_encoder_s *enc, const frame_s *frame, bool 
 		} \
 	}
 
-int m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame, bool dma) {
+static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
+	bool dma = (frame->dma_fd >= 0);
+
 	E_LOG_INFO("Configuring encoder: DMA=%d ...", dma);
 
 	_m2m_encoder_cleanup(enc);
@@ -299,11 +309,7 @@ int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, 
 	assert(enc->height == src->height);
 	assert(enc->format == src->format);
 	assert(enc->stride == src->stride);
-	if (enc->dma) {
-		assert(src->dma_fd >= 0);
-	} else {
-		assert(src->dma_fd < 0);
-	}
+	assert(enc->dma == (src->dma_fd >= 0));
 
 	frame_copy_meta(src, dest);
 	dest->encode_begin_ts = get_now_monotonic();
@@ -326,10 +332,7 @@ int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, 
 	return 0;
 }
 
-static int _m2m_encoder_compress_raw(
-	m2m_encoder_s *enc, const frame_s *src,
-	frame_s *dest, bool force_key) {
-
+static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key) {
 	E_LOG_DEBUG("Compressing new frame; force_key=%d ...", force_key);
 
 	if (force_key) {

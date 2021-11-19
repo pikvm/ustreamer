@@ -81,6 +81,5 @@ typedef struct {
 m2m_encoder_s *m2m_encoder_init(const char *name, const char *path, unsigned format, unsigned fps, m2m_option_s *options);
 void m2m_encoder_destroy(m2m_encoder_s *enc);
 
-bool m2m_encoder_is_prepared_for(m2m_encoder_s *enc, const frame_s *frame, bool dma);
-int m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame, bool dma);
+int m2m_encoder_ensure_ready(m2m_encoder_s *enc, const frame_s *frame);
 int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key);
