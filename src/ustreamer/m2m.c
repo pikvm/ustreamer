@@ -53,6 +53,8 @@ m2m_encoder_s *m2m_encoder_init(const char *name, const char *path, unsigned for
 	enc->fps = fps;
 	enc->last_online = -1;
 
+	enc->fd = -1;
+
 	unsigned count = 0;
 	for (; options[count].name != NULL; ++count);
 	++count;
@@ -108,6 +110,7 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 		E_LOG_PERROR("Can't open encoder device");
 		goto error;
 	}
+	E_LOG_DEBUG("Encoder device fd=%d opened", enc->fd);
 
 	for (m2m_option_s *option = enc->options; option->name != NULL; ++option) {
 		struct v4l2_control ctl = {0};
