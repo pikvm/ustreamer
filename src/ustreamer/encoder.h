@@ -86,7 +86,6 @@ typedef struct {
 typedef struct {
 	encoder_s	*enc;
 	hw_buffer_s	*hw;
-	char		*dest_role;
 	frame_s		*dest;
 } encoder_job_s;
 
