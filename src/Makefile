@@ -5,9 +5,6 @@ CC ?= gcc
 CFLAGS ?= -O3
 LDFLAGS ?=
 
-RPI_VC_HEADERS ?= /opt/vc/include
-RPI_VC_LIBS ?= /opt/vc/lib
-
 
 # =====
 _USTR = ustreamer.bin
@@ -26,6 +23,7 @@ _USTR_SRCS = $(shell ls \
 	ustreamer/data/*.c \
 	ustreamer/encoders/cpu/*.c \
 	ustreamer/encoders/hw/*.c \
+	ustreamer/encoders/v4l2/*.c \
 	ustreamer/h264/*.c \
 )
 
@@ -41,15 +39,6 @@ _BUILD = build
 define optbool
 $(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
 endef
-
-
-ifneq ($(call optbool,$(WITH_OMX)),)
-_USTR_LIBS += -lbcm_host -lvcos -lvcsm -lopenmaxil -L$(RPI_VC_LIBS)
-override _CFLAGS += -DWITH_OMX -DOMX_SKIP64BIT -I$(RPI_VC_HEADERS)
-_USTR_SRCS += $(shell ls \
-	ustreamer/encoders/omx/*.c \
-)
-endif
 
 
 ifneq ($(call optbool,$(WITH_GPIO)),)

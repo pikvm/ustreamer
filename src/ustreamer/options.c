@@ -38,9 +38,7 @@ enum _OPT_VALUES {
 	_O_WORKERS = 'w',
 	_O_QUALITY = 'q',
 	_O_ENCODER = 'c',
-#	ifdef WITH_OMX
-	_O_GLITCHED_RESOLUTIONS = 'g',
-#	endif
+	_O_GLITCHED_RESOLUTIONS = 'g', // Deprecated
 	_O_BLANK = 'k',
 	_O_LAST_AS_BLANK = 'K',
 	_O_SLOWDOWN = 'l',
@@ -142,9 +140,7 @@ static const struct option _LONG_OPTS[] = {
 	{"workers",					required_argument,	NULL,	_O_WORKERS},
 	{"quality",					required_argument,	NULL,	_O_QUALITY},
 	{"encoder",					required_argument,	NULL,	_O_ENCODER},
-#	ifdef WITH_OMX
-	{"glitched-resolutions",	required_argument,	NULL,	_O_GLITCHED_RESOLUTIONS},
-#	endif
+	{"glitched-resolutions",	required_argument,	NULL,	_O_GLITCHED_RESOLUTIONS}, // Deprecated
 	{"blank",					required_argument,	NULL,	_O_BLANK},
 	{"last-as-blank",			required_argument,	NULL,	_O_LAST_AS_BLANK},
 	{"slowdown",				no_argument,		NULL,	_O_SLOWDOWN},
@@ -378,9 +374,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			case _O_WORKERS:		OPT_NUMBER("--workers", enc->n_workers, 1, 32, 0);
 			case _O_QUALITY:		OPT_NUMBER("--quality", dev->jpeg_quality, 1, 100, 0);
 			case _O_ENCODER:		OPT_PARSE("encoder type", enc->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, ENCODER_TYPES_STR);
-#			ifdef WITH_OMX
-			case _O_GLITCHED_RESOLUTIONS: break;
-#			endif
+			case _O_GLITCHED_RESOLUTIONS: break; // Deprecated
 			case _O_BLANK:				OPT_SET(blank_path, optarg);
 			case _O_LAST_AS_BLANK:		OPT_NUMBER("--last-as-blank", stream->last_as_blank, 0, 86400, 0);
 			case _O_SLOWDOWN:			OPT_SET(stream->slowdown, true);
@@ -542,12 +536,6 @@ static int _parse_resolution(const char *str, unsigned *width, unsigned *height,
 }
 
 static void _features(void) {
-#	ifdef WITH_OMX
-	puts("+ WITH_OMX");
-#	else
-	puts("- WITH_OMX");
-#	endif
-
 #	ifdef WITH_GPIO
 	puts("+ WITH_GPIO");
 #	else
@@ -617,14 +605,10 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("    -c|--encoder <type>  ───────────────── Use specified encoder. It may affect the number of workers.");
 	SAY("                                           Available:");
 	SAY("                                             * CPU  ── Software MJPG encoding (default);");
-#	ifdef WITH_OMX
-	SAY("                                             * OMX  ── GPU hardware accelerated MJPG encoding with OpenMax;");
-#	endif
-	SAY("                                             * HW  ─── Use pre-encoded MJPG frames directly from camera hardware.");
+	SAY("                                             * HW  ─── Use pre-encoded MJPG frames directly from camera hardware;");
+	SAY("                                             * V4L2  ─ GPU-accelerated MJPG encoding using V4L2 M2M interface;");
 	SAY("                                             * NOOP  ─ Don't compress MJPG stream (do nothing).\n");
-#	ifdef WITH_OMX
 	SAY("    -g|--glitched-resolutions <WxH,...>  ─ It doesn't do anything. Still here for compatibility.\n");
-#	endif
 	SAY("    -k|--blank <path>  ─────────────────── Path to JPEG file that will be shown when the device is disconnected");
 	SAY("                                           during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.\n");
 	SAY("    -K|--last-as-blank <sec>  ──────────── Show the last frame received from the camera after it was disconnected,");

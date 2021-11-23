@@ -159,7 +159,7 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 		E_XIOCTL(VIDIOC_S_FMT, &fmt, "Can't set OUTPUT format");
 	}
 
-	{
+	if (enc->fps > 0) { // TODO: Check this for MJPEG
 		struct v4l2_streamparm setfps = {0};
 		setfps.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 		setfps.parm.output.timeperframe.numerator = 1;
@@ -316,7 +316,7 @@ int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, 
 
 	frame_copy_meta(src, dest);
 	dest->encode_begin_ts = get_now_monotonic();
-	dest->format = enc->output_format;
+	dest->format = (enc->output_format == V4L2_PIX_FMT_MJPEG ? V4L2_PIX_FMT_JPEG : enc->output_format);
 	dest->stride = 0;
 
 	force_key = (force_key || enc->last_online != src->online);

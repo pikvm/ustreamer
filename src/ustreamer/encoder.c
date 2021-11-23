@@ -29,9 +29,7 @@ static const struct {
 } _ENCODER_TYPES[] = {
 	{"CPU",		ENCODER_TYPE_CPU},
 	{"HW",		ENCODER_TYPE_HW},
-#	ifdef WITH_OMX
-	{"OMX",		ENCODER_TYPE_OMX},
-#	endif
+	{"V4L2",	ENCODER_TYPE_V4L2},
 	{"NOOP",	ENCODER_TYPE_NOOP},
 };
 
@@ -60,22 +58,23 @@ encoder_s *encoder_init(void) {
 }
 
 void encoder_destroy(encoder_s *enc) {
-#	ifdef WITH_OMX
-	if (ER(omxs)) {
-		for (unsigned index = 0; index < ER(n_omxs); ++index) {
-			if (ER(omxs[index])) {
-				omx_encoder_destroy(ER(omxs[index]));
+	if (ER(m2ms)) {
+		for (unsigned index = 0; index < ER(n_m2ms); ++index) {
+			if (ER(m2ms[index])) {
+				m2m_encoder_destroy(ER(m2ms[index]));
 			}
 		}
-		free(ER(omxs));
+		free(ER(m2ms));
 	}
-#	endif
 	A_MUTEX_DESTROY(&ER(mutex));
 	free(enc->run);
 	free(enc);
 }
 
 encoder_type_e encoder_parse_type(const char *str) {
+	if (!strcasecmp(str, "OMX")) {
+		return ENCODER_TYPE_V4L2; // Just for compatibility
+	}
 	for (unsigned index = 0; index < ARRAY_LEN(_ENCODER_TYPES); ++index) {
 		if (!strcasecmp(str, _ENCODER_TYPES[index].name)) {
 			return _ENCODER_TYPES[index].type;
@@ -113,61 +112,26 @@ workers_pool_s *encoder_workers_pool_init(encoder_s *enc, device_s *dev) {
 		}
 		quality = DR(jpeg_quality);
 		n_workers = 1;
-	}
-#	ifdef WITH_OMX
-	else if (type == ENCODER_TYPE_OMX) {
-		if (align_size(DR(width), 32) != DR(width)) {
-			LOG_INFO("Switching to CPU encoder: OMX can't handle width=%u ...", DR(width));
-			goto use_cpu;
+
+	} else if (type == ENCODER_TYPE_V4L2) {
+		LOG_DEBUG("Preparing V4L2 encoder ...");
+		if (ER(m2ms) == NULL) {
+			A_CALLOC(ER(m2ms), n_workers);
 		}
-
-		LOG_DEBUG("Preparing OMX encoder ...");
-
-		if (n_workers > OMX_MAX_ENCODERS) {
-			LOG_INFO("OMX encoder sets limit for worker threads: %u", OMX_MAX_ENCODERS);
-			n_workers = OMX_MAX_ENCODERS;
-		}
-
-		if (ER(omxs) == NULL) {
-			A_CALLOC(ER(omxs), OMX_MAX_ENCODERS);
-		}
-
 		// Начинаем с нуля и доинициализируем на следующих заходах при необходимости
-		for (; ER(n_omxs) < n_workers; ++ER(n_omxs)) {
-			if ((ER(omxs[ER(n_omxs)]) = omx_encoder_init()) == NULL) {
-				LOG_ERROR("Can't initialize OMX encoder, falling back to CPU");
-				goto force_cpu;
-			}
+		for (; ER(n_m2ms) < n_workers; ++ER(n_m2ms)) {
+			char name[32];
+			snprintf(name, 32, "JPEG-%u", ER(n_m2ms));
+			m2m_option_s options[] = {{NULL, false, 0, 0}};
+			ER(m2ms[ER(n_m2ms)]) = m2m_encoder_init(name, "/dev/video11", V4L2_PIX_FMT_MJPEG, 0, options);
 		}
 
-		frame_s frame = {0};
-		frame.width = DR(width);
-		frame.height = DR(height);
-		frame.format = DR(format);
-		frame.stride = DR(stride);
-
-		for (unsigned index = 0; index < ER(n_omxs); ++index) {
-			int omx_error = omx_encoder_prepare(ER(omxs[index]), &frame, quality);
-			if (omx_error == -2) {
-				goto use_cpu;
-			} else if (omx_error < 0) {
-				goto force_cpu;
-			}
-		}
-	}
-#	endif
-	else if (type == ENCODER_TYPE_NOOP) {
+	} else if (type == ENCODER_TYPE_NOOP) {
 		n_workers = 1;
 		quality = 0;
 	}
 
 	goto ok;
-
-#	ifdef WITH_OMX
-	force_cpu:
-		LOG_ERROR("Forced CPU encoder permanently");
-		cpu_forced = true;
-#	endif
 
 	use_cpu:
 		type = ENCODER_TYPE_CPU;
@@ -248,19 +212,20 @@ static bool _worker_run_job(worker_s *wr) {
 	if (ER(type) == ENCODER_TYPE_CPU) {
 		LOG_VERBOSE("Compressing buffer using CPU");
 		cpu_encoder_compress(src, dest, ER(quality));
+
 	} else if (ER(type) == ENCODER_TYPE_HW) {
 		LOG_VERBOSE("Compressing buffer using HW (just copying)");
 		hw_encoder_compress(src, dest);
-	}
-#	ifdef WITH_OMX
-	else if (ER(type) == ENCODER_TYPE_OMX) {
-		LOG_VERBOSE("Compressing buffer using OMX");
-		if (omx_encoder_compress(ER(omxs[wr->number]), src, dest) < 0) {
-			goto error;
+
+	} else if (ER(type) == ENCODER_TYPE_V4L2) {
+		LOG_VERBOSE("Compressing buffer using V4L2");
+		if (!m2m_encoder_ensure_ready(ER(m2ms[wr->number]), src)) {
+			if (m2m_encoder_compress(ER(m2ms[wr->number]), src, dest, false) < 0) {
+				goto error;
+			}
 		}
-	}
-#	endif
-	else if (ER(type) == ENCODER_TYPE_NOOP) {
+
+	} else if (ER(type) == ENCODER_TYPE_NOOP) {
 		LOG_VERBOSE("Compressing buffer using NOOP (do nothing)");
 		usleep(5000); // Просто чтобы работала логика desired_fps
 	}
@@ -274,7 +239,6 @@ static bool _worker_run_job(worker_s *wr) {
 
 	return true;
 
-#	ifdef WITH_OMX
 	error:
 		LOG_ERROR("Compression failed: worker=%s, buffer=%u", wr->name, job->hw->buf.index);
 		LOG_ERROR("Error while compressing buffer, falling back to CPU");
@@ -282,7 +246,6 @@ static bool _worker_run_job(worker_s *wr) {
 		ER(cpu_forced) = true;
 		A_MUTEX_UNLOCK(&ER(mutex));
 		return false;
-#	endif
 
 #	undef ER
 }

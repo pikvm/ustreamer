@@ -277,7 +277,7 @@ static workers_pool_s *_stream_init_one(stream_s *stream) {
 	if (device_open(stream->dev) < 0) {
 		goto error;
 	}
-	if (RUN(h264) && !is_jpeg(stream->dev->run->format)) {
+	if (stream->enc->type == ENCODER_TYPE_V4L2 || (RUN(h264) && !is_jpeg(stream->dev->run->format))) {
 		device_export_to_dma(stream->dev);
 	}
 	if (device_switch_capturing(stream->dev, true) < 0) {

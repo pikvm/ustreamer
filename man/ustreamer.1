@@ -23,9 +23,9 @@ For example, the recommended way of running µStreamer with Auvidea B101 on a Ra
 .RS
 \fB\-\-format=uyvy \e\fR # Device input format
 .nf
-\fB\-\-encoder=omx \e\fR # Hardware encoding with OpenMAX
+\fB\-\-encoder=v4l2 \e\fR # Hardware encoding with V4L2 M2M intraface
 .nf
-\fB\-\-workers=3 \e\fR # Maximum workers for OpenMAX
+\fB\-\-workers=3 \e\fR # Maximum workers for V4L2 encoder
 .nf
 \fB\-\-persistent \e\fR # Don\'t re\-initialize device on timeout (for example when HDMI cable was disconnected)
 .nf
@@ -91,14 +91,14 @@ Use specified encoder. It may affect the number of workers.
 
 CPU ─ Software MJPG encoding (default).
 
-OMX ─ GPU hardware accelerated MJPG encoding with OpenMax (required \fBWITH_OMX\fR feature).
-
 HW ─ Use pre-encoded MJPG frames directly from camera hardware.
+
+V4L2 ─ GPU-accelerated MJPG encoding.
 
 NOOP ─ Don't compress MJPG stream (do nothing).
 .TP
 .BR \-g\ \fIWxH,... ", " \-\-glitched\-resolutions\ \fIWxH,...
-It doesn't do anything. Still here for compatibility. Required \fBWITH_OMX\fR feature.
+It doesn't do anything. Still here for compatibility.
 .TP
 .BR \-k\ \fIpath ", " \-\-blank\ \fIpath
 Path to JPEG file that will be shown when the device is disconnected during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.

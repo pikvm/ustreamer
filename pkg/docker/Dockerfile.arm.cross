@@ -7,13 +7,12 @@ RUN apt-get update \
 		gcc \
 		libjpeg8-dev \
 		libbsd-dev \
-		libraspberrypi-dev \
 		libgpiod-dev \
 	&& rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build/ustreamer/
 COPY . .
-RUN make -j5 WITH_OMX=1 WITH_GPIO=1
+RUN make -j5 WITH_GPIO=1
 RUN ["cross-build-end"]
 
 FROM balenalib/raspberrypi3-debian:run as RUN

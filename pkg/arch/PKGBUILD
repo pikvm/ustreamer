@@ -21,11 +21,6 @@ if [ -e /usr/bin/python3 ]; then
 	depends+=(python)
 	makedepends+=(python-setuptools)
 fi
-if [ -e /opt/vc/include/IL/OMX_Core.h ]; then
-	depends+=(raspberrypi-firmware)
-	makedepends+=(raspberrypi-firmware)
-	_options="$_options WITH_OMX=1"
-fi
 if [ -e /usr/include/janus/plugins/plugin.h ];then
 	depends+=(janus-gateway-pikvm)
 	makedepends+=(janus-gateway-pikvm)

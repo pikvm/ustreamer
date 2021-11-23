@@ -37,30 +37,19 @@
 
 #include "device.h"
 #include "workers.h"
+#include "m2m.h"
 
 #include "encoders/cpu/encoder.h"
 #include "encoders/hw/encoder.h"
 
-#ifdef WITH_OMX
-#	include "encoders/omx/encoder.h"
-#	define ENCODER_TYPES_OMX_HINT ", OMX"
-#else
-#	define ENCODER_TYPES_OMX_HINT ""
-#endif
 
-
-#define ENCODER_TYPES_STR \
-	"CPU, HW" \
-	ENCODER_TYPES_OMX_HINT \
-	", NOOP"
+#define ENCODER_TYPES_STR "CPU, HW, V4L2, NOOP"
 
 typedef enum {
 	ENCODER_TYPE_UNKNOWN, // Only for encoder_parse_type() and main()
 	ENCODER_TYPE_CPU,
 	ENCODER_TYPE_HW,
-#	ifdef WITH_OMX
-	ENCODER_TYPE_OMX,
-#	endif
+	ENCODER_TYPE_V4L2,
 	ENCODER_TYPE_NOOP,
 } encoder_type_e;
 
@@ -70,10 +59,8 @@ typedef struct {
 	bool			cpu_forced;
 	pthread_mutex_t	mutex;
 
-#	ifdef WITH_OMX
-	unsigned		n_omxs;
-	omx_encoder_s	**omxs;
-#	endif
+	unsigned		n_m2ms;
+	m2m_encoder_s	**m2ms;
 } encoder_runtime_s;
 
 typedef struct {
