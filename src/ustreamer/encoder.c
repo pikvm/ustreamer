@@ -29,7 +29,7 @@ static const struct {
 } _ENCODER_TYPES[] = {
 	{"CPU",		ENCODER_TYPE_CPU},
 	{"HW",		ENCODER_TYPE_HW},
-	{"V4L2",	ENCODER_TYPE_V4L2},
+	{"M2M",		ENCODER_TYPE_M2M},
 	{"NOOP",	ENCODER_TYPE_NOOP},
 };
 
@@ -73,7 +73,7 @@ void encoder_destroy(encoder_s *enc) {
 
 encoder_type_e encoder_parse_type(const char *str) {
 	if (!strcasecmp(str, "OMX")) {
-		return ENCODER_TYPE_V4L2; // Just for compatibility
+		return ENCODER_TYPE_M2M; // Just for compatibility
 	}
 	for (unsigned index = 0; index < ARRAY_LEN(_ENCODER_TYPES); ++index) {
 		if (!strcasecmp(str, _ENCODER_TYPES[index].name)) {
@@ -113,8 +113,8 @@ workers_pool_s *encoder_workers_pool_init(encoder_s *enc, device_s *dev) {
 		quality = DR(jpeg_quality);
 		n_workers = 1;
 
-	} else if (type == ENCODER_TYPE_V4L2) {
-		LOG_DEBUG("Preparing V4L2 encoder ...");
+	} else if (type == ENCODER_TYPE_M2M) {
+		LOG_DEBUG("Preparing M2M encoder ...");
 		if (ER(m2ms) == NULL) {
 			A_CALLOC(ER(m2ms), n_workers);
 		}
@@ -220,8 +220,8 @@ static bool _worker_run_job(worker_s *wr) {
 		LOG_VERBOSE("Compressing buffer using HW (just copying)");
 		hw_encoder_compress(src, dest);
 
-	} else if (ER(type) == ENCODER_TYPE_V4L2) {
-		LOG_VERBOSE("Compressing buffer using V4L2");
+	} else if (ER(type) == ENCODER_TYPE_M2M) {
+		LOG_VERBOSE("Compressing buffer using M2M");
 		if (m2m_encoder_ensure_ready(ER(m2ms[wr->number]), src) < 0) {
 			goto error;
 		}

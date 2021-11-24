@@ -43,13 +43,13 @@
 #include "encoders/hw/encoder.h"
 
 
-#define ENCODER_TYPES_STR "CPU, HW, V4L2, NOOP"
+#define ENCODER_TYPES_STR "CPU, HW, M2M, NOOP"
 
 typedef enum {
 	ENCODER_TYPE_UNKNOWN, // Only for encoder_parse_type() and main()
 	ENCODER_TYPE_CPU,
 	ENCODER_TYPE_HW,
-	ENCODER_TYPE_V4L2,
+	ENCODER_TYPE_M2M,
 	ENCODER_TYPE_NOOP,
 } encoder_type_e;
 
