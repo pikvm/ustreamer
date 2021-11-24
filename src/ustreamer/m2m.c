@@ -321,10 +321,7 @@ int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, 
 	assert(enc->stride == src->stride);
 	assert(enc->dma == (src->dma_fd >= 0));
 
-	frame_copy_meta(src, dest);
-	dest->encode_begin_ts = get_now_monotonic();
-	dest->format = (enc->output_format == V4L2_PIX_FMT_MJPEG ? V4L2_PIX_FMT_JPEG : enc->output_format);
-	dest->stride = 0;
+	frame_encoding_begin(src, dest, (enc->output_format == V4L2_PIX_FMT_MJPEG ? V4L2_PIX_FMT_JPEG : enc->output_format));
 
 	force_key = (force_key || enc->last_online != src->online);
 
@@ -334,7 +331,8 @@ int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, 
 		return -1;
 	}
 
-	dest->encode_end_ts = get_now_monotonic();
+	frame_encoding_end(dest);
+
 	E_LOG_VERBOSE("Compressed new frame: size=%zu, time=%0.3Lf, force_key=%d",
 		dest->used, dest->encode_end_ts - dest->encode_begin_ts, force_key);
 

@@ -84,6 +84,21 @@ static inline void frame_copy_meta(const frame_s *src, frame_s *dest) {
 	)
 
 
+static inline void frame_encoding_begin(const frame_s *src, frame_s *dest, unsigned format) {
+	assert(src->used > 0);
+	frame_copy_meta(src, dest);
+	dest->encode_begin_ts = get_now_monotonic();
+	dest->format = format;
+	dest->stride = 0;
+	dest->used = 0;
+}
+
+static inline void frame_encoding_end(frame_s *dest) {
+	assert(dest->used > 0);
+	dest->encode_end_ts = get_now_monotonic();
+}
+
+
 frame_s *frame_init(void);
 void frame_destroy(frame_s *frame);
 

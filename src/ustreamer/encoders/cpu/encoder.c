@@ -50,6 +50,8 @@ static void _jpeg_term_destination(j_compress_ptr jpeg);
 void cpu_encoder_compress(const frame_s *src, frame_s *dest, unsigned quality) {
 	// This function based on compress_image_to_jpeg() from mjpg-streamer
 
+	frame_encoding_begin(src, dest, V4L2_PIX_FMT_JPEG);
+
 	struct jpeg_compress_struct jpeg;
 	struct jpeg_error_mgr jpeg_error;
 
@@ -85,7 +87,7 @@ void cpu_encoder_compress(const frame_s *src, frame_s *dest, unsigned quality) {
 	jpeg_finish_compress(&jpeg);
 	jpeg_destroy_compress(&jpeg);
 
-	assert(dest->used > 0);
+	frame_encoding_end(dest);
 }
 
 static void _jpeg_set_dest_frame(j_compress_ptr jpeg, frame_s *frame) {

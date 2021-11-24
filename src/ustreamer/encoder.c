@@ -204,13 +204,6 @@ static bool _worker_run_job(worker_s *wr) {
 	LOG_DEBUG("Worker %s compressing JPEG from buffer index=%u ...", wr->name, job->hw->buf.index);
 
 	assert(ER(type) != ENCODER_TYPE_UNKNOWN);
-	assert(src->used > 0);
-
-	frame_copy_meta(src, dest);
-	dest->format = V4L2_PIX_FMT_JPEG;
-	dest->stride = 0;
-	dest->encode_begin_ts = get_now_monotonic();
-	dest->used = 0;
 
 	if (ER(type) == ENCODER_TYPE_CPU) {
 		LOG_VERBOSE("Compressing buffer using CPU");
@@ -234,7 +227,6 @@ static bool _worker_run_job(worker_s *wr) {
 		usleep(5000); // Просто чтобы работала логика desired_fps
 	}
 
-	dest->encode_end_ts = get_now_monotonic();
 	LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%s, buffer=%u",
 		job->dest->used,
 		job->dest->encode_end_ts - job->dest->encode_begin_ts,

@@ -38,6 +38,8 @@ void hw_encoder_compress(const frame_s *src, frame_s *dest) {
 }
 
 void _copy_plus_huffman(const frame_s *src, frame_s *dest) {
+	frame_encoding_begin(src, dest, V4L2_PIX_FMT_JPEG);
+
 	if (!_is_huffman(src->data)) {
 		const uint8_t *src_ptr = src->data;
 		const uint8_t *src_end = src->data + src->used;
@@ -55,9 +57,12 @@ void _copy_plus_huffman(const frame_s *src, frame_s *dest) {
 		frame_set_data(dest, src->data, paste);
 		frame_append_data(dest, HUFFMAN_TABLE, sizeof(HUFFMAN_TABLE));
 		frame_append_data(dest, src_ptr, src->used - paste);
+
 	} else {
 		frame_set_data(dest, src->data, src->used);
 	}
+
+	frame_encoding_end(dest);
 }
 
 static bool _is_huffman(const uint8_t *data) {
