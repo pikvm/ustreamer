@@ -12,7 +12,7 @@
 | **Фича** | **µStreamer** | **mjpg-streamer** |
 |----------|---------------|-------------------|
 | Многопоточное кодирование JPEG | ✔ | ✘ |
-| Аппаратное кодирование с помощью [OpenMAX IL](https://www.khronos.org/openmaxil) на Raspberry Pi | ✔ | ✘ |
+| Аппаратное кодирование на Raspberry Pi | ✔ | ✘ |
 | Поведение при физическом отключении<br>устройства от сервера во время работы | ✔ Транслирует черный экран<br>с надписью ```NO SIGNAL```,<br>пока устройство не будет подключено снова | ✘ Прерывает трансляцию <sup>1</sup> |
 | Поддержка [DV-таймингов](https://linuxtv.org/downloads/v4l-dvb-apis-new/userspace-api/v4l/dv-timings.html) - возможности<br>изменения  параметров разрешения<br>трансляции на лету по сигналу<br>источника (устройства видеозахвата) | ✔ | ☹ Условно есть <sup>1</sup> |
 | Возможность пропуска фреймов при передаче<br>статического изображения по HTTP<br>для экономии трафика | ✔ <sup>2</sup> | ✘ |
@@ -38,10 +38,10 @@
 Для сборки вам понадобятся ```make```, ```gcc```, ```libevent``` с поддержкой ```pthreads```, ```libjpeg8```/```libjpeg-turbo``` и ```libbsd``` (только для Linux).
 
 * Arch: `sudo pacman -S libevent libjpeg-turbo libutil-linux libbsd`.
-* Raspbian: `sudo apt install libevent-dev libjpeg8-dev libbsd-dev`.  Добавьте `libraspberrypi-dev` для сборки с `WITH_OMX=1`, `libgpiod` для `WITH_GPIO=1` и `libsystemd-dev` для `WITH_SYSTEMD=1`.
+* Raspbian: `sudo apt install libevent-dev libjpeg8-dev libbsd-dev`.  Добавьте `libgpiod` для `WITH_GPIO=1` и `libsystemd-dev` для `WITH_SYSTEMD=1`.
 * Debian/Ubuntu: `sudo apt install build-essential libevent-dev libjpeg-dev libbsd-dev`.
 
-На Raspberry Pi программу можно собрать с поддержкой OpenMAX IL. Для этого передайте ```make``` параметр ```WITH_OMX=1```. Для включения сборки с поддержкой GPIO установите [libgpiod](https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/about) и добавьте параметр ```WITH_GPIO=1```. Если при сборке компилятор ругается на отсутствие функции ```pthread_get_name_np()``` или другой подобной, добавьте параметр ```WITH_PTHREAD_NP=0``` (по умолчанию он включен). При аналогичной ошибке с функцией ```setproctitle()``` добавьте параметр ```WITH_SETPROCTITLE=0```.
+Для включения сборки с поддержкой GPIO установите [libgpiod](https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/about) и добавьте параметр ```WITH_GPIO=1```. Если при сборке компилятор ругается на отсутствие функции ```pthread_get_name_np()``` или другой подобной, добавьте параметр ```WITH_PTHREAD_NP=0``` (по умолчанию он включен). При аналогичной ошибке с функцией ```setproctitle()``` добавьте параметр ```WITH_SETPROCTITLE=0```.
 
 ```
 $ git clone --depth=1 https://github.com/pikvm/ustreamer
@@ -50,7 +50,8 @@ $ make
 $ ./ustreamer --help
 ```
 
-Для Arch Linux в AUR есть готовый пакет: https://aur.archlinux.org/packages/ustreamer. На Raspberry Pi програма автоматически собирается с поддержкой OpenMAX IL, если обнаружит нужные хедеры в ```/opt/vc/include```.  
+Для Arch Linux в AUR есть готовый пакет: https://aur.archlinux.org/packages/ustreamer.
+
 Порт для FreeBSD: https://www.freshports.org/multimedia/ustreamer.
 
 -----
@@ -66,8 +67,8 @@ $ ./ustreamer --help
 ```bash
 $ ./ustreamer \
     --format=uyvy \ # Настройка входного формата устройства
-    --encoder=omx \ # Использование аппаратного кодирования с помощью OpenMAX
-    --workers=3 \ # Максимум воркеров для OpenMAX
+    --encoder=v4l2 \ # Аппаратное кодирование с помощью драйвер V4L2 M2M
+    --workers=3 \ # Максимум воркеров
     --persistent \ # Не переинициализировать устройство при таймауте (например, когда был отключен HDMI-кабель)
     --dv-timings \ # Включение DV-таймингов
     --drop-same-frames=30 # Экономим трафик

@@ -122,7 +122,10 @@ workers_pool_s *encoder_workers_pool_init(encoder_s *enc, device_s *dev) {
 		for (; ER(n_m2ms) < n_workers; ++ER(n_m2ms)) {
 			char name[32];
 			snprintf(name, 32, "JPEG-%u", ER(n_m2ms));
-			m2m_option_s options[] = {{NULL, false, 0, 0}};
+			m2m_option_s options[] = {
+				{"COMPRESSION_QUALITY", false, V4L2_CID_JPEG_COMPRESSION_QUALITY, quality},
+				{NULL, false, 0, 0},
+			};
 			ER(m2ms[ER(n_m2ms)]) = m2m_encoder_init(name, "/dev/video11", V4L2_PIX_FMT_MJPEG, 0, options);
 		}
 
@@ -219,10 +222,11 @@ static bool _worker_run_job(worker_s *wr) {
 
 	} else if (ER(type) == ENCODER_TYPE_V4L2) {
 		LOG_VERBOSE("Compressing buffer using V4L2");
-		if (!m2m_encoder_ensure_ready(ER(m2ms[wr->number]), src)) {
-			if (m2m_encoder_compress(ER(m2ms[wr->number]), src, dest, false) < 0) {
-				goto error;
-			}
+		if (m2m_encoder_ensure_ready(ER(m2ms[wr->number]), src) < 0) {
+			goto error;
+		}
+		if (m2m_encoder_compress(ER(m2ms[wr->number]), src, dest, false) < 0) {
+			goto error;
 		}
 
 	} else if (ER(type) == ENCODER_TYPE_NOOP) {

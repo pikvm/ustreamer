@@ -157,6 +157,13 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 		fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512 << 10;
 		E_LOG_DEBUG("Configuring OUTPUT format ...");
 		E_XIOCTL(VIDIOC_S_FMT, &fmt, "Can't set OUTPUT format");
+		if (fmt.fmt.pix_mp.pixelformat != enc->output_format) {
+			char fourcc_str[8];
+			E_LOG_ERROR("The OUTPUT format can't be configured as %s",
+				fourcc_to_string(enc->output_format, fourcc_str, 8));
+			E_LOG_ERROR("In case of Raspberry Pi, try to append 'start_x=1' to /boot/config.txt");
+			goto error;
+		}
 	}
 
 	if (enc->fps > 0) { // TODO: Check this for MJPEG

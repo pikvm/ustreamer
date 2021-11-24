@@ -12,7 +12,7 @@
 | **Feature** | **µStreamer** | **mjpg-streamer** |
 |----------|---------------|-------------------|
 | Multithreaded JPEG encoding | ✔ | ✘ |
-| [OpenMAX IL](https://www.khronos.org/openmaxil) hardware acceleration<br>on Raspberry Pi | ✔ | ✘ |
+| Hardware image encoding<br>on Raspberry Pi | ✔ | ✘ |
 | Behavior when the device<br>is disconnected while streaming | ✔ Shows a black screen<br>with ```NO SIGNAL``` on it<br>until reconnected | ✘ Stops the streaming <sup>1</sup> |
 | [DV-timings](https://linuxtv.org/downloads/v4l-dvb-apis-new/userspace-api/v4l/dv-timings.html) support -<br>the ability to change resolution<br>on the fly by source signal | ✔ | ☹ Partially yes <sup>1</sup> |
 | Option to skip frames when streaming<br>static images by HTTP to save the traffic | ✔ <sup>2</sup> | ✘ |
@@ -35,13 +35,13 @@ If you're going to live-stream from your backyard webcam and need to control it,
 
 -----
 # Building
-You'll need  ```make```, ```gcc```, ```libevent``` with ```pthreads``` support, ```libjpeg8```/```libjpeg-turbo``` and ```libbsd``` (only for Linux).
+You'll need  ```make```, ```gcc```, ```libevent``` with ```pthreads``` support, ```libjpeg9```/```libjpeg-turbo``` and ```libbsd``` (only for Linux).
 
 * Arch: `sudo pacman -S libevent libjpeg-turbo libutil-linux libbsd`.
-* Raspbian: `sudo apt install libevent-dev libjpeg8-dev libbsd-dev`. Add `libraspberrypi-dev` for `WITH_OMX=1`, `libgpiod-dev` for `WITH_GPIO=1` and `libsystemd-dev` for `WITH_SYSTEMD=1`.
+* Raspbian: `sudo apt install libevent-dev libjpeg8-dev libbsd-dev`. Add `libgpiod-dev` for `WITH_GPIO=1` and `libsystemd-dev` for `WITH_SYSTEMD=1`.
 * Debian/Ubuntu: `sudo apt install build-essential libevent-dev libjpeg-dev libbsd-dev`.
 
-On Raspberry Pi you can build the program with OpenMAX IL. To do this pass option ```WITH_OMX=1``` to ```make```. To enable GPIO support install [libgpiod](https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/about) and pass option ```WITH_GPIO=1```. If the compiler reports about a missing function ```pthread_get_name_np()``` (or similar), add option ```WITH_PTHREAD_NP=0``` (it's enabled by default). For the similar error with ```setproctitle()``` add option ```WITH_SETPROCTITLE=0```.
+To enable GPIO support install [libgpiod](https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/about) and pass option ```WITH_GPIO=1```. If the compiler reports about a missing function ```pthread_get_name_np()``` (or similar), add option ```WITH_PTHREAD_NP=0``` (it's enabled by default). For the similar error with ```setproctitle()``` add option ```WITH_SETPROCTITLE=0```.
 
 ```
 $ git clone --depth=1 https://github.com/pikvm/ustreamer
@@ -50,7 +50,8 @@ $ make
 $ ./ustreamer --help
 ```
 
-AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer. It should compile automatically with OpenMAX IL on Raspberry Pi, if the corresponding headers are present in ```/opt/vc/include```.
+AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer.
+
 FreeBSD port: https://www.freshports.org/multimedia/ustreamer.
 
 -----
@@ -67,8 +68,8 @@ The recommended way of running µStreamer with [Auvidea B101](https://www.raspbe
 $ export LD_LIBRARY_PATH=/opt/vc/lib/ # on bullseye
 $ ./ustreamer \
     --format=uyvy \ # Device input format
-    --encoder=omx \ # Hardware encoding with OpenMAX
-    --workers=3 \ # Maximum workers for OpenMAX
+    --encoder=v4l2 \ # Hardware encoding on V4L2 M2M driver
+    --workers=3 \ # Workers number
     --persistent \ # Don't re-initialize device on timeout (for example when HDMI cable was disconnected)
     --dv-timings \ # Use DV-timings
     --drop-same-frames=30 # Save the traffic

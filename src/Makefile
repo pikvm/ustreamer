@@ -23,7 +23,6 @@ _USTR_SRCS = $(shell ls \
 	ustreamer/data/*.c \
 	ustreamer/encoders/cpu/*.c \
 	ustreamer/encoders/hw/*.c \
-	ustreamer/encoders/v4l2/*.c \
 	ustreamer/h264/*.c \
 )
 

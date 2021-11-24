@@ -35,6 +35,7 @@ h264_stream_s *h264_stream_init(memsink_s *sink, const char *path, unsigned bitr
 
 	m2m_option_s options[] = {
 		OPTION(true, BITRATE, bitrate * 1000),
+		OPTION(false, BITRATE_PEAK, bitrate * 1000),
 		OPTION(true, H264_I_PERIOD, gop),
 		OPTION(true, H264_PROFILE, V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE),
 		OPTION(true, H264_LEVEL, V4L2_MPEG_VIDEO_H264_LEVEL_4_0),
