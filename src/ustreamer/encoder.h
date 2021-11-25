@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <strings.h>
+#include <math.h>
 #include <assert.h>
 
 #include <pthread.h>
@@ -41,6 +42,22 @@
 
 #include "encoders/cpu/encoder.h"
 #include "encoders/hw/encoder.h"
+
+
+#ifndef CFG_ENCODER_M2M_BITRATE_MIN
+#	define CFG_ENCODER_M2M_BITRATE_MIN 25
+#endif
+#define ENCODER_M2M_BITRATE_MIN ((unsigned)CFG_ENCODER_M2M_BITRATE_MIN)
+
+#ifndef CFG_ENCODER_M2M_BITRATE_MAX
+#	define CFG_ENCODER_M2M_BITRATE_MAX 25000
+#endif
+#define ENCODER_M2M_BITRATE_MAX ((unsigned)CFG_ENCODER_M2M_BITRATE_MAX)
+
+#ifndef CFG_ENCODER_M2M_BITRATE_STEP
+#	define CFG_ENCODER_M2M_BITRATE_STEP 25
+#endif
+#define ENCODER_M2M_BITRATE_STEP ((unsigned)CFG_ENCODER_M2M_BITRATE_STEP)
 
 
 #define ENCODER_TYPES_STR "CPU, HW, M2M, NOOP"
