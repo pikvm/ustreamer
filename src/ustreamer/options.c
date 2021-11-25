@@ -437,7 +437,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			ADD_SINK("raw-", raw_sink, RAW_SINK)
 			ADD_SINK("h264-", h264_sink, H264_SINK)
 			case _O_H264_DEVICE:	OPT_SET(stream->h264_path, optarg);
-			case _O_H264_BITRATE:	OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 100, 16000, 0);
+			case _O_H264_BITRATE:	OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 25, 25000, 0);
 			case _O_H264_GOP:		OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
 #			undef ADD_SINK
 
