@@ -62,7 +62,6 @@ stream_s *stream_init(device_s *dev, encoder_s *enc) {
 	stream->enc = enc;
 	stream->last_as_blank = -1;
 	stream->error_delay = 1;
-	stream->h264_path = "/dev/video11";
 	stream->h264_bitrate = 5000; // Kbps
 	stream->h264_gop = 30;
 	stream->run = run;
@@ -84,7 +83,7 @@ void stream_loop(stream_s *stream) {
 	LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
 
 	if (stream->h264_sink) {
-		RUN(h264) = h264_stream_init(stream->h264_sink, stream->h264_path, stream->h264_bitrate, stream->h264_gop);
+		RUN(h264) = h264_stream_init(stream->h264_sink, stream->enc->m2m_path, stream->h264_bitrate, stream->h264_gop);
 	}
 
 	for (workers_pool_s *pool; (pool = _stream_init_loop(stream)) != NULL;) {

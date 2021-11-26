@@ -61,6 +61,7 @@ enum _OPT_VALUES {
 
 	_O_DEVICE_TIMEOUT = 10000,
 	_O_DEVICE_ERROR_DELAY,
+	_O_M2M_DEVICE,
 
 	_O_IMAGE_DEFAULT,
 	_O_BRIGHTNESS,
@@ -93,7 +94,6 @@ enum _OPT_VALUES {
 	ADD_SINK(SINK)
 	ADD_SINK(RAW_SINK)
 	ADD_SINK(H264_SINK)
-	_O_H264_DEVICE,
 	_O_H264_BITRATE,
 	_O_H264_GOP,
 #	undef ADD_SINK
@@ -146,6 +146,7 @@ static const struct option _LONG_OPTS[] = {
 	{"slowdown",				no_argument,		NULL,	_O_SLOWDOWN},
 	{"device-timeout",			required_argument,	NULL,	_O_DEVICE_TIMEOUT},
 	{"device-error-delay",		required_argument,	NULL,	_O_DEVICE_ERROR_DELAY},
+	{"m2m-device",				required_argument,	NULL,	_O_M2M_DEVICE},
 
 	{"image-default",			no_argument,		NULL,	_O_IMAGE_DEFAULT},
 	{"brightness",				required_argument,	NULL,	_O_BRIGHTNESS},
@@ -188,7 +189,6 @@ static const struct option _LONG_OPTS[] = {
 	ADD_SINK("", SINK)
 	ADD_SINK("raw-", RAW_SINK)
 	ADD_SINK("h264-", H264_SINK)
-	{"h264-device",				required_argument,	NULL,	_O_H264_DEVICE},
 	{"h264-bitrate",			required_argument,	NULL,	_O_H264_BITRATE},
 	{"h264-gop",				required_argument,	NULL,	_O_H264_GOP},
 #	undef ADD_SINK
@@ -380,6 +380,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			case _O_SLOWDOWN:			OPT_SET(stream->slowdown, true);
 			case _O_DEVICE_TIMEOUT:		OPT_NUMBER("--device-timeout", dev->timeout, 1, 60, 0);
 			case _O_DEVICE_ERROR_DELAY:	OPT_NUMBER("--device-error-delay", stream->error_delay, 1, 60, 0);
+			case _O_M2M_DEVICE:			OPT_SET(enc->m2m_path, optarg);
 
 			case _O_IMAGE_DEFAULT:
 				OPT_CTL_DEFAULT_NOBREAK(brightness);
@@ -436,7 +437,6 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			ADD_SINK("", sink, SINK)
 			ADD_SINK("raw-", raw_sink, RAW_SINK)
 			ADD_SINK("h264-", h264_sink, H264_SINK)
-			case _O_H264_DEVICE:	OPT_SET(stream->h264_path, optarg);
 			case _O_H264_BITRATE:	OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 25, 25000, 0);
 			case _O_H264_GOP:		OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
 #			undef ADD_SINK
@@ -621,6 +621,7 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("    --device-timeout <sec>  ────────────── Timeout for device querying. Default: %u.\n", dev->timeout);
 	SAY("    --device-error-delay <sec>  ────────── Delay before trying to connect to the device again");
 	SAY("                                           after an error (timeout for example). Default: %u.\n", stream->error_delay);
+	SAY("    --m2m-device </dev/path>  ──────────── Path to V4L2 M2M encoder device. Default: %s.\n", enc->m2m_path);
 	SAY("Image control options:");
 	SAY("══════════════════════");
 	SAY("    --image-default  ────────────────────── Reset all image settings below to default. Default: no change.\n");
@@ -672,7 +673,6 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	ADD_SINK("JPEG", "")
 	ADD_SINK("RAW", "raw-")
 	ADD_SINK("H264", "h264-")
-	SAY("    --h264-device </dev/path>  ──── Path to V4L2 H.264 encoder device. Default: %s.\n", stream->h264_path);
 	SAY("    --h264-bitrate <kbps>  ──────── H264 bitrate in Kbps. Default: %u.\n", stream->h264_bitrate);
 	SAY("    --h264-gop <N>  ─────────────── Intarval between keyframes. Default: %u.\n", stream->h264_gop);
 #	undef ADD_SINK

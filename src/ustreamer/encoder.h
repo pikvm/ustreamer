@@ -83,6 +83,7 @@ typedef struct {
 typedef struct {
 	encoder_type_e	type;
 	unsigned		n_workers;
+	char			*m2m_path;
 
 	encoder_runtime_s *run;
 } encoder_s;

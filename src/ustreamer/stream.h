@@ -79,7 +79,6 @@ typedef struct {
 	memsink_s	*raw_sink;
 
 	memsink_s	*h264_sink;
-	char		*h264_path;
 	unsigned	h264_bitrate;
 	unsigned	h264_gop;
 

@@ -53,6 +53,7 @@ encoder_s *encoder_init(void) {
 	A_CALLOC(enc, 1);
 	enc->type = run->type;
 	enc->n_workers = get_cores_available();
+	enc->m2m_path = "/dev/video11";
 	enc->run = run;
 	return enc;
 }
@@ -136,7 +137,7 @@ workers_pool_s *encoder_workers_pool_init(encoder_s *enc, device_s *dev) {
 					{"BITRATE", true, V4L2_CID_MPEG_VIDEO_BITRATE, bitrate * 1000},
 					{NULL, false, 0, 0},
 				};
-				ER(m2ms[ER(n_m2ms)]) = m2m_encoder_init(name, "/dev/video11", V4L2_PIX_FMT_MJPEG, 0, options);
+				ER(m2ms[ER(n_m2ms)]) = m2m_encoder_init(name, enc->m2m_path, V4L2_PIX_FMT_MJPEG, 0, options);
 			}
 		}
 
