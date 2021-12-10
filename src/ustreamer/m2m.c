@@ -23,6 +23,8 @@
 #include "m2m.h"
 
 
+static m2m_encoder_s *_m2m_encoder_init(const char *name, const char *path, unsigned format, unsigned fps, m2m_option_s *options);
+
 static bool _m2m_encoder_is_prepared_for(m2m_encoder_s *enc, const frame_s *frame);
 static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame);
 
@@ -42,9 +44,57 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 #define E_LOG_DEBUG(_msg, ...)		LOG_DEBUG("%s: " _msg, enc->name, ##__VA_ARGS__)
 
 
-m2m_encoder_s *m2m_encoder_init(const char *name, const char *path, unsigned format, unsigned fps, m2m_option_s *options) {
-	assert(format == V4L2_PIX_FMT_H264 || format == V4L2_PIX_FMT_JPEG || format == V4L2_PIX_FMT_MJPEG);
+m2m_encoder_s *m2m_h264_encoder_init(const char *name, const char *path, unsigned bitrate, unsigned gop) {
+#	define OPTION(_required, _key, _value) {#_key, _required, V4L2_CID_MPEG_VIDEO_##_key, _value}
 
+	m2m_option_s options[] = {
+		OPTION(true, BITRATE, bitrate * 1000),
+		// OPTION(false, BITRATE_PEAK, bitrate * 1000),
+		OPTION(true, H264_I_PERIOD, gop),
+		OPTION(true, H264_PROFILE, V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE),
+		OPTION(true, H264_LEVEL, V4L2_MPEG_VIDEO_H264_LEVEL_4_0),
+		OPTION(true, REPEAT_SEQ_HEADER, 1),
+		OPTION(false, H264_MIN_QP, 16),
+		OPTION(false, H264_MAX_QP, 32),
+		{NULL, false, 0, 0},
+	};
+
+#	undef OPTION
+
+	// FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L2100
+	// По логике вещей правильно 0, но почему-то на низких разрешениях типа 640x480
+	// енкодер через несколько секунд перестает производить корректные фреймы.
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_H264, 30, options);
+}
+
+m2m_encoder_s *m2m_mjpeg_encoder_init(const char *name, const char *path, unsigned quality) {
+	const double b_min = 25;
+	const double b_max = 25000;
+	const double step = 25;
+	double bitrate = log10(quality) * (b_max - b_min) / 2 + b_min;
+	bitrate = step * round(bitrate / step);
+	bitrate *= 1000; // From Kbps
+	assert(bitrate > 0);
+
+	m2m_option_s options[] = {
+		{"BITRATE", true, V4L2_CID_MPEG_VIDEO_BITRATE, bitrate},
+		{NULL, false, 0, 0},
+	};
+
+	// FIXME: То же самое про 30 or 0, но еще даже не проверено на низких разрешениях
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_MJPEG, 30, options);
+}
+
+m2m_encoder_s *m2m_jpeg_encoder_init(const char *name, const char *path, unsigned quality) {
+	m2m_option_s options[] = {
+		{"QUALITY", true, V4L2_CID_JPEG_COMPRESSION_QUALITY, quality},
+		{NULL, false, 0, 0},
+	};
+
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_JPEG, 30, options);
+}
+
+static m2m_encoder_s *_m2m_encoder_init(const char *name, const char *path, unsigned format, unsigned fps, m2m_option_s *options) {
 	LOG_INFO("%s: Initializing encoder ...", name);
 
 	m2m_encoder_s *enc;
@@ -159,8 +209,8 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 		fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
 		fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_DEFAULT;
 		fmt.fmt.pix_mp.num_planes = 1;
-		//fmt.fmt.pix_mp.plane_fmt[0].bytesperline = 0;
-		//fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512 << 10;
+		// fmt.fmt.pix_mp.plane_fmt[0].bytesperline = 0;
+		// fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512 << 10;
 		E_LOG_DEBUG("Configuring OUTPUT format ...");
 		E_XIOCTL(VIDIOC_S_FMT, &fmt, "Can't set OUTPUT format");
 		if (fmt.fmt.pix_mp.pixelformat != enc->output_format) {

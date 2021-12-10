@@ -30,29 +30,7 @@ h264_stream_s *h264_stream_init(memsink_s *sink, const char *path, unsigned bitr
 	h264->tmp_src = frame_init();
 	h264->dest = frame_init();
 	atomic_init(&h264->online, false);
-
-#	define OPTION(_required, _key, _value) {#_key, _required, V4L2_CID_MPEG_VIDEO_##_key, _value}
-
-	m2m_option_s options[] = {
-		OPTION(true, BITRATE, bitrate * 1000),
-		OPTION(false, BITRATE_PEAK, bitrate * 1000),
-		OPTION(true, H264_I_PERIOD, gop),
-		OPTION(true, H264_PROFILE, V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE),
-		OPTION(true, H264_LEVEL, V4L2_MPEG_VIDEO_H264_LEVEL_4_0),
-		OPTION(true, REPEAT_SEQ_HEADER, 1),
-		OPTION(false, H264_MIN_QP, 16),
-		OPTION(false, H264_MAX_QP, 32),
-		{NULL, false, 0, 0},
-	};
-
-#	undef OPTION
-
-	// FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L2100
-	// По логике вещей правильно 0, но почему-то на низких разрешениях типа 640x480
-	// енкодер через несколько секунд перестает производить корректные фреймы.
-	// TODO: Это было актуально для MMAL, надо проверить для V4L2.
-
-	h264->enc = m2m_encoder_init("H264", path, V4L2_PIX_FMT_H264, 30, options);
+	h264->enc = m2m_h264_encoder_init("H264", path, bitrate, gop);
 	return h264;
 }
 

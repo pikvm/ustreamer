@@ -26,6 +26,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include <math.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <errno.h>
@@ -78,7 +79,9 @@ typedef struct {
 } m2m_encoder_s;
 
 
-m2m_encoder_s *m2m_encoder_init(const char *name, const char *path, unsigned format, unsigned fps, m2m_option_s *options);
+m2m_encoder_s *m2m_h264_encoder_init(const char *name, const char *path, unsigned bitrate, unsigned gop);
+m2m_encoder_s *m2m_mjpeg_encoder_init(const char *name, const char *path, unsigned quality);
+m2m_encoder_s *m2m_jpeg_encoder_init(const char *name, const char *path, unsigned quality);
 void m2m_encoder_destroy(m2m_encoder_s *enc);
 
 int m2m_encoder_ensure_ready(m2m_encoder_s *enc, const frame_s *frame);

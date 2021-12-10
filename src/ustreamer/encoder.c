@@ -115,41 +115,18 @@ workers_pool_s *encoder_workers_pool_init(encoder_s *enc, device_s *dev) {
 		n_workers = 1;
 
 	} else if (type == ENCODER_TYPE_M2M_VIDEO || type == ENCODER_TYPE_M2M_IMAGE) {
-		LOG_DEBUG("Preparing M2M encoder ...");
+		LOG_DEBUG("Preparing M2M-%s encoder ...", (type == ENCODER_TYPE_M2M_VIDEO ? "VIDEO" : "IMAGE"));
 		if (ER(m2ms) == NULL) {
 			A_CALLOC(ER(m2ms), n_workers);
 		}
-
-		// Начинаем с нуля и доинициализируем на следующих заходах при необходимости
-		if (ER(n_m2ms) < n_workers) {
+		for (; ER(n_m2ms) < n_workers; ++ER(n_m2ms)) {
+			// Начинаем с нуля и доинициализируем на следующих заходах при необходимости
+			char name[32];
+			snprintf(name, 32, "JPEG-%u", ER(n_m2ms));
 			if (type == ENCODER_TYPE_M2M_VIDEO) {
-				double b_min = ENCODER_M2M_BITRATE_MIN;
-				double b_max = ENCODER_M2M_BITRATE_MAX;
-				double step = ENCODER_M2M_BITRATE_STEP;
-				double bitrate = log10(quality) * (b_max - b_min) / 2 + b_min;
-				bitrate = step * round(bitrate / step);
-
-				for (; ER(n_m2ms) < n_workers; ++ER(n_m2ms)) {
-					assert(bitrate > 0);
-					char name[32];
-					snprintf(name, 32, "JPEG-%u", ER(n_m2ms));
-					m2m_option_s options[] = {
-						{"BITRATE", true, V4L2_CID_MPEG_VIDEO_BITRATE, bitrate * 1000},
-						{NULL, false, 0, 0},
-					};
-					ER(m2ms[ER(n_m2ms)]) = m2m_encoder_init(name, enc->m2m_path, V4L2_PIX_FMT_MJPEG, 0, options);
-				}
-
+				ER(m2ms[ER(n_m2ms)]) = m2m_mjpeg_encoder_init(name, enc->m2m_path, quality);
 			} else {
-				for (; ER(n_m2ms) < n_workers; ++ER(n_m2ms)) {
-					char name[32];
-					snprintf(name, 32, "JPEG-%u", ER(n_m2ms));
-					m2m_option_s options[] = {
-						{"QUALITY", true, V4L2_CID_JPEG_COMPRESSION_QUALITY, quality},
-						{NULL, false, 0, 0},
-					};
-					ER(m2ms[ER(n_m2ms)]) = m2m_encoder_init(name, enc->m2m_path, V4L2_PIX_FMT_JPEG, 0, options);
-				}
+				ER(m2ms[ER(n_m2ms)]) = m2m_jpeg_encoder_init(name, enc->m2m_path, quality);
 			}
 		}
 
@@ -238,7 +215,7 @@ static bool _worker_run_job(worker_s *wr) {
 		hw_encoder_compress(src, dest);
 
 	} else if (ER(type) == ENCODER_TYPE_M2M_VIDEO || ER(type) == ENCODER_TYPE_M2M_IMAGE) {
-		LOG_VERBOSE("Compressing buffer using M2M");
+		LOG_VERBOSE("Compressing buffer using M2M-%s", (ER(type) == ENCODER_TYPE_M2M_VIDEO ? "VIDEO" : "IMAGE"));
 		if (m2m_encoder_ensure_ready(ER(m2ms[wr->number]), src) < 0) {
 			goto error;
 		}
