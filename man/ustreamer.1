@@ -23,7 +23,7 @@ For example, the recommended way of running µStreamer with Auvidea B101 on a Ra
 .RS
 \fB\-\-format=uyvy \e\fR # Device input format
 .nf
-\fB\-\-encoder=m2m-jpeg \e\fR # Hardware encoding with V4L2 M2M intraface
+\fB\-\-encoder=m2m-image \e\fR # Hardware encoding with V4L2 M2M intraface
 .nf
 \fB\-\-workers=3 \e\fR # Maximum workers for V4L2 encoder
 .nf
@@ -93,9 +93,9 @@ CPU ─ Software MJPEG encoding (default).
 
 HW ─ Use pre-encoded MJPEG frames directly from camera hardware.
 
-M2M-MJPEG ─ GPU-accelerated MJPEG encoding.
+M2M-VIDEO ─ GPU-accelerated MJPEG encoding.
 
-M2M-JPEG ─ GPU-accelerated JPEG encoding.
+M2M-IMAGE ─ GPU-accelerated JPEG encoding.
 
 NOOP ─ Don't compress MJPEG stream (do nothing).
 .TP

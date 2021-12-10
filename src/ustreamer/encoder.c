@@ -29,8 +29,11 @@ static const struct {
 } _ENCODER_TYPES[] = {
 	{"CPU",			ENCODER_TYPE_CPU},
 	{"HW",			ENCODER_TYPE_HW},
-	{"M2M-MJPEG",	ENCODER_TYPE_M2M_MJPEG},
-	{"M2M-JPEG",	ENCODER_TYPE_M2M_JPEG},
+	{"M2M-VIDEO",	ENCODER_TYPE_M2M_VIDEO},
+	{"M2M-IMAGE",	ENCODER_TYPE_M2M_IMAGE},
+	{"M2M-MJPEG",	ENCODER_TYPE_M2M_VIDEO},
+	{"M2M-JPEG",	ENCODER_TYPE_M2M_IMAGE},
+	{"OMX",			ENCODER_TYPE_M2M_IMAGE},
 	{"NOOP",		ENCODER_TYPE_NOOP},
 };
 
@@ -73,9 +76,6 @@ void encoder_destroy(encoder_s *enc) {
 }
 
 encoder_type_e encoder_parse_type(const char *str) {
-	if (!strcasecmp(str, "OMX")) {
-		return ENCODER_TYPE_M2M_JPEG; // Just for compatibility
-	}
 	for (unsigned index = 0; index < ARRAY_LEN(_ENCODER_TYPES); ++index) {
 		if (!strcasecmp(str, _ENCODER_TYPES[index].name)) {
 			return _ENCODER_TYPES[index].type;
@@ -114,7 +114,7 @@ workers_pool_s *encoder_workers_pool_init(encoder_s *enc, device_s *dev) {
 		quality = DR(jpeg_quality);
 		n_workers = 1;
 
-	} else if (type == ENCODER_TYPE_M2M_MJPEG || type == ENCODER_TYPE_M2M_JPEG) {
+	} else if (type == ENCODER_TYPE_M2M_VIDEO || type == ENCODER_TYPE_M2M_IMAGE) {
 		LOG_DEBUG("Preparing M2M encoder ...");
 		if (ER(m2ms) == NULL) {
 			A_CALLOC(ER(m2ms), n_workers);
@@ -122,7 +122,7 @@ workers_pool_s *encoder_workers_pool_init(encoder_s *enc, device_s *dev) {
 
 		// Начинаем с нуля и доинициализируем на следующих заходах при необходимости
 		if (ER(n_m2ms) < n_workers) {
-			if (type == ENCODER_TYPE_M2M_MJPEG) {
+			if (type == ENCODER_TYPE_M2M_VIDEO) {
 				double b_min = ENCODER_M2M_BITRATE_MIN;
 				double b_max = ENCODER_M2M_BITRATE_MAX;
 				double step = ENCODER_M2M_BITRATE_STEP;
@@ -237,7 +237,7 @@ static bool _worker_run_job(worker_s *wr) {
 		LOG_VERBOSE("Compressing buffer using HW (just copying)");
 		hw_encoder_compress(src, dest);
 
-	} else if (ER(type) == ENCODER_TYPE_M2M_MJPEG || ER(type) == ENCODER_TYPE_M2M_JPEG) {
+	} else if (ER(type) == ENCODER_TYPE_M2M_VIDEO || ER(type) == ENCODER_TYPE_M2M_IMAGE) {
 		LOG_VERBOSE("Compressing buffer using M2M");
 		if (m2m_encoder_ensure_ready(ER(m2ms[wr->number]), src) < 0) {
 			goto error;
