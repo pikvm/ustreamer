@@ -81,6 +81,7 @@ typedef struct {
 	memsink_s	*h264_sink;
 	unsigned	h264_bitrate;
 	unsigned	h264_gop;
+	char		*h264_m2m_path;
 
 	stream_runtime_s *run;
 } stream_s;

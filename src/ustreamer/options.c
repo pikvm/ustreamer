@@ -96,6 +96,7 @@ enum _OPT_VALUES {
 	ADD_SINK(H264_SINK)
 	_O_H264_BITRATE,
 	_O_H264_GOP,
+	_O_H264_M2M_DEVICE,
 #	undef ADD_SINK
 
 #	ifdef WITH_GPIO
@@ -191,6 +192,7 @@ static const struct option _LONG_OPTS[] = {
 	ADD_SINK("h264-", H264_SINK)
 	{"h264-bitrate",			required_argument,	NULL,	_O_H264_BITRATE},
 	{"h264-gop",				required_argument,	NULL,	_O_H264_GOP},
+	{"h264-m2m-device",			required_argument,	NULL,	_O_H264_M2M_DEVICE},
 #	undef ADD_SINK
 
 #	ifdef WITH_GPIO
@@ -437,8 +439,9 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			ADD_SINK("", sink, SINK)
 			ADD_SINK("raw-", raw_sink, RAW_SINK)
 			ADD_SINK("h264-", h264_sink, H264_SINK)
-			case _O_H264_BITRATE:	OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 25, 25000, 0);
-			case _O_H264_GOP:		OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
+			case _O_H264_BITRATE:		OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 25, 25000, 0);
+			case _O_H264_GOP:			OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
+			case _O_H264_M2M_DEVICE:	OPT_SET(stream->h264_m2m_path, optarg);
 #			undef ADD_SINK
 
 #			ifdef WITH_GPIO
@@ -569,7 +572,7 @@ static void _features(void) {
 
 static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, server_s *server) {
 #	define SAY(_msg, ...) fprintf(fp, _msg "\n", ##__VA_ARGS__)
-	SAY("\nuStreamer - Lightweight and fast MJPG-HTTP streamer");
+	SAY("\nuStreamer - Lightweight and fast MJPEG-HTTP streamer");
 	SAY("═══════════════════════════════════════════════════");
 	SAY("Version: %s; license: GPLv3", VERSION);
 	SAY("Copyright (C) 2018-2021 Maxim Devaev <mdevaev@gmail.com>\n");
@@ -600,14 +603,15 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("                                           Note: If HW encoding is used (JPEG source format selected),");
 	SAY("                                           this parameter attempts to configure the camera");
 	SAY("                                           or capture device hardware's internal encoder.");
-	SAY("                                           It does not re-encode MJPG to MJPG to change the quality level");
-	SAY("                                           for sources that already output MJPG.\n");
+	SAY("                                           It does not re-encode MJPEG to MJPEG to change the quality level");
+	SAY("                                           for sources that already output MJPEG.\n");
 	SAY("    -c|--encoder <type>  ───────────────── Use specified encoder. It may affect the number of workers.");
 	SAY("                                           Available:");
-	SAY("                                             * CPU  ── Software MJPG encoding (default);");
-	SAY("                                             * HW  ─── Use pre-encoded MJPG frames directly from camera hardware;");
-	SAY("                                             * M2M  ── GPU-accelerated MJPG encoding using V4L2 M2M interface;");
-	SAY("                                             * NOOP  ─ Don't compress MJPG stream (do nothing).\n");
+	SAY("                                             * CPU  ──────── Software MJPEG encoding (default);");
+	SAY("                                             * HW  ───────── Use pre-encoded MJPEG frames directly from camera hardware;");
+	SAY("                                             * M2M-MJPEG  ── GPU-accelerated MJPEG encoding using V4L2 M2M interface;");
+	SAY("                                             * M2M-JPEG  ─── GPU-accelerated JPEG encoding using V4L2 M2M interface;");
+	SAY("                                             * NOOP  ─────── Don't compress MJPEG stream (do nothing).\n");
 	SAY("    -g|--glitched-resolutions <WxH,...>  ─ It doesn't do anything. Still here for compatibility.\n");
 	SAY("    -k|--blank <path>  ─────────────────── Path to JPEG file that will be shown when the device is disconnected");
 	SAY("                                           during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.\n");
@@ -621,7 +625,7 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("    --device-timeout <sec>  ────────────── Timeout for device querying. Default: %u.\n", dev->timeout);
 	SAY("    --device-error-delay <sec>  ────────── Delay before trying to connect to the device again");
 	SAY("                                           after an error (timeout for example). Default: %u.\n", stream->error_delay);
-	SAY("    --m2m-device </dev/path>  ──────────── Path to V4L2 M2M encoder device. Default: %s.\n", enc->m2m_path);
+	SAY("    --m2m-device </dev/path>  ──────────── Path to V4L2 M2M encoder device. Default: auto select.\n");
 	SAY("Image control options:");
 	SAY("══════════════════════");
 	SAY("    --image-default  ────────────────────── Reset all image settings below to default. Default: no change.\n");
@@ -673,8 +677,9 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	ADD_SINK("JPEG", "")
 	ADD_SINK("RAW", "raw-")
 	ADD_SINK("H264", "h264-")
-	SAY("    --h264-bitrate <kbps>  ──────── H264 bitrate in Kbps. Default: %u.\n", stream->h264_bitrate);
-	SAY("    --h264-gop <N>  ─────────────── Intarval between keyframes. Default: %u.\n", stream->h264_gop);
+	SAY("    --h264-bitrate <kbps>  ───────── H264 bitrate in Kbps. Default: %u.\n", stream->h264_bitrate);
+	SAY("    --h264-gop <N>  ──────────────── Intarval between keyframes. Default: %u.\n", stream->h264_gop);
+	SAY("    --h264-m2m-device </dev/path>  ─ Path to V4L2 M2M encoder device. Default: auto select.\n");
 #	undef ADD_SINK
 #	ifdef WITH_GPIO
 	SAY("GPIO options:");

@@ -83,7 +83,7 @@ void stream_loop(stream_s *stream) {
 	LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
 
 	if (stream->h264_sink) {
-		RUN(h264) = h264_stream_init(stream->h264_sink, stream->enc->m2m_path, stream->h264_bitrate, stream->h264_gop);
+		RUN(h264) = h264_stream_init(stream->h264_sink, stream->h264_m2m_path, stream->h264_bitrate, stream->h264_gop);
 	}
 
 	for (workers_pool_s *pool; (pool = _stream_init_loop(stream)) != NULL;) {
@@ -276,7 +276,11 @@ static workers_pool_s *_stream_init_one(stream_s *stream) {
 	if (device_open(stream->dev) < 0) {
 		goto error;
 	}
-	if (stream->enc->type == ENCODER_TYPE_M2M || (RUN(h264) && !is_jpeg(stream->dev->run->format))) {
+	if (
+		stream->enc->type == ENCODER_TYPE_M2M_MJPEG
+		|| stream->enc->type == ENCODER_TYPE_M2M_JPEG
+		|| (RUN(h264) && !is_jpeg(stream->dev->run->format))
+	) {
 		device_export_to_dma(stream->dev);
 	}
 	if (device_switch_capturing(stream->dev, true) < 0) {

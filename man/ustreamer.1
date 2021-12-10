@@ -3,14 +3,14 @@
 .TH USTREAMER 1 "version 4.13" "November 2020"
 
 .SH NAME
-ustreamer \- stream MJPG video from any V4L2 device to the network
+ustreamer \- stream MJPEG video from any V4L2 device to the network
 
 .SH SYNOPSIS
 .B ustreamer
 .RI [OPTIONS]
 
 .SH DESCRIPTION
-µStreamer (\fBustreamer\fP) is a lightweight and very quick server to stream MJPG video from any V4L2 device to the network. All new browsers have native support of this video format, as well as most video players such as mplayer, VLC etc. µStreamer is a part of the Pi-KVM project designed to stream VGA and HDMI screencast hardware data with the highest resolution and FPS possible.
+µStreamer (\fBustreamer\fP) is a lightweight and very quick server to stream MJPEG video from any V4L2 device to the network. All new browsers have native support of this video format, as well as most video players such as mplayer, VLC etc. µStreamer is a part of the Pi-KVM project designed to stream VGA and HDMI screencast hardware data with the highest resolution and FPS possible.
 
 .SH USAGE
 Without arguments, \fBustreamer\fR will try to open \fB/dev/video0\fR with 640x480 resolution and start streaming on \fBhttp://127\.0\.0\.1:8080\fR\. You can override this behavior using parameters \fB\-\-device\fR, \fB\-\-host\fR and \fB\-\-port\fR\. For example, to stream to the world, run: \fBustreamer --device=/dev/video1 --host=0.0.0.0 --port=80\fR
@@ -23,7 +23,7 @@ For example, the recommended way of running µStreamer with Auvidea B101 on a Ra
 .RS
 \fB\-\-format=uyvy \e\fR # Device input format
 .nf
-\fB\-\-encoder=v4l2 \e\fR # Hardware encoding with V4L2 M2M intraface
+\fB\-\-encoder=m2m-jpeg \e\fR # Hardware encoding with V4L2 M2M intraface
 .nf
 \fB\-\-workers=3 \e\fR # Maximum workers for V4L2 encoder
 .nf
@@ -84,18 +84,20 @@ Default: 1 (the number of CPU cores (but not more than 4)).
 .TP
 .BR \-q\ \fIN ", " \-\-quality\ \fIN
 Set quality of JPEG encoding from 1 to 100 (best). Default: 80.
-Note: If HW encoding is used (JPEG source format selected), this parameter attempts to configure the camera or capture device hardware's internal encoder. It does not re\-encode MJPG to MJPG to change the quality level for sources that already output MJPG.
+Note: If HW encoding is used (JPEG source format selected), this parameter attempts to configure the camera or capture device hardware's internal encoder. It does not re\-encode MJPEG to MJPEG to change the quality level for sources that already output MJPEG.
 .TP
 .BR \-c\ \fItype ", " \-\-encoder\ \fItype
 Use specified encoder. It may affect the number of workers.
 
-CPU ─ Software MJPG encoding (default).
+CPU ─ Software MJPEG encoding (default).
 
-HW ─ Use pre-encoded MJPG frames directly from camera hardware.
+HW ─ Use pre-encoded MJPEG frames directly from camera hardware.
 
-V4L2 ─ GPU-accelerated MJPG encoding.
+M2M-MJPEG ─ GPU-accelerated MJPEG encoding.
 
-NOOP ─ Don't compress MJPG stream (do nothing).
+M2M-JPEG ─ GPU-accelerated JPEG encoding.
+
+NOOP ─ Don't compress MJPEG stream (do nothing).
 .TP
 .BR \-g\ \fIWxH,... ", " \-\-glitched\-resolutions\ \fIWxH,...
 It doesn't do anything. Still here for compatibility.
@@ -114,6 +116,9 @@ Timeout for device querying. Default: 1.
 .TP
 .BR \-\-device\-error\-delay\ \fIsec
 Delay before trying to connect to the device again after an error (timeout for example). Default: 1.
+.TP
+.BR \-\-m2m\-device\ \fI/dev/path
+Path to V4L2 mem-to-mem encoder device. Default: auto-select.
 
 .SS "Image control options"
 .TP
@@ -221,9 +226,6 @@ Timeout for lock. Default: 1.
 
 .SS "H264 sink options"
 .TP
-.BR \-\-h264\-device\ \fI/dev/path
-Path to V4L2 mem-to-mem encoder device. Default: /dev/video11.
-.TP
 .BR \-\-h264\-sink\ \fIname
 Use the specified shared memory object to sink H264 frames. Default: disabled.
 .TP
@@ -244,6 +246,10 @@ H264 bitrate in Kbps. Default: 5000.
 .TP
 .BR \-\-h264\-gop\ \fIN
 Intarval between keyframes. Default: 30.
+.TP
+.BR \-\-h264\-m2m\-device\ \fI/dev/path
+Path to V4L2 mem-to-mem encoder device. Default: auto-select.
+
 
 .SS "Process options"
 .TP

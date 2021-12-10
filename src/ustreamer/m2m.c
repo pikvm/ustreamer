@@ -43,12 +43,18 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 
 
 m2m_encoder_s *m2m_encoder_init(const char *name, const char *path, unsigned format, unsigned fps, m2m_option_s *options) {
+	assert(format == V4L2_PIX_FMT_H264 || format == V4L2_PIX_FMT_JPEG || format == V4L2_PIX_FMT_MJPEG);
+
 	LOG_INFO("%s: Initializing encoder ...", name);
 
 	m2m_encoder_s *enc;
 	A_CALLOC(enc, 1);
 	assert(enc->name = strdup(name));
-	assert(enc->path = strdup(path));
+	if (path == NULL) {
+		assert(enc->path = strdup(format == V4L2_PIX_FMT_JPEG ? "/dev/video21" : "/dev/video11"));
+	} else {
+		assert(enc->path = strdup(path));
+	}
 	enc->output_format = format;
 	enc->fps = fps;
 	enc->last_online = -1;
@@ -153,8 +159,8 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 		fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
 		fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_DEFAULT;
 		fmt.fmt.pix_mp.num_planes = 1;
-		fmt.fmt.pix_mp.plane_fmt[0].bytesperline = 0;
-		fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512 << 10;
+		//fmt.fmt.pix_mp.plane_fmt[0].bytesperline = 0;
+		//fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512 << 10;
 		E_LOG_DEBUG("Configuring OUTPUT format ...");
 		E_XIOCTL(VIDIOC_S_FMT, &fmt, "Can't set OUTPUT format");
 		if (fmt.fmt.pix_mp.pixelformat != enc->output_format) {
@@ -323,7 +329,7 @@ int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, 
 
 	frame_encoding_begin(src, dest, (enc->output_format == V4L2_PIX_FMT_MJPEG ? V4L2_PIX_FMT_JPEG : enc->output_format));
 
-	force_key = (force_key || enc->last_online != src->online);
+	force_key = (enc->output_format == V4L2_PIX_FMT_H264 && (force_key || enc->last_online != src->online));
 
 	if (_m2m_encoder_compress_raw(enc, src, dest, force_key) < 0) {
 		_m2m_encoder_cleanup(enc);

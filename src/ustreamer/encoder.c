@@ -27,10 +27,11 @@ static const struct {
 	const char *name;
 	const encoder_type_e type;
 } _ENCODER_TYPES[] = {
-	{"CPU",		ENCODER_TYPE_CPU},
-	{"HW",		ENCODER_TYPE_HW},
-	{"M2M",		ENCODER_TYPE_M2M},
-	{"NOOP",	ENCODER_TYPE_NOOP},
+	{"CPU",			ENCODER_TYPE_CPU},
+	{"HW",			ENCODER_TYPE_HW},
+	{"M2M-MJPEG",	ENCODER_TYPE_M2M_MJPEG},
+	{"M2M-JPEG",	ENCODER_TYPE_M2M_JPEG},
+	{"NOOP",		ENCODER_TYPE_NOOP},
 };
 
 
@@ -53,7 +54,6 @@ encoder_s *encoder_init(void) {
 	A_CALLOC(enc, 1);
 	enc->type = run->type;
 	enc->n_workers = get_cores_available();
-	enc->m2m_path = "/dev/video11";
 	enc->run = run;
 	return enc;
 }
@@ -74,7 +74,7 @@ void encoder_destroy(encoder_s *enc) {
 
 encoder_type_e encoder_parse_type(const char *str) {
 	if (!strcasecmp(str, "OMX")) {
-		return ENCODER_TYPE_M2M; // Just for compatibility
+		return ENCODER_TYPE_M2M_JPEG; // Just for compatibility
 	}
 	for (unsigned index = 0; index < ARRAY_LEN(_ENCODER_TYPES); ++index) {
 		if (!strcasecmp(str, _ENCODER_TYPES[index].name)) {
@@ -114,30 +114,42 @@ workers_pool_s *encoder_workers_pool_init(encoder_s *enc, device_s *dev) {
 		quality = DR(jpeg_quality);
 		n_workers = 1;
 
-	} else if (type == ENCODER_TYPE_M2M) {
+	} else if (type == ENCODER_TYPE_M2M_MJPEG || type == ENCODER_TYPE_M2M_JPEG) {
 		LOG_DEBUG("Preparing M2M encoder ...");
 		if (ER(m2ms) == NULL) {
 			A_CALLOC(ER(m2ms), n_workers);
 		}
 
+		// Начинаем с нуля и доинициализируем на следующих заходах при необходимости
 		if (ER(n_m2ms) < n_workers) {
-			double b_min = ENCODER_M2M_BITRATE_MIN;
-			double b_max = ENCODER_M2M_BITRATE_MAX;
-			double step = ENCODER_M2M_BITRATE_STEP;
-			double bitrate = log10(quality) * (b_max - b_min) / 2 + b_min;
-			bitrate = step * round(bitrate / step);
-			LOG_VERBOSE("Using JPEG M2M bitrate: %u%% -> %u Kbps", quality, (unsigned)bitrate);
+			if (type == ENCODER_TYPE_M2M_MJPEG) {
+				double b_min = ENCODER_M2M_BITRATE_MIN;
+				double b_max = ENCODER_M2M_BITRATE_MAX;
+				double step = ENCODER_M2M_BITRATE_STEP;
+				double bitrate = log10(quality) * (b_max - b_min) / 2 + b_min;
+				bitrate = step * round(bitrate / step);
 
-			// Начинаем с нуля и доинициализируем на следующих заходах при необходимости
-			for (; ER(n_m2ms) < n_workers; ++ER(n_m2ms)) {
-				assert(bitrate > 0);
-				char name[32];
-				snprintf(name, 32, "JPEG-%u", ER(n_m2ms));
-				m2m_option_s options[] = {
-					{"BITRATE", true, V4L2_CID_MPEG_VIDEO_BITRATE, bitrate * 1000},
-					{NULL, false, 0, 0},
-				};
-				ER(m2ms[ER(n_m2ms)]) = m2m_encoder_init(name, enc->m2m_path, V4L2_PIX_FMT_MJPEG, 0, options);
+				for (; ER(n_m2ms) < n_workers; ++ER(n_m2ms)) {
+					assert(bitrate > 0);
+					char name[32];
+					snprintf(name, 32, "JPEG-%u", ER(n_m2ms));
+					m2m_option_s options[] = {
+						{"BITRATE", true, V4L2_CID_MPEG_VIDEO_BITRATE, bitrate * 1000},
+						{NULL, false, 0, 0},
+					};
+					ER(m2ms[ER(n_m2ms)]) = m2m_encoder_init(name, enc->m2m_path, V4L2_PIX_FMT_MJPEG, 0, options);
+				}
+
+			} else {
+				for (; ER(n_m2ms) < n_workers; ++ER(n_m2ms)) {
+					char name[32];
+					snprintf(name, 32, "JPEG-%u", ER(n_m2ms));
+					m2m_option_s options[] = {
+						{"QUALITY", true, V4L2_CID_JPEG_COMPRESSION_QUALITY, quality},
+						{NULL, false, 0, 0},
+					};
+					ER(m2ms[ER(n_m2ms)]) = m2m_encoder_init(name, enc->m2m_path, V4L2_PIX_FMT_JPEG, 0, options);
+				}
 			}
 		}
 
@@ -225,7 +237,7 @@ static bool _worker_run_job(worker_s *wr) {
 		LOG_VERBOSE("Compressing buffer using HW (just copying)");
 		hw_encoder_compress(src, dest);
 
-	} else if (ER(type) == ENCODER_TYPE_M2M) {
+	} else if (ER(type) == ENCODER_TYPE_M2M_MJPEG || ER(type) == ENCODER_TYPE_M2M_JPEG) {
 		LOG_VERBOSE("Compressing buffer using M2M");
 		if (m2m_encoder_ensure_ready(ER(m2ms[wr->number]), src) < 0) {
 			goto error;
