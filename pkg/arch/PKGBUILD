@@ -5,7 +5,7 @@
 pkgname=ustreamer
 pkgver=4.13
 pkgrel=1
-pkgdesc="Lightweight and fast MJPG-HTTP streamer"
+pkgdesc="Lightweight and fast MJPEG-HTTP streamer"
 url="https://github.com/pikvm/ustreamer"
 license=(GPL)
 arch=(i686 x86_64 armv6h armv7h aarch64)

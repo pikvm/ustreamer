@@ -1,6 +1,6 @@
 /*****************************************************************************
 #                                                                            #
-#    uStreamer - Lightweight and fast MJPG-HTTP streamer.                    #
+#    uStreamer - Lightweight and fast MJPEG-HTTP streamer.                   #
 #                                                                            #
 #    Copyright (C) 2018-2021  Maxim Devaev <mdevaev@gmail.com>               #
 #                                                                            #
@@ -607,7 +607,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	// будущего фрейма сразу после данных текущего, чтобы триггернуть отрисовку.
 	// Естественным следствием этого является невозможность установки заголовка
 	// Content-Length, так как предсказывать будущее мы еще не научились.
-	// Его наличие не требуется RFC, однако никаких стандартов на MJPG over HTTP
+	// Его наличие не требуется RFC, однако никаких стандартов на MJPEG over HTTP
 	// в природе не существует, и никто не может гарантировать, что отсутствие
 	// Content-Length не сломает вещание для каких-нибудь маргинальных браузеров.
 	//

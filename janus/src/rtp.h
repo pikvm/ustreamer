@@ -1,6 +1,6 @@
 /*****************************************************************************
 #                                                                            #
-#    uStreamer - Lightweight and fast MJPG-HTTP streamer.                    #
+#    uStreamer - Lightweight and fast MJPEG-HTTP streamer.                   #
 #                                                                            #
 #    This source file is partially based on this code:                       #
 #      - https://github.com/catid/kvm/blob/master/kvm_pipeline/src           #

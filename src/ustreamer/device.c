@@ -1,6 +1,6 @@
 /*****************************************************************************
 #                                                                            #
-#    uStreamer - Lightweight and fast MJPG-HTTP streamer.                    #
+#    uStreamer - Lightweight and fast MJPEG-HTTP streamer.                   #
 #                                                                            #
 #    Copyright (C) 2018-2021  Maxim Devaev <mdevaev@gmail.com>               #
 #                                                                            #
@@ -632,7 +632,7 @@ static void _device_open_jpeg_quality(device_s *dev) {
 		} else {
 			comp.quality = dev->jpeg_quality;
 			if (xioctl(RUN(fd), VIDIOC_S_JPEGCOMP, &comp) < 0) {
-				LOG_ERROR("Unable to change MJPG quality for JPEG source with HW pass-through encoder");
+				LOG_ERROR("Unable to change MJPEG quality for JPEG source with HW pass-through encoder");
 			} else {
 				quality = dev->jpeg_quality;
 			}

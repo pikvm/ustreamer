@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -B
 # ========================================================================== #
 #                                                                            #
-#    uStreamer - Lightweight and fast MJPG-HTTP streamer.                    #
+#    uStreamer - Lightweight and fast MJPEG-HTTP streamer.                   #
 #                                                                            #
 #    Copyright (C) 2018-2021  Maxim Devaev <mdevaev@gmail.com>               #
 #                                                                            #

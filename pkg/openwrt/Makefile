@@ -30,7 +30,7 @@ define Package/ustreamer
 endef
 
 define Package/ustreamer/description
- µStreamer - Lightweight and fast MJPG-HTTP streamer
+ µStreamer - Lightweight and fast MJPEG-HTTP streamer
 endef
 
 define Package/ustreamer/install

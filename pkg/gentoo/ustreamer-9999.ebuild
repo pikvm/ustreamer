@@ -5,7 +5,7 @@ EAPI=7
 
 inherit git-r3
 
-DESCRIPTION="uStreamer - Lightweight and fast MJPG-HTTP streamer"
+DESCRIPTION="uStreamer - Lightweight and fast MJPEG-HTTP streamer"
 HOMEPAGE="https://github.com/pikvm/ustreamer"
 EGIT_REPO_URI="https://github.com/pikvm/ustreamer.git"
 
