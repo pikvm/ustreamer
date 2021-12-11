@@ -23,7 +23,9 @@
 #include "m2m.h"
 
 
-static m2m_encoder_s *_m2m_encoder_init(const char *name, const char *path, unsigned format, unsigned fps, m2m_option_s *options);
+static m2m_encoder_s *_m2m_encoder_init(
+	const char *name, const char *path, unsigned format,
+	unsigned fps, bool allow_dma, m2m_option_s *options);
 
 static bool _m2m_encoder_is_prepared_for(m2m_encoder_s *enc, const frame_s *frame);
 static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame);
@@ -64,7 +66,7 @@ m2m_encoder_s *m2m_h264_encoder_init(const char *name, const char *path, unsigne
 	// FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L2100
 	// По логике вещей правильно 0, но почему-то на низких разрешениях типа 640x480
 	// енкодер через несколько секунд перестает производить корректные фреймы.
-	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_H264, 30, options);
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_H264, 30, true, options);
 }
 
 m2m_encoder_s *m2m_mjpeg_encoder_init(const char *name, const char *path, unsigned quality) {
@@ -82,7 +84,7 @@ m2m_encoder_s *m2m_mjpeg_encoder_init(const char *name, const char *path, unsign
 	};
 
 	// FIXME: То же самое про 30 or 0, но еще даже не проверено на низких разрешениях
-	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_MJPEG, 30, options);
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_MJPEG, 30, true, options);
 }
 
 m2m_encoder_s *m2m_jpeg_encoder_init(const char *name, const char *path, unsigned quality) {
@@ -91,10 +93,13 @@ m2m_encoder_s *m2m_jpeg_encoder_init(const char *name, const char *path, unsigne
 		{NULL, false, 0, 0},
 	};
 
-	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_JPEG, 30, options);
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_JPEG, 30, true, options);
 }
 
-static m2m_encoder_s *_m2m_encoder_init(const char *name, const char *path, unsigned format, unsigned fps, m2m_option_s *options) {
+static m2m_encoder_s *_m2m_encoder_init(
+	const char *name, const char *path, unsigned format,
+	unsigned fps, bool allow_dma, m2m_option_s *options) {
+
 	LOG_INFO("%s: Initializing encoder ...", name);
 
 	m2m_encoder_s *enc;
@@ -107,6 +112,7 @@ static m2m_encoder_s *_m2m_encoder_init(const char *name, const char *path, unsi
 	}
 	enc->output_format = format;
 	enc->fps = fps;
+	enc->allow_dma = allow_dma;
 	enc->last_online = -1;
 
 	enc->fd = -1;
@@ -138,7 +144,13 @@ int m2m_encoder_ensure_ready(m2m_encoder_s *enc, const frame_s *frame) {
 
 static bool _m2m_encoder_is_prepared_for(m2m_encoder_s *enc, const frame_s *frame) {
 #	define EQ(_field) (enc->_field == frame->_field)
-	return (EQ(width) && EQ(height) && EQ(format) && EQ(stride) && (enc->dma == (frame->dma_fd >= 0)));
+	return (
+		EQ(width)
+		&& EQ(height)
+		&& EQ(format)
+		&& EQ(stride)
+		&& (enc->dma == (enc->allow_dma && frame->dma_fd >= 0))
+	);
 #	undef EQ
 }
 
@@ -150,7 +162,7 @@ static bool _m2m_encoder_is_prepared_for(m2m_encoder_s *enc, const frame_s *fram
 	}
 
 static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
-	bool dma = (frame->dma_fd >= 0);
+	bool dma = (enc->allow_dma && frame->dma_fd >= 0);
 
 	E_LOG_INFO("Configuring encoder: DMA=%d ...", dma);
 
@@ -375,7 +387,7 @@ int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, 
 	assert(enc->height == src->height);
 	assert(enc->format == src->format);
 	assert(enc->stride == src->stride);
-	assert(enc->dma == (src->dma_fd >= 0));
+	assert(enc->dma == (enc->allow_dma && src->dma_fd >= 0));
 
 	frame_encoding_begin(src, dest, (enc->output_format == V4L2_PIX_FMT_MJPEG ? V4L2_PIX_FMT_JPEG : enc->output_format));
 
@@ -414,14 +426,12 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 	input_buf.m.planes = &input_plane;
 
 	if (enc->dma) {
-		assert(src->dma_fd >= 0);
 		input_buf.index = 0;
 		input_buf.memory = V4L2_MEMORY_DMABUF;
 		input_buf.field = V4L2_FIELD_NONE;
 		input_plane.m.fd = src->dma_fd;
 		E_LOG_DEBUG("Using INPUT-DMA buffer index=%u", input_buf.index);
 	} else {
-		assert(src->dma_fd < 0);
 		input_buf.memory = V4L2_MEMORY_MMAP;
 		E_LOG_DEBUG("Grabbing INPUT buffer ...");
 		E_XIOCTL(VIDIOC_DQBUF, &input_buf, "Can't grab INPUT buffer");

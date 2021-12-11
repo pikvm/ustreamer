@@ -60,6 +60,7 @@ typedef struct {
 	char			*path;
 	unsigned		output_format;
 	unsigned		fps;
+	bool			allow_dma;
 	m2m_option_s	*options;
 
 	int				fd;
