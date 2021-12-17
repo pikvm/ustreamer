@@ -444,8 +444,13 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 	}
 
 	uint64_t now = get_now_monotonic_u64();
-    input_buf.timestamp.tv_sec = now / 1000000;
-    input_buf.timestamp.tv_usec = now % 1000000;
+	struct timeval ts = {
+		.tv_sec = now / 1000000,
+		.tv_usec = now % 1000000,
+	};
+
+	input_buf.timestamp.tv_sec = ts.tv_sec;
+	input_buf.timestamp.tv_usec = ts.tv_usec;
 	input_plane.bytesused = src->used;
 	input_plane.length = src->used;
 	if (!enc->dma) {
@@ -463,7 +468,7 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 	while (true) {
 		struct pollfd enc_poll = {enc->fd, POLLIN, 0};
 
-		if (poll(&enc_poll, 1, 200) < 0 && errno != EINTR) {
+		if (poll(&enc_poll, 1, 1000) < 0 && errno != EINTR) {
 			E_LOG_PERROR("Can't poll encoder");
 			goto error;
 		}
@@ -485,12 +490,24 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 			E_LOG_DEBUG("Fetching OUTPUT buffer ...");
 			E_XIOCTL(VIDIOC_DQBUF, &output_buf, "Can't fetch OUTPUT buffer");
 
-			frame_set_data(dest, enc->output_bufs[output_buf.index].data, output_plane.bytesused);
-			dest->key = output_buf.flags & V4L2_BUF_FLAG_KEYFRAME;
+			bool done = false;
+			if (ts.tv_sec != output_buf.timestamp.tv_sec || ts.tv_usec != output_buf.timestamp.tv_usec) {
+				// Енкодер первый раз может выдать буфер с мусором и нулевым таймстампом,
+				// так что нужно убедиться, что мы читаем выходной буфер, соответствующий
+				// входному (с тем же таймстампом).
+				E_LOG_DEBUG("Need to retry OUTPUT buffer due timestamp mismatch");
+			} else {
+				frame_set_data(dest, enc->output_bufs[output_buf.index].data, output_plane.bytesused);
+				dest->key = output_buf.flags & V4L2_BUF_FLAG_KEYFRAME;
+				done = true;
+			}
 
 			E_LOG_DEBUG("Releasing OUTPUT buffer index=%u ...", output_buf.index);
 			E_XIOCTL(VIDIOC_QBUF, &output_buf, "Can't release OUTPUT buffer index=%u", output_buf.index);
-			break;
+
+			if (done) {
+				break;
+			}
 		}
 	}
 
