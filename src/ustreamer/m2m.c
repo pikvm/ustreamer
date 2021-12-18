@@ -24,7 +24,7 @@
 
 
 static m2m_encoder_s *_m2m_encoder_init(
-	const char *name, const char *path, unsigned format,
+	const char *name, const char *path, unsigned output_format,
 	unsigned fps, bool allow_dma, m2m_option_s *options);
 
 static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame);
@@ -106,33 +106,25 @@ void m2m_encoder_destroy(m2m_encoder_s *enc) {
 
 #define RUN(_next) enc->run->_next
 
-int m2m_encoder_ensure_ready(m2m_encoder_s *enc, const frame_s *frame) {
-#	define EQ(_field) (RUN(_field) == frame->_field)
-	if (!(
-		EQ(width)
-		&& EQ(height)
-		&& EQ(format)
-		&& EQ(stride)
-		&& (RUN(dma) == (enc->allow_dma && frame->dma_fd >= 0))
-	)) {
-		return _m2m_encoder_prepare(enc, frame);
-	}
-	return 0;
-#	undef EQ
-}
-
 int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key) {
+	if (
+		RUN(width) != src->width
+		|| RUN(height) != src->height
+		|| RUN(input_format) != src->format
+		|| RUN(stride) != src->stride
+		|| RUN(dma) != (enc->allow_dma && src->dma_fd >= 0)
+	) {
+		if (_m2m_encoder_prepare(enc, src) < 0) {
+			return -1;
+		}
+	}
+
 	assert(RUN(ready));
 	assert(src->used > 0);
-	assert(RUN(width) == src->width);
-	assert(RUN(height) == src->height);
-	assert(RUN(format) == src->format);
-	assert(RUN(stride) == src->stride);
-	assert(RUN(dma) == (enc->allow_dma && src->dma_fd >= 0));
 
-	frame_encoding_begin(src, dest, (enc->format == V4L2_PIX_FMT_MJPEG ? V4L2_PIX_FMT_JPEG : enc->format));
+	frame_encoding_begin(src, dest, (enc->output_format == V4L2_PIX_FMT_MJPEG ? V4L2_PIX_FMT_JPEG : enc->output_format));
 
-	force_key = (enc->format == V4L2_PIX_FMT_H264 && (force_key || RUN(last_online) != src->online));
+	force_key = (enc->output_format == V4L2_PIX_FMT_H264 && (force_key || RUN(last_online) != src->online));
 
 	if (_m2m_encoder_compress_raw(enc, src, dest, force_key) < 0) {
 		_m2m_encoder_cleanup(enc);
@@ -150,7 +142,7 @@ int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, 
 }
 
 static m2m_encoder_s *_m2m_encoder_init(
-	const char *name, const char *path, unsigned format,
+	const char *name, const char *path, unsigned output_format,
 	unsigned fps, bool allow_dma, m2m_option_s *options) {
 
 	LOG_INFO("%s: Initializing encoder ...", name);
@@ -164,11 +156,11 @@ static m2m_encoder_s *_m2m_encoder_init(
 	A_CALLOC(enc, 1);
 	assert(enc->name = strdup(name));
 	if (path == NULL) {
-		assert(enc->path = strdup(format == V4L2_PIX_FMT_JPEG ? "/dev/video21" : "/dev/video11"));
+		assert(enc->path = strdup(output_format == V4L2_PIX_FMT_JPEG ? "/dev/video21" : "/dev/video11"));
 	} else {
 		assert(enc->path = strdup(path));
 	}
-	enc->format = format;
+	enc->output_format = output_format;
 	enc->fps = fps;
 	enc->allow_dma = allow_dma;
 	enc->run = run;
@@ -198,7 +190,7 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 
 	RUN(width) = frame->width;
 	RUN(height) = frame->height;
-	RUN(format) = frame->format;
+	RUN(input_format) = frame->format;
 	RUN(stride) = frame->stride;
 	RUN(dma) = dma;
 
@@ -230,9 +222,9 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 	{
 		struct v4l2_format fmt = {0};
 		fmt.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-		fmt.fmt.pix_mp.width = frame->width;
-		fmt.fmt.pix_mp.height = frame->height;
-		fmt.fmt.pix_mp.pixelformat = frame->format;
+		fmt.fmt.pix_mp.width = RUN(width);
+		fmt.fmt.pix_mp.height = RUN(height);
+		fmt.fmt.pix_mp.pixelformat = RUN(input_format);
 		fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
 		fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_JPEG; // libcamera currently has no means to request the right colour space
 		fmt.fmt.pix_mp.num_planes = 1;
@@ -243,9 +235,9 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 	{
 		struct v4l2_format fmt = {0};
 		fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-		fmt.fmt.pix_mp.width = frame->width;
-		fmt.fmt.pix_mp.height = frame->height;
-		fmt.fmt.pix_mp.pixelformat = enc->format;
+		fmt.fmt.pix_mp.width = RUN(width);
+		fmt.fmt.pix_mp.height = RUN(height);
+		fmt.fmt.pix_mp.pixelformat = enc->output_format;
 		fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
 		fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_DEFAULT;
 		fmt.fmt.pix_mp.num_planes = 1;
@@ -253,10 +245,10 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 		// fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512 << 10;
 		E_LOG_DEBUG("Configuring OUTPUT format ...");
 		E_XIOCTL(VIDIOC_S_FMT, &fmt, "Can't set OUTPUT format");
-		if (fmt.fmt.pix_mp.pixelformat != enc->format) {
+		if (fmt.fmt.pix_mp.pixelformat != enc->output_format) {
 			char fourcc_str[8];
 			E_LOG_ERROR("The OUTPUT format can't be configured as %s",
-				fourcc_to_string(enc->format, fourcc_str, 8));
+				fourcc_to_string(enc->output_format, fourcc_str, 8));
 			E_LOG_ERROR("In case of Raspberry Pi, try to append 'start_x=1' to /boot/config.txt");
 			goto error;
 		}

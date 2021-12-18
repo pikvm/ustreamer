@@ -216,9 +216,6 @@ static bool _worker_run_job(worker_s *wr) {
 
 	} else if (ER(type) == ENCODER_TYPE_M2M_VIDEO || ER(type) == ENCODER_TYPE_M2M_IMAGE) {
 		LOG_VERBOSE("Compressing buffer using M2M-%s", (ER(type) == ENCODER_TYPE_M2M_VIDEO ? "VIDEO" : "IMAGE"));
-		if (m2m_encoder_ensure_ready(ER(m2ms[wr->number]), src) < 0) {
-			goto error;
-		}
 		if (m2m_encoder_compress(ER(m2ms[wr->number]), src, dest, false) < 0) {
 			goto error;
 		}

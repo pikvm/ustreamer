@@ -57,10 +57,8 @@ void h264_stream_process(h264_stream_s *h264, const frame_s *frame, bool force_k
 	}
 
 	bool online = false;
-	if (!m2m_encoder_ensure_ready(h264->enc, frame)) {
-		if (!m2m_encoder_compress(h264->enc, frame, h264->dest, force_key)) {
-			online = !memsink_server_put(h264->sink, h264->dest);
-		}
+	if (!m2m_encoder_compress(h264->enc, frame, h264->dest, force_key)) {
+		online = !memsink_server_put(h264->sink, h264->dest);
 	}
 	atomic_store(&h264->online, online);
 }
