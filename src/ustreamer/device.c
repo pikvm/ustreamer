@@ -194,7 +194,6 @@ void device_close(device_s *dev) {
 					free(HW(raw.data));
 				}
 			}
-			A_MUTEX_DESTROY(&HW(grabbed_mutex));
 
 #			undef HW
 		}
@@ -346,14 +345,11 @@ int device_grab_buffer(device_s *dev, hw_buffer_s **hw) {
 
 #	define HW(_next) RUN(hw_bufs)[buf.index]._next
 
-	A_MUTEX_LOCK(&HW(grabbed_mutex));
 	if (HW(grabbed)) {
 		LOG_ERROR("V4L2 error: grabbed device buffer=%u is already used", buf.index);
-		A_MUTEX_UNLOCK(&HW(grabbed_mutex));
 		return -1;
 	}
 	HW(grabbed) = true;
-	A_MUTEX_UNLOCK(&HW(grabbed_mutex));
 
 	HW(raw.dma_fd) = HW(dma_fd);
 	HW(raw.used) = buf.bytesused;
@@ -374,14 +370,11 @@ int device_release_buffer(device_s *dev, hw_buffer_s *hw) {
 	const unsigned index = hw->buf.index;
 	LOG_DEBUG("Releasing device buffer=%u ...", index);
 
-	A_MUTEX_LOCK(&hw->grabbed_mutex);
 	if (xioctl(RUN(fd), VIDIOC_QBUF, &hw->buf) < 0) {
 		LOG_PERROR("Unable to release device buffer=%u", index);
-		A_MUTEX_UNLOCK(&hw->grabbed_mutex);
 		return -1;
 	}
 	hw->grabbed = false;
-	A_MUTEX_UNLOCK(&hw->grabbed_mutex);
 	return 0;
 }
 
@@ -687,8 +680,6 @@ static int _device_open_io_method_mmap(device_s *dev) {
 #		define HW(_next) RUN(hw_bufs)[RUN(n_bufs)]._next
 
 		HW(dma_fd) = -1;
-
-		A_MUTEX_INIT(&HW(grabbed_mutex));
 
 		LOG_DEBUG("Mapping device buffer=%u ...", RUN(n_bufs));
 		if ((HW(raw.data) = mmap(

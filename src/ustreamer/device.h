@@ -68,13 +68,10 @@
 
 
 typedef struct {
-	frame_s raw;
-
+	frame_s				raw;
 	struct v4l2_buffer	buf;
 	int					dma_fd;
-
-	pthread_mutex_t grabbed_mutex;
-	bool			grabbed;
+	bool				grabbed;
 } hw_buffer_s;
 
 typedef struct {
