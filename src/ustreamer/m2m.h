@@ -56,20 +56,11 @@ typedef struct {
 } m2m_option_s;
 
 typedef struct {
-	char			*name;
-	char			*path;
-	unsigned		output_format;
-	unsigned		fps;
-	bool			allow_dma;
-	m2m_option_s	*options;
-
 	int				fd;
 	m2m_buffer_s	*input_bufs;
 	unsigned		n_input_bufs;
 	m2m_buffer_s	*output_bufs;
 	unsigned		n_output_bufs;
-
-	int last_online;
 
 	unsigned	width;
 	unsigned	height;
@@ -77,6 +68,19 @@ typedef struct {
 	unsigned	stride;
 	bool		dma;
 	bool		ready;
+
+	int last_online;
+} m2m_encoder_runtime_s;
+
+typedef struct {
+	char			*name;
+	char			*path;
+	unsigned		format;
+	unsigned		fps;
+	bool			allow_dma;
+	m2m_option_s	*options;
+
+	m2m_encoder_runtime_s *run;
 } m2m_encoder_s;
 
 

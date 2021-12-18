@@ -27,7 +27,6 @@ static m2m_encoder_s *_m2m_encoder_init(
 	const char *name, const char *path, unsigned format,
 	unsigned fps, bool allow_dma, m2m_option_s *options);
 
-static bool _m2m_encoder_is_prepared_for(m2m_encoder_s *enc, const frame_s *frame);
 static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame);
 
 static int _m2m_encoder_init_buffers(
@@ -96,11 +95,70 @@ m2m_encoder_s *m2m_jpeg_encoder_init(const char *name, const char *path, unsigne
 	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_JPEG, 30, true, options);
 }
 
+void m2m_encoder_destroy(m2m_encoder_s *enc) {
+	E_LOG_INFO("Destroying encoder ...");
+	_m2m_encoder_cleanup(enc);
+	free(enc->options);
+	free(enc->path);
+	free(enc->name);
+	free(enc);
+}
+
+#define RUN(_next) enc->run->_next
+
+int m2m_encoder_ensure_ready(m2m_encoder_s *enc, const frame_s *frame) {
+#	define EQ(_field) (RUN(_field) == frame->_field)
+	if (!(
+		EQ(width)
+		&& EQ(height)
+		&& EQ(format)
+		&& EQ(stride)
+		&& (RUN(dma) == (enc->allow_dma && frame->dma_fd >= 0))
+	)) {
+		return _m2m_encoder_prepare(enc, frame);
+	}
+	return 0;
+#	undef EQ
+}
+
+int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key) {
+	assert(RUN(ready));
+	assert(src->used > 0);
+	assert(RUN(width) == src->width);
+	assert(RUN(height) == src->height);
+	assert(RUN(format) == src->format);
+	assert(RUN(stride) == src->stride);
+	assert(RUN(dma) == (enc->allow_dma && src->dma_fd >= 0));
+
+	frame_encoding_begin(src, dest, (enc->format == V4L2_PIX_FMT_MJPEG ? V4L2_PIX_FMT_JPEG : enc->format));
+
+	force_key = (enc->format == V4L2_PIX_FMT_H264 && (force_key || RUN(last_online) != src->online));
+
+	if (_m2m_encoder_compress_raw(enc, src, dest, force_key) < 0) {
+		_m2m_encoder_cleanup(enc);
+		E_LOG_ERROR("Encoder destroyed due an error (compress)");
+		return -1;
+	}
+
+	frame_encoding_end(dest);
+
+	E_LOG_VERBOSE("Compressed new frame: size=%zu, time=%0.3Lf, force_key=%d",
+		dest->used, dest->encode_end_ts - dest->encode_begin_ts, force_key);
+
+	RUN(last_online) = src->online;
+	return 0;
+}
+
 static m2m_encoder_s *_m2m_encoder_init(
 	const char *name, const char *path, unsigned format,
 	unsigned fps, bool allow_dma, m2m_option_s *options) {
 
 	LOG_INFO("%s: Initializing encoder ...", name);
+
+	m2m_encoder_runtime_s *run;
+	A_CALLOC(run, 1);
+	run->last_online = -1;
+	run->fd = -1;
 
 	m2m_encoder_s *enc;
 	A_CALLOC(enc, 1);
@@ -110,12 +168,10 @@ static m2m_encoder_s *_m2m_encoder_init(
 	} else {
 		assert(enc->path = strdup(path));
 	}
-	enc->output_format = format;
+	enc->format = format;
 	enc->fps = fps;
 	enc->allow_dma = allow_dma;
-	enc->last_online = -1;
-
-	enc->fd = -1;
+	enc->run = run;
 
 	unsigned count = 0;
 	for (; options[count].name != NULL; ++count);
@@ -126,36 +182,8 @@ static m2m_encoder_s *_m2m_encoder_init(
 	return enc;
 }
 
-void m2m_encoder_destroy(m2m_encoder_s *enc) {
-	E_LOG_INFO("Destroying encoder ...");
-	_m2m_encoder_cleanup(enc);
-	free(enc->options);
-	free(enc->path);
-	free(enc->name);
-	free(enc);
-}
-
-int m2m_encoder_ensure_ready(m2m_encoder_s *enc, const frame_s *frame) {
-	if (!_m2m_encoder_is_prepared_for(enc, frame)) {
-		return _m2m_encoder_prepare(enc, frame);
-	}
-	return 0;
-}
-
-static bool _m2m_encoder_is_prepared_for(m2m_encoder_s *enc, const frame_s *frame) {
-#	define EQ(_field) (enc->_field == frame->_field)
-	return (
-		EQ(width)
-		&& EQ(height)
-		&& EQ(format)
-		&& EQ(stride)
-		&& (enc->dma == (enc->allow_dma && frame->dma_fd >= 0))
-	);
-#	undef EQ
-}
-
 #define E_XIOCTL(_request, _value, _msg, ...) { \
-		if (xioctl(enc->fd, _request, _value) < 0) { \
+		if (xioctl(RUN(fd), _request, _value) < 0) { \
 			E_LOG_PERROR(_msg, ##__VA_ARGS__); \
 			goto error; \
 		} \
@@ -168,17 +196,17 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 
 	_m2m_encoder_cleanup(enc);
 
-	enc->width = frame->width;
-	enc->height = frame->height;
-	enc->format = frame->format;
-	enc->stride = frame->stride;
-	enc->dma = dma;
+	RUN(width) = frame->width;
+	RUN(height) = frame->height;
+	RUN(format) = frame->format;
+	RUN(stride) = frame->stride;
+	RUN(dma) = dma;
 
-	if ((enc->fd = open(enc->path, O_RDWR)) < 0) {
+	if ((RUN(fd) = open(enc->path, O_RDWR)) < 0) {
 		E_LOG_PERROR("Can't open encoder device");
 		goto error;
 	}
-	E_LOG_DEBUG("Encoder device fd=%d opened", enc->fd);
+	E_LOG_DEBUG("Encoder device fd=%d opened", RUN(fd));
 
 	for (m2m_option_s *option = enc->options; option->name != NULL; ++option) {
 		struct v4l2_control ctl = {0};
@@ -189,7 +217,7 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 		if (option->required) {
 			E_XIOCTL(VIDIOC_S_CTRL, &ctl, "Can't set option %s", option->name);
 		} else {
-			if (xioctl(enc->fd, VIDIOC_S_CTRL, &ctl) < 0) {
+			if (xioctl(RUN(fd), VIDIOC_S_CTRL, &ctl) < 0) {
 				if (errno == EINVAL) {
 					E_LOG_ERROR("Can't set option %s: Unsupported by encoder", option->name);
 				} else {
@@ -217,7 +245,7 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 		fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 		fmt.fmt.pix_mp.width = frame->width;
 		fmt.fmt.pix_mp.height = frame->height;
-		fmt.fmt.pix_mp.pixelformat = enc->output_format;
+		fmt.fmt.pix_mp.pixelformat = enc->format;
 		fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
 		fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_DEFAULT;
 		fmt.fmt.pix_mp.num_planes = 1;
@@ -225,10 +253,10 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 		// fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512 << 10;
 		E_LOG_DEBUG("Configuring OUTPUT format ...");
 		E_XIOCTL(VIDIOC_S_FMT, &fmt, "Can't set OUTPUT format");
-		if (fmt.fmt.pix_mp.pixelformat != enc->output_format) {
+		if (fmt.fmt.pix_mp.pixelformat != enc->format) {
 			char fourcc_str[8];
 			E_LOG_ERROR("The OUTPUT format can't be configured as %s",
-				fourcc_to_string(enc->output_format, fourcc_str, 8));
+				fourcc_to_string(enc->format, fourcc_str, 8));
 			E_LOG_ERROR("In case of Raspberry Pi, try to append 'start_x=1' to /boot/config.txt");
 			goto error;
 		}
@@ -244,11 +272,11 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 	}
 
 	if (_m2m_encoder_init_buffers(enc, (dma ? "INPUT-DMA" : "INPUT"), V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
-		&enc->input_bufs, &enc->n_input_bufs, dma) < 0) {
+		&RUN(input_bufs), &RUN(n_input_bufs), dma) < 0) {
 		goto error;
 	}
 	if (_m2m_encoder_init_buffers(enc, "OUTPUT", V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		&enc->output_bufs, &enc->n_output_bufs, false) < 0) {
+		&RUN(output_bufs), &RUN(n_output_bufs), false) < 0) {
 		goto error;
 	}
 
@@ -262,7 +290,7 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 		E_XIOCTL(VIDIOC_STREAMON, &type, "Can't start OUTPUT");
 	}
 
-	enc->ready = true;
+	RUN(ready) = true;
 	E_LOG_DEBUG("Encoder state: *** READY ***");
 	return 0;
 
@@ -313,7 +341,7 @@ static int _m2m_encoder_init_buffers(
 				plane.length,
 				PROT_READ | PROT_WRITE,
 				MAP_SHARED,
-				enc->fd,
+				RUN(fd),
 				plane.m.mem_offset
 			)) == MAP_FAILED) {
 				E_LOG_PERROR("Can't map %s buffer index=%u", name, *n_bufs_ptr);
@@ -332,11 +360,11 @@ static int _m2m_encoder_init_buffers(
 }
 
 static void _m2m_encoder_cleanup(m2m_encoder_s *enc) {
-	if (enc->ready) {
+	if (RUN(ready)) {
 #		define STOP_STREAM(_name, _type) { \
 				enum v4l2_buf_type _type_var = _type; \
 				E_LOG_DEBUG("Stopping %s ...", _name); \
-				if (xioctl(enc->fd, VIDIOC_STREAMOFF, &_type_var) < 0) { \
+				if (xioctl(RUN(fd), VIDIOC_STREAMOFF, &_type_var) < 0) { \
 					E_LOG_PERROR("Can't stop %s", _name); \
 				} \
 			}
@@ -348,18 +376,18 @@ static void _m2m_encoder_cleanup(m2m_encoder_s *enc) {
 	}
 
 #	define DESTROY_BUFFERS(_name, _target) { \
-		if (enc->_target##_bufs) { \
-			for (unsigned index = 0; index < enc->n_##_target##_bufs; ++index) { \
-				if (enc->_target##_bufs[index].allocated > 0 && enc->_target##_bufs[index].data != MAP_FAILED) { \
-					if (munmap(enc->_target##_bufs[index].data, enc->_target##_bufs[index].allocated) < 0) { \
+		if (RUN(_target##_bufs)) { \
+			for (unsigned index = 0; index < RUN(n_##_target##_bufs); ++index) { \
+				if (RUN(_target##_bufs[index].allocated) > 0 && RUN(_target##_bufs[index].data) != MAP_FAILED) { \
+					if (munmap(RUN(_target##_bufs[index].data), RUN(_target##_bufs[index].allocated)) < 0) { \
 						E_LOG_PERROR("Can't unmap %s buffer index=%u", #_name, index); \
 					} \
 				} \
 			} \
-			free(enc->_target##_bufs); \
-			enc->_target##_bufs = NULL; \
+			free(RUN(_target##_bufs)); \
+			RUN(_target##_bufs) = NULL; \
 		} \
-		enc->n_##_target##_bufs = 0; \
+		RUN(n_##_target##_bufs) = 0; \
 	}
 
 	DESTROY_BUFFERS("OUTPUT", output);
@@ -367,45 +395,17 @@ static void _m2m_encoder_cleanup(m2m_encoder_s *enc) {
 
 #	undef DESTROY_BUFFERS
 
-	if (enc->fd >= 0) {
-		if (close(enc->fd) < 0) {
+	if (RUN(fd) >= 0) {
+		if (close(RUN(fd)) < 0) {
 			E_LOG_PERROR("Can't close encoder device");
 		}
-		enc->fd = -1;
+		RUN(fd) = -1;
 	}
 
-	enc->last_online = -1;
-	enc->ready = false;
+	RUN(last_online) = -1;
+	RUN(ready) = false;
 
 	E_LOG_DEBUG("Encoder state: ~~~ NOT READY ~~~");
-}
-
-int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key) {
-	assert(enc->ready);
-	assert(src->used > 0);
-	assert(enc->width == src->width);
-	assert(enc->height == src->height);
-	assert(enc->format == src->format);
-	assert(enc->stride == src->stride);
-	assert(enc->dma == (enc->allow_dma && src->dma_fd >= 0));
-
-	frame_encoding_begin(src, dest, (enc->output_format == V4L2_PIX_FMT_MJPEG ? V4L2_PIX_FMT_JPEG : enc->output_format));
-
-	force_key = (enc->output_format == V4L2_PIX_FMT_H264 && (force_key || enc->last_online != src->online));
-
-	if (_m2m_encoder_compress_raw(enc, src, dest, force_key) < 0) {
-		_m2m_encoder_cleanup(enc);
-		E_LOG_ERROR("Encoder destroyed due an error (compress)");
-		return -1;
-	}
-
-	frame_encoding_end(dest);
-
-	E_LOG_VERBOSE("Compressed new frame: size=%zu, time=%0.3Lf, force_key=%d",
-		dest->used, dest->encode_end_ts - dest->encode_begin_ts, force_key);
-
-	enc->last_online = src->online;
-	return 0;
 }
 
 static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key) {
@@ -425,7 +425,7 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 	input_buf.length = 1;
 	input_buf.m.planes = &input_plane;
 
-	if (enc->dma) {
+	if (RUN(dma)) {
 		input_buf.index = 0;
 		input_buf.memory = V4L2_MEMORY_DMABUF;
 		input_buf.field = V4L2_FIELD_NONE;
@@ -435,9 +435,9 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 		input_buf.memory = V4L2_MEMORY_MMAP;
 		E_LOG_DEBUG("Grabbing INPUT buffer ...");
 		E_XIOCTL(VIDIOC_DQBUF, &input_buf, "Can't grab INPUT buffer");
-		if (input_buf.index >= enc->n_input_bufs) {
+		if (input_buf.index >= RUN(n_input_bufs)) {
 			E_LOG_ERROR("V4L2 error: grabbed invalid INPUT buffer: index=%u, n_bufs=%u",
-				input_buf.index, enc->n_input_bufs);
+				input_buf.index, RUN(n_input_bufs));
 			goto error;
 		}
 		E_LOG_DEBUG("Grabbed INPUT buffer index=%u", input_buf.index);
@@ -453,21 +453,22 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 	input_buf.timestamp.tv_usec = ts.tv_usec;
 	input_plane.bytesused = src->used;
 	input_plane.length = src->used;
-	if (!enc->dma) {
-		memcpy(enc->input_bufs[input_buf.index].data, src->data, src->used);
+	if (!RUN(dma)) {
+		memcpy(RUN(input_bufs[input_buf.index].data), src->data, src->used);
 	}
 
-	const char *input_name = (enc->dma ? "INPUT-DMA" : "INPUT");
+	const char *input_name = (RUN(dma) ? "INPUT-DMA" : "INPUT");
 
-	E_LOG_DEBUG("Sending%s %s buffer ...", (!enc->dma ? " (releasing)" : ""), input_name);
+	E_LOG_DEBUG("Sending%s %s buffer ...", (!RUN(dma) ? " (releasing)" : ""), input_name);
 	E_XIOCTL(VIDIOC_QBUF, &input_buf, "Can't send %s buffer", input_name);
 
 	// Для не-DMA отправка буфера по факту являтся освобождением этого буфера
-	bool input_released = !enc->dma;
+	bool input_released = !RUN(dma);
 
 	while (true) {
-		struct pollfd enc_poll = {enc->fd, POLLIN, 0};
+		struct pollfd enc_poll = {RUN(fd), POLLIN, 0};
 
+		E_LOG_DEBUG("Polling encoder ...");
 		if (poll(&enc_poll, 1, 1000) < 0 && errno != EINTR) {
 			E_LOG_PERROR("Can't poll encoder");
 			goto error;
@@ -497,7 +498,7 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 				// входному (с тем же таймстампом).
 				E_LOG_DEBUG("Need to retry OUTPUT buffer due timestamp mismatch");
 			} else {
-				frame_set_data(dest, enc->output_bufs[output_buf.index].data, output_plane.bytesused);
+				frame_set_data(dest, RUN(output_bufs[output_buf.index].data), output_plane.bytesused);
 				dest->key = output_buf.flags & V4L2_BUF_FLAG_KEYFRAME;
 				done = true;
 			}
@@ -517,6 +518,8 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 }
 
 #undef E_XIOCTL
+
+#undef RUN
 
 #undef E_LOG_DEBUG
 #undef E_LOG_VERBOSE
