@@ -107,6 +107,8 @@ void m2m_encoder_destroy(m2m_encoder_s *enc) {
 #define RUN(_next) enc->run->_next
 
 int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key) {
+	frame_encoding_begin(src, dest, (enc->output_format == V4L2_PIX_FMT_MJPEG ? V4L2_PIX_FMT_JPEG : enc->output_format));
+
 	if (
 		RUN(width) != src->width
 		|| RUN(height) != src->height
@@ -118,11 +120,6 @@ int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, 
 			return -1;
 		}
 	}
-
-	assert(RUN(ready));
-	assert(src->used > 0);
-
-	frame_encoding_begin(src, dest, (enc->output_format == V4L2_PIX_FMT_MJPEG ? V4L2_PIX_FMT_JPEG : enc->output_format));
 
 	force_key = (enc->output_format == V4L2_PIX_FMT_H264 && (force_key || RUN(last_online) != src->online));
 
@@ -324,10 +321,10 @@ static int _m2m_encoder_init_buffers(
 			buf.length = 1;
 			buf.m.planes = &plane;
 
-			E_LOG_DEBUG("Querying %s buffer index=%u ...", name, *n_bufs_ptr);
-			E_XIOCTL(VIDIOC_QUERYBUF, &buf, "Can't query %s buffer index=%u", name, *n_bufs_ptr);
+			E_LOG_DEBUG("Querying %s buffer=%u ...", name, *n_bufs_ptr);
+			E_XIOCTL(VIDIOC_QUERYBUF, &buf, "Can't query %s buffer=%u", name, *n_bufs_ptr);
 
-			E_LOG_DEBUG("Mapping %s buffer index=%u ...", name, *n_bufs_ptr);
+			E_LOG_DEBUG("Mapping %s buffer=%u ...", name, *n_bufs_ptr);
 			if (((*bufs_ptr)[*n_bufs_ptr].data = mmap(
 				NULL,
 				plane.length,
@@ -336,13 +333,13 @@ static int _m2m_encoder_init_buffers(
 				RUN(fd),
 				plane.m.mem_offset
 			)) == MAP_FAILED) {
-				E_LOG_PERROR("Can't map %s buffer index=%u", name, *n_bufs_ptr);
+				E_LOG_PERROR("Can't map %s buffer=%u", name, *n_bufs_ptr);
 				goto error;
 			}
 			(*bufs_ptr)[*n_bufs_ptr].allocated = plane.length;
 
-			E_LOG_DEBUG("Queuing %s buffer index=%u ...", name, *n_bufs_ptr);
-			E_XIOCTL(VIDIOC_QBUF, &buf, "Can't queue %s buffer index=%u", name, *n_bufs_ptr);
+			E_LOG_DEBUG("Queuing %s buffer=%u ...", name, *n_bufs_ptr);
+			E_XIOCTL(VIDIOC_QBUF, &buf, "Can't queue %s buffer=%u", name, *n_bufs_ptr);
 		}
 	}
 
@@ -372,7 +369,7 @@ static void _m2m_encoder_cleanup(m2m_encoder_s *enc) {
 			for (unsigned index = 0; index < RUN(n_##_target##_bufs); ++index) { \
 				if (RUN(_target##_bufs[index].allocated) > 0 && RUN(_target##_bufs[index].data) != MAP_FAILED) { \
 					if (munmap(RUN(_target##_bufs[index].data), RUN(_target##_bufs[index].allocated)) < 0) { \
-						E_LOG_PERROR("Can't unmap %s buffer index=%u", #_name, index); \
+						E_LOG_PERROR("Can't unmap %s buffer=%u", #_name, index); \
 					} \
 				} \
 			} \
@@ -401,6 +398,8 @@ static void _m2m_encoder_cleanup(m2m_encoder_s *enc) {
 }
 
 static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key) {
+	assert(RUN(ready));
+
 	E_LOG_DEBUG("Compressing new frame; force_key=%d ...", force_key);
 
 	if (force_key) {
@@ -422,17 +421,17 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 		input_buf.memory = V4L2_MEMORY_DMABUF;
 		input_buf.field = V4L2_FIELD_NONE;
 		input_plane.m.fd = src->dma_fd;
-		E_LOG_DEBUG("Using INPUT-DMA buffer index=%u", input_buf.index);
+		E_LOG_DEBUG("Using INPUT-DMA buffer=%u", input_buf.index);
 	} else {
 		input_buf.memory = V4L2_MEMORY_MMAP;
 		E_LOG_DEBUG("Grabbing INPUT buffer ...");
 		E_XIOCTL(VIDIOC_DQBUF, &input_buf, "Can't grab INPUT buffer");
 		if (input_buf.index >= RUN(n_input_bufs)) {
-			E_LOG_ERROR("V4L2 error: grabbed invalid INPUT buffer: index=%u, n_bufs=%u",
+			E_LOG_ERROR("V4L2 error: grabbed invalid INPUT: buffer=%u, n_bufs=%u",
 				input_buf.index, RUN(n_input_bufs));
 			goto error;
 		}
-		E_LOG_DEBUG("Grabbed INPUT buffer index=%u", input_buf.index);
+		E_LOG_DEBUG("Grabbed INPUT buffer=%u", input_buf.index);
 	}
 
 	uint64_t now = get_now_monotonic_u64();
@@ -468,8 +467,8 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 
 		if (enc_poll.revents & POLLIN) {
 			if (!input_released) {
-				E_LOG_DEBUG("Releasing %s buffer index=%u ...", input_name, input_buf.index);
-				E_XIOCTL(VIDIOC_DQBUF, &input_buf, "Can't release %s buffer index=%u",
+				E_LOG_DEBUG("Releasing %s buffer=%u ...", input_name, input_buf.index);
+				E_XIOCTL(VIDIOC_DQBUF, &input_buf, "Can't release %s buffer=%u",
 					input_name, input_buf.index);
 				input_released = true;
 			}
@@ -495,8 +494,8 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 				done = true;
 			}
 
-			E_LOG_DEBUG("Releasing OUTPUT buffer index=%u ...", output_buf.index);
-			E_XIOCTL(VIDIOC_QBUF, &output_buf, "Can't release OUTPUT buffer index=%u", output_buf.index);
+			E_LOG_DEBUG("Releasing OUTPUT buffer=%u ...", output_buf.index);
+			E_XIOCTL(VIDIOC_QBUF, &output_buf, "Can't release OUTPUT buffer=%u", output_buf.index);
 
 			if (done) {
 				break;

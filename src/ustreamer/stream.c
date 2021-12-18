@@ -187,7 +187,7 @@ void stream_loop(stream_s *stream) {
 
 							ready_job->hw = hw;
 							workers_pool_assign(pool, ready_wr);
-							LOG_DEBUG("Assigned new frame in buffer %d to worker %s", buf_index, ready_wr->name);
+							LOG_DEBUG("Assigned new frame in buffer=%d to worker=%s", buf_index, ready_wr->name);
 
 							SINK_PUT(raw_sink, &hw->raw);
 							H264_PUT(&hw->raw, h264_force_key);

@@ -202,26 +202,28 @@ static bool _worker_run_job(worker_s *wr) {
 
 #	define ER(_next) job->enc->run->_next
 
-	LOG_DEBUG("Worker %s compressing JPEG from buffer index=%u ...", wr->name, job->hw->buf.index);
-
 	assert(ER(type) != ENCODER_TYPE_UNKNOWN);
 
 	if (ER(type) == ENCODER_TYPE_CPU) {
-		LOG_VERBOSE("Compressing buffer using CPU");
+		LOG_VERBOSE("Compressing JPEG using CPU: worker=%s, buffer=%u",
+			wr->name, job->hw->buf.index);
 		cpu_encoder_compress(src, dest, ER(quality));
 
 	} else if (ER(type) == ENCODER_TYPE_HW) {
-		LOG_VERBOSE("Compressing buffer using HW (just copying)");
+		LOG_VERBOSE("Compressing JPEG using HW (just copying): worker=%s, buffer=%u",
+			wr->name, job->hw->buf.index);
 		hw_encoder_compress(src, dest);
 
 	} else if (ER(type) == ENCODER_TYPE_M2M_VIDEO || ER(type) == ENCODER_TYPE_M2M_IMAGE) {
-		LOG_VERBOSE("Compressing buffer using M2M-%s", (ER(type) == ENCODER_TYPE_M2M_VIDEO ? "VIDEO" : "IMAGE"));
+		LOG_VERBOSE("Compressing JPEG using M2M-%s: worker=%s, buffer=%u",
+			(ER(type) == ENCODER_TYPE_M2M_VIDEO ? "VIDEO" : "IMAGE"), wr->name, job->hw->buf.index);
 		if (m2m_encoder_compress(ER(m2ms[wr->number]), src, dest, false) < 0) {
 			goto error;
 		}
 
 	} else if (ER(type) == ENCODER_TYPE_NOOP) {
-		LOG_VERBOSE("Compressing buffer using NOOP (do nothing)");
+		LOG_VERBOSE("Compressing JPEG using NOOP (do nothing): worker=%s, buffer=%u",
+			wr->name, job->hw->buf.index);
 		usleep(5000); // Просто чтобы работала логика desired_fps
 		dest->encode_end_ts = get_now_monotonic();
 	}

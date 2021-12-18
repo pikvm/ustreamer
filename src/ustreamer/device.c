@@ -186,7 +186,7 @@ void device_close(device_s *dev) {
 			if (dev->io_method == V4L2_MEMORY_MMAP) {
 				if (HW(raw.allocated) > 0 && HW(raw.data) != MAP_FAILED) {
 					if (munmap(HW(raw.data), HW(raw.allocated)) < 0) {
-						LOG_PERROR("Can't unmap device buffer index=%u", index);
+						LOG_PERROR("Can't unmap device buffer=%u", index);
 					}
 				}
 			} else { // V4L2_MEMORY_USERPTR
@@ -222,9 +222,9 @@ int device_export_to_dma(device_s *dev) {
 		exp.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		exp.index = index;
 
-		LOG_DEBUG("Exporting device buffer index=%u to DMA ...", index);
+		LOG_DEBUG("Exporting device buffer=%u to DMA ...", index);
 		if (xioctl(RUN(fd), VIDIOC_EXPBUF, &exp) < 0) {
-			LOG_PERROR("Unable to export device buffer index=%u to DMA", index);
+			LOG_PERROR("Unable to export device buffer=%u to DMA", index);
 			goto error;
 		}
 		DMA_FD = exp.fd;
@@ -321,12 +321,10 @@ int device_grab_buffer(device_s *dev, hw_buffer_s **hw) {
 		return -1;
 	}
 
-	LOG_DEBUG("Grabbed new frame in device buffer: index=%u, bytesused=%u",
-		buf.index, buf.bytesused);
+	LOG_DEBUG("Grabbed new frame: buffer=%u, bytesused=%u", buf.index, buf.bytesused);
 
 	if (buf.index >= RUN(n_bufs)) {
-		LOG_ERROR("V4L2 error: grabbed invalid device buffer: index=%u, n_bufs=%u",
-			buf.index, RUN(n_bufs));
+		LOG_ERROR("V4L2 error: grabbed invalid device buffer=%u, n_bufs=%u", buf.index, RUN(n_bufs));
 		return -1;
 	}
 
@@ -336,10 +334,11 @@ int device_grab_buffer(device_s *dev, hw_buffer_s **hw) {
 	// For example a VGA (640x480) webcam frame is normally >= 8kByte large,
 	// corrupted frames are smaller.
 	if (buf.bytesused < dev->min_frame_size) {
-		LOG_DEBUG("Dropped too small frame sized %d bytes, assuming it was broken", buf.bytesused);
-		LOG_DEBUG("Releasing device buffer index=%u (broken frame) ...", buf.index);
+		LOG_DEBUG("Dropped too small frame, assuming it was broken: buffer=%u, bytesused=%u",
+			buf.index, buf.bytesused);
+		LOG_DEBUG("Releasing device buffer=%u (broken frame) ...", buf.index);
 		if (xioctl(RUN(fd), VIDIOC_QBUF, &buf) < 0) {
-			LOG_PERROR("Unable to release device buffer index=%u (broken frame)", buf.index);
+			LOG_PERROR("Unable to release device buffer=%u (broken frame)", buf.index);
 			return -1;
 		}
 		return -2;
@@ -349,8 +348,7 @@ int device_grab_buffer(device_s *dev, hw_buffer_s **hw) {
 
 	A_MUTEX_LOCK(&HW(grabbed_mutex));
 	if (HW(grabbed)) {
-		LOG_ERROR("V4L2 error: grabbed device buffer is already used: index=%u, bytesused=%u",
-			buf.index, buf.bytesused);
+		LOG_ERROR("V4L2 error: grabbed device buffer=%u is already used", buf.index);
 		A_MUTEX_UNLOCK(&HW(grabbed_mutex));
 		return -1;
 	}
@@ -374,11 +372,11 @@ int device_grab_buffer(device_s *dev, hw_buffer_s **hw) {
 
 int device_release_buffer(device_s *dev, hw_buffer_s *hw) {
 	const unsigned index = hw->buf.index;
-	LOG_DEBUG("Releasing device buffer index=%u ...", index);
+	LOG_DEBUG("Releasing device buffer=%u ...", index);
 
 	A_MUTEX_LOCK(&hw->grabbed_mutex);
 	if (xioctl(RUN(fd), VIDIOC_QBUF, &hw->buf) < 0) {
-		LOG_PERROR("Unable to release device buffer index=%u", index);
+		LOG_PERROR("Unable to release device buffer=%u", index);
 		A_MUTEX_UNLOCK(&hw->grabbed_mutex);
 		return -1;
 	}
@@ -680,7 +678,7 @@ static int _device_open_io_method_mmap(device_s *dev) {
 		buf.memory = V4L2_MEMORY_MMAP;
 		buf.index = RUN(n_bufs);
 
-		LOG_DEBUG("Calling ioctl(VIDIOC_QUERYBUF) for device buffer index=%u ...", RUN(n_bufs));
+		LOG_DEBUG("Calling ioctl(VIDIOC_QUERYBUF) for device buffer=%u ...", RUN(n_bufs));
 		if (xioctl(RUN(fd), VIDIOC_QUERYBUF, &buf) < 0) {
 			LOG_PERROR("Can't VIDIOC_QUERYBUF");
 			return -1;
@@ -692,7 +690,7 @@ static int _device_open_io_method_mmap(device_s *dev) {
 
 		A_MUTEX_INIT(&HW(grabbed_mutex));
 
-		LOG_DEBUG("Mapping device buffer index=%u ...", RUN(n_bufs));
+		LOG_DEBUG("Mapping device buffer=%u ...", RUN(n_bufs));
 		if ((HW(raw.data) = mmap(
 			NULL,
 			buf.length,
@@ -701,7 +699,7 @@ static int _device_open_io_method_mmap(device_s *dev) {
 			RUN(fd),
 			buf.m.offset
 		)) == MAP_FAILED) {
-			LOG_PERROR("Can't map device buffer index=%u", RUN(n_bufs));
+			LOG_PERROR("Can't map device buffer=%u", RUN(n_bufs));
 			return -1;
 		}
 		HW(raw.allocated) = buf.length;
@@ -758,7 +756,7 @@ static int _device_open_queue_buffers(device_s *dev) {
 			buf.length = RUN(hw_bufs)[index].raw.allocated;
 		}
 
-		LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) for buffer index=%u ...", index);
+		LOG_DEBUG("Calling ioctl(VIDIOC_QBUF) for buffer=%u ...", index);
 		if (xioctl(RUN(fd), VIDIOC_QBUF, &buf) < 0) {
 			LOG_PERROR("Can't VIDIOC_QBUF");
 			return -1;
