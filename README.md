@@ -68,7 +68,7 @@ The recommended way of running µStreamer with [Auvidea B101](https://www.raspbe
 $ export LD_LIBRARY_PATH=/opt/vc/lib/ # on bullseye
 $ ./ustreamer \
     --format=uyvy \ # Device input format
-    --encoder=m2m \ # Hardware encoding on V4L2 M2M driver
+    --encoder=m2m-image \ # Hardware encoding on V4L2 M2M driver
     --workers=3 \ # Workers number
     --persistent \ # Don't re-initialize device on timeout (for example when HDMI cable was disconnected)
     --dv-timings \ # Use DV-timings
