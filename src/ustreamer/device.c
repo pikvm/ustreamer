@@ -223,7 +223,7 @@ int device_export_to_dma(device_s *dev) {
 
 		LOG_DEBUG("Exporting device buffer=%u to DMA ...", index);
 		if (xioctl(RUN(fd), VIDIOC_EXPBUF, &exp) < 0) {
-			LOG_PERROR("Unable to export device buffer=%u to DMA", index);
+			LOG_PERROR("Can't export device buffer=%u to DMA", index);
 			goto error;
 		}
 		DMA_FD = exp.fd;
@@ -249,7 +249,7 @@ int device_switch_capturing(device_s *dev, bool enable) {
 
 		LOG_DEBUG("%s device capturing ...", (enable ? "Starting" : "Stopping"));
 		if (xioctl(RUN(fd), (enable ? VIDIOC_STREAMON : VIDIOC_STREAMOFF), &type) < 0) {
-			LOG_PERROR("Unable to %s capturing", (enable ? "start" : "stop"));
+			LOG_PERROR("Can't %s capturing", (enable ? "start" : "stop"));
 			if (enable) {
 				return -1;
 			}
@@ -316,7 +316,7 @@ int device_grab_buffer(device_s *dev, hw_buffer_s **hw) {
 
 	LOG_DEBUG("Grabbing device buffer ...");
 	if (xioctl(RUN(fd), VIDIOC_DQBUF, &buf) < 0) {
-		LOG_PERROR("Unable to grab device buffer");
+		LOG_PERROR("Can't grab device buffer");
 		return -1;
 	}
 
@@ -337,7 +337,7 @@ int device_grab_buffer(device_s *dev, hw_buffer_s **hw) {
 			buf.index, buf.bytesused);
 		LOG_DEBUG("Releasing device buffer=%u (broken frame) ...", buf.index);
 		if (xioctl(RUN(fd), VIDIOC_QBUF, &buf) < 0) {
-			LOG_PERROR("Unable to release device buffer=%u (broken frame)", buf.index);
+			LOG_PERROR("Can't release device buffer=%u (broken frame)", buf.index);
 			return -1;
 		}
 		return -2;
@@ -371,7 +371,7 @@ int device_release_buffer(device_s *dev, hw_buffer_s *hw) {
 	LOG_DEBUG("Releasing device buffer=%u ...", index);
 
 	if (xioctl(RUN(fd), VIDIOC_QBUF, &hw->buf) < 0) {
-		LOG_PERROR("Unable to release device buffer=%u", index);
+		LOG_PERROR("Can't release device buffer=%u", index);
 		return -1;
 	}
 	hw->grabbed = false;
@@ -412,7 +412,7 @@ static int _device_open_check_cap(device_s *dev) {
 	}
 
 	if (!(cap.capabilities & V4L2_CAP_STREAMING)) {
-		LOG_ERROR("Device does not support streaming IO");
+		LOG_ERROR("Device doesn't support streaming IO");
 		return -1;
 	}
 
@@ -516,7 +516,7 @@ static int _device_open_format(device_s *dev, bool first) {
 	LOG_DEBUG("Probing device format=%s, stride=%u, resolution=%ux%u ...",
 		_format_to_string_supported(dev->format), stride, RUN(width), RUN(height));
 	if (xioctl(RUN(fd), VIDIOC_S_FMT, &fmt) < 0) {
-		LOG_PERROR("Unable to set device format");
+		LOG_PERROR("Can't set device format");
 		return -1;
 	}
 
@@ -570,7 +570,7 @@ static void _device_open_hw_fps(device_s *dev) {
 		if (errno == ENOTTY) { // Quiet message for TC358743
 			LOG_INFO("Querying HW FPS changing is not supported");
 		} else {
-			LOG_PERROR("Unable to query HW FPS changing");
+			LOG_PERROR("Can't query HW FPS changing");
 		}
 		return;
 	}
@@ -588,7 +588,7 @@ static void _device_open_hw_fps(device_s *dev) {
 	SETFPS_TPF(denominator) = (dev->desired_fps == 0 ? 255 : dev->desired_fps);
 
 	if (xioctl(RUN(fd), VIDIOC_S_PARM, &setfps) < 0) {
-		LOG_PERROR("Unable to set HW FPS");
+		LOG_PERROR("Can't set HW FPS");
 		return;
 	}
 
@@ -619,11 +619,11 @@ static void _device_open_jpeg_quality(device_s *dev) {
 		struct v4l2_jpegcompression comp = {0};
 
 		if (xioctl(RUN(fd), VIDIOC_G_JPEGCOMP, &comp) < 0) {
-			LOG_ERROR("Device does not support setting of HW encoding quality parameters");
+			LOG_ERROR("Device doesn't support setting of HW encoding quality parameters");
 		} else {
 			comp.quality = dev->jpeg_quality;
 			if (xioctl(RUN(fd), VIDIOC_S_JPEGCOMP, &comp) < 0) {
-				LOG_ERROR("Unable to change MJPEG quality for JPEG source with HW pass-through encoder");
+				LOG_ERROR("Can't change MJPEG quality for JPEG source with HW pass-through encoder");
 			} else {
 				quality = dev->jpeg_quality;
 			}
