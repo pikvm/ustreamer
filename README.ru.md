@@ -127,7 +127,7 @@ V4L2 предоставляет ряд официальных утилит дл�
 
 -----
 # Лицензия
-Copyright (C) 2018-2021 by Maxim Devaev mdevaev@gmail.com
+Copyright (C) 2018-2022 by Maxim Devaev mdevaev@gmail.com
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
