@@ -92,7 +92,8 @@ m2m_encoder_s *m2m_jpeg_encoder_init(const char *name, const char *path, unsigne
 		{NULL, false, 0, 0},
 	};
 
-	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_JPEG, 30, true, options);
+	// FIXME: DMA не работает
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_JPEG, 30, false, options);
 }
 
 void m2m_encoder_destroy(m2m_encoder_s *enc) {
@@ -153,7 +154,7 @@ static m2m_encoder_s *_m2m_encoder_init(
 	A_CALLOC(enc, 1);
 	assert(enc->name = strdup(name));
 	if (path == NULL) {
-		assert(enc->path = strdup(output_format == V4L2_PIX_FMT_JPEG ? "/dev/video21" : "/dev/video11"));
+		assert(enc->path = strdup(output_format == V4L2_PIX_FMT_JPEG ? "/dev/video31" : "/dev/video11"));
 	} else {
 		assert(enc->path = strdup(path));
 	}
@@ -225,6 +226,7 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 		fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
 		fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_JPEG; // libcamera currently has no means to request the right colour space
 		fmt.fmt.pix_mp.num_planes = 1;
+		// fmt.fmt.pix_mp.plane_fmt[0].bytesperline = RUN(stride);
 		E_LOG_DEBUG("Configuring INPUT format ...");
 		E_XIOCTL(VIDIOC_S_FMT, &fmt, "Can't set INPUT format");
 	}
