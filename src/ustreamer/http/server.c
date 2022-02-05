@@ -317,6 +317,7 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 			goto not_found;
 		}
 
+		fd = -1;
 		ADD_HEADER("Content-Type", guess_mime_type(static_path));
 		evhttp_send_reply(request, HTTP_OK, "OK", buf);
 		goto cleanup;
