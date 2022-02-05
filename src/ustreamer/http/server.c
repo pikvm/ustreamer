@@ -317,7 +317,10 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 			goto not_found;
 		}
 
+		// evbuffer_add_file() owns the resulting file descriptor
+		// and will close it when finished transferring data
 		fd = -1;
+
 		ADD_HEADER("Content-Type", guess_mime_type(static_path));
 		evhttp_send_reply(request, HTTP_OK, "OK", buf);
 		goto cleanup;
