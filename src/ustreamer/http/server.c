@@ -421,14 +421,14 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 	LIST_ITERATE(RUN(stream_clients), client, {
 		assert(evbuffer_add_printf(buf,
 			"\"%" PRIx64 "\": {\"fps\": %u, \"extra_headers\": %s, \"advance_headers\": %s,"
-			" \"dual_final_frames\": %s, \"zero_data\": %s, \"key\": %s}%s",
+			" \"dual_final_frames\": %s, \"zero_data\": %s, \"key\": \"%s\"}%s",
 			client->id,
 			client->fps,
 			bool_to_string(client->extra_headers),
 			bool_to_string(client->advance_headers),
 			bool_to_string(client->dual_final_frames),
 			bool_to_string(client->zero_data),
-			client->key != NULL ? client->key : "0",
+			(client->key != NULL ? client->key : "0"),
 			(client->next ? ", " : "")
 		));
 	});
