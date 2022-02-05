@@ -65,7 +65,6 @@ Without arguments, ```ustreamer``` will try to open ```/dev/video0``` with 640x4
 
 The recommended way of running µStreamer with [Auvidea B101](https://www.raspberrypi.org/forums/viewtopic.php?f=38&t=120702&start=400#p1339178) on Raspberry Pi:
 ```bash
-$ export LD_LIBRARY_PATH=/opt/vc/lib/ # on bullseye
 $ ./ustreamer \
     --format=uyvy \ # Device input format
     --encoder=m2m-image \ # Hardware encoding on V4L2 M2M driver
