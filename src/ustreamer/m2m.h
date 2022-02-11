@@ -50,7 +50,6 @@ typedef struct {
 
 typedef struct {
 	char		*name;
-	bool		required;
 	uint32_t	id;
 	int32_t		value;
 } m2m_option_s;

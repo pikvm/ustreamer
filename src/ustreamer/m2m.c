@@ -46,18 +46,18 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 
 
 m2m_encoder_s *m2m_h264_encoder_init(const char *name, const char *path, unsigned bitrate, unsigned gop) {
-#	define OPTION(_required, _key, _value) {#_key, _required, V4L2_CID_MPEG_VIDEO_##_key, _value}
+#	define OPTION(_key, _value) {#_key, V4L2_CID_MPEG_VIDEO_##_key, _value}
 
 	m2m_option_s options[] = {
-		OPTION(true, BITRATE, bitrate * 1000),
-		// OPTION(false, BITRATE_PEAK, bitrate * 1000),
-		OPTION(true, H264_I_PERIOD, gop),
-		OPTION(true, H264_PROFILE, V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE),
-		OPTION(true, H264_LEVEL, V4L2_MPEG_VIDEO_H264_LEVEL_4_0),
-		OPTION(true, REPEAT_SEQ_HEADER, 1),
-		OPTION(false, H264_MIN_QP, 16),
-		OPTION(false, H264_MAX_QP, 32),
-		{NULL, false, 0, 0},
+		OPTION(BITRATE, bitrate * 1000),
+		// OPTION(BITRATE_PEAK, bitrate * 1000),
+		OPTION(H264_I_PERIOD, gop),
+		OPTION(H264_PROFILE, V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE),
+		OPTION(H264_LEVEL, V4L2_MPEG_VIDEO_H264_LEVEL_4_0),
+		OPTION(REPEAT_SEQ_HEADER, 1),
+		OPTION(H264_MIN_QP, 16),
+		OPTION(H264_MAX_QP, 32),
+		{NULL, 0, 0},
 	};
 
 #	undef OPTION
@@ -78,8 +78,8 @@ m2m_encoder_s *m2m_mjpeg_encoder_init(const char *name, const char *path, unsign
 	assert(bitrate > 0);
 
 	m2m_option_s options[] = {
-		{"BITRATE", true, V4L2_CID_MPEG_VIDEO_BITRATE, bitrate},
-		{NULL, false, 0, 0},
+		{"BITRATE", V4L2_CID_MPEG_VIDEO_BITRATE, bitrate},
+		{NULL, 0, 0},
 	};
 
 	// FIXME: То же самое про 30 or 0, но еще даже не проверено на низких разрешениях
@@ -88,8 +88,8 @@ m2m_encoder_s *m2m_mjpeg_encoder_init(const char *name, const char *path, unsign
 
 m2m_encoder_s *m2m_jpeg_encoder_init(const char *name, const char *path, unsigned quality) {
 	m2m_option_s options[] = {
-		{"QUALITY", true, V4L2_CID_JPEG_COMPRESSION_QUALITY, quality},
-		{NULL, false, 0, 0},
+		{"QUALITY", V4L2_CID_JPEG_COMPRESSION_QUALITY, quality},
+		{NULL, 0, 0},
 	};
 
 	// FIXME: DMA не работает
@@ -204,17 +204,7 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 		ctl.value = option->value;
 
 		E_LOG_DEBUG("Configuring option %s ...", option->name);
-		if (option->required) {
-			E_XIOCTL(VIDIOC_S_CTRL, &ctl, "Can't set option %s", option->name);
-		} else {
-			if (xioctl(RUN(fd), VIDIOC_S_CTRL, &ctl) < 0) {
-				if (errno == EINVAL) {
-					E_LOG_ERROR("Can't set option %s: Unsupported by encoder", option->name);
-				} else {
-					E_LOG_PERROR("Can't set option %s", option->name);
-				}
-			}
-		}
+		E_XIOCTL(VIDIOC_S_CTRL, &ctl, "Can't set option %s", option->name);
 	}
 
 	{
