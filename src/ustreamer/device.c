@@ -497,8 +497,22 @@ static int _device_apply_dv_timings(device_s *dev) {
 
 	LOG_DEBUG("Calling ioctl(VIDIOC_QUERY_DV_TIMINGS) ...");
 	if (xioctl(RUN(fd), VIDIOC_QUERY_DV_TIMINGS, &dv) == 0) {
-		LOG_INFO("Got new DV timings: resolution=%ux%u, pixclk=%llu",
-			dv.bt.width, dv.bt.height, (unsigned long long)dv.bt.pixelclock); // Issue #11
+		if (dv.type == V4L2_DV_BT_656_1120) {
+			// See v4l2_print_dv_timings() in the kernel
+			unsigned htot = V4L2_DV_BT_FRAME_WIDTH(&dv.bt);
+			unsigned vtot = V4L2_DV_BT_FRAME_HEIGHT(&dv.bt);
+			if (dv.bt.interlaced) {
+				vtot /= 2;
+			}
+			unsigned fps = ((htot * vtot) > 0 ? ((100 * (uint64_t)dv.bt.pixelclock)) / (htot * vtot) : 0);
+			LOG_INFO("Got new DV-timings: %ux%u%s%u.%02u, pixclk=%llu, vsync=%u, hsync=%u",
+				dv.bt.width, dv.bt.height, (dv.bt.interlaced ? "i" : "p"), fps / 100, fps % 100,
+				(unsigned long long)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync); // See #11 about %llu
+		} else {
+			LOG_INFO("Got new DV-timings: %ux%u, pixclk=%llu, vsync=%u, hsync=%u",
+				dv.bt.width, dv.bt.height,
+				(unsigned long long)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync);
+		}
 
 		LOG_DEBUG("Calling ioctl(VIDIOC_S_DV_TIMINGS) ...");
 		if (xioctl(RUN(fd), VIDIOC_S_DV_TIMINGS, &dv) < 0) {
