@@ -282,7 +282,7 @@ int device_switch_capturing(device_s *dev, bool enable) {
 		RUN(capturing) = enable;
 		LOG_INFO("Capturing %s", (enable ? "started" : "stopped"));
 	}
-    return 0;
+	return 0;
 }
 
 int device_select(device_s *dev, bool *has_read, bool *has_write, bool *has_error) {
@@ -906,12 +906,12 @@ static void _device_set_control(
 }
 
 static const char *_format_to_string_nullable(unsigned format) {
-    for (unsigned index = 0; index < ARRAY_LEN(_FORMATS); ++index) {
+	for (unsigned index = 0; index < ARRAY_LEN(_FORMATS); ++index) {
 		if (format == _FORMATS[index].format) {
 			return _FORMATS[index].name;
 		}
-    }
-    return NULL;
+	}
+	return NULL;
 }
 
 static const char *_format_to_string_supported(unsigned format) {
