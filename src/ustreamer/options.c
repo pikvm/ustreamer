@@ -609,8 +609,8 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("                                           Available:");
 	SAY("                                             * CPU  ──────── Software MJPEG encoding (default);");
 	SAY("                                             * HW  ───────── Use pre-encoded MJPEG frames directly from camera hardware;");
-	SAY("                                             * M2M-MJPEG  ── GPU-accelerated MJPEG encoding using V4L2 M2M interface;");
-	SAY("                                             * M2M-JPEG  ─── GPU-accelerated JPEG encoding using V4L2 M2M interface;");
+	SAY("                                             * M2M-VIDEO  ── GPU-accelerated MJPEG encoding using V4L2 M2M video interface;");
+	SAY("                                             * M2M-IMAGE  ── GPU-accelerated JPEG encoding using V4L2 M2M image interface;");
 	SAY("                                             * NOOP  ─────── Don't compress MJPEG stream (do nothing).\n");
 	SAY("    -g|--glitched-resolutions <WxH,...>  ─ It doesn't do anything. Still here for compatibility.\n");
 	SAY("    -k|--blank <path>  ─────────────────── Path to JPEG file that will be shown when the device is disconnected");
@@ -669,11 +669,11 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 #	define ADD_SINK(_name, _opt) \
 		SAY(_name " sink options:"); \
 		SAY("══════════════════"); \
-		SAY("    --" _opt "sink <name>  ─────────── Use the shared memory to sink " _name " frames. Default: disabled.\n"); \
-		SAY("    --" _opt "sink-mode <mode>  ────── Set " _name " sink permissions (like 777). Default: 660.\n"); \
-		SAY("    --" _opt "sink-rm  ─────────────── Remove shared memory on stop. Default: disabled.\n"); \
-		SAY("    --" _opt "sink-client-ttl <sec>  ─ Client TTL. Default: 10.\n"); \
-		SAY("    --" _opt "sink-timeout <sec>  ──── Timeout for lock. Default: 1.\n");
+		SAY("    --" _opt "sink <name>  ──────────── Use the shared memory to sink " _name " frames. Default: disabled.\n"); \
+		SAY("    --" _opt "sink-mode <mode>  ─────── Set " _name " sink permissions (like 777). Default: 660.\n"); \
+		SAY("    --" _opt "sink-rm  ──────────────── Remove shared memory on stop. Default: disabled.\n"); \
+		SAY("    --" _opt "sink-client-ttl <sec>  ── Client TTL. Default: 10.\n"); \
+		SAY("    --" _opt "sink-timeout <sec>  ───── Timeout for lock. Default: 1.\n");
 	ADD_SINK("JPEG", "")
 	ADD_SINK("RAW", "raw-")
 	ADD_SINK("H264", "h264-")
