@@ -160,7 +160,7 @@ static const struct option _LONG_OPTS[] = {
 	{"white-balance",			required_argument,	NULL,	_O_WHITE_BALANCE},
 	{"gain",					required_argument,	NULL,	_O_GAIN},
 	{"color-effect",			required_argument,	NULL,	_O_COLOR_EFFECT},
-	{"rotate",				required_argument,	NULL,	_O_ROTATE},
+	{"rotate",					required_argument,	NULL,	_O_ROTATE},
 	{"flip-vertical",			required_argument,	NULL,	_O_FLIP_VERTICAL},
 	{"flip-horizontal",			required_argument,	NULL,	_O_FLIP_HORIZONTAL},
 
