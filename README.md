@@ -17,6 +17,7 @@
 | [DV-timings](https://linuxtv.org/downloads/v4l-dvb-apis-new/userspace-api/v4l/dv-timings.html) support -<br>the ability to change resolution<br>on the fly by source signal | ✔ | ☹ Partially yes <sup>1</sup> |
 | Option to skip frames when streaming<br>static images by HTTP to save the traffic | ✔ <sup>2</sup> | ✘ |
 | Streaming via UNIX domain socket | ✔ | ✘ |
+| Systemd socket activation | ✔ | ✘ |
 | Debug logs without recompiling,<br>performance statistics log,<br>access to HTTP streaming parameters | ✔ | ✘ |
 | Option to serve files<br>with a built-in HTTP server | ✔ | ☹ Regular files only |
 | Signaling about the stream state<br>on GPIO using [libgpiod](https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/about) | ✔ | ✘ |

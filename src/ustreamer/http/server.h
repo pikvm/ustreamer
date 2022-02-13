@@ -71,6 +71,9 @@
 #include "uri.h"
 #include "mime.h"
 #include "static.h"
+#ifdef WITH_SYSTEMD
+#	include "systemd/systemd.h"
+#endif
 
 
 typedef struct stream_client_sx {
@@ -112,7 +115,7 @@ typedef struct {
 typedef struct {
 	struct event_base	*base;
 	struct evhttp		*http;
-	evutil_socket_t		unix_fd;
+	evutil_socket_t		ext_fd; // Unix or socket activation
 	char				*auth_token;
 	struct event		*refresh;
 	stream_s			*stream;
@@ -124,9 +127,15 @@ typedef struct {
 typedef struct server_sx {
 	char		*host;
 	unsigned	port;
+
 	char		*unix_path;
 	bool		unix_rm;
 	mode_t		unix_mode;
+
+#	ifdef WITH_SYSTEMD
+	bool		systemd;
+#	endif
+
 	bool		tcp_nodelay;
 	unsigned	timeout;
 

@@ -50,6 +50,9 @@ enum _OPT_VALUES {
 	_O_UNIX = 'U',
 	_O_UNIX_RM = 'D',
 	_O_UNIX_MODE = 'M',
+#	ifdef WITH_SYSTEMD
+	_O_SYSTEMD = 'S',
+#	endif
 	_O_DROP_SAME_FRAMES = 'e',
 	_O_FAKE_RESOLUTION = 'R',
 
@@ -168,6 +171,9 @@ static const struct option _LONG_OPTS[] = {
 	{"unix",					required_argument,	NULL,	_O_UNIX},
 	{"unix-rm",					no_argument,		NULL,	_O_UNIX_RM},
 	{"unix-mode",				required_argument,	NULL,	_O_UNIX_MODE},
+#	ifdef WITH_SYSTEMD
+	{"systemd",					no_argument,		NULL,	_O_SYSTEMD},
+#	endif
 	{"user",					required_argument,	NULL,	_O_USER},
 	{"passwd",					required_argument,	NULL,	_O_PASSWD},
 	{"static",					required_argument,	NULL,	_O_STATIC},
@@ -419,6 +425,9 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			case _O_UNIX:				OPT_SET(server->unix_path, optarg);
 			case _O_UNIX_RM:			OPT_SET(server->unix_rm, true);
 			case _O_UNIX_MODE:			OPT_NUMBER("--unix-mode", server->unix_mode, INT_MIN, INT_MAX, 8);
+#			ifdef WITH_SYSTEMD
+			case _O_SYSTEMD:			OPT_SET(server->systemd, true);
+#			endif
 			case _O_USER:				OPT_SET(server->user, optarg);
 			case _O_PASSWD:				OPT_SET(server->passwd, optarg);
 			case _O_STATIC:				OPT_SET(server->static_path, optarg);
@@ -551,6 +560,12 @@ static void _features(void) {
 	puts("- WITH_GPIO");
 #	endif
 
+#	ifdef WITH_SYSTEMD
+	puts("+ WITH_SYSTEMD");
+#	else
+	puts("- WITH_SYSTEMD");
+#	endif
+
 #	ifdef WITH_PTHREAD_NP
 	puts("+ WITH_PTHREAD_NP");
 #	else
@@ -652,6 +667,9 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("    -U|--unix <path>  ─────────── Bind to UNIX domain socket. Default: disabled.\n");
 	SAY("    -D|--unix-rm  ─────────────── Try to remove old UNIX socket file before binding. Default: disabled.\n");
 	SAY("    -M|--unix-mode <mode>  ────── Set UNIX socket file permissions (like 777). Default: disabled.\n");
+#	ifdef WITH_SYSTEMD
+	SAY("    -S|--systemd  ─────────────── Bind to systemd socket for socket activation.\n");
+#	endif
 	SAY("    --user <name>  ────────────── HTTP basic auth user. Default: disabled.\n");
 	SAY("    --passwd <str>  ───────────── HTTP basic auth passwd. Default: empty.\n");
 	SAY("    --static <path> ───────────── Path to dir with static files instead of embedded root index page.");
@@ -661,7 +679,7 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("                                  the CPU loading. Don't use this option with analog signal sources");
 	SAY("                                  or webcams, it's useless. Default: disabled.\n");
 	SAY("    -R|--fake-resolution <WxH>  ─ Override image resolution for the /state. Default: disabled.\n");
-	SAY("    --tcp-nodelay  ────────────── Set TCP_NODELAY flag to the client /stream socket. Ignored for --unix.");
+	SAY("    --tcp-nodelay  ────────────── Set TCP_NODELAY flag to the client /stream socket. Only for TCP socket.");
 	SAY("                                  Default: disabled.\n");
 	SAY("    --allow-origin <str>  ─────── Set Access-Control-Allow-Origin header. Default: disabled.\n");
 	SAY("    --server-timeout <sec>  ───── Timeout for client connections. Default: %u.\n", server->timeout);

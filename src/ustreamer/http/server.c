@@ -86,8 +86,8 @@ void server_destroy(server_s *server) {
 	}
 
 	evhttp_free(RUN(http));
-	if (RUN(unix_fd)) {
-		close(RUN(unix_fd));
+	if (RUN(ext_fd)) {
+		close(RUN(ext_fd));
 	}
 	event_base_free(RUN(base));
 
@@ -160,7 +160,7 @@ int server_listen(server_s *server) {
 
 	if (server->unix_path[0] != '\0') {
 		LOG_DEBUG("Binding HTTP to UNIX socket '%s' ...", server->unix_path);
-		if ((RUN(unix_fd) = evhttp_my_bind_unix(
+		if ((RUN(ext_fd) = evhttp_my_bind_unix(
 			RUN(http),
 			server->unix_path,
 			server->unix_rm,
@@ -169,9 +169,16 @@ int server_listen(server_s *server) {
 			return -1;
 		}
 		LOG_INFO("Listening HTTP on UNIX socket '%s'", server->unix_path);
-		if (server->tcp_nodelay) {
-			LOG_ERROR("TCP_NODELAY flag can't be used with UNIX socket and will be ignored");
+
+#	ifdef WITH_SYSTEMD
+	} else if (server->systemd) {
+		LOG_DEBUG("Binding HTTP to systemd socket ...");
+		if ((RUN(ext_fd) = evhttp_my_bind_systemd(RUN(http))) < 0) {
+			return -1;
 		}
+		LOG_INFO("Listening systemd socket ...");
+#	endif
+
 	} else {
 		LOG_DEBUG("Binding HTTP to [%s]:%u ...", server->host, server->port);
 		if (evhttp_bind_socket(RUN(http), server->host, server->port) < 0) {
@@ -546,7 +553,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 			client->hostport, client->id, RUN(stream_clients_count));
 
 		struct bufferevent *buf_event = evhttp_connection_get_bufferevent(conn);
-		if (server->tcp_nodelay && !RUN(unix_fd)) {
+		if (server->tcp_nodelay && !RUN(ext_fd)) {
 			evutil_socket_t fd;
 			int on = 1;
 

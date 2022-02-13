@@ -173,6 +173,9 @@ Try to remove old unix socket file before binding. default: disabled.
 .BR \-M\ \fImode ", " \-\-unix\-mode\ \fImode
 Set UNIX socket file permissions (like 777). Default: disabled.
 .TP
+.BR \-\-systemd
+Bind to systemd socket for socket activation. Required \fBWITH_SYSTEMD\fR feature. Default: disabled.
+.TP
 .BR \-\-user\ \fIname
 HTTP basic auth user. Default: disabled.
 .TP
@@ -189,7 +192,7 @@ Don't send identical frames to clients, but no more than specified number. It ca
 Override image resolution for the /state. Default: disabled.
 .TP
 .BR \-\-tcp\-nodelay
-Set TCP_NODELAY flag to the client /stream socket. Ignored for \-\-unix.
+Set TCP_NODELAY flag to the client /stream socket. Only for TCP socket.
 Default: disabled.
 .TP
 .BR \-\-allow\-origin\ \fIstr

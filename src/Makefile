@@ -59,6 +59,13 @@ _USTR_SRCS += $(shell ls ustreamer/gpio/*.c)
 endif
 
 
+ifneq ($(call optbool,$(WITH_SYSTEMD)),)
+_USTR_LIBS += -lsystemd
+override _CFLAGS += -DWITH_SYSTEMD
+_USTR_SRCS += $(shell ls ustreamer/http/systemd/*.c)
+endif
+
+
 WITH_PTHREAD_NP ?= 1
 ifneq ($(call optbool,$(WITH_PTHREAD_NP)),)
 override _CFLAGS += -DWITH_PTHREAD_NP

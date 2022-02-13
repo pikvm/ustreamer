@@ -31,6 +31,11 @@ if [ -e /usr/include/janus/plugins/plugin.h ];then
 	makedepends+=(janus-gateway-pikvm)
 	_options="$_options WITH_JANUS=1"
 fi
+if [ -e /usr/include/systemd/sd-daemon.h ];then
+	depends+=(systemd)
+	makedepends+=(systemd)
+	_options="$_options WITH_SYSTEMD=1"
+fi
 
 
 # LD does not link mmal with this option
