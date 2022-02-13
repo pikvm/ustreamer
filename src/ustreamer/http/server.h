@@ -116,10 +116,13 @@ typedef struct {
 	struct event_base	*base;
 	struct evhttp		*http;
 	evutil_socket_t		ext_fd; // Unix or socket activation
+
 	char				*auth_token;
-	struct event		*refresh;
+
+	struct event		*refresher;
 	stream_s			*stream;
 	exposed_s			*exposed;
+
 	stream_client_s		*stream_clients;
 	unsigned			stream_clients_count;
 } server_runtime_s;

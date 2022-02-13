@@ -36,7 +36,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_ctx);
 static void _http_callback_stream_error(struct bufferevent *buf_event, short what, void *v_ctx);
 
-static void _http_exposed_refresh(int fd, short event, void *v_server);
+static void _http_refresher(int fd, short event, void *v_server);
 static void _http_queue_send_stream(server_s *server, bool stream_updated, bool frame_updated);
 
 static bool _expose_new_frame(server_s *server);
@@ -80,9 +80,9 @@ server_s *server_init(stream_s *stream) {
 }
 
 void server_destroy(server_s *server) {
-	if (RUN(refresh)) {
-		event_del(RUN(refresh));
-		event_free(RUN(refresh));
+	if (RUN(refresher)) {
+		event_del(RUN(refresher));
+		event_free(RUN(refresher));
 	}
 
 	evhttp_free(RUN(http));
@@ -129,17 +129,15 @@ int server_listen(server_s *server) {
 	EX(notify_last_height) = EX(frame->height);
 
 	{
-		struct timeval refresh_interval;
-
-		refresh_interval.tv_sec = 0;
+		struct timeval interval = {0};
 		if (STREAM(dev->desired_fps) > 0) {
-			refresh_interval.tv_usec = 1000000 / (STREAM(dev->desired_fps) * 2);
+			interval.tv_usec = 1000000 / (STREAM(dev->desired_fps) * 2);
 		} else {
-			refresh_interval.tv_usec = 16000; // ~60fps
+			interval.tv_usec = 16000; // ~60fps
 		}
 
-		assert((RUN(refresh) = event_new(RUN(base), -1, EV_PERSIST, _http_exposed_refresh, server)));
-		assert(!event_add(RUN(refresh), &refresh_interval));
+		assert((RUN(refresher) = event_new(RUN(base), -1, EV_PERSIST, _http_refresher, server)));
+		assert(!event_add(RUN(refresher), &interval));
 	}
 
 	evhttp_set_timeout(RUN(http), server->timeout);
@@ -781,7 +779,7 @@ static void _http_queue_send_stream(server_s *server, bool stream_updated, bool 
 	}
 }
 
-static void _http_exposed_refresh(UNUSED int fd, UNUSED short what, void *v_server) {
+static void _http_refresher(UNUSED int fd, UNUSED short what, void *v_server) {
 	server_s *server = (server_s *)v_server;
 	bool stream_updated = false;
 	bool frame_updated = false;
