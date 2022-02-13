@@ -112,6 +112,7 @@ enum _OPT_VALUES {
 #	ifdef HAS_PDEATHSIG
 	_O_EXIT_ON_PARENT_DEATH,
 #	endif
+	_O_EXIT_ON_NO_CLIENTS,
 #	ifdef WITH_SETPROCTITLE
 	_O_PROCESS_NAME_PREFIX,
 #	endif
@@ -209,6 +210,7 @@ static const struct option _LONG_OPTS[] = {
 #	ifdef HAS_PDEATHSIG
 	{"exit-on-parent-death",	no_argument,		NULL,	_O_EXIT_ON_PARENT_DEATH},
 #	endif
+	{"exit-on-no-clients",		required_argument,	NULL,	_O_EXIT_ON_NO_CLIENTS},
 #	ifdef WITH_SETPROCTITLE
 	{"process-name-prefix",		required_argument,	NULL,	_O_PROCESS_NAME_PREFIX},
 #	endif
@@ -467,6 +469,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 				};
 				break;
 #			endif
+			case _O_EXIT_ON_NO_CLIENTS:		OPT_NUMBER("--exit-on-no-clients", server->exit_on_no_clients, 0, 86400, 0);
 #			ifdef WITH_SETPROCTITLE
 			case _O_PROCESS_NAME_PREFIX:	OPT_SET(process_name_prefix, optarg);
 #			endif
@@ -715,6 +718,8 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 #	ifdef HAS_PDEATHSIG
 	SAY("    --exit-on-parent-death  ─────── Exit the program if the parent process is dead. Default: disabled.\n");
 #	endif
+	SAY("    --exit-on-no-clients <sec> ──── Exit the program if there have been no stream or sink clients");
+	SAY("                                    or any HTTP requests in the last N seconds. Default: 0 (disabled)\n");
 #	ifdef WITH_SETPROCTITLE
 	SAY("    --process-name-prefix <str>  ── Set process name prefix which will be displayed in the process list");
 	SAY("                                    like '<str>: ustreamer --blah-blah-blah'. Default: disabled.\n");

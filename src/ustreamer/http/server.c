@@ -36,6 +36,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_ctx);
 static void _http_callback_stream_error(struct bufferevent *buf_event, short what, void *v_ctx);
 
+static void _http_request_watcher(int fd, short event, void *v_server);
 static void _http_refresher(int fd, short event, void *v_server);
 static void _http_queue_send_stream(server_s *server, bool stream_updated, bool frame_updated);
 
@@ -85,6 +86,11 @@ void server_destroy(server_s *server) {
 		event_free(RUN(refresher));
 	}
 
+	if (RUN(request_watcher)) {
+		event_del(RUN(request_watcher));
+		event_free(RUN(request_watcher));
+	}
+
 	evhttp_free(RUN(http));
 	if (RUN(ext_fd)) {
 		close(RUN(ext_fd));
@@ -128,6 +134,14 @@ int server_listen(server_s *server) {
 	EX(notify_last_width) = EX(frame->width);
 	EX(notify_last_height) = EX(frame->height);
 
+	if (server->exit_on_no_clients > 0) {
+		RUN(last_request_ts) = get_now_monotonic();
+		struct timeval interval = {0};
+		interval.tv_usec = 100000;
+		assert((RUN(request_watcher) = event_new(RUN(base), -1, EV_PERSIST, _http_request_watcher, server)));
+		assert(!event_add(RUN(request_watcher), &interval));
+	}
+
 	{
 		struct timeval interval = {0};
 		if (STREAM(dev->desired_fps) > 0) {
@@ -135,7 +149,6 @@ int server_listen(server_s *server) {
 		} else {
 			interval.tv_usec = 16000; // ~60fps
 		}
-
 		assert((RUN(refresher) = event_new(RUN(base), -1, EV_PERSIST, _http_refresher, server)));
 		assert(!event_add(RUN(refresher), &interval));
 	}
@@ -203,6 +216,8 @@ void server_loop_break(server_s *server) {
 	assert(!evhttp_add_header(evhttp_request_get_output_headers(request), _key, _value))
 
 static int _http_preprocess_request(struct evhttp_request *request, server_s *server) {
+	RUN(last_request_ts) = get_now_monotonic();
+
 	if (RUN(auth_token)) {
 		const char *token = evhttp_find_header(evhttp_request_get_input_headers(request), "Authorization");
 
@@ -776,6 +791,20 @@ static void _http_queue_send_stream(server_s *server, bool stream_updated, bool 
 		queued_fps_accum += 1;
 	} else if (!has_clients) {
 		EX(queued_fps) = 0;
+	}
+}
+
+static void _http_request_watcher(UNUSED int fd, UNUSED short what, void *v_server) {
+	server_s *server = (server_s *)v_server;
+	const long double now = get_now_monotonic();
+
+	if (stream_has_clients(RUN(stream))) {
+		RUN(last_request_ts) = now;
+	} else if (RUN(last_request_ts) + server->exit_on_no_clients < now) {
+		LOG_INFO("HTTP: No requests or HTTP/sink clients found in last %u seconds, exiting ...",
+			server->exit_on_no_clients);
+		process_suicide();
+		RUN(last_request_ts) = now;
 	}
 }
 

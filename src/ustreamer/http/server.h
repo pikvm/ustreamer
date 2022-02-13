@@ -119,6 +119,9 @@ typedef struct {
 
 	char				*auth_token;
 
+	struct event		*request_watcher;
+	long double			last_request_ts;
+
 	struct event		*refresher;
 	stream_s			*stream;
 	exposed_s			*exposed;
@@ -152,6 +155,7 @@ typedef struct server_sx {
 	unsigned	fake_height;
 
 	bool		notify_parent;
+	unsigned	exit_on_no_clients;
 
 	server_runtime_s *run;
 } server_s;

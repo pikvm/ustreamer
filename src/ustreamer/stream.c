@@ -131,16 +131,7 @@ void stream_loop(stream_s *stream) {
 #			endif
 			if (stream->slowdown) {
 				unsigned slc = 0;
-				while (
-					slc < 10
-					&& !atomic_load(&RUN(stop))
-					&& !atomic_load(&RUN(video->has_clients))
-					// has_clients синков НЕ обновляются в реальном времени
-					&& (stream->sink == NULL || !atomic_load(&stream->sink->has_clients))
-#					ifdef WITH_OMX
-					&& (RUN(h264) == NULL || /*RUN(h264->sink) == NULL ||*/ !atomic_load(&RUN(h264->sink->has_clients)))
-#					endif
-				) {
+				for (; slc < 10 && !atomic_load(&RUN(stop)) && !stream_has_clients(stream); ++slc) {
 					usleep(100000);
 					++slc;
 				}
@@ -250,6 +241,17 @@ void stream_loop(stream_s *stream) {
 
 void stream_loop_break(stream_s *stream) {
 	atomic_store(&RUN(stop), true);
+}
+
+bool stream_has_clients(stream_s *stream) {
+	return (
+		atomic_load(&RUN(video->has_clients))
+		// has_clients синков НЕ обновляются в реальном времени
+		|| (stream->sink != NULL && atomic_load(&stream->sink->has_clients))
+#		ifdef WITH_OMX
+		|| (RUN(h264) != NULL && /*RUN(h264->sink) == NULL ||*/ atomic_load(&RUN(h264->sink->has_clients)))
+#		endif
+	);
 }
 
 static workers_pool_s *_stream_init_loop(stream_s *stream) {

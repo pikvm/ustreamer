@@ -97,3 +97,5 @@ void stream_destroy(stream_s *stream);
 
 void stream_loop(stream_s *stream);
 void stream_loop_break(stream_s *stream);
+
+bool stream_has_clients(stream_s *stream);

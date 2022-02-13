@@ -249,6 +249,9 @@ Intarval between keyframes. Default: 30.
 .BR \-\-exit\-on\-parent\-death
 Exit the program if the parent process is dead. Required \fBHAS_PDEATHSIG\fR feature. Default: disabled.
 .TP
+.BR \-\-exit\-on\-no\-clients \fIsec
+Exit the program if there have been no stream or sink clients or any HTTP requests in the last N seconds. Default: 0 (disabled).
+.TP
 .BR \-\-process\-name\-prefix\ \fIstr
 Set process name prefix which will be displayed in the process list like '\fIstr: ustreamer \-\-blah\-blah\-blah'\fR. Required \fBWITH_SETPROCTITLE\fR feature. Default: disabled.
 .TP

@@ -137,3 +137,11 @@ INLINE void process_notify_parent(void) {
 		LOG_PERROR("Can't send SIGUSR2 to the parent process %d", parent);
 	}
 }
+
+INLINE void process_suicide(void) {
+	pid_t pid = getpid();
+
+	if (kill(pid, SIGTERM) < 0) {
+		LOG_PERROR("Can't send SIGTERM to own pid %d", pid);
+	}
+}
