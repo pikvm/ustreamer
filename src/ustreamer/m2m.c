@@ -70,7 +70,7 @@ m2m_encoder_s *m2m_h264_encoder_init(const char *name, const char *path, unsigne
 
 m2m_encoder_s *m2m_mjpeg_encoder_init(const char *name, const char *path, unsigned quality) {
 	const double b_min = 25;
-	const double b_max = 25000;
+	const double b_max = 20000;
 	const double step = 25;
 	double bitrate = log10(quality) * (b_max - b_min) / 2 + b_min;
 	bitrate = step * round(bitrate / step);
