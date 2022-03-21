@@ -28,6 +28,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
 #include <locale.h>
 #include <errno.h>
 #include <math.h>
@@ -35,6 +36,15 @@
 #include <assert.h>
 
 #include <sys/file.h>
+
+
+#ifdef NDEBUG
+#	error WTF dude? Asserts are good things!
+#endif
+
+#if CHAR_BIT != 8
+#	error There are not 8 bits in a char!
+#endif
 
 
 #define RN "\r\n"

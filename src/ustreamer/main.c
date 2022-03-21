@@ -20,16 +20,6 @@
 *****************************************************************************/
 
 
-#include <assert.h>
-#ifdef NDEBUG
-#	error WTF dude? Asserts are good things!
-#endif
-
-#include <limits.h>
-#if CHAR_BIT != 8
-#	error There are not 8 bits in a char!
-#endif
-
 #include <stdio.h>
 #include <stdbool.h>
 #include <signal.h>
