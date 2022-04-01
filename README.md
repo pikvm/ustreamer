@@ -56,6 +56,8 @@ FreeBSD port: https://www.freshports.org/multimedia/ustreamer.
 
 -----
 # Usage
+**For M2M hardware encoding on Raspberry Pi, you need at least 5.15.32 kernel. OpenMAX and MMAL support on older kernels is deprecated and removed.**
+
 Without arguments, ```ustreamer``` will try to open ```/dev/video0``` with 640x480 resolution and start streaming on  ```http://127.0.0.1:8080```. You can override this behavior using parameters ```--device```, ```--host``` and ```--port```. For example, to stream to the world, run:
 ```
 # ./ustreamer --device=/dev/video1 --host=0.0.0.0 --port=80
