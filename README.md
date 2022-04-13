@@ -99,6 +99,9 @@ $ modprobe bcm2835-v4l2 max_video_width=2592 max_video_height=1944
 -----
 # Integrations
 
+## Janus
+µStreamer supports bandwidth-efficient streaming using [H.264 compression](https://en.wikipedia.org/wiki/Advanced_Video_Coding) and the Janus WebRTC server. See the [Janus integration guide](docs/h264.md) for full details.
+
 ## Nginx
 When uStreamer is behind an Nginx proxy, it's buffering behavior introduces latency into the video stream. It's possible to disable Nginx's buffering to eliminate the additional latency:
 
