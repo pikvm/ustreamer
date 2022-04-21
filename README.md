@@ -40,7 +40,7 @@ You'll need  ```make```, ```gcc```, ```libevent``` with ```pthreads``` support, 
 * Arch: `sudo pacman -S libevent libjpeg-turbo libutil-linux libbsd`.
 * Raspbian: `sudo apt install libevent-dev libjpeg8-dev libbsd-dev`. Add `libgpiod-dev` for `WITH_GPIO=1` and `libsystemd-dev` for `WITH_SYSTEMD=1`.
 * Debian/Ubuntu: `sudo apt install build-essential libevent-dev libjpeg-dev libbsd-dev`.
-* Alpine: `sudo apk add libevent-dev libbsd-dev libjpeg-turbo-dev musl-dev`. Build with `WITH_PTHREAD_NP=false`.
+* Alpine: `sudo apk add libevent-dev libbsd-dev libjpeg-turbo-dev musl-dev`. Build with `WITH_PTHREAD_NP=0`.
 
 To enable GPIO support install [libgpiod](https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/about) and pass option ```WITH_GPIO=1```. If the compiler reports about a missing function ```pthread_get_name_np()``` (or similar), add option ```WITH_PTHREAD_NP=0``` (it's enabled by default). For the similar error with ```setproctitle()``` add option ```WITH_SETPROCTITLE=0```.
 
