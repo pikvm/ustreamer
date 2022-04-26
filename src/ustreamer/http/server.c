@@ -76,7 +76,7 @@ server_s *server_init(stream_s *stream) {
 	assert(!evthread_use_pthreads());
 	assert((run->base = event_base_new()));
 	assert((run->http = evhttp_new(run->base)));
-	evhttp_set_allowed_methods(run->http, EVHTTP_REQ_GET|EVHTTP_REQ_HEAD);
+	evhttp_set_allowed_methods(run->http, EVHTTP_REQ_GET|EVHTTP_REQ_HEAD|EVHTTP_REQ_OPTIONS);
 	return server;
 }
 
@@ -218,6 +218,24 @@ void server_loop_break(server_s *server) {
 static int _http_preprocess_request(struct evhttp_request *request, server_s *server) {
 	RUN(last_request_ts) = get_now_monotonic();
 
+	if (server->allow_origin[0] != '\0') {
+		const char *request_header_cors_headers = evhttp_find_header(evhttp_request_get_input_headers(request), "Access-Control-Request-Headers");
+		const char *request_header_cors_method = evhttp_find_header(evhttp_request_get_input_headers(request), "Access-Control-Request-Method");
+
+		ADD_HEADER("Access-Control-Allow-Origin", server->allow_origin);
+		ADD_HEADER("Access-Control-Allow-Credentials", "true");
+
+		if (request_header_cors_headers != NULL)
+			ADD_HEADER("Access-Control-Allow-Headers", request_header_cors_headers);
+		if (request_header_cors_method != NULL)
+			ADD_HEADER("Access-Control-Allow-Methods", request_header_cors_method);
+	}
+
+	if (evhttp_request_get_command(request) == EVHTTP_REQ_OPTIONS) {
+		evhttp_send_reply(request, HTTP_OK, "OK", NULL);
+		return -1;
+	}
+
 	if (RUN(auth_token)) {
 		const char *token = evhttp_find_header(evhttp_request_get_input_headers(request), "Authorization");
 
@@ -228,8 +246,8 @@ static int _http_preprocess_request(struct evhttp_request *request, server_s *se
 		}
 	}
 
-	if (evhttp_request_get_command(request) == EVHTTP_REQ_HEAD) { \
-		evhttp_send_reply(request, HTTP_OK, "OK", NULL); \
+	if (evhttp_request_get_command(request) == EVHTTP_REQ_HEAD) {
+		evhttp_send_reply(request, HTTP_OK, "OK", NULL);
 		return -1;
 	}
 
@@ -464,9 +482,6 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	assert((buf = evbuffer_new()));
 	assert(!evbuffer_add(buf, (const void *)EX(frame->data), EX(frame->used)));
 
-	if (server->allow_origin[0] != '\0') {
-		ADD_HEADER("Access-Control-Allow-Origin", server->allow_origin);
-	}
 	ADD_HEADER("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, pre-check=0, post-check=0, max-age=0");
 	ADD_HEADER("Pragma", "no-cache");
 	ADD_HEADER("Expires", "Mon, 3 Jan 2000 12:34:56 GMT");
