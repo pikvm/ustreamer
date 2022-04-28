@@ -635,9 +635,23 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 
 	if (client->need_initial) {
 		assert(evbuffer_add_printf(buf, "HTTP/1.0 200 OK" RN));
+		
 		if (client->server->allow_origin[0] != '\0') {
-			assert(evbuffer_add_printf(buf, "Access-Control-Allow-Origin: %s" RN, client->server->allow_origin));
+			const char *request_header_cors_headers = evhttp_find_header(evhttp_request_get_input_headers(client->request), "Access-Control-Request-Headers");
+			const char *request_header_cors_method = evhttp_find_header(evhttp_request_get_input_headers(client->request), "Access-Control-Request-Method");
+
+			assert(evbuffer_add_printf(buf,
+				"Access-Control-Allow-Origin: %s" RN
+				"Access-Control-Allow-Credentials: true" RN,
+				client->server->allow_origin				
+			));
+
+			if (request_header_cors_headers != NULL)
+				assert(evbuffer_add_printf(buf, "Access-Control-Allow-Headers: %s" RN, request_header_cors_headers));
+			if (request_header_cors_method != NULL)
+				assert(evbuffer_add_printf(buf, "Access-Control-Allow-Methods: %s" RN, request_header_cors_method));
 		}
+
 		assert(evbuffer_add_printf(buf,
 			"Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, pre-check=0, post-check=0, max-age=0" RN
 			"Pragma: no-cache" RN
