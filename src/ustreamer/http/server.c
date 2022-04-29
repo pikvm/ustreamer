@@ -212,6 +212,9 @@ void server_loop_break(server_s *server) {
 	event_base_loopbreak(RUN(base));
 }
 
+#define GET_HEADER(_key) \
+	evhttp_find_header(evhttp_request_get_input_headers(request), _key)
+
 #define ADD_HEADER(_key, _value) \
 	assert(!evhttp_add_header(evhttp_request_get_output_headers(request), _key, _value))
 
@@ -219,16 +222,17 @@ static int _http_preprocess_request(struct evhttp_request *request, server_s *se
 	RUN(last_request_ts) = get_now_monotonic();
 
 	if (server->allow_origin[0] != '\0') {
-		const char *request_header_cors_headers = evhttp_find_header(evhttp_request_get_input_headers(request), "Access-Control-Request-Headers");
-		const char *request_header_cors_method = evhttp_find_header(evhttp_request_get_input_headers(request), "Access-Control-Request-Method");
+		const char *cors_headers = GET_HEADER("Access-Control-Request-Headers");
+		const char *cors_method = GET_HEADER("Access-Control-Request-Method");
 
 		ADD_HEADER("Access-Control-Allow-Origin", server->allow_origin);
 		ADD_HEADER("Access-Control-Allow-Credentials", "true");
-
-		if (request_header_cors_headers != NULL)
-			ADD_HEADER("Access-Control-Allow-Headers", request_header_cors_headers);
-		if (request_header_cors_method != NULL)
-			ADD_HEADER("Access-Control-Allow-Methods", request_header_cors_method);
+		if (cors_headers != NULL) {
+			ADD_HEADER("Access-Control-Allow-Headers", cors_headers);
+		}
+		if (cors_method != NULL) {
+			ADD_HEADER("Access-Control-Allow-Methods", cors_method);
+		}
 	}
 
 	if (evhttp_request_get_command(request) == EVHTTP_REQ_OPTIONS) {
@@ -237,7 +241,7 @@ static int _http_preprocess_request(struct evhttp_request *request, server_s *se
 	}
 
 	if (RUN(auth_token)) {
-		const char *token = evhttp_find_header(evhttp_request_get_input_headers(request), "Authorization");
+		const char *token = GET_HEADER("Authorization");
 
 		if (token == NULL || strcmp(token, RUN(auth_token)) != 0) {
 			ADD_HEADER("WWW-Authenticate", "Basic realm=\"Restricted area\"");
@@ -595,6 +599,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 #	define BOUNDARY "boundarydonotcross"
 
 	stream_client_s *client = (stream_client_s *)v_client;
+	struct evhttp_request *request = client->request; // for GET_HEADER
 	server_s *server = client->server;
 
 	long double now = get_now_monotonic();
@@ -637,19 +642,20 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 		assert(evbuffer_add_printf(buf, "HTTP/1.0 200 OK" RN));
 		
 		if (client->server->allow_origin[0] != '\0') {
-			const char *request_header_cors_headers = evhttp_find_header(evhttp_request_get_input_headers(client->request), "Access-Control-Request-Headers");
-			const char *request_header_cors_method = evhttp_find_header(evhttp_request_get_input_headers(client->request), "Access-Control-Request-Method");
+			const char *cors_headers = GET_HEADER("Access-Control-Request-Headers");
+			const char *cors_method = GET_HEADER("Access-Control-Request-Method");
 
 			assert(evbuffer_add_printf(buf,
 				"Access-Control-Allow-Origin: %s" RN
 				"Access-Control-Allow-Credentials: true" RN,
 				client->server->allow_origin				
 			));
-
-			if (request_header_cors_headers != NULL)
-				assert(evbuffer_add_printf(buf, "Access-Control-Allow-Headers: %s" RN, request_header_cors_headers));
-			if (request_header_cors_method != NULL)
-				assert(evbuffer_add_printf(buf, "Access-Control-Allow-Methods: %s" RN, request_header_cors_method));
+			if (cors_headers != NULL) {
+				assert(evbuffer_add_printf(buf, "Access-Control-Allow-Headers: %s" RN, cors_headers));
+			}
+			if (cors_method != NULL) {
+				assert(evbuffer_add_printf(buf, "Access-Control-Allow-Methods: %s" RN, cors_method));
+			}
 		}
 
 		assert(evbuffer_add_printf(buf,
@@ -924,7 +930,7 @@ static char *_http_get_client_hostport(struct evhttp_request *request) {
 		assert(addr = strdup(peer));
 	}
 
-	const char *xff = evhttp_find_header(evhttp_request_get_input_headers(request), "X-Forwarded-For");
+	const char *xff = GET_HEADER("X-Forwarded-For");
 	if (xff) {
 		if (addr) {
 			free(addr);
@@ -947,3 +953,5 @@ static char *_http_get_client_hostport(struct evhttp_request *request) {
 	free(addr);
 	return hostport;
 }
+
+#undef GET_HEADER
