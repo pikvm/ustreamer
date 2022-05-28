@@ -126,12 +126,12 @@ INLINE uint64_t get_now_monotonic_u64(void) {
 	return (uint64_t)(ts.tv_nsec / 1000) + (uint64_t)ts.tv_sec * 1000000;
 }
 
+#undef X_CLOCK_MONOTONIC
+
 INLINE uint64_t get_now_id(void) {
 	uint64_t now = get_now_monotonic_u64();
 	return (uint64_t)triple_u32(now) | ((uint64_t)triple_u32(now + 12345) << 32);
 }
-
-#undef X_CLOCK_MONOTONIC
 
 INLINE long double get_now_real(void) {
 	time_t sec;

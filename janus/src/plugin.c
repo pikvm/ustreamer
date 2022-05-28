@@ -24,6 +24,7 @@
 #include <stdbool.h>
 #include <stdatomic.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <assert.h>
@@ -39,18 +40,20 @@
 
 #include "config.h"
 #include "tools.h"
+#include "jlogging.h"
 #include "threading.h"
 #include "list.h"
 #include "memsinksh.h"
-
-#include "rtp.h"
+#include "audio.h"
+#include "rtpv.h"
+#include "rtpa.h"
 
 
 static int _plugin_init(janus_callbacks *gw, const char *config_file_path);
 static void _plugin_destroy(void);
 
-static void _plugin_create_session(janus_plugin_session *session, int *error);
-static void _plugin_destroy_session(janus_plugin_session *session, int *error);
+static void _plugin_create_session(janus_plugin_session *session, int *err);
+static void _plugin_destroy_session(janus_plugin_session *session, int *err);
 static json_t *_plugin_query_session(janus_plugin_session *session);
 
 static void _plugin_setup_media(janus_plugin_session *session);
@@ -59,14 +62,17 @@ static void _plugin_hangup_media(janus_plugin_session *session);
 static struct janus_plugin_result *_plugin_handle_message(
 	janus_plugin_session *session, char *transaction, json_t *msg, json_t *jsep);
 
-static int _plugin_get_api_compatibility(void);
-static int _plugin_get_version(void);
-static const char *_plugin_get_version_string(void);
-static const char *_plugin_get_description(void);
-static const char *_plugin_get_name(void);
-static const char *_plugin_get_author(void);
-static const char *_plugin_get_package(void);
 
+static int _plugin_get_api_compatibility(void)		{ return JANUS_PLUGIN_API_VERSION; }
+static int _plugin_get_version(void)				{ return VERSION_U; }
+static const char *_plugin_get_version_string(void)	{ return VERSION; }
+static const char *_plugin_get_description(void)	{ return "PiKVM uStreamer Janus plugin for H.264 video"; }
+static const char *_plugin_get_name(void)			{ return "ustreamer"; }
+static const char *_plugin_get_author(void)			{ return "Maxim Devaev <mdevaev@gmail.com>"; }
+static const char *_plugin_get_package(void)		{ return "janus.plugin.ustreamer"; }
+
+// Just a stub to avoid logging spam about the plugin's purpose.
+static void _plugin_incoming_rtp(UNUSED janus_plugin_session *handle, UNUSED janus_plugin_rtp *packet) {}
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Woverride-init"
@@ -90,6 +96,8 @@ static janus_plugin _plugin = JANUS_PLUGIN_INIT(
 	.get_name = _plugin_get_name,
 	.get_author = _plugin_get_author,
 	.get_package = _plugin_get_package,
+
+	.incoming_rtp = _plugin_incoming_rtp,
 );
 #pragma GCC diagnostic pop
 
@@ -112,26 +120,23 @@ const long double		_g_lock_timeout = 1;
 const useconds_t		_g_lock_polling = 1000;
 const useconds_t		_g_watchers_polling = 100000;
 
+static char				*_g_audio_dev = NULL;
+
 static _client_s		*_g_clients = NULL;
 static janus_callbacks	*_g_gw = NULL;
-static rtp_s			*_g_rtp = NULL;
+static rtpv_s			*_g_rtpv = NULL;
+static rtpa_s			*_g_rtpa = NULL;
 
-static pthread_t		_g_tid;
+static pthread_t		_g_video_tid;
+static atomic_bool		_g_video_tid_created = ATOMIC_VAR_INIT(false);
+static pthread_t		_g_audio_tid;
+static atomic_bool		_g_audio_tid_created = ATOMIC_VAR_INIT(false);
+
 static pthread_mutex_t	_g_lock = PTHREAD_MUTEX_INITIALIZER;
 static atomic_bool		_g_ready = ATOMIC_VAR_INIT(false);
 static atomic_bool		_g_stop = ATOMIC_VAR_INIT(false);
 static atomic_bool		_g_has_watchers = ATOMIC_VAR_INIT(false);
 
-
-#define JLOG_INFO(_msg, ...)	JANUS_LOG(LOG_INFO, "== %s -- " _msg "\n", _plugin_get_name(), ##__VA_ARGS__)
-#define JLOG_WARN(_msg, ...)	JANUS_LOG(LOG_WARN, "== %s -- " _msg "\n", _plugin_get_name(), ##__VA_ARGS__)
-#define JLOG_ERROR(_msg, ...)	JANUS_LOG(LOG_ERR, "== %s -- " _msg "\n", _plugin_get_name(), ##__VA_ARGS__)
-
-#define JLOG_PERROR(_msg, ...) { \
-		char _perror_buf[1024] = {0}; \
-		char *_perror_ptr = errno_to_string(errno, _perror_buf, 1023); \
-		JANUS_LOG(LOG_ERR, "[%s] " _msg ": %s\n", _plugin_get_name(), ##__VA_ARGS__, _perror_ptr); \
-	}
 
 #define LOCK			A_MUTEX_LOCK(&_g_lock)
 #define UNLOCK			A_MUTEX_UNLOCK(&_g_lock)
@@ -140,20 +145,6 @@ static atomic_bool		_g_has_watchers = ATOMIC_VAR_INIT(false);
 #define HAS_WATCHERS	atomic_load(&_g_has_watchers)
 
 
-static void _relay_rtp_clients(const uint8_t *datagram, size_t size) {
-	janus_plugin_rtp packet = {
-		.video = true,
-		.buffer = (char *)datagram,
-		.length = size,
-	};
-	janus_plugin_rtp_extensions_reset(&packet.extensions);
-	LIST_ITERATE(_g_clients, client, {
-		if (client->transmit) {
-			_g_gw->relay_rtp(client->session, &packet);
-		}
-	});
-}
-
 static int _wait_frame(int fd, memsink_shared_s* mem, uint64_t last_id) {
 	long double deadline_ts = get_now_monotonic() + _g_wait_timeout;
 	long double now;
@@ -161,14 +152,14 @@ static int _wait_frame(int fd, memsink_shared_s* mem, uint64_t last_id) {
 		int retval = flock_timedwait_monotonic(fd, _g_lock_timeout);
 		now = get_now_monotonic();
 		if (retval < 0 && errno != EWOULDBLOCK) {
-			JLOG_PERROR("Can't lock memsink");
+			JLOG_PERROR("video", "Can't lock memsink");
 			return -1;
 		} else if (retval == 0) {
 			if (mem->magic == MEMSINK_MAGIC && mem->version == MEMSINK_VERSION && mem->id != last_id) {
 				return 0;
 			}
 			if (flock(fd, LOCK_UN) < 0) {
-				JLOG_PERROR("Can't unlock memsink");
+				JLOG_PERROR("video", "Can't unlock memsink");
 				return -1;
 			}
 		}
@@ -184,18 +175,32 @@ static int _get_frame(int fd, memsink_shared_s *mem, frame_s *frame, uint64_t *f
 	mem->last_client_ts = get_now_monotonic();
 	int retval = 0;
 	if (frame->format != V4L2_PIX_FMT_H264) {
-		JLOG_ERROR("Got non-H264 frame from memsink");
+		JLOG_ERROR("video", "Got non-H264 frame from memsink");
 		retval = -1;
 	}
 	if (flock(fd, LOCK_UN) < 0) {
-		JLOG_PERROR("Can't unlock memsink");
+		JLOG_PERROR("video", "Can't unlock memsink");
 		retval = -1;
 	}
 	return retval;
 }
 
-static void *_clients_thread(UNUSED void *arg) {
-	A_THREAD_RENAME("us_clients");
+static void _relay_rtp_clients(const rtp_s *rtp) {
+	janus_plugin_rtp packet = {0};
+	packet.video = rtp->video;
+	packet.buffer = (char *)rtp->datagram;
+	packet.length = rtp->used;
+	janus_plugin_rtp_extensions_reset(&packet.extensions);
+	LIST_ITERATE(_g_clients, client, {
+		if (client->transmit) {
+			_g_gw->relay_rtp(client->session, &packet);
+		}
+	});
+}
+
+static void *_clients_video_thread(UNUSED void *arg) {
+	A_THREAD_RENAME("us_v_clients");
+	atomic_store(&_g_video_tid_created, true);
 	atomic_store(&_g_ready, true);
 
 	frame_s *frame = frame_init();
@@ -209,9 +214,7 @@ static void *_clients_thread(UNUSED void *arg) {
 
 	while (!STOP) {
 		if (!HAS_WATCHERS) {
-			IF_NOT_REPORTED(1, {
-				JLOG_INFO("No active watchers, memsink disconnected");
-			});
+			IF_NOT_REPORTED(1, { JLOG_INFO("video", "No active watchers, memsink disconnected"); });
 			usleep(_g_watchers_polling);
 			continue;
 		}
@@ -220,22 +223,18 @@ static void *_clients_thread(UNUSED void *arg) {
 		memsink_shared_s *mem = NULL;
 
 		if ((fd = shm_open(_g_memsink_obj, O_RDWR, 0)) <= 0) {
-			IF_NOT_REPORTED(2, {
-				JLOG_PERROR("Can't open memsink");
-			});
+			IF_NOT_REPORTED(2, { JLOG_PERROR("video", "Can't open memsink"); });
 			goto close_memsink;
 		}
 
 		if ((mem = memsink_shared_map(fd)) == NULL) {
-			IF_NOT_REPORTED(3, {
-				JLOG_PERROR("Can't map memsink");
-			});
+			IF_NOT_REPORTED(3, { JLOG_PERROR("video", "Can't map memsink"); });
 			goto close_memsink;
 		}
 
 		error_reported = 0;
 
-		JLOG_INFO("Memsink opened; reading frames ...");
+		JLOG_INFO("video", "Memsink opened; reading frames ...");
 		while (!STOP && HAS_WATCHERS) {
 			int result = _wait_frame(fd, mem, frame_id);
 			if (result == 0) {
@@ -243,7 +242,7 @@ static void *_clients_thread(UNUSED void *arg) {
 					goto close_memsink;
 				}
 				LOCK;
-				rtp_wrap_h264(_g_rtp, frame, _relay_rtp_clients);
+				rtpv_wrap(_g_rtpv, frame);
 				UNLOCK;
 			} else if (result == -1) {
 				goto close_memsink;
@@ -252,7 +251,7 @@ static void *_clients_thread(UNUSED void *arg) {
 
 		close_memsink:
 			if (mem != NULL) {
-				JLOG_INFO("Memsink closed");
+				JLOG_INFO("video", "Memsink closed");
 				memsink_shared_unmap(mem);
 				mem = NULL;
 			}
@@ -269,27 +268,75 @@ static void *_clients_thread(UNUSED void *arg) {
 	return NULL;
 }
 
+static void *_clients_audio_thread(UNUSED void *arg) {
+	A_THREAD_RENAME("us_a_clients");
+	atomic_store(&_g_audio_tid_created, true);
+	assert(_g_audio_dev);
+
+	while (!STOP) {
+		if (!HAS_WATCHERS) {
+			usleep(_g_watchers_polling);
+			continue;
+		}
+
+		audio_s *audio = NULL;
+		if ((audio = audio_init(_g_audio_dev)) == NULL) {
+			goto close_audio;
+		}
+
+		while (!STOP && HAS_WATCHERS) {
+			size_t size = RTP_DATAGRAM_SIZE - RTP_HEADER_SIZE;
+			uint8_t data[size];
+			uint64_t pts;
+			int result = audio_copy_encoded(audio, data, &size, &pts);
+			if (result == 0) {
+				LOCK;
+				rtpa_wrap(_g_rtpa, data, size, pts);
+				UNLOCK;
+			} else if (result == -1) {
+				goto close_audio;
+			}
+		}
+
+		close_audio:
+			if (audio != NULL) {
+				audio_destroy(audio);
+			}
+			sleep(1); // error_delay
+	}
+	return NULL;
+}
+
+static char *_get_config_value(janus_config *config, const char *section, const char *option) {
+	janus_config_category *section_obj = janus_config_get_create(config, NULL, janus_config_type_category, section);
+	janus_config_item *option_obj = janus_config_get(config, section_obj, janus_config_type_item, option);
+	if (option_obj == NULL || option_obj->value == NULL || option_obj->value[0] == '\0') {
+		return NULL;
+	}
+	return strdup(option_obj->value);
+}
+
 static int _read_config(const char *config_dir_path) {
 	char *config_file_path;
 	janus_config *config = NULL;
 
 	A_ASPRINTF(config_file_path, "%s/%s.jcfg", config_dir_path, _plugin_get_package());
-	JLOG_INFO("Reading config file '%s' ...", config_file_path);
+	JLOG_INFO("main", "Reading config file '%s' ...", config_file_path);
 
 	config = janus_config_parse(config_file_path);
 	if (config == NULL) {
-		JLOG_ERROR("Can't read config");
+		JLOG_ERROR("main", "Can't read config");
 		goto error;
 	}
 	janus_config_print(config);
 
-	janus_config_category *config_memsink = janus_config_get_create(config, NULL, janus_config_type_category, "memsink");
-	janus_config_item *config_memsink_obj = janus_config_get(config, config_memsink, janus_config_type_item, "object");
-	if (config_memsink_obj == NULL || config_memsink_obj->value == NULL || config_memsink_obj->value[0] == '\0') {
-		JLOG_ERROR("Missing config value: memsink.object");
+	if ((_g_memsink_obj = _get_config_value(config, "memsink", "object")) == NULL) {
+		JLOG_ERROR("main", "Missing config value: memsink.object");
 		goto error;
 	}
-	_g_memsink_obj = strdup(config_memsink_obj->value);
+	if ((_g_audio_dev = _get_config_value(config, "audio", "device")) != NULL) {
+		JLOG_INFO("main", "Enabled the experimental AUDIO feature");
+	}
 
 	int retval = 0;
 	goto ok;
@@ -310,23 +357,32 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	// sysctl -w net.core.rmem_max=1000000 
 	// sysctl -w net.core.wmem_max=1000000
 
-	JLOG_INFO("Initializing plugin ...");
+	JLOG_INFO("main", "Initializing plugin ...");
+	assert(!atomic_load(&_g_video_tid_created));
+	assert(!atomic_load(&_g_audio_tid_created));
 	assert(!READY);
 	assert(!STOP);
 	if (gw == NULL || config_dir_path == NULL || _read_config(config_dir_path) < 0) {
 		return -1;
 	}
 	_g_gw = gw;
-	_g_rtp = rtp_init();
-	A_THREAD_CREATE(&_g_tid, _clients_thread, NULL);
+	_g_rtpv = rtpv_init(_relay_rtp_clients);
+	if (_g_audio_dev) {
+		_g_rtpa = rtpa_init(_relay_rtp_clients);
+		A_THREAD_CREATE(&_g_audio_tid, _clients_audio_thread, NULL);
+	}
+	A_THREAD_CREATE(&_g_video_tid, _clients_video_thread, NULL);
 	return 0;
 }
 
 static void _plugin_destroy(void) {
-	JLOG_INFO("Destroying plugin ...");
+	JLOG_INFO("main", "Destroying plugin ...");
 	atomic_store(&_g_stop, true);
-	if (READY) {
-		A_THREAD_JOIN(_g_tid);
+	if (atomic_load(&_g_video_tid_created)) {
+		A_THREAD_JOIN(_g_video_tid);
+	}
+	if (atomic_load(&_g_audio_tid_created)) {
+		A_THREAD_JOIN(_g_audio_tid);
 	}
 
 	LIST_ITERATE(_g_clients, client, {
@@ -335,10 +391,20 @@ static void _plugin_destroy(void) {
 	});
 	_g_clients = NULL;
 
-	rtp_destroy(_g_rtp);
-	_g_rtp = NULL;
+	if (_g_rtpa) {
+		rtpa_destroy(_g_rtpa);
+		_g_rtpa = NULL;
+	}
+
+	rtpv_destroy(_g_rtpv);
+	_g_rtpv = NULL;
 
 	_g_gw = NULL;
+
+	if (_g_audio_dev) {
+		free(_g_audio_dev);
+		_g_audio_dev = NULL;
+	}
 
 	if (_g_memsink_obj) {
 		free(_g_memsink_obj);
@@ -348,10 +414,10 @@ static void _plugin_destroy(void) {
 
 #define IF_DISABLED(...) { if (!READY || STOP) { __VA_ARGS__ } }
 
-static void _plugin_create_session(janus_plugin_session *session, int *error) {
-	IF_DISABLED({ *error = -1; return; });
+static void _plugin_create_session(janus_plugin_session *session, int *err) {
+	IF_DISABLED({ *err = -1; return; });
 	LOCK;
-	JLOG_INFO("Creating session %p ...", session);
+	JLOG_INFO("main", "Creating session %p ...", session);
 	_client_s *client;
 	A_CALLOC(client, 1);
 	client->session = session;
@@ -361,14 +427,14 @@ static void _plugin_create_session(janus_plugin_session *session, int *error) {
 	UNLOCK;
 }
 
-static void _plugin_destroy_session(janus_plugin_session* session, int *error) {
-	IF_DISABLED({ *error = -1; return; });
+static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
+	IF_DISABLED({ *err = -1; return; });
 	LOCK;
 	bool found = false;
 	bool has_watchers = false;
 	LIST_ITERATE(_g_clients, client, {
 		if (client->session == session) {
-			JLOG_INFO("Removing session %p ...", session);
+			JLOG_INFO("main", "Removing session %p ...", session);
 			LIST_REMOVE(_g_clients, client);
 			free(client);
 			found = true;
@@ -377,8 +443,8 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *error) {
 		}
 	});
 	if (!found) {
-		JLOG_WARN("No session %p", session);
-		*error = -2;
+		JLOG_WARN("main", "No session %p", session);
+		*err = -2;
 	}
 	atomic_store(&_g_has_watchers, has_watchers);
 	UNLOCK;
@@ -406,13 +472,13 @@ static void _set_transmit(janus_plugin_session *session, UNUSED const char *msg,
 	LIST_ITERATE(_g_clients, client, {
 		if (client->session == session) {
 			client->transmit = transmit;
-			//JLOG_INFO("%s session %p", msg, session);
+			// JLOG_INFO("main", "%s session %p", msg, session);
 			found = true;
 		}
 		has_watchers = (has_watchers || client->transmit);
 	});
 	if (!found) {
-		JLOG_WARN("No session %p", session);
+		JLOG_WARN("main", "No session %p", session);
 	}
 	atomic_store(&_g_has_watchers, has_watchers);
 	UNLOCK;
@@ -440,7 +506,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 	}
 
 #	define PUSH_ERROR(_error, _reason) { \
-			/*JLOG_ERROR("Message error in session %p: %s", session, _reason);*/ \
+			/*JLOG_ERROR("main", "Message error in session %p: %s", session, _reason);*/ \
 			json_t *_event = json_object(); \
 			json_object_set_new(_event, "ustreamer", json_string("event")); \
 			json_object_set_new(_event, "error_code", json_integer(_error)); \
@@ -460,7 +526,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 		PUSH_ERROR(400, "Request not a string");
 		goto ok_wait;
 	}
-	//JLOG_INFO("Message: %s", request_str);
+	// JLOG_INFO("main", "Message: %s", request_str);
 
 #	define PUSH_STATUS(_status, _jsep) { \
 			json_t *_event = json_object(); \
@@ -479,12 +545,25 @@ static struct janus_plugin_result *_plugin_handle_message(
 		PUSH_STATUS("stopped", NULL);
 
 	} else if (!strcmp(request_str, "watch")) {
-		char *sdp = rtp_make_sdp(_g_rtp);
-		if (sdp == NULL) {
-			PUSH_ERROR(503, "Haven't received SPS/PPS from memsink yet");
-			goto ok_wait;
+		char *sdp;
+		{
+			char *video_sdp = rtpv_make_sdp(_g_rtpv);
+			if (video_sdp == NULL) {
+				PUSH_ERROR(503, "Haven't received SPS/PPS from memsink yet");
+				goto ok_wait;
+			}
+			char *audio_sdp = (_g_rtpa ? rtpa_make_sdp(_g_rtpa) : strdup(""));
+			A_ASPRINTF(sdp,
+				"v=0" RN
+				"o=- %" PRIu64 " 1 IN IP4 0.0.0.0" RN
+				"s=PiKVM uStreamer" RN
+				"t=0 0" RN
+				"%s%s",
+				get_now_id() >> 1, audio_sdp, video_sdp
+			);
+			free(audio_sdp);
+			free(video_sdp);
 		}
-		//JLOG_INFO("SDP generated:\n%s", sdp);
 		json_t *offer_jsep = json_pack("{ssss}", "type", "offer", "sdp", sdp);
 		free(sdp);
 		PUSH_STATUS("started", offer_jsep);
@@ -501,22 +580,3 @@ static struct janus_plugin_result *_plugin_handle_message(
 #	undef PUSH_ERROR
 #	undef FREE_MSG_JSEP
 }
-
-static int _plugin_get_api_compatibility(void)		{ return JANUS_PLUGIN_API_VERSION; }
-static int _plugin_get_version(void)				{ return VERSION_U; }
-static const char *_plugin_get_version_string(void)	{ return VERSION; }
-static const char *_plugin_get_description(void)	{ return "Pi-KVM uStreamer Janus plugin for H.264 video"; }
-static const char *_plugin_get_name(void)			{ return "ustreamer"; }
-static const char *_plugin_get_author(void)			{ return "Maxim Devaev <mdevaev@gmail.com>"; }
-static const char *_plugin_get_package(void)		{ return "janus.plugin.ustreamer"; }
-
-
-#undef STOP
-#undef READY
-#undef UNLOCK
-#undef LOCK
-
-#undef JLOG_PERROR
-#undef JLOG_ERROR
-#undef JLOG_WARN
-#undef JLOG_INFO

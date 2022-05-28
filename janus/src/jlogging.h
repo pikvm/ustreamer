@@ -2,9 +2,6 @@
 #                                                                            #
 #    uStreamer - Lightweight and fast MJPEG-HTTP streamer.                   #
 #                                                                            #
-#    This source file is partially based on this code:                       #
-#      - https://github.com/catid/kvm/blob/master/kvm_pipeline/src           #
-#                                                                            #
 #    Copyright (C) 2018-2022  Maxim Devaev <mdevaev@gmail.com>               #
 #                                                                            #
 #    This program is free software: you can redistribute it and/or modify    #
@@ -23,36 +20,17 @@
 *****************************************************************************/
 
 
-#pragma once
-
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-
-#include <sys/types.h>
+#include <janus/plugins/plugin.h>
 
 #include "tools.h"
 
 
-// https://stackoverflow.com/questions/47635545/why-webrtc-chose-rtp-max-packet-size-to-1200-bytes
-#define RTP_DATAGRAM_SIZE	1200
-#define RTP_HEADER_SIZE		12
+#define JLOG_INFO(_prefix, _msg, ...)	JANUS_LOG(LOG_INFO, "== ustreamer/%-9s -- " _msg "\n", _prefix, ##__VA_ARGS__)
+#define JLOG_WARN(_prefix, _msg, ...)	JANUS_LOG(LOG_WARN, "== ustreamer/%-9s -- " _msg "\n", _prefix, ##__VA_ARGS__)
+#define JLOG_ERROR(_prefix, _msg, ...)	JANUS_LOG(LOG_ERR, "== ustreamer/%-9s -- " _msg "\n", _prefix, ##__VA_ARGS__)
 
-
-typedef struct {
-	unsigned	payload;
-	bool		video;
-	uint32_t	ssrc;
-
-	uint16_t	seq;
-	uint8_t		datagram[RTP_DATAGRAM_SIZE];
-	size_t		used;
-} rtp_s;
-
-typedef void (*rtp_callback_f)(const rtp_s *rtp);
-
-
-rtp_s *rtp_init(unsigned payload, bool video);
-void rtp_destroy(rtp_s *rtp);
-
-void rtp_write_header(rtp_s *rtp, uint32_t pts, bool marked);
+#define JLOG_PERROR(_prefix, _msg, ...) { \
+		char _perror_buf[1024] = {0}; \
+		char *_perror_ptr = errno_to_string(errno, _perror_buf, 1023); \
+		JANUS_LOG(LOG_ERR, "[ustreamer/%-9s] " _msg ": %s\n", _prefix, ##__VA_ARGS__, _perror_ptr); \
+	}

@@ -23,36 +23,47 @@
 *****************************************************************************/
 
 
-#pragma once
-
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-
-#include <sys/types.h>
-
-#include "tools.h"
+#include "rtpa.h"
 
 
-// https://stackoverflow.com/questions/47635545/why-webrtc-chose-rtp-max-packet-size-to-1200-bytes
-#define RTP_DATAGRAM_SIZE	1200
-#define RTP_HEADER_SIZE		12
+rtpa_s *rtpa_init(rtp_callback_f callback) {
+	rtpa_s *rtpa;
+	A_CALLOC(rtpa, 1);
+	rtpa->rtp = rtp_init(111, false);
+	rtpa->callback = callback;
+	return rtpa;
+}
 
+void rtpa_destroy(rtpa_s *rtpa) {
+	rtp_destroy(rtpa->rtp);
+	free(rtpa);
+}
 
-typedef struct {
-	unsigned	payload;
-	bool		video;
-	uint32_t	ssrc;
+char *rtpa_make_sdp(rtpa_s *rtpa) {
+#	define PAYLOAD rtpa->rtp->payload
+	char *sdp;
+	A_ASPRINTF(sdp,
+		"m=audio 1 RTP/SAVPF %u" RN
+		"c=IN IP4 0.0.0.0" RN
+		"a=rtpmap:%u OPUS/48000/2" RN
+		// "a=fmtp:%u useinbandfec=1" RN
+		"a=rtcp-fb:%u nack" RN
+		"a=rtcp-fb:%u nack pli" RN
+		"a=rtcp-fb:%u goog-remb" RN
+		"a=ssrc:%" PRIu32 " cname:ustreamer" RN
+		"a=sendonly" RN,
+		PAYLOAD, PAYLOAD, PAYLOAD, PAYLOAD, PAYLOAD, // PAYLOAD,
+		rtpa->rtp->ssrc
+	);
+#	undef PAYLOAD
+	return sdp;
+}
 
-	uint16_t	seq;
-	uint8_t		datagram[RTP_DATAGRAM_SIZE];
-	size_t		used;
-} rtp_s;
-
-typedef void (*rtp_callback_f)(const rtp_s *rtp);
-
-
-rtp_s *rtp_init(unsigned payload, bool video);
-void rtp_destroy(rtp_s *rtp);
-
-void rtp_write_header(rtp_s *rtp, uint32_t pts, bool marked);
+void rtpa_wrap(rtpa_s *rtpa, const uint8_t *data, size_t size, uint32_t pts) {
+    if (size + RTP_HEADER_SIZE <= RTP_DATAGRAM_SIZE) {
+        rtp_write_header(rtpa->rtp, pts, false);
+        memcpy(rtpa->rtp->datagram + RTP_HEADER_SIZE, data, size);
+		rtpa->rtp->used = size + RTP_HEADER_SIZE;
+        rtpa->callback(rtpa->rtp);
+	}
+}

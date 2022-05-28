@@ -26,33 +26,34 @@
 #pragma once
 
 #include <stdlib.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include <assert.h>
 
 #include <sys/types.h>
+#include <linux/videodev2.h>
+
+#include <pthread.h>
 
 #include "tools.h"
-
-
-// https://stackoverflow.com/questions/47635545/why-webrtc-chose-rtp-max-packet-size-to-1200-bytes
-#define RTP_DATAGRAM_SIZE	1200
-#define RTP_HEADER_SIZE		12
+#include "threading.h"
+#include "frame.h"
+#include "base64.h"
+#include "rtp.h"
 
 
 typedef struct {
-	unsigned	payload;
-	bool		video;
-	uint32_t	ssrc;
-
-	uint16_t	seq;
-	uint8_t		datagram[RTP_DATAGRAM_SIZE];
-	size_t		used;
-} rtp_s;
-
-typedef void (*rtp_callback_f)(const rtp_s *rtp);
+	rtp_s			*rtp;
+	rtp_callback_f	callback;
+	frame_s			*sps; // Actually not a frame, just a bytes storage
+	frame_s			*pps;
+	pthread_mutex_t	mutex;
+} rtpv_s;
 
 
-rtp_s *rtp_init(unsigned payload, bool video);
-void rtp_destroy(rtp_s *rtp);
+rtpv_s *rtpv_init(rtp_callback_f callback);
+void rtpv_destroy(rtpv_s *rtpv);
 
-void rtp_write_header(rtp_s *rtp, uint32_t pts, bool marked);
+char *rtpv_make_sdp(rtpv_s *rtpv);
+void rtpv_wrap(rtpv_s *rtpv, const frame_s *frame);

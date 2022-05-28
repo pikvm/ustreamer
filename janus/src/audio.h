@@ -28,31 +28,38 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdatomic.h>
+#include <assert.h>
 
 #include <sys/types.h>
 
+#include <pthread.h>
+#include <alsa/asoundlib.h>
+#include <opus/opus.h>
+
 #include "tools.h"
-
-
-// https://stackoverflow.com/questions/47635545/why-webrtc-chose-rtp-max-packet-size-to-1200-bytes
-#define RTP_DATAGRAM_SIZE	1200
-#define RTP_HEADER_SIZE		12
+#include "jlogging.h"
+#include "threading.h"
+#include "queue.h"
 
 
 typedef struct {
-	unsigned	payload;
-	bool		video;
-	uint32_t	ssrc;
+	snd_pcm_t			*pcm;
+	snd_pcm_hw_params_t	*pcm_params;
+	OpusEncoder			*enc;
 
-	uint16_t	seq;
-	uint8_t		datagram[RTP_DATAGRAM_SIZE];
-	size_t		used;
-} rtp_s;
+	queue_s				*pcm_queue;
+	queue_s				*enc_queue;
+	uint32_t			pts;
 
-typedef void (*rtp_callback_f)(const rtp_s *rtp);
+	pthread_t			pcm_tid;
+	pthread_t			enc_tid;
+	bool				tids_created;
+	atomic_bool			run;
+} audio_s;
 
 
-rtp_s *rtp_init(unsigned payload, bool video);
-void rtp_destroy(rtp_s *rtp);
+audio_s *audio_init(const char *name);
+void audio_destroy(audio_s *audio);
 
-void rtp_write_header(rtp_s *rtp, uint32_t pts, bool marked);
+int audio_copy_encoded(audio_s *audio, uint8_t *data, size_t *size, uint64_t *pts);

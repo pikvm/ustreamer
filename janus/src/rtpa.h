@@ -28,31 +28,24 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <inttypes.h>
 
 #include <sys/types.h>
 
 #include "tools.h"
-
-
-// https://stackoverflow.com/questions/47635545/why-webrtc-chose-rtp-max-packet-size-to-1200-bytes
-#define RTP_DATAGRAM_SIZE	1200
-#define RTP_HEADER_SIZE		12
+#include "threading.h"
+#include "audio.h"
+#include "rtp.h"
 
 
 typedef struct {
-	unsigned	payload;
-	bool		video;
-	uint32_t	ssrc;
-
-	uint16_t	seq;
-	uint8_t		datagram[RTP_DATAGRAM_SIZE];
-	size_t		used;
-} rtp_s;
-
-typedef void (*rtp_callback_f)(const rtp_s *rtp);
+	rtp_s			*rtp;
+	rtp_callback_f	callback;
+} rtpa_s;
 
 
-rtp_s *rtp_init(unsigned payload, bool video);
-void rtp_destroy(rtp_s *rtp);
+rtpa_s *rtpa_init(rtp_callback_f callback);
+void rtpa_destroy(rtpa_s *rtpa);
 
-void rtp_write_header(rtp_s *rtp, uint32_t pts, bool marked);
+char *rtpa_make_sdp(rtpa_s *rtpa);
+void rtpa_wrap(rtpa_s *rtpa, const uint8_t *data, size_t size, uint32_t pts);

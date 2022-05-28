@@ -2,9 +2,6 @@
 #                                                                            #
 #    uStreamer - Lightweight and fast MJPEG-HTTP streamer.                   #
 #                                                                            #
-#    This source file is partially based on this code:                       #
-#      - https://github.com/catid/kvm/blob/master/kvm_pipeline/src           #
-#                                                                            #
 #    Copyright (C) 2018-2022  Maxim Devaev <mdevaev@gmail.com>               #
 #                                                                            #
 #    This program is free software: you can redistribute it and/or modify    #
@@ -25,34 +22,33 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
+#include <errno.h>
+#include <time.h>
 
-#include <sys/types.h>
+#include <pthread.h>
 
 #include "tools.h"
+#include "threading.h"
 
 
-// https://stackoverflow.com/questions/47635545/why-webrtc-chose-rtp-max-packet-size-to-1200-bytes
-#define RTP_DATAGRAM_SIZE	1200
-#define RTP_HEADER_SIZE		12
-
+// Based on https://github.com/seifzadeh/c-pthread-queue/blob/master/queue.h
 
 typedef struct {
-	unsigned	payload;
-	bool		video;
-	uint32_t	ssrc;
+	void			**items;
+	unsigned		size;
+	unsigned		capacity;
+	unsigned		in;
+	unsigned		out;
 
-	uint16_t	seq;
-	uint8_t		datagram[RTP_DATAGRAM_SIZE];
-	size_t		used;
-} rtp_s;
-
-typedef void (*rtp_callback_f)(const rtp_s *rtp);
+	pthread_mutex_t	mutex;
+	pthread_cond_t	full_cond;
+	pthread_cond_t	empty_cond;
+} queue_s;
 
 
-rtp_s *rtp_init(unsigned payload, bool video);
-void rtp_destroy(rtp_s *rtp);
+queue_s *queue_init(unsigned capacity);
+void queue_destroy(queue_s *queue);
 
-void rtp_write_header(rtp_s *rtp, uint32_t pts, bool marked);
+int queue_put(queue_s *queue, void *item, unsigned timeout);
+int queue_get(queue_s *queue, void **item, unsigned timeout);
+int queue_get_free(queue_s *queue);

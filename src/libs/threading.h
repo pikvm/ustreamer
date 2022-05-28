@@ -67,7 +67,7 @@
 #define A_COND_INIT(_cond)		assert(!pthread_cond_init(_cond, NULL))
 #define A_COND_DESTROY(_cond)	assert(!pthread_cond_destroy(_cond))
 #define A_COND_SIGNAL(...)		assert(!pthread_cond_signal(__VA_ARGS__))
-#define A_COND_WAIT_TRUE(_var, _cond, _mutex) { while(!_var) assert(!pthread_cond_wait(_cond, _mutex)); }
+#define A_COND_WAIT_TRUE(_var, _cond, _mutex) { while(!(_var)) assert(!pthread_cond_wait(_cond, _mutex)); }
 
 
 #ifdef WITH_PTHREAD_NP
