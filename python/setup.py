@@ -8,7 +8,7 @@ from setuptools import setup
 if __name__ == "__main__":
     setup(
         name="ustreamer",
-        version="5.4",
+        version="5.5",
         description="uStreamer tools",
         author="Maxim Devaev",
         author_email="mdevaev@gmail.com",
