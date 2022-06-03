@@ -13,9 +13,9 @@
 
 #include <Python.h>
 
-#include "tools.h"
-#include "frame.h"
-#include "memsinksh.h"
+#include "uslibs/tools.h"
+#include "uslibs/frame.h"
+#include "uslibs/memsinksh.h"
 
 
 typedef struct {

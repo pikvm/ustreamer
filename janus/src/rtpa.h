@@ -32,9 +32,9 @@
 
 #include <sys/types.h>
 
-#include "tools.h"
-#include "threading.h"
-#include "audio.h"
+#include "uslibs/tools.h"
+#include "uslibs/threading.h"
+
 #include "rtp.h"
 
 

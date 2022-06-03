@@ -37,9 +37,10 @@
 #include <alsa/asoundlib.h>
 #include <opus/opus.h>
 
-#include "tools.h"
+#include "uslibs/tools.h"
+#include "uslibs/threading.h"
+
 #include "jlogging.h"
-#include "threading.h"
 #include "queue.h"
 
 

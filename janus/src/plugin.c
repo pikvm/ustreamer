@@ -38,12 +38,13 @@
 #include <janus/config.h>
 #include <janus/plugins/plugin.h>
 
-#include "config.h"
-#include "tools.h"
+#include "uslibs/config.h"
+#include "uslibs/tools.h"
+#include "uslibs/threading.h"
+#include "uslibs/list.h"
+#include "uslibs/memsinksh.h"
+
 #include "jlogging.h"
-#include "threading.h"
-#include "list.h"
-#include "memsinksh.h"
 #include "audio.h"
 #include "rtpv.h"
 #include "rtpa.h"

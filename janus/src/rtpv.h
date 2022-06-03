@@ -36,10 +36,11 @@
 
 #include <pthread.h>
 
-#include "tools.h"
-#include "threading.h"
-#include "frame.h"
-#include "base64.h"
+#include "uslibs/tools.h"
+#include "uslibs/threading.h"
+#include "uslibs/frame.h"
+#include "uslibs/base64.h"
+
 #include "rtp.h"
 
 

@@ -12,7 +12,7 @@ _PLUGIN = libjanus_ustreamer.so
 _CFLAGS = -fPIC -MD -c -std=c11 -Wall -Wextra -D_GNU_SOURCE $(shell pkg-config --cflags glib-2.0) $(CFLAGS)
 _LDFLAGS = -shared -lm -pthread -lrt -ljansson -lopus -lasound $(shell pkg-config --libs glib-2.0) $(LDFLAGS)
 
-_SRCS = $(shell ls src/*.c)
+_SRCS = $(shell ls src/uslibs/*.c src/*.c)
 
 _BUILD = build
 

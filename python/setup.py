@@ -1,10 +1,21 @@
 import os
 
+from typing import List
+
 from setuptools import Extension
 from setuptools import setup
 
 
 # =====
+def _find_sources(suffix: str) -> List[str]:
+    sources: List[str] = []
+    for (root_path, _, names) in os.walk("src"):
+        for name in names:
+            if name.endswith(suffix):
+                sources.append(os.path.join(root_path, name))
+    return sources
+
+
 if __name__ == "__main__":
     setup(
         name="ustreamer",
@@ -18,8 +29,8 @@ if __name__ == "__main__":
                 "ustreamer",
                 libraries=["rt", "m", "pthread"],
                 undef_macros=["NDEBUG"],
-                sources=["src/" + name for name in os.listdir("src") if name.endswith(".c")],
-                depends=["src/" + name for name in os.listdir("src") if name.endswith(".h")],
+                sources=_find_sources(".c"),
+                depends=_find_sources(".h"),
             ),
         ],
     )
