@@ -27,25 +27,31 @@
 
 
 #define JLOG_PERROR_ALSA(_err, _prefix, _msg, ...)	JLOG_ERROR(_prefix, _msg ": %s", ##__VA_ARGS__, snd_strerror(_err))
+#define JLOG_PERROR_RES(_err, _prefix, _msg, ...)	JLOG_ERROR(_prefix, _msg ": %s", ##__VA_ARGS__, speex_resampler_strerror(_err))
 #define JLOG_PERROR_OPUS(_err, _prefix, _msg, ...)	JLOG_ERROR(_prefix, _msg ": %s", ##__VA_ARGS__, opus_strerror(_err))
 
+// A number of frames per 1 channel:
+//   - https://github.com/xiph/opus/blob/7b05f44/src/opus_demo.c#L368
+#define BITRATE_TO_FRAMES(_bitrate)	(6 * (_bitrate) / 50) // 120ms
+#define BITRATE_TO_BUF16(_bitrate)	(BITRATE_TO_FRAMES(_bitrate) * 2) // One stereo frame = (16bit L) + (16bit R)
+#define BITRATE_TO_BUF8(_bitrate)	(BITRATE_TO_BUF16(_bitrate) * sizeof(int16_t))
 
-// https://github.com/xiph/opus/blob/7b05f44/src/opus_demo.c#L368
-#define PCM_BITRATE		48000
-#define PCM_FRAMES		(6 * PCM_BITRATE / 50) // 120ms
-#define PCM_DATA_SIZE	(PCM_FRAMES * 2)
-#define RAW_DATA_SIZE	(PCM_DATA_SIZE * sizeof(opus_int16))
+#define MAX_PCM_BITRATE			192000
+#define MAX_BUF16				BITRATE_TO_BUF16(MAX_PCM_BITRATE)
+#define MAX_BUF8				BITRATE_TO_BUF8(MAX_PCM_BITRATE)
+#define ENCODER_INPUT_BITRATE	48000
+#define ENCODER_OUTPUT_BITRATE	48000
 
 
 typedef struct {
-	opus_int16	data[PCM_DATA_SIZE];
-} _pcm_buf_s;
+	int16_t		data[MAX_BUF16];
+} _pcm_buffer_s;
 
 typedef struct {
-	uint8_t		data[RAW_DATA_SIZE]; // Worst
+	uint8_t		data[MAX_BUF8]; // Worst case
 	size_t		used;
 	uint64_t	pts;
-} _enc_buf_s;
+} _enc_buffer_s;
 
 
 static void *_pcm_thread(void *v_audio);
@@ -55,14 +61,15 @@ static void *_encoder_thread(void *v_audio);
 audio_s *audio_init(const char *name) {
 	audio_s *audio;
 	A_CALLOC(audio, 1);
+	audio->pcm_bitrate = 48000;
 	audio->pcm_queue = queue_init(8);
 	audio->enc_queue = queue_init(8);
 	atomic_init(&audio->run, true);
 
+	int err;
+
 	{
-		int err;
 		if ((err = snd_pcm_open(&audio->pcm, name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
-			audio->pcm = NULL;
 			JLOG_PERROR_ALSA(err, "audio", "Can't open PCM capture");
 			goto error;
 		}
@@ -79,24 +86,32 @@ audio_s *audio_init(const char *name) {
 		SET_PARAM("Can't set PCM access type",		snd_pcm_hw_params_set_access, SND_PCM_ACCESS_RW_INTERLEAVED);
 		SET_PARAM("Can't set PCM channels numbre",	snd_pcm_hw_params_set_channels, 2);
 		SET_PARAM("Can't set PCM sampling format",	snd_pcm_hw_params_set_format, SND_PCM_FORMAT_S16_LE);
-		unsigned pcm_bitrate = PCM_BITRATE;
-		SET_PARAM("Can't set PCM sampling rate",	snd_pcm_hw_params_set_rate_near, &pcm_bitrate, 0);
-		if (pcm_bitrate != PCM_BITRATE) {
-			JLOG_ERROR("audio", "PCM bitrate mismatch: %u, should be %u", pcm_bitrate, PCM_BITRATE);
+		SET_PARAM("Can't set PCM sampling rate",	snd_pcm_hw_params_set_rate_near, &audio->pcm_bitrate, 0);
+		if (audio->pcm_bitrate > MAX_PCM_BITRATE) {
+			JLOG_ERROR("audio", "Unsupported PCM bitrate %u, max=%u", audio->pcm_bitrate, MAX_PCM_BITRATE);
 			goto error;
 		}
-		SET_PARAM("Can't apply PCM params",			snd_pcm_hw_params);
+		audio->pcm_frames = BITRATE_TO_FRAMES(audio->pcm_bitrate);
+		audio->pcm_size = BITRATE_TO_BUF8(audio->pcm_bitrate);
+		SET_PARAM("Can't apply PCM params", snd_pcm_hw_params);
 
 #		undef SET_PARAM
 	}
 
+	if (audio->pcm_bitrate != ENCODER_INPUT_BITRATE) {
+		JLOG_INFO("audio", "Using resampler: %u -> %u", audio->pcm_bitrate, ENCODER_INPUT_BITRATE);
+		audio->res = speex_resampler_init(2, audio->pcm_bitrate, ENCODER_INPUT_BITRATE, SPEEX_RESAMPLER_QUALITY_DESKTOP, &err);
+		if (err < 0) {
+			JLOG_PERROR_RES(err, "audio", "Can't create resampler");
+			goto error;
+		}
+	}
+
 	{
-		int err;
 		// OPUS_APPLICATION_VOIP
 		// OPUS_APPLICATION_RESTRICTED_LOWDELAY
-		audio->enc = opus_encoder_create(PCM_BITRATE, 2, OPUS_APPLICATION_AUDIO, &err);
+		audio->enc = opus_encoder_create(ENCODER_INPUT_BITRATE, 2, OPUS_APPLICATION_AUDIO, &err);
 		if (err < 0) {
-			audio->enc = NULL;
 			JLOG_PERROR_OPUS(err, "audio", "Can't create OPUS encoder");
 			goto error;
 		}
@@ -108,7 +123,7 @@ audio_s *audio_init(const char *name) {
 				} \
 			}
 
-		SET_PARAM("Can't set OPUS bitrate",			OPUS_SET_BITRATE(48000));
+		SET_PARAM("Can't set OPUS bitrate",			OPUS_SET_BITRATE(ENCODER_OUTPUT_BITRATE));
 		SET_PARAM("Can't set OPUS max bandwidth",	OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_FULLBAND));
 		SET_PARAM("Can't set OPUS signal type",		OPUS_SET_SIGNAL(OPUS_SIGNAL_MUSIC));
 		// Also see rtpa.c
@@ -139,6 +154,9 @@ void audio_destroy(audio_s *audio) {
 	if (audio->enc) {
 		opus_encoder_destroy(audio->enc);
 	}
+	if (audio->res) {
+		speex_resampler_destroy(audio->res);
+	}
 	if (audio->pcm) {
 		snd_pcm_close(audio->pcm);
 	}
@@ -147,7 +165,7 @@ void audio_destroy(audio_s *audio) {
 	}
 #	define FREE_QUEUE(_suffix) { \
 			while (!queue_get_free(audio->_suffix##_queue)) { \
-				_##_suffix##_buf_s *ptr; \
+				_##_suffix##_buffer_s *ptr; \
 				assert(!queue_get(audio->_suffix##_queue, (void **)&ptr, 1)); \
 				free(ptr); \
 			} \
@@ -166,16 +184,16 @@ int audio_copy_encoded(audio_s *audio, uint8_t *data, size_t *size, uint64_t *pt
 	if (!atomic_load(&audio->run)) {
 		return -1;
 	}
-	_enc_buf_s *in;
-	if (!queue_get(audio->enc_queue, (void **)&in, 1)) {
-		if (*size < in->used) {
-			free(in);
+	_enc_buffer_s *buf;
+	if (!queue_get(audio->enc_queue, (void **)&buf, 1)) {
+		if (*size < buf->used) {
+			free(buf);
 			return -3;
 		}
-		memcpy(data, in->data, in->used);
-		*size = in->used;
-		*pts = in->pts;
-		free(in);
+		memcpy(data, buf->data, buf->used);
+		*size = buf->used;
+		*pts = buf->pts;
+		free(buf);
 		return 0;
 	}
 	return -2;
@@ -185,25 +203,22 @@ static void *_pcm_thread(void *v_audio) {
 	A_THREAD_RENAME("us_a_pcm");
 
 	audio_s *audio = (audio_s *)v_audio;
+	uint8_t in[MAX_BUF8];
 
 	while (atomic_load(&audio->run)) {
-		uint8_t in[RAW_DATA_SIZE];
-		int frames = snd_pcm_readi(audio->pcm, in, PCM_FRAMES);
+		int frames = snd_pcm_readi(audio->pcm, in, audio->pcm_frames);
 		if (frames < 0) {
 			JLOG_PERROR_ALSA(frames, "audio", "Can't capture PCM frames; breaking audio ...");
 			break;
-		} else if (frames < PCM_FRAMES) {
+		} else if (frames < (int)audio->pcm_frames) {
 			JLOG_ERROR("audio", "Too few PCM frames captured; breaking audio ...");
 			break;
 		}
 
 		if (queue_get_free(audio->pcm_queue)) {
-			_pcm_buf_s *out;
+			_pcm_buffer_s *out;
 			A_CALLOC(out, 1);
-			/*for (unsigned index = 0; index < RAW_DATA_SIZE; ++index) {
-				out->data[index] = (opus_int16)in[index * 2 + 1] << 8 | in[index * 2];
-			}*/
-			memcpy(out->data, in, RAW_DATA_SIZE);
+			memcpy(out->data, in, audio->pcm_size);
 			assert(!queue_put(audio->pcm_queue, out, 1));
 		} else {
 			JLOG_ERROR("audio", "PCM queue is full");
@@ -218,13 +233,26 @@ static void *_encoder_thread(void *v_audio) {
 	A_THREAD_RENAME("us_a_enc");
 
 	audio_s *audio = (audio_s *)v_audio;
+	int16_t in_res[MAX_BUF16];
 
 	while (atomic_load(&audio->run)) {
-		_pcm_buf_s *in;
+		_pcm_buffer_s *in;
 		if (!queue_get(audio->pcm_queue, (void **)&in, 1)) {
-			_enc_buf_s *out;
+			int16_t *in_ptr;
+			if (audio->res) {
+				assert(audio->pcm_bitrate != ENCODER_INPUT_BITRATE);
+				uint32_t in_count = audio->pcm_frames;
+				uint32_t out_count = BITRATE_TO_FRAMES(ENCODER_INPUT_BITRATE);
+				speex_resampler_process_interleaved_int(audio->res, in->data, &in_count, in_res, &out_count);
+				in_ptr = in_res;
+			} else {
+				assert(audio->pcm_bitrate == ENCODER_INPUT_BITRATE);
+				in_ptr = in->data;
+			}
+
+			_enc_buffer_s *out;
 			A_CALLOC(out, 1);
-			int size = opus_encode(audio->enc, in->data, PCM_FRAMES, out->data, RAW_DATA_SIZE);
+			int size = opus_encode(audio->enc, in_ptr, BITRATE_TO_FRAMES(ENCODER_INPUT_BITRATE), out->data, ARRAY_LEN(out->data));
 			free(in);
 			if (size < 0) {
 				JLOG_PERROR_OPUS(size, "audio", "Can't encode PCM frame to OPUS; breaking audio ...");
@@ -233,7 +261,7 @@ static void *_encoder_thread(void *v_audio) {
 			}
 			out->used = size;
 			out->pts = audio->pts;
-			audio->pts += PCM_FRAMES;
+			audio->pts += BITRATE_TO_FRAMES(ENCODER_OUTPUT_BITRATE);
 
 			if (queue_get_free(audio->enc_queue)) {
 				assert(!queue_put(audio->enc_queue, out, 1));
