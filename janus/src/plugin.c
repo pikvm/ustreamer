@@ -150,12 +150,12 @@ static int _wait_frame(int fd, memsink_shared_s* mem, uint64_t last_id) {
 	long double deadline_ts = get_now_monotonic() + _g_wait_timeout;
 	long double now;
 	do {
-		int retval = flock_timedwait_monotonic(fd, _g_lock_timeout);
+		int result = flock_timedwait_monotonic(fd, _g_lock_timeout);
 		now = get_now_monotonic();
-		if (retval < 0 && errno != EWOULDBLOCK) {
+		if (result < 0 && errno != EWOULDBLOCK) {
 			JLOG_PERROR("video", "Can't lock memsink");
 			return -1;
-		} else if (retval == 0) {
+		} else if (result == 0) {
 			if (mem->magic == MEMSINK_MAGIC && mem->version == MEMSINK_VERSION && mem->id != last_id) {
 				return 0;
 			}
