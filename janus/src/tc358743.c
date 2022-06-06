@@ -2,9 +2,6 @@
 #                                                                            #
 #    uStreamer - Lightweight and fast MJPEG-HTTP streamer.                   #
 #                                                                            #
-#    This source file is partially based on this code:                       #
-#      - https://github.com/catid/kvm/blob/master/kvm_pipeline/src           #
-#                                                                            #
 #    Copyright (C) 2018-2022  Maxim Devaev <mdevaev@gmail.com>               #
 #                                                                            #
 #    This program is free software: you can redistribute it and/or modify    #
@@ -23,49 +20,45 @@
 *****************************************************************************/
 
 
-#pragma once
-
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdatomic.h>
-#include <assert.h>
-
-#include <sys/types.h>
-
-#include <pthread.h>
-#include <alsa/asoundlib.h>
-#include <speex/speex_resampler.h>
-#include <opus/opus.h>
-
-#include "uslibs/tools.h"
-#include "uslibs/threading.h"
-
-#include "jlogging.h"
-#include "queue.h"
+#include "tc358743.h"
 
 
-typedef struct {
-	snd_pcm_t			*pcm;
-	unsigned			pcm_hz;
-	unsigned			pcm_frames;
-	size_t				pcm_size;
-	snd_pcm_hw_params_t	*pcm_params;
-	SpeexResamplerState	*res;
-	OpusEncoder			*enc;
-
-	queue_s				*pcm_queue;
-	queue_s				*enc_queue;
-	uint32_t			pts;
-
-	pthread_t			pcm_tid;
-	pthread_t			enc_tid;
-	bool				tids_created;
-	atomic_bool			working;
-} audio_s;
+#ifndef V4L2_CID_USER_TC358743_BASE
+#	define V4L2_CID_USER_TC358743_BASE (V4L2_CID_USER_BASE + 0x1080)
+#endif
+#ifndef TC358743_CID_AUDIO_PRESENT
+#	define TC358743_CID_AUDIO_PRESENT (V4L2_CID_USER_TC358743_BASE + 1)
+#endif
+#ifndef TC358743_CID_AUDIO_SAMPLING_RATE
+#	define TC358743_CID_AUDIO_SAMPLING_RATE (V4L2_CID_USER_TC358743_BASE + 0)
+#endif
 
 
-audio_s *audio_init(const char *name, unsigned pcm_hz);
-void audio_destroy(audio_s *audio);
+int tc358743_read_info(const char *path, tc358743_info_s *info) {
+	MEMSET_ZERO(*info);
 
-int audio_get_encoded(audio_s *audio, uint8_t *data, size_t *size, uint64_t *pts);
+	int fd = -1;
+	if ((fd = open(path, O_RDWR)) < 0) {
+		JLOG_PERROR("audio", "Can't open TC358743 V4L2 device");
+		return -1;
+	}
+
+#	define READ_CID(_cid, _field) { \
+			struct v4l2_control ctl = {0}; \
+			ctl.id = _cid; \
+			if (xioctl(fd, VIDIOC_G_CTRL, &ctl) < 0) { \
+				JLOG_PERROR("audio", "Can't get value of " #_cid); \
+				close(fd); \
+				return -1; \
+			} \
+			info->_field = ctl.value; \
+		}
+
+	READ_CID(TC358743_CID_AUDIO_PRESENT,		has_audio);
+	READ_CID(TC358743_CID_AUDIO_SAMPLING_RATE,	audio_hz);
+
+#	undef READ_CID
+
+	close(fd);
+	return 0;
+}

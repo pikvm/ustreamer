@@ -58,10 +58,10 @@ static void *_pcm_thread(void *v_audio);
 static void *_encoder_thread(void *v_audio);
 
 
-audio_s *audio_init(const char *name) {
+audio_s *audio_init(const char *name, unsigned pcm_hz) {
 	audio_s *audio;
 	A_CALLOC(audio, 1);
-	audio->pcm_hz = 48000;
+	audio->pcm_hz = pcm_hz;
 	audio->pcm_queue = queue_init(8);
 	audio->enc_queue = queue_init(8);
 	atomic_init(&audio->working, true);
