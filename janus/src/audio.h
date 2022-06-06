@@ -47,7 +47,7 @@
 
 typedef struct {
 	snd_pcm_t			*pcm;
-	unsigned			pcm_bitrate;
+	unsigned			pcm_hz;
 	unsigned			pcm_frames;
 	size_t				pcm_size;
 	snd_pcm_hw_params_t	*pcm_params;
