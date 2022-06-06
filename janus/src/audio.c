@@ -91,6 +91,7 @@ audio_s *audio_init(const char *name) {
 			JLOG_ERROR("audio", "Unsupported PCM bitrate %u, max=%u", audio->pcm_bitrate, MAX_PCM_BITRATE);
 			goto error;
 		}
+		JLOG_INFO("audio", "Using PCM bitrate: %u", audio->pcm_bitrate);
 		audio->pcm_frames = BITRATE_TO_FRAMES(audio->pcm_bitrate);
 		audio->pcm_size = BITRATE_TO_BUF8(audio->pcm_bitrate);
 		SET_PARAM("Can't apply PCM params", snd_pcm_hw_params);
@@ -99,7 +100,6 @@ audio_s *audio_init(const char *name) {
 	}
 
 	if (audio->pcm_bitrate != ENCODER_INPUT_BITRATE) {
-		JLOG_INFO("audio", "Using resampler: %u -> %u", audio->pcm_bitrate, ENCODER_INPUT_BITRATE);
 		audio->res = speex_resampler_init(2, audio->pcm_bitrate, ENCODER_INPUT_BITRATE, SPEEX_RESAMPLER_QUALITY_DESKTOP, &err);
 		if (err < 0) {
 			JLOG_PERROR_RES(err, "audio", "Can't create resampler");
@@ -108,32 +108,16 @@ audio_s *audio_init(const char *name) {
 	}
 
 	{
-		// OPUS_APPLICATION_VOIP
-		// OPUS_APPLICATION_RESTRICTED_LOWDELAY
+		// OPUS_APPLICATION_VOIP, OPUS_APPLICATION_RESTRICTED_LOWDELAY
 		audio->enc = opus_encoder_create(ENCODER_INPUT_BITRATE, 2, OPUS_APPLICATION_AUDIO, &err);
-		if (err < 0) {
-			JLOG_PERROR_OPUS(err, "audio", "Can't create OPUS encoder");
-			goto error;
-		}
-
-#		define SET_PARAM(_msg, _ctl) { \
-				if ((err = opus_encoder_ctl(audio->enc, _ctl)) < 0) { \
-					JLOG_PERROR_OPUS(err, "audio", _msg); \
-					goto error; \
-				} \
-			}
-
-		SET_PARAM("Can't set OPUS bitrate",			OPUS_SET_BITRATE(ENCODER_OUTPUT_BITRATE));
-		SET_PARAM("Can't set OPUS max bandwidth",	OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_FULLBAND));
-		SET_PARAM("Can't set OPUS signal type",		OPUS_SET_SIGNAL(OPUS_SIGNAL_MUSIC));
-		// Also see rtpa.c
-		// SET_PARAM("Can't set OPUS FEC",			OPUS_SET_INBAND_FEC(1));
-		// SET_PARAM("Can't set OPUS exploss",		OPUS_SET_PACKET_LOSS_PERC(10));
-
-#		undef SET_PARAM
+		assert(err == 0);
+		assert(!opus_encoder_ctl(audio->enc, OPUS_SET_BITRATE(ENCODER_OUTPUT_BITRATE)));
+		assert(!opus_encoder_ctl(audio->enc, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_FULLBAND)));
+		assert(!opus_encoder_ctl(audio->enc, OPUS_SET_SIGNAL(OPUS_SIGNAL_MUSIC)));
+		// OPUS_SET_INBAND_FEC(1), OPUS_SET_PACKET_LOSS_PERC(10): see rtpa.c
 	}
 
-	JLOG_INFO("audio", "PCM & OPUS prepared; capturing ...");
+	JLOG_INFO("audio", "Pipeline prepared; capturing ...");
 	audio->tids_created = true;
 	A_THREAD_CREATE(&audio->enc_tid, _encoder_thread, audio);
 	A_THREAD_CREATE(&audio->pcm_tid, _pcm_thread, audio);
