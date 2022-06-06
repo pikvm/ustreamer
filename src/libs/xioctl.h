@@ -26,8 +26,7 @@
 
 #include <sys/ioctl.h>
 
-#include "../libs/tools.h"
-#include "../libs/logging.h"
+#include "tools.h"
 
 
 #ifndef CFG_XIOCTL_RETRIES
@@ -51,10 +50,5 @@ INLINE int xioctl(int fd, int request, void *arg) {
 			|| errno == ETIMEDOUT
 		)
 	);
-
-	// cppcheck-suppress knownConditionTrueFalse
-	if (retval && retries <= 0) {
-		LOG_PERROR("ioctl(%d) retried %u times; giving up", request, XIOCTL_RETRIES);
-	}
 	return retval;
 }

@@ -45,8 +45,7 @@
 #include "../libs/logging.h"
 #include "../libs/threading.h"
 #include "../libs/frame.h"
-
-#include "xioctl.h"
+#include "../libs/xioctl.h"
 
 
 #define VIDEO_MIN_WIDTH		((unsigned)160)
