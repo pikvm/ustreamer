@@ -392,25 +392,13 @@ static void _plugin_destroy(void) {
 	});
 	_g_clients = NULL;
 
-	if (_g_rtpa) {
-		rtpa_destroy(_g_rtpa);
-		_g_rtpa = NULL;
-	}
-
-	rtpv_destroy(_g_rtpv);
-	_g_rtpv = NULL;
-
+#	define DEL(_func, _var) { if (_var) { _func(_var); _var = NULL; } }
+	DEL(rtpa_destroy, _g_rtpa);
+	DEL(rtpv_destroy, _g_rtpv);
 	_g_gw = NULL;
-
-	if (_g_audio_dev) {
-		free(_g_audio_dev);
-		_g_audio_dev = NULL;
-	}
-
-	if (_g_memsink_obj) {
-		free(_g_memsink_obj);
-		_g_memsink_obj = NULL;
-	}
+	DEL(free, _g_audio_dev);
+	DEL(free, _g_memsink_obj);
+#	undef DEL
 }
 
 #define IF_DISABLED(...) { if (!READY || STOP) { __VA_ARGS__ } }
