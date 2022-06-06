@@ -61,7 +61,7 @@ typedef struct {
 	pthread_t			pcm_tid;
 	pthread_t			enc_tid;
 	bool				tids_created;
-	atomic_bool			run;
+	atomic_bool			working;
 } audio_s;
 
 
