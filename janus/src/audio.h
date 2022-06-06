@@ -68,4 +68,4 @@ typedef struct {
 audio_s *audio_init(const char *name);
 void audio_destroy(audio_s *audio);
 
-int audio_copy_encoded(audio_s *audio, uint8_t *data, size_t *size, uint64_t *pts);
+int audio_get_encoded(audio_s *audio, uint8_t *data, size_t *size, uint64_t *pts);

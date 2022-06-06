@@ -289,7 +289,7 @@ static void *_clients_audio_thread(UNUSED void *arg) {
 			size_t size = RTP_DATAGRAM_SIZE - RTP_HEADER_SIZE;
 			uint8_t data[size];
 			uint64_t pts;
-			int result = audio_copy_encoded(audio, data, &size, &pts);
+			int result = audio_get_encoded(audio, data, &size, &pts);
 			if (result == 0) {
 				LOCK;
 				rtpa_wrap(_g_rtpa, data, size, pts);

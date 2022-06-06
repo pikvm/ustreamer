@@ -36,6 +36,7 @@
 #define HZ_TO_BUF16(_hz)	(HZ_TO_FRAMES(_hz) * 2) // One stereo frame = (16bit L) + (16bit R)
 #define HZ_TO_BUF8(_hz)		(HZ_TO_BUF16(_hz) * sizeof(int16_t))
 
+#define MIN_PCM_HZ			8000
 #define MAX_PCM_HZ			192000
 #define MAX_BUF16			HZ_TO_BUF16(MAX_PCM_HZ)
 #define MAX_BUF8			HZ_TO_BUF8(MAX_PCM_HZ)
@@ -69,6 +70,7 @@ audio_s *audio_init(const char *name) {
 
 	{
 		if ((err = snd_pcm_open(&audio->pcm, name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
+			audio->pcm = NULL;
 			JLOG_PERROR_ALSA(err, "audio", "Can't open PCM capture");
 			goto error;
 		}
@@ -86,8 +88,9 @@ audio_s *audio_init(const char *name) {
 		SET_PARAM("Can't set PCM channels numbre",	snd_pcm_hw_params_set_channels, 2);
 		SET_PARAM("Can't set PCM sampling format",	snd_pcm_hw_params_set_format, SND_PCM_FORMAT_S16_LE);
 		SET_PARAM("Can't set PCM sampling rate",	snd_pcm_hw_params_set_rate_near, &audio->pcm_hz, 0);
-		if (audio->pcm_hz > MAX_PCM_HZ) {
-			JLOG_ERROR("audio", "Unsupported PCM freq: %u; max=%u", audio->pcm_hz, MAX_PCM_HZ);
+		if (audio->pcm_hz < MIN_PCM_HZ || audio->pcm_hz > MAX_PCM_HZ) {
+			JLOG_ERROR("audio", "Unsupported PCM freq: %u; should be: %u <= F <= %u",
+				audio->pcm_hz, MIN_PCM_HZ, MAX_PCM_HZ);
 			goto error;
 		}
 		JLOG_INFO("audio", "Using PCM freq: %u", audio->pcm_hz);
@@ -101,6 +104,7 @@ audio_s *audio_init(const char *name) {
 	if (audio->pcm_hz != ENCODER_INPUT_HZ) {
 		audio->res = speex_resampler_init(2, audio->pcm_hz, ENCODER_INPUT_HZ, SPEEX_RESAMPLER_QUALITY_DESKTOP, &err);
 		if (err < 0) {
+			audio->res = NULL;
 			JLOG_PERROR_RES(err, "audio", "Can't create resampler");
 			goto error;
 		}
@@ -163,7 +167,7 @@ void audio_destroy(audio_s *audio) {
 	free(audio);
 }
 
-int audio_copy_encoded(audio_s *audio, uint8_t *data, size_t *size, uint64_t *pts) {
+int audio_get_encoded(audio_s *audio, uint8_t *data, size_t *size, uint64_t *pts) {
 	if (!atomic_load(&audio->run)) {
 		return -1;
 	}
