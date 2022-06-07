@@ -64,7 +64,7 @@ audio_s *audio_init(const char *name, unsigned pcm_hz) {
 	audio->pcm_hz = pcm_hz;
 	audio->pcm_queue = queue_init(8);
 	audio->enc_queue = queue_init(8);
-	atomic_init(&audio->working, true);
+	atomic_init(&audio->stop, false);
 
 	int err;
 
@@ -133,7 +133,7 @@ audio_s *audio_init(const char *name, unsigned pcm_hz) {
 
 void audio_destroy(audio_s *audio) {
 	if (audio->tids_created) {
-		atomic_store(&audio->working, false);
+		atomic_store(&audio->stop, true);
 		A_THREAD_JOIN(audio->pcm_tid);
 		A_THREAD_JOIN(audio->enc_tid);
 	}
@@ -167,7 +167,7 @@ void audio_destroy(audio_s *audio) {
 }
 
 int audio_get_encoded(audio_s *audio, uint8_t *data, size_t *size, uint64_t *pts) {
-	if (!atomic_load(&audio->working)) {
+	if (atomic_load(&audio->stop)) {
 		return -1;
 	}
 	_enc_buffer_s *buf;
@@ -191,7 +191,7 @@ static void *_pcm_thread(void *v_audio) {
 	audio_s *audio = (audio_s *)v_audio;
 	uint8_t in[MAX_BUF8];
 
-	while (atomic_load(&audio->working)) {
+	while (!atomic_load(&audio->stop)) {
 		int frames = snd_pcm_readi(audio->pcm, in, audio->pcm_frames);
 		if (frames < 0) {
 			JLOG_PERROR_ALSA(frames, "audio", "Can't capture PCM frames; breaking audio ...");
@@ -211,7 +211,7 @@ static void *_pcm_thread(void *v_audio) {
 		}
 	}
 
-	atomic_store(&audio->working, false);
+	atomic_store(&audio->stop, true);
 	return NULL;
 }
 
@@ -221,7 +221,7 @@ static void *_encoder_thread(void *v_audio) {
 	audio_s *audio = (audio_s *)v_audio;
 	int16_t in_res[MAX_BUF16];
 
-	while (atomic_load(&audio->working)) {
+	while (!atomic_load(&audio->stop)) {
 		_pcm_buffer_s *in;
 		if (!queue_get(audio->pcm_queue, (void **)&in, 1)) {
 			int16_t *in_ptr;
@@ -259,6 +259,6 @@ static void *_encoder_thread(void *v_audio) {
 		}
 	}
 
-	atomic_store(&audio->working, false);
+	atomic_store(&audio->stop, true);
 	return NULL;
 }
