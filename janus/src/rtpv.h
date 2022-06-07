@@ -2,9 +2,6 @@
 #                                                                            #
 #    uStreamer - Lightweight and fast MJPEG-HTTP streamer.                   #
 #                                                                            #
-#    This source file is partially based on this code:                       #
-#      - https://github.com/catid/kvm/blob/master/kvm_pipeline/src           #
-#                                                                            #
 #    Copyright (C) 2018-2022  Maxim Devaev <mdevaev@gmail.com>               #
 #                                                                            #
 #    This program is free software: you can redistribute it and/or modify    #
