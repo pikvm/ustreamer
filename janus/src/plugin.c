@@ -131,14 +131,14 @@ static rtpv_s			*_g_rtpv = NULL;
 static rtpa_s			*_g_rtpa = NULL;
 
 static pthread_t		_g_video_tid;
-static atomic_bool		_g_video_tid_created = ATOMIC_VAR_INIT(false);
+static atomic_bool		_g_video_tid_created = false;
 static pthread_t		_g_audio_tid;
-static atomic_bool		_g_audio_tid_created = ATOMIC_VAR_INIT(false);
+static atomic_bool		_g_audio_tid_created = false;
 
 static pthread_mutex_t	_g_lock = PTHREAD_MUTEX_INITIALIZER;
-static atomic_bool		_g_ready = ATOMIC_VAR_INIT(false);
-static atomic_bool		_g_stop = ATOMIC_VAR_INIT(false);
-static atomic_bool		_g_has_watchers = ATOMIC_VAR_INIT(false);
+static atomic_bool		_g_ready = false;
+static atomic_bool		_g_stop = false;
+static atomic_bool		_g_has_watchers = false;
 
 
 #define LOCK			A_MUTEX_LOCK(&_g_lock)
