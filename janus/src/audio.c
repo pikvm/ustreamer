@@ -93,7 +93,6 @@ audio_s *audio_init(const char *name, unsigned pcm_hz) {
 				audio->pcm_hz, MIN_PCM_HZ, MAX_PCM_HZ);
 			goto error;
 		}
-		JLOG_INFO("audio", "Using PCM freq: %u", audio->pcm_hz);
 		audio->pcm_frames = HZ_TO_FRAMES(audio->pcm_hz);
 		audio->pcm_size = HZ_TO_BUF8(audio->pcm_hz);
 		SET_PARAM("Can't apply PCM params", snd_pcm_hw_params);
@@ -120,7 +119,7 @@ audio_s *audio_init(const char *name, unsigned pcm_hz) {
 		// OPUS_SET_INBAND_FEC(1), OPUS_SET_PACKET_LOSS_PERC(10): see rtpa.c
 	}
 
-	JLOG_INFO("audio", "Pipeline prepared; capturing ...");
+	JLOG_INFO("audio", "Pipeline configured on %uHz; capturing ...", audio->pcm_hz);
 	audio->tids_created = true;
 	A_THREAD_CREATE(&audio->enc_tid, _encoder_thread, audio);
 	A_THREAD_CREATE(&audio->pcm_tid, _pcm_thread, audio);
