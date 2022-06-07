@@ -116,14 +116,15 @@ typedef struct _client_sx {
 } _client_s;
 
 
-static char				*_g_memsink_obj = NULL;
-const long double		_g_wait_timeout = 1;
-const long double		_g_lock_timeout = 1;
-const useconds_t		_g_lock_polling = 1000;
-const useconds_t		_g_watchers_polling = 100000;
+static char				*_g_video_sink_name = NULL;
+const long double		_g_sink_wait_timeout = 1;
+const long double		_g_sink_lock_timeout = 1;
+const useconds_t		_g_sink_lock_polling = 1000;
 
-static char				*_g_audio_dev = NULL;
-static char				*_g_tc358743_dev = NULL;
+static char				*_g_audio_dev_name = NULL;
+static char				*_g_tc358743_dev_path = NULL;
+
+const useconds_t		_g_watchers_polling = 100000;
 
 static _client_s		*_g_clients = NULL;
 static janus_callbacks	*_g_gw = NULL;
@@ -149,10 +150,10 @@ static atomic_bool		_g_has_watchers = false;
 
 
 static int _wait_frame(int fd, memsink_shared_s* mem, uint64_t last_id) {
-	long double deadline_ts = get_now_monotonic() + _g_wait_timeout;
+	long double deadline_ts = get_now_monotonic() + _g_sink_wait_timeout;
 	long double now;
 	do {
-		int result = flock_timedwait_monotonic(fd, _g_lock_timeout);
+		int result = flock_timedwait_monotonic(fd, _g_sink_lock_timeout);
 		now = get_now_monotonic();
 		if (result < 0 && errno != EWOULDBLOCK) {
 			JLOG_PERROR("video", "Can't lock memsink");
@@ -166,7 +167,7 @@ static int _wait_frame(int fd, memsink_shared_s* mem, uint64_t last_id) {
 				return -1;
 			}
 		}
-		usleep(_g_lock_polling);
+		usleep(_g_sink_lock_polling);
 	} while (now < deadline_ts);
 	return -2;
 }
@@ -225,7 +226,7 @@ static void *_clients_video_thread(UNUSED void *arg) {
 		int fd = -1;
 		memsink_shared_s *mem = NULL;
 
-		if ((fd = shm_open(_g_memsink_obj, O_RDWR, 0)) <= 0) {
+		if ((fd = shm_open(_g_video_sink_name, O_RDWR, 0)) <= 0) {
 			IF_NOT_REPORTED(2, { JLOG_PERROR("video", "Can't open memsink"); });
 			goto close_memsink;
 		}
@@ -274,8 +275,8 @@ static void *_clients_video_thread(UNUSED void *arg) {
 static void *_clients_audio_thread(UNUSED void *arg) {
 	A_THREAD_RENAME("us_a_clients");
 	atomic_store(&_g_audio_tid_created, true);
-	assert(_g_audio_dev);
-	assert(_g_tc358743_dev);
+	assert(_g_audio_dev_name);
+	assert(_g_tc358743_dev_path);
 
 	while (!STOP) {
 		if (!HAS_WATCHERS) {
@@ -287,16 +288,16 @@ static void *_clients_audio_thread(UNUSED void *arg) {
 		audio_s *audio = NULL;
 
 		if (
-			tc358743_read_info(_g_tc358743_dev, &info) < 0
+			tc358743_read_info(_g_tc358743_dev_path, &info) < 0
 			|| !info.has_audio
-			|| (audio = audio_init(_g_audio_dev, info.audio_hz)) == NULL
+			|| (audio = audio_init(_g_audio_dev_name, info.audio_hz)) == NULL
 		) {
 			goto close_audio;
 		}
 
 		while (!STOP && HAS_WATCHERS) {
 			if (
-				tc358743_read_info(_g_tc358743_dev, &info) < 0
+				tc358743_read_info(_g_tc358743_dev_path, &info) < 0
 				|| !info.has_audio
 				|| audio->pcm_hz != info.audio_hz
 			) {
@@ -335,6 +336,8 @@ static char *_get_config_value(janus_config *config, const char *section, const 
 }
 
 static int _read_config(const char *config_dir_path) {
+	int retval = 0;
+
 	char *config_file_path;
 	janus_config *config = NULL;
 
@@ -348,19 +351,21 @@ static int _read_config(const char *config_dir_path) {
 	}
 	janus_config_print(config);
 
-	if ((_g_memsink_obj = _get_config_value(config, "memsink", "object")) == NULL) {
-		JLOG_ERROR("main", "Missing config value: memsink.object");
+	if (
+		(_g_video_sink_name = _get_config_value(config, "memsink", "object")) == NULL
+		&& (_g_video_sink_name = _get_config_value(config, "video", "sink")) == NULL
+	) {
+		JLOG_ERROR("main", "Missing config value: video.sink (ex. memsink.object)");
 		goto error;
 	}
-	if ((_g_audio_dev = _get_config_value(config, "audio", "device")) != NULL) {
+	if ((_g_audio_dev_name = _get_config_value(config, "audio", "device")) != NULL) {
 		JLOG_INFO("main", "Enabled the experimental AUDIO feature");
-		if ((_g_tc358743_dev = _get_config_value(config, "audio", "tc358743")) == NULL) {
+		if ((_g_tc358743_dev_path = _get_config_value(config, "audio", "tc358743")) == NULL) {
 			JLOG_INFO("main", "Missing config value: audio.tc358743");
 			goto error;
 		}
 	}
 
-	int retval = 0;
 	goto ok;
 	error:
 		retval = -1;
@@ -389,7 +394,7 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	}
 	_g_gw = gw;
 	_g_rtpv = rtpv_init(_relay_rtp_clients);
-	if (_g_audio_dev) {
+	if (_g_audio_dev_name) {
 		_g_rtpa = rtpa_init(_relay_rtp_clients);
 		A_THREAD_CREATE(&_g_audio_tid, _clients_audio_thread, NULL);
 	}
@@ -417,9 +422,9 @@ static void _plugin_destroy(void) {
 	DEL(rtpa_destroy, _g_rtpa);
 	DEL(rtpv_destroy, _g_rtpv);
 	_g_gw = NULL;
-	DEL(free, _g_tc358743_dev);
-	DEL(free, _g_audio_dev);
-	DEL(free, _g_memsink_obj);
+	DEL(free, _g_tc358743_dev_path);
+	DEL(free, _g_audio_dev_name);
+	DEL(free, _g_video_sink_name);
 #	undef DEL
 }
 
