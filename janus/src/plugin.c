@@ -202,6 +202,11 @@ static void _relay_rtp_clients(const rtp_s *rtp) {
 	});
 }
 
+#define IF_NOT_REPORTED(...) { \
+		unsigned _error_code = __LINE__; \
+		if (error_reported != _error_code) { __VA_ARGS__; error_reported = _error_code; } \
+	}
+
 static void *_clients_video_thread(UNUSED void *arg) {
 	A_THREAD_RENAME("us_v_clients");
 	atomic_store(&_g_video_tid_created, true);
@@ -212,13 +217,9 @@ static void *_clients_video_thread(UNUSED void *arg) {
 
 	unsigned error_reported = 0;
 
-#	define IF_NOT_REPORTED(_error, ...) { \
-			if (error_reported != _error) { __VA_ARGS__; error_reported = _error; } \
-		}
-
 	while (!STOP) {
 		if (!HAS_WATCHERS) {
-			IF_NOT_REPORTED(1, { JLOG_INFO("video", "No active watchers, memsink disconnected"); });
+			IF_NOT_REPORTED({ JLOG_INFO("video", "No active watchers, memsink disconnected"); });
 			usleep(_g_watchers_polling);
 			continue;
 		}
@@ -227,12 +228,12 @@ static void *_clients_video_thread(UNUSED void *arg) {
 		memsink_shared_s *mem = NULL;
 
 		if ((fd = shm_open(_g_video_sink_name, O_RDWR, 0)) <= 0) {
-			IF_NOT_REPORTED(2, { JLOG_PERROR("video", "Can't open memsink"); });
+			IF_NOT_REPORTED({ JLOG_PERROR("video", "Can't open memsink"); });
 			goto close_memsink;
 		}
 
 		if ((mem = memsink_shared_map(fd)) == NULL) {
-			IF_NOT_REPORTED(3, { JLOG_PERROR("video", "Can't map memsink"); });
+			IF_NOT_REPORTED({ JLOG_PERROR("video", "Can't map memsink"); });
 			goto close_memsink;
 		}
 
@@ -266,8 +267,6 @@ static void *_clients_video_thread(UNUSED void *arg) {
 			sleep(1); // error_delay
 	}
 
-#	undef IF_NOT_REPORTED
-
 	frame_destroy(frame);
 	return NULL;
 }
@@ -278,6 +277,8 @@ static void *_clients_audio_thread(UNUSED void *arg) {
 	assert(_g_audio_dev_name);
 	assert(_g_tc358743_dev_path);
 
+	unsigned error_reported = 0;
+
 	while (!STOP) {
 		if (!HAS_WATCHERS) {
 			usleep(_g_watchers_polling);
@@ -287,13 +288,19 @@ static void *_clients_audio_thread(UNUSED void *arg) {
 		tc358743_info_s info = {0};
 		audio_s *audio = NULL;
 
-		if (
-			tc358743_read_info(_g_tc358743_dev_path, &info) < 0
-			|| !info.has_audio
-			|| (audio = audio_init(_g_audio_dev_name, info.audio_hz)) == NULL
-		) {
+		if (tc358743_read_info(_g_tc358743_dev_path, &info) < 0) {
 			goto close_audio;
 		}
+		if (!info.has_audio) {
+			IF_NOT_REPORTED({ JLOG_INFO("audio", "No audio presented from the host"); });
+			goto close_audio;
+		}
+		IF_NOT_REPORTED({ JLOG_INFO("audio", "Detected host audio"); });
+		if ((audio = audio_init(_g_audio_dev_name, info.audio_hz)) == NULL) {
+			goto close_audio;
+		}
+
+		error_reported = 0;
 
 		while (!STOP && HAS_WATCHERS) {
 			if (
@@ -325,6 +332,8 @@ static void *_clients_audio_thread(UNUSED void *arg) {
 	}
 	return NULL;
 }
+
+#undef IF_NOT_REPORTED
 
 static char *_get_config_value(janus_config *config, const char *section, const char *option) {
 	janus_config_category *section_obj = janus_config_get_create(config, NULL, janus_config_type_category, section);

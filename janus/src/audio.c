@@ -191,10 +191,10 @@ static void *_pcm_thread(void *v_audio) {
 	while (!atomic_load(&audio->stop)) {
 		int frames = snd_pcm_readi(audio->pcm, in, audio->pcm_frames);
 		if (frames < 0) {
-			JLOG_PERROR_ALSA(frames, "audio", "Can't capture PCM frames; breaking audio ...");
+			JLOG_PERROR_ALSA(frames, "audio", "Fatal: Can't capture PCM frames");
 			break;
 		} else if (frames < (int)audio->pcm_frames) {
-			JLOG_ERROR("audio", "Too few PCM frames captured; breaking audio ...");
+			JLOG_ERROR("audio", "Fatal: Too few PCM frames captured");
 			break;
 		}
 
@@ -238,7 +238,7 @@ static void *_encoder_thread(void *v_audio) {
 			int size = opus_encode(audio->enc, in_ptr, HZ_TO_FRAMES(ENCODER_INPUT_HZ), out->data, ARRAY_LEN(out->data));
 			free(in);
 			if (size < 0) {
-				JLOG_PERROR_OPUS(size, "audio", "Can't encode PCM frame to OPUS; breaking audio ...");
+				JLOG_PERROR_OPUS(size, "audio", "Fatal: Can't encode PCM frame to OPUS");
 				free(out);
 				break;
 			}
