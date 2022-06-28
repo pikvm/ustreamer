@@ -224,8 +224,9 @@ static bool _worker_run_job(worker_s *wr) {
 	} else if (ER(type) == ENCODER_TYPE_NOOP) {
 		LOG_VERBOSE("Compressing JPEG using NOOP (do nothing): worker=%s, buffer=%u",
 			wr->name, job->hw->buf.index);
+		frame_encoding_begin(src, dest, V4L2_PIX_FMT_JPEG);
 		usleep(5000); // Просто чтобы работала логика desired_fps
-		dest->encode_end_ts = get_now_monotonic();
+		dest->encode_end_ts = get_now_monotonic(); // frame_encoding_end()
 	}
 
 	LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%s, buffer=%u",
