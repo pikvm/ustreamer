@@ -27,7 +27,7 @@ static m2m_encoder_s *_m2m_encoder_init(
 	const char *name, const char *path, unsigned output_format,
 	unsigned fps, bool allow_dma, m2m_option_s *options);
 
-static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame);
+static void _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame);
 
 static int _m2m_encoder_init_buffers(
 	m2m_encoder_s *enc, const char *name, enum v4l2_buf_type type,
@@ -117,9 +117,10 @@ int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, 
 		|| RUN(stride) != src->stride
 		|| RUN(dma) != (enc->allow_dma && src->dma_fd >= 0)
 	) {
-		if (_m2m_encoder_prepare(enc, src) < 0) {
-			return -1;
-		}
+		_m2m_encoder_prepare(enc, src);
+	}
+	if (!RUN(ready)) { // Already prepared but failed
+		return -1;
 	}
 
 	force_key = (enc->output_format == V4L2_PIX_FMT_H264 && (force_key || RUN(last_online) != src->online));
@@ -179,7 +180,7 @@ static m2m_encoder_s *_m2m_encoder_init(
 		} \
 	}
 
-static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
+static void _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 	bool dma = (enc->allow_dma && frame->dma_fd >= 0);
 
 	E_LOG_INFO("Configuring encoder: DMA=%d ...", dma);
@@ -273,12 +274,11 @@ static int _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 
 	RUN(ready) = true;
 	E_LOG_DEBUG("Encoder state: *** READY ***");
-	return 0;
+	return;
 
 	error:
 		_m2m_encoder_cleanup(enc);
 		E_LOG_ERROR("Encoder destroyed due an error (prepare)");
-		return -1;
 }
 
 static int _m2m_encoder_init_buffers(
