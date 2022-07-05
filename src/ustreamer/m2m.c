@@ -25,7 +25,7 @@
 
 static m2m_encoder_s *_m2m_encoder_init(
 	const char *name, const char *path, unsigned output_format,
-	unsigned fps, bool allow_dma, m2m_option_s *options);
+	unsigned fps, unsigned bitrate, unsigned gop, unsigned quality, bool allow_dma);
 
 static void _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame);
 
@@ -46,26 +46,11 @@ static int _m2m_encoder_compress_raw(m2m_encoder_s *enc, const frame_s *src, fra
 
 
 m2m_encoder_s *m2m_h264_encoder_init(const char *name, const char *path, unsigned bitrate, unsigned gop) {
-#	define OPTION(_key, _value) {#_key, V4L2_CID_MPEG_VIDEO_##_key, _value}
-
-	m2m_option_s options[] = {
-		OPTION(BITRATE, bitrate * 1000),
-		// OPTION(BITRATE_PEAK, bitrate * 1000),
-		OPTION(H264_I_PERIOD, gop),
-		OPTION(H264_PROFILE, V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE),
-		OPTION(H264_LEVEL, V4L2_MPEG_VIDEO_H264_LEVEL_4_0),
-		OPTION(REPEAT_SEQ_HEADER, 1),
-		OPTION(H264_MIN_QP, 16),
-		OPTION(H264_MAX_QP, 32),
-		{NULL, 0, 0},
-	};
-
-#	undef OPTION
-
 	// FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L2100
 	// По логике вещей правильно 0, но почему-то на низких разрешениях типа 640x480
 	// енкодер через несколько секунд перестает производить корректные фреймы.
-	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_H264, 30, true, options);
+	bitrate *= 1000; // From Kbps
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_H264, 30, bitrate, gop, 0, true);
 }
 
 m2m_encoder_s *m2m_mjpeg_encoder_init(const char *name, const char *path, unsigned quality) {
@@ -76,30 +61,18 @@ m2m_encoder_s *m2m_mjpeg_encoder_init(const char *name, const char *path, unsign
 	bitrate = step * round(bitrate / step);
 	bitrate *= 1000; // From Kbps
 	assert(bitrate > 0);
-
-	m2m_option_s options[] = {
-		{"BITRATE", V4L2_CID_MPEG_VIDEO_BITRATE, bitrate},
-		{NULL, 0, 0},
-	};
-
 	// FIXME: То же самое про 30 or 0, но еще даже не проверено на низких разрешениях
-	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_MJPEG, 30, true, options);
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_MJPEG, 30, bitrate, 0, 0, true);
 }
 
 m2m_encoder_s *m2m_jpeg_encoder_init(const char *name, const char *path, unsigned quality) {
-	m2m_option_s options[] = {
-		{"QUALITY", V4L2_CID_JPEG_COMPRESSION_QUALITY, quality},
-		{NULL, 0, 0},
-	};
-
 	// FIXME: DMA не работает
-	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_JPEG, 30, false, options);
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_JPEG, 30, 0, 0, quality, false);
 }
 
 void m2m_encoder_destroy(m2m_encoder_s *enc) {
 	E_LOG_INFO("Destroying encoder ...");
 	_m2m_encoder_cleanup(enc);
-	free(enc->options);
 	free(enc->path);
 	free(enc->name);
 	free(enc);
@@ -142,7 +115,7 @@ int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, 
 
 static m2m_encoder_s *_m2m_encoder_init(
 	const char *name, const char *path, unsigned output_format,
-	unsigned fps, bool allow_dma, m2m_option_s *options) {
+	unsigned fps, unsigned bitrate, unsigned gop, unsigned quality, bool allow_dma) {
 
 	LOG_INFO("%s: Initializing encoder ...", name);
 
@@ -161,15 +134,11 @@ static m2m_encoder_s *_m2m_encoder_init(
 	}
 	enc->output_format = output_format;
 	enc->fps = fps;
+	enc->bitrate = bitrate;
+	enc->gop = gop;
+	enc->quality = quality;
 	enc->allow_dma = allow_dma;
 	enc->run = run;
-
-	unsigned count = 0;
-	for (; options[count].name != NULL; ++count);
-	++count;
-	A_CALLOC(enc->options, count);
-	memcpy(enc->options, options, sizeof(m2m_option_s) * count);
-
 	return enc;
 }
 
@@ -199,14 +168,33 @@ static void _m2m_encoder_prepare(m2m_encoder_s *enc, const frame_s *frame) {
 	}
 	E_LOG_DEBUG("Encoder device fd=%d opened", RUN(fd));
 
-	for (m2m_option_s *option = enc->options; option->name != NULL; ++option) {
-		struct v4l2_control ctl = {0};
-		ctl.id = option->id;
-		ctl.value = option->value;
+#	define SET_OPTION(_cid, _value) { \
+			struct v4l2_control _ctl = {0}; \
+			_ctl.id = _cid; \
+			_ctl.value = _value; \
+			E_LOG_DEBUG("Configuring option " #_cid " ..."); \
+			E_XIOCTL(VIDIOC_S_CTRL, &_ctl, "Can't set option " #_cid); \
+		}
 
-		E_LOG_DEBUG("Configuring option %s ...", option->name);
-		E_XIOCTL(VIDIOC_S_CTRL, &ctl, "Can't set option %s", option->name);
+	if (enc->output_format == V4L2_PIX_FMT_H264) {
+		SET_OPTION(V4L2_CID_MPEG_VIDEO_BITRATE,				enc->bitrate);
+		SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_I_PERIOD,		enc->gop);
+		SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_PROFILE,		V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE);
+		if (RUN(width) * RUN(height) <= 1920 * 1080) { // https://forums.raspberrypi.com/viewtopic.php?t=291447#p1762296
+			SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_LEVEL,		V4L2_MPEG_VIDEO_H264_LEVEL_4_0);
+		} else {
+			SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_LEVEL,		V4L2_MPEG_VIDEO_H264_LEVEL_5_1);
+		}
+		SET_OPTION(V4L2_CID_MPEG_VIDEO_REPEAT_SEQ_HEADER,	1);
+		SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_MIN_QP,			16);
+		SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_MAX_QP,			32);
+	} else if (enc->output_format == V4L2_PIX_FMT_MJPEG) {
+		SET_OPTION(V4L2_CID_MPEG_VIDEO_BITRATE,				enc->bitrate);
+	} else if (enc->output_format == V4L2_PIX_FMT_JPEG) {
+		SET_OPTION(V4L2_CID_JPEG_COMPRESSION_QUALITY,		enc->quality);
 	}
+
+#	undef SET_OPTION
 
 	{
 		struct v4l2_format fmt = {0};

@@ -48,12 +48,6 @@ typedef struct {
 } m2m_buffer_s;
 
 typedef struct {
-	char		*name;
-	uint32_t	id;
-	int32_t		value;
-} m2m_option_s;
-
-typedef struct {
 	int				fd;
 	m2m_buffer_s	*input_bufs;
 	unsigned		n_input_bufs;
@@ -75,8 +69,10 @@ typedef struct {
 	char			*path;
 	unsigned		output_format;
 	unsigned		fps;
+	unsigned		bitrate;
+	unsigned		gop;
+	unsigned		quality;
 	bool			allow_dma;
-	m2m_option_s	*options;
 
 	m2m_encoder_runtime_s *run;
 } m2m_encoder_s;
