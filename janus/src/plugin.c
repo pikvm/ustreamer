@@ -52,64 +52,6 @@
 #include "config.h"
 
 
-static int _plugin_init(janus_callbacks *gw, const char *config_file_path);
-static void _plugin_destroy(void);
-
-static void _plugin_create_session(janus_plugin_session *session, int *err);
-static void _plugin_destroy_session(janus_plugin_session *session, int *err);
-static json_t *_plugin_query_session(janus_plugin_session *session);
-
-static void _plugin_setup_media(janus_plugin_session *session);
-static void _plugin_hangup_media(janus_plugin_session *session);
-
-static struct janus_plugin_result *_plugin_handle_message(
-	janus_plugin_session *session, char *transaction, json_t *msg, json_t *jsep);
-
-
-static int _plugin_get_api_compatibility(void)		{ return JANUS_PLUGIN_API_VERSION; }
-static int _plugin_get_version(void)				{ return VERSION_U; }
-static const char *_plugin_get_version_string(void)	{ return VERSION; }
-static const char *_plugin_get_description(void)	{ return "PiKVM uStreamer Janus plugin for H.264 video"; }
-static const char *_plugin_get_name(void)			{ return PLUGIN_NAME; }
-static const char *_plugin_get_author(void)			{ return "Maxim Devaev <mdevaev@gmail.com>"; }
-static const char *_plugin_get_package(void)		{ return PLUGIN_PACKAGE; }
-
-static void _plugin_incoming_rtp(UNUSED janus_plugin_session *handle, UNUSED janus_plugin_rtp *packet) {
-	// Just a stub to avoid logging spam about the plugin's purpose
-}
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Woverride-init"
-static janus_plugin _plugin = JANUS_PLUGIN_INIT(
-	.init = _plugin_init,
-	.destroy = _plugin_destroy,
-
-	.create_session = _plugin_create_session,
-	.destroy_session = _plugin_destroy_session,
-	.query_session = _plugin_query_session,
-
-	.setup_media = _plugin_setup_media,
-	.hangup_media = _plugin_hangup_media,
-
-	.handle_message = _plugin_handle_message,
-
-	.get_api_compatibility = _plugin_get_api_compatibility,
-	.get_version = _plugin_get_version,
-	.get_version_string = _plugin_get_version_string,
-	.get_description = _plugin_get_description,
-	.get_name = _plugin_get_name,
-	.get_author = _plugin_get_author,
-	.get_package = _plugin_get_package,
-
-	.incoming_rtp = _plugin_incoming_rtp,
-);
-#pragma GCC diagnostic pop
-
-janus_plugin *create(void) { // cppcheck-suppress unusedFunction
-	return &_plugin;
-}
-
-
 typedef struct _client_sx {
 	janus_plugin_session *session;
 	bool transmit;
@@ -117,6 +59,8 @@ typedef struct _client_sx {
 	LIST_STRUCT(struct _client_sx);
 } _client_s;
 
+
+static janus_plugin		*_g_plugin = NULL;
 
 static char				*_g_video_sink_name = NULL;
 static char				*_g_audio_dev_name = NULL;
@@ -146,19 +90,6 @@ static atomic_bool		_g_has_watchers = false;
 #define STOP			atomic_load(&_g_stop)
 #define HAS_WATCHERS	atomic_load(&_g_has_watchers)
 
-
-static void _relay_rtp_clients(const rtp_s *rtp) {
-	janus_plugin_rtp packet = {0};
-	packet.video = rtp->video;
-	packet.buffer = (char *)rtp->datagram;
-	packet.length = rtp->used;
-	janus_plugin_rtp_extensions_reset(&packet.extensions);
-	LIST_ITERATE(_g_clients, client, {
-		if (client->transmit) {
-			_g_gw->relay_rtp(client->session, &packet);
-		}
-	});
-}
 
 #define IF_NOT_REPORTED(...) { \
 		unsigned _error_code = __LINE__; \
@@ -292,6 +223,19 @@ static void *_clients_audio_thread(UNUSED void *arg) {
 }
 
 #undef IF_NOT_REPORTED
+
+static void _relay_rtp_clients(const rtp_s *rtp) {
+	janus_plugin_rtp packet = {0};
+	packet.video = rtp->video;
+	packet.buffer = (char *)rtp->datagram;
+	packet.length = rtp->used;
+	janus_plugin_rtp_extensions_reset(&packet.extensions);
+	LIST_ITERATE(_g_clients, client, {
+		if (client->transmit) {
+			_g_gw->relay_rtp(client->session, &packet);
+		}
+	});
+}
 
 static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	// https://groups.google.com/g/meetecho-janus/c/xoWIQfaoJm8
@@ -447,7 +391,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 			json_object_set_new(_event, "ustreamer", json_string("event")); \
 			json_object_set_new(_event, "error_code", json_integer(_error)); \
 			json_object_set_new(_event, "error", json_string(_reason)); \
-			_g_gw->push_event(session, &_plugin, transaction, _event, NULL); \
+			_g_gw->push_event(session, _g_plugin, transaction, _event, NULL); \
 			json_decref(_event); \
 		}
 
@@ -470,7 +414,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 			json_t *_result = json_object(); \
 			json_object_set_new(_result, "status", json_string(_status)); \
 			json_object_set_new(_event, "result", _result); \
-			_g_gw->push_event(session, &_plugin, transaction, _event, _jsep); \
+			_g_gw->push_event(session, _g_plugin, transaction, _event, _jsep); \
 			json_decref(_event); \
 		}
 
@@ -516,4 +460,51 @@ static struct janus_plugin_result *_plugin_handle_message(
 #	undef PUSH_STATUS
 #	undef PUSH_ERROR
 #	undef FREE_MSG_JSEP
+}
+
+
+// ***** Plugin *****
+
+static int _plugin_get_api_compatibility(void)		{ return JANUS_PLUGIN_API_VERSION; }
+static int _plugin_get_version(void)				{ return VERSION_U; }
+static const char *_plugin_get_version_string(void)	{ return VERSION; }
+static const char *_plugin_get_description(void)	{ return "PiKVM uStreamer Janus plugin for H.264 video"; }
+static const char *_plugin_get_name(void)			{ return PLUGIN_NAME; }
+static const char *_plugin_get_author(void)			{ return "Maxim Devaev <mdevaev@gmail.com>"; }
+static const char *_plugin_get_package(void)		{ return PLUGIN_PACKAGE; }
+
+static void _plugin_incoming_rtp(UNUSED janus_plugin_session *handle, UNUSED janus_plugin_rtp *packet) {
+	// Just a stub to avoid logging spam about the plugin's purpose
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverride-init"
+static janus_plugin _plugin = JANUS_PLUGIN_INIT(
+	.init = _plugin_init,
+	.destroy = _plugin_destroy,
+
+	.create_session = _plugin_create_session,
+	.destroy_session = _plugin_destroy_session,
+	.query_session = _plugin_query_session,
+
+	.setup_media = _plugin_setup_media,
+	.hangup_media = _plugin_hangup_media,
+
+	.handle_message = _plugin_handle_message,
+
+	.get_api_compatibility = _plugin_get_api_compatibility,
+	.get_version = _plugin_get_version,
+	.get_version_string = _plugin_get_version_string,
+	.get_description = _plugin_get_description,
+	.get_name = _plugin_get_name,
+	.get_author = _plugin_get_author,
+	.get_package = _plugin_get_package,
+
+	.incoming_rtp = _plugin_incoming_rtp,
+);
+#pragma GCC diagnostic pop
+
+janus_plugin *create(void) { // cppcheck-suppress unusedFunction
+	_g_plugin = &_plugin;
+	return _g_plugin;
 }
