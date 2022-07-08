@@ -24,7 +24,7 @@
 
 #include "uslibs/tools.h"
 
-#include "config.h"
+#include "const.h"
 
 
 #define JLOG_INFO(_prefix, _msg, ...)	JANUS_LOG(LOG_INFO, "== %s/%-9s -- " _msg "\n", PLUGIN_NAME, _prefix, ##__VA_ARGS__)

@@ -37,13 +37,13 @@
 #include <janus/config.h>
 #include <janus/plugins/plugin.h>
 
-#include "uslibs/config.h"
+#include "uslibs/const.h"
 #include "uslibs/tools.h"
 #include "uslibs/threading.h"
 #include "uslibs/list.h"
 #include "uslibs/memsinksh.h"
 
-#include "config.h"
+#include "const.h"
 #include "jlogging.h"
 #include "audio.h"
 #include "tc358743.h"

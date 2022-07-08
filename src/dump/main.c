@@ -31,7 +31,7 @@
 #include <errno.h>
 #include <assert.h>
 
-#include "../libs/config.h"
+#include "../libs/const.h"
 #include "../libs/tools.h"
 #include "../libs/logging.h"
 #include "../libs/frame.h"
