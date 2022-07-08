@@ -146,17 +146,8 @@ void audio_destroy(audio_s *audio) {
 	if (audio->pcm_params) {
 		snd_pcm_hw_params_free(audio->pcm_params);
 	}
-#	define FREE_QUEUE(_suffix) { \
-			while (!queue_get_free(audio->_suffix##_queue)) { \
-				_##_suffix##_buffer_s *ptr; \
-				assert(!queue_get(audio->_suffix##_queue, (void **)&ptr, 1)); \
-				free(ptr); \
-			} \
-			queue_destroy(audio->_suffix##_queue); \
-		}
-	FREE_QUEUE(enc);
-	FREE_QUEUE(pcm);
-#	undef FREE_QUEUE
+	QUEUE_FREE_ITEMS_AND_DESTROY(audio->enc_queue, free);
+	QUEUE_FREE_ITEMS_AND_DESTROY(audio->pcm_queue, free);
 	if (audio->tids_created) {
 		JLOG_INFO("audio", "Pipeline closed");
 	}

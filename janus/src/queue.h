@@ -24,6 +24,7 @@
 
 #include <errno.h>
 #include <time.h>
+#include <assert.h>
 
 #include <pthread.h>
 
@@ -44,6 +45,16 @@ typedef struct {
 	pthread_cond_t	full_cond;
 	pthread_cond_t	empty_cond;
 } queue_s;
+
+
+#define QUEUE_FREE_ITEMS_AND_DESTROY(_queue, _free_item) { \
+		while (!queue_get_free(_queue)) { \
+			void *_ptr; \
+			assert(!queue_get(_queue, &_ptr, 1)); \
+			_free_item(_ptr); \
+		} \
+		queue_destroy(_queue); \
+	}
 
 
 queue_s *queue_init(unsigned capacity);
