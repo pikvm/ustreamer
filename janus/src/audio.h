@@ -38,7 +38,7 @@
 #include "uslibs/tools.h"
 #include "uslibs/threading.h"
 
-#include "jlogging.h"
+#include "logging.h"
 #include "queue.h"
 
 

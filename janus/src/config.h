@@ -31,7 +31,7 @@
 #include "uslibs/tools.h"
 
 #include "const.h"
-#include "jlogging.h"
+#include "logging.h"
 
 
 int read_config(const char *config_dir_path, char **video_sink_name, char **audio_dev_name, char **tc358743_dev_path);

@@ -31,7 +31,7 @@
 #include "uslibs/frame.h"
 #include "uslibs/memsinksh.h"
 
-#include "jlogging.h"
+#include "logging.h"
 
 
 int memsink_fd_wait_frame(int fd, memsink_shared_s* mem, uint64_t last_id);

@@ -34,7 +34,7 @@
 #include "uslibs/tools.h"
 #include "uslibs/xioctl.h"
 
-#include "jlogging.h"
+#include "logging.h"
 
 
 typedef struct {

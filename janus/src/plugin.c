@@ -43,7 +43,7 @@
 #include "uslibs/memsinksh.h"
 
 #include "const.h"
-#include "jlogging.h"
+#include "logging.h"
 #include "audio.h"
 #include "tc358743.h"
 #include "rtpv.h"
