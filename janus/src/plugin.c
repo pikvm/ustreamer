@@ -34,7 +34,6 @@
 
 #include <pthread.h>
 #include <jansson.h>
-#include <janus/config.h>
 #include <janus/plugins/plugin.h>
 
 #include "uslibs/const.h"
@@ -50,6 +49,7 @@
 #include "rtpv.h"
 #include "rtpa.h"
 #include "memsinkfd.h"
+#include "config.h"
 
 
 static int _plugin_init(janus_callbacks *gw, const char *config_file_path);
@@ -293,57 +293,6 @@ static void *_clients_audio_thread(UNUSED void *arg) {
 
 #undef IF_NOT_REPORTED
 
-static char *_get_config_value(janus_config *config, const char *section, const char *option) {
-	janus_config_category *section_obj = janus_config_get_create(config, NULL, janus_config_type_category, section);
-	janus_config_item *option_obj = janus_config_get(config, section_obj, janus_config_type_item, option);
-	if (option_obj == NULL || option_obj->value == NULL || option_obj->value[0] == '\0') {
-		return NULL;
-	}
-	return strdup(option_obj->value);
-}
-
-static int _read_config(const char *config_dir_path) {
-	int retval = 0;
-
-	char *config_file_path;
-	janus_config *config = NULL;
-
-	A_ASPRINTF(config_file_path, "%s/%s.jcfg", config_dir_path, PLUGIN_PACKAGE);
-	JLOG_INFO("main", "Reading config file '%s' ...", config_file_path);
-
-	config = janus_config_parse(config_file_path);
-	if (config == NULL) {
-		JLOG_ERROR("main", "Can't read config");
-		goto error;
-	}
-	janus_config_print(config);
-
-	if (
-		(_g_video_sink_name = _get_config_value(config, "memsink", "object")) == NULL
-		&& (_g_video_sink_name = _get_config_value(config, "video", "sink")) == NULL
-	) {
-		JLOG_ERROR("main", "Missing config value: video.sink (ex. memsink.object)");
-		goto error;
-	}
-	if ((_g_audio_dev_name = _get_config_value(config, "audio", "device")) != NULL) {
-		JLOG_INFO("main", "Enabled the experimental AUDIO feature");
-		if ((_g_tc358743_dev_path = _get_config_value(config, "audio", "tc358743")) == NULL) {
-			JLOG_INFO("main", "Missing config value: audio.tc358743");
-			goto error;
-		}
-	}
-
-	goto ok;
-	error:
-		retval = -1;
-	ok:
-		if (config) {
-			janus_config_destroy(config);
-		}
-		free(config_file_path);
-		return retval;
-}
-
 static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	// https://groups.google.com/g/meetecho-janus/c/xoWIQfaoJm8
 	// sysctl -w net.core.rmem_default=500000 
@@ -356,7 +305,11 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	assert(!atomic_load(&_g_audio_tid_created));
 	assert(!READY);
 	assert(!STOP);
-	if (gw == NULL || config_dir_path == NULL || _read_config(config_dir_path) < 0) {
+	if (gw == NULL || config_dir_path == NULL || read_config(config_dir_path,
+		&_g_video_sink_name,
+		&_g_audio_dev_name,
+		&_g_tc358743_dev_path
+	) < 0) {
 		return -1;
 	}
 	_g_gw = gw;
