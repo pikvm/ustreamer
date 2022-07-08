@@ -31,7 +31,6 @@
 
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <linux/videodev2.h>
 
 #include <pthread.h>
 #include <jansson.h>
@@ -50,6 +49,7 @@
 #include "tc358743.h"
 #include "rtpv.h"
 #include "rtpa.h"
+#include "memsinkfd.h"
 
 
 static int _plugin_init(janus_callbacks *gw, const char *config_file_path);
@@ -74,8 +74,9 @@ static const char *_plugin_get_name(void)			{ return PLUGIN_NAME; }
 static const char *_plugin_get_author(void)			{ return "Maxim Devaev <mdevaev@gmail.com>"; }
 static const char *_plugin_get_package(void)		{ return PLUGIN_PACKAGE; }
 
-// Just a stub to avoid logging spam about the plugin's purpose.
-static void _plugin_incoming_rtp(UNUSED janus_plugin_session *handle, UNUSED janus_plugin_rtp *packet) {}
+static void _plugin_incoming_rtp(UNUSED janus_plugin_session *handle, UNUSED janus_plugin_rtp *packet) {
+	// Just a stub to avoid logging spam about the plugin's purpose
+}
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Woverride-init"
@@ -118,10 +119,6 @@ typedef struct _client_sx {
 
 
 static char				*_g_video_sink_name = NULL;
-const long double		_g_sink_wait_timeout = 1;
-const long double		_g_sink_lock_timeout = 1;
-const useconds_t		_g_sink_lock_polling = 1000;
-
 static char				*_g_audio_dev_name = NULL;
 static char				*_g_tc358743_dev_path = NULL;
 
@@ -149,46 +146,6 @@ static atomic_bool		_g_has_watchers = false;
 #define STOP			atomic_load(&_g_stop)
 #define HAS_WATCHERS	atomic_load(&_g_has_watchers)
 
-
-static int _wait_frame(int fd, memsink_shared_s* mem, uint64_t last_id) {
-	long double deadline_ts = get_now_monotonic() + _g_sink_wait_timeout;
-	long double now;
-	do {
-		int result = flock_timedwait_monotonic(fd, _g_sink_lock_timeout);
-		now = get_now_monotonic();
-		if (result < 0 && errno != EWOULDBLOCK) {
-			JLOG_PERROR("video", "Can't lock memsink");
-			return -1;
-		} else if (result == 0) {
-			if (mem->magic == MEMSINK_MAGIC && mem->version == MEMSINK_VERSION && mem->id != last_id) {
-				return 0;
-			}
-			if (flock(fd, LOCK_UN) < 0) {
-				JLOG_PERROR("video", "Can't unlock memsink");
-				return -1;
-			}
-		}
-		usleep(_g_sink_lock_polling);
-	} while (now < deadline_ts);
-	return -2;
-}
-
-static int _get_frame(int fd, memsink_shared_s *mem, frame_s *frame, uint64_t *frame_id) {
-	frame_set_data(frame, mem->data, mem->used);
-	FRAME_COPY_META(mem, frame);
-	*frame_id = mem->id;
-	mem->last_client_ts = get_now_monotonic();
-	int retval = 0;
-	if (frame->format != V4L2_PIX_FMT_H264) {
-		JLOG_ERROR("video", "Got non-H264 frame from memsink");
-		retval = -1;
-	}
-	if (flock(fd, LOCK_UN) < 0) {
-		JLOG_PERROR("video", "Can't unlock memsink");
-		retval = -1;
-	}
-	return retval;
-}
 
 static void _relay_rtp_clients(const rtp_s *rtp) {
 	janus_plugin_rtp packet = {0};
@@ -242,9 +199,9 @@ static void *_clients_video_thread(UNUSED void *arg) {
 
 		JLOG_INFO("video", "Memsink opened; reading frames ...");
 		while (!STOP && HAS_WATCHERS) {
-			int result = _wait_frame(fd, mem, frame_id);
+			int result = memsink_fd_wait_frame(fd, mem, frame_id);
 			if (result == 0) {
-				if (_get_frame(fd, mem, frame, &frame_id) != 0) {
+				if (memsink_fd_get_frame(fd, mem, frame, &frame_id) != 0) {
 					goto close_memsink;
 				}
 				LOCK;
@@ -603,6 +560,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 		FREE_MSG_JSEP;
 		return janus_plugin_result_new(JANUS_PLUGIN_OK_WAIT, NULL, NULL);
 
+#	undef PUSH_STATUS
 #	undef PUSH_ERROR
 #	undef FREE_MSG_JSEP
 }
