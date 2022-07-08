@@ -44,6 +44,7 @@
 #include "uslibs/list.h"
 #include "uslibs/memsinksh.h"
 
+#include "config.h"
 #include "jlogging.h"
 #include "audio.h"
 #include "tc358743.h"
@@ -69,9 +70,9 @@ static int _plugin_get_api_compatibility(void)		{ return JANUS_PLUGIN_API_VERSIO
 static int _plugin_get_version(void)				{ return VERSION_U; }
 static const char *_plugin_get_version_string(void)	{ return VERSION; }
 static const char *_plugin_get_description(void)	{ return "PiKVM uStreamer Janus plugin for H.264 video"; }
-static const char *_plugin_get_name(void)			{ return "ustreamer"; }
+static const char *_plugin_get_name(void)			{ return PLUGIN_NAME; }
 static const char *_plugin_get_author(void)			{ return "Maxim Devaev <mdevaev@gmail.com>"; }
-static const char *_plugin_get_package(void)		{ return "janus.plugin.ustreamer"; }
+static const char *_plugin_get_package(void)		{ return PLUGIN_PACKAGE; }
 
 // Just a stub to avoid logging spam about the plugin's purpose.
 static void _plugin_incoming_rtp(UNUSED janus_plugin_session *handle, UNUSED janus_plugin_rtp *packet) {}
@@ -350,7 +351,7 @@ static int _read_config(const char *config_dir_path) {
 	char *config_file_path;
 	janus_config *config = NULL;
 
-	A_ASPRINTF(config_file_path, "%s/%s.jcfg", config_dir_path, _plugin_get_package());
+	A_ASPRINTF(config_file_path, "%s/%s.jcfg", config_dir_path, PLUGIN_PACKAGE);
 	JLOG_INFO("main", "Reading config file '%s' ...", config_file_path);
 
 	config = janus_config_parse(config_file_path);

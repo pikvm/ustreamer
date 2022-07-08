@@ -20,19 +20,7 @@
 *****************************************************************************/
 
 
-#include <janus/plugins/plugin.h>
+#pragma once
 
-#include "uslibs/tools.h"
-
-#include "config.h"
-
-
-#define JLOG_INFO(_prefix, _msg, ...)	JANUS_LOG(LOG_INFO, "== %s/%-9s -- " _msg "\n", PLUGIN_NAME, _prefix, ##__VA_ARGS__)
-#define JLOG_WARN(_prefix, _msg, ...)	JANUS_LOG(LOG_WARN, "== %s/%-9s -- " _msg "\n", PLUGIN_NAME, _prefix, ##__VA_ARGS__)
-#define JLOG_ERROR(_prefix, _msg, ...)	JANUS_LOG(LOG_ERR, "== %s/%-9s -- " _msg "\n", PLUGIN_NAME, _prefix, ##__VA_ARGS__)
-
-#define JLOG_PERROR(_prefix, _msg, ...) { \
-		char _perror_buf[1024] = {0}; \
-		char *_perror_ptr = errno_to_string(errno, _perror_buf, 1023); \
-		JANUS_LOG(LOG_ERR, "[%s/%-9s] " _msg ": %s\n", PLUGIN_NAME, _prefix, ##__VA_ARGS__, _perror_ptr); \
-	}
+#define PLUGIN_NAME		"ustreamer"
+#define PLUGIN_PACKAGE	"janus.plugin.ustreamer"
