@@ -159,7 +159,7 @@ int audio_get_encoded(audio_s *audio, uint8_t *data, size_t *size, uint64_t *pts
 		return -1;
 	}
 	_enc_buffer_s *buf;
-	if (!queue_get(audio->enc_queue, (void **)&buf, 1)) {
+	if (!queue_get(audio->enc_queue, (void **)&buf, 0.1)) {
 		if (*size < buf->used) {
 			free(buf);
 			return -3;
@@ -193,7 +193,7 @@ static void *_pcm_thread(void *v_audio) {
 			_pcm_buffer_s *out;
 			A_CALLOC(out, 1);
 			memcpy(out->data, in, audio->pcm_size);
-			assert(!queue_put(audio->pcm_queue, out, 1));
+			assert(!queue_put(audio->pcm_queue, out, 0.1));
 		} else {
 			JLOG_ERROR("audio", "PCM queue is full");
 		}
@@ -211,7 +211,7 @@ static void *_encoder_thread(void *v_audio) {
 
 	while (!atomic_load(&audio->stop)) {
 		_pcm_buffer_s *in;
-		if (!queue_get(audio->pcm_queue, (void **)&in, 1)) {
+		if (!queue_get(audio->pcm_queue, (void **)&in, 0.1)) {
 			int16_t *in_ptr;
 			if (audio->res) {
 				assert(audio->pcm_hz != ENCODER_INPUT_HZ);
@@ -239,7 +239,7 @@ static void *_encoder_thread(void *v_audio) {
 			audio->pts += HZ_TO_FRAMES(ENCODER_INPUT_HZ);
 
 			if (queue_get_free(audio->enc_queue)) {
-				assert(!queue_put(audio->enc_queue, out, 1));
+				assert(!queue_put(audio->enc_queue, out, 0.1));
 			} else {
 				JLOG_ERROR("audio", "OPUS encoder queue is full");
 				free(out);

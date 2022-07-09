@@ -45,11 +45,11 @@ void queue_destroy(queue_s *queue) {
 }
 
 #define WAIT_OR_UNLOCK(_var, _cond) { \
-		struct timespec ts; \
-		assert(!clock_gettime(CLOCK_MONOTONIC, &ts)); \
-		ts.tv_sec += timeout; \
+		struct timespec _ts; \
+		assert(!clock_gettime(CLOCK_MONOTONIC, &_ts)); \
+		ld_to_timespec(timespec_to_ld(&_ts) + timeout, &_ts); \
 		while (_var) { \
-			int err = pthread_cond_timedwait(_cond, &queue->mutex, &ts); \
+			int err = pthread_cond_timedwait(_cond, &queue->mutex, &_ts); \
 			if (err == ETIMEDOUT) { \
 				A_MUTEX_UNLOCK(&queue->mutex); \
 				return -1; \
@@ -58,7 +58,7 @@ void queue_destroy(queue_s *queue) {
 		} \
 	}
 
-int queue_put(queue_s *queue, void *item, unsigned timeout) {
+int queue_put(queue_s *queue, void *item, long double timeout) {
 	A_MUTEX_LOCK(&queue->mutex);
 	WAIT_OR_UNLOCK(queue->size == queue->capacity, &queue->full_cond);
 	queue->items[queue->in] = item;
@@ -70,7 +70,7 @@ int queue_put(queue_s *queue, void *item, unsigned timeout) {
 	return 0;
 }
 
-int queue_get(queue_s *queue, void **item, unsigned timeout) {
+int queue_get(queue_s *queue, void **item, long double timeout) {
 	A_MUTEX_LOCK(&queue->mutex);
 	WAIT_OR_UNLOCK(queue->size == 0, &queue->empty_cond);
 	*item = queue->items[queue->out];

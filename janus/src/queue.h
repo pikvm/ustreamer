@@ -50,7 +50,7 @@ typedef struct {
 #define QUEUE_FREE_ITEMS_AND_DESTROY(_queue, _free_item) { \
 		while (!queue_get_free(_queue)) { \
 			void *_ptr; \
-			assert(!queue_get(_queue, &_ptr, 1)); \
+			assert(!queue_get(_queue, &_ptr, 0.1)); \
 			_free_item(_ptr); \
 		} \
 		queue_destroy(_queue); \
@@ -60,6 +60,6 @@ typedef struct {
 queue_s *queue_init(unsigned capacity);
 void queue_destroy(queue_s *queue);
 
-int queue_put(queue_s *queue, void *item, unsigned timeout);
-int queue_get(queue_s *queue, void **item, unsigned timeout);
+int queue_put(queue_s *queue, void *item, long double timeout);
+int queue_get(queue_s *queue, void **item, long double timeout);
 int queue_get_free(queue_s *queue);

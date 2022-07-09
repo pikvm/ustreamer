@@ -147,6 +147,19 @@ INLINE unsigned get_cores_available(void) {
 	return max_u(min_u(cores_sysconf, 4), 1);
 }
 
+INLINE void ld_to_timespec(long double ld, struct timespec *ts) {
+	ts->tv_sec = (long)ld;
+	ts->tv_nsec = (ld - ts->tv_sec) * 1000000000L;
+	if (ts->tv_nsec > 999999999L) {
+		ts->tv_sec += 1;
+		ts->tv_nsec = 0;
+	}
+}
+
+INLINE long double timespec_to_ld(const struct timespec *ts) {
+	return ts->tv_sec + ((long double)ts->tv_nsec) / 1000000000;
+}
+
 INLINE int flock_timedwait_monotonic(int fd, long double timeout) {
 	long double deadline_ts = get_now_monotonic() + timeout;
 	int retval = -1;
