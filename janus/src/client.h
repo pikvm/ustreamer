@@ -22,46 +22,39 @@
 
 #pragma once
 
-#include <errno.h>
-#include <time.h>
-#include <assert.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdatomic.h>
+#include <string.h>
 
 #include <pthread.h>
+#include <janus/plugins/plugin.h>
 
 #include "uslibs/tools.h"
 #include "uslibs/threading.h"
+#include "uslibs/list.h"
+
+#include "queue.h"
+#include "rtp.h"
 
 
-// Based on https://github.com/seifzadeh/c-pthread-queue/blob/master/queue.h
+typedef struct client_sx {
+	janus_callbacks			*gw;
+    janus_plugin_session	*session;
+    atomic_bool				transmit;
 
-typedef struct {
-	void			**items;
-	unsigned		size;
-	unsigned		capacity;
-	unsigned		in;
-	unsigned		out;
+	pthread_t	video_tid;
+	pthread_t	audio_tid;
+	atomic_bool	stop;
 
-	pthread_mutex_t	mutex;
-	pthread_cond_t	full_cond;
-	pthread_cond_t	empty_cond;
-} queue_s;
+	queue_s		*video_queue;
+	queue_s		*audio_queue;
 
-
-#define QUEUE_FREE_ITEMS_AND_DESTROY(_queue, _free_item) { \
-		while (!queue_get_free(_queue)) { \
-			void *_ptr; \
-			assert(!queue_get(_queue, &_ptr, 0.1)); \
-			if (_ptr != NULL) { \
-				_free_item(_ptr); \
-			} \
-		} \
-		queue_destroy(_queue); \
-	}
+    LIST_STRUCT(struct client_sx);
+} client_s;
 
 
-queue_s *queue_init(unsigned capacity);
-void queue_destroy(queue_s *queue);
+client_s *client_init(janus_callbacks *gw, janus_plugin_session *session, bool has_audio);
+void client_destroy(client_s *client);
 
-int queue_put(queue_s *queue, void *item, long double timeout);
-int queue_get(queue_s *queue, void **item, long double timeout);
-int queue_get_free(queue_s *queue);
+void client_send(client_s *client, const rtp_s *rtp);

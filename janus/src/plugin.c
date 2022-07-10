@@ -44,20 +44,14 @@
 
 #include "const.h"
 #include "logging.h"
+#include "client.h"
 #include "audio.h"
 #include "tc358743.h"
+#include "rtp.h"
 #include "rtpv.h"
 #include "rtpa.h"
 #include "memsinkfd.h"
 #include "config.h"
-
-
-typedef struct _client_sx {
-	janus_plugin_session *session;
-	bool transmit;
-
-	LIST_STRUCT(struct _client_sx);
-} _client_s;
 
 
 static janus_plugin		*_g_plugin = NULL;
@@ -68,7 +62,7 @@ static char				*_g_tc358743_dev_path = NULL;
 
 const useconds_t		_g_watchers_polling = 100000;
 
-static _client_s		*_g_clients = NULL;
+static client_s			*_g_clients = NULL;
 static janus_callbacks	*_g_gw = NULL;
 static rtpv_s			*_g_rtpv = NULL;
 static rtpa_s			*_g_rtpa = NULL;
@@ -135,9 +129,7 @@ static void *_clients_video_thread(UNUSED void *arg) {
 				if (memsink_fd_get_frame(fd, mem, frame, &frame_id) != 0) {
 					goto close_memsink;
 				}
-				LOCK;
 				rtpv_wrap(_g_rtpv, frame);
-				UNLOCK;
 			} else if (result == -1) {
 				goto close_memsink;
 			}
@@ -205,9 +197,7 @@ static void *_clients_audio_thread(UNUSED void *arg) {
 			uint64_t pts;
 			int result = audio_get_encoded(audio, data, &size, &pts);
 			if (result == 0) {
-				LOCK;
 				rtpa_wrap(_g_rtpa, data, size, pts);
-				UNLOCK;
 			} else if (result == -1) {
 				goto close_audio;
 			}
@@ -225,16 +215,11 @@ static void *_clients_audio_thread(UNUSED void *arg) {
 #undef IF_NOT_REPORTED
 
 static void _relay_rtp_clients(const rtp_s *rtp) {
-	janus_plugin_rtp packet = {0};
-	packet.video = rtp->video;
-	packet.buffer = (char *)rtp->datagram;
-	packet.length = rtp->used;
-	janus_plugin_rtp_extensions_reset(&packet.extensions);
+	LOCK;
 	LIST_ITERATE(_g_clients, client, {
-		if (client->transmit) {
-			_g_gw->relay_rtp(client->session, &packet);
-		}
+		client_send(client, rtp);
 	});
+	UNLOCK;
 }
 
 static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
@@ -278,7 +263,7 @@ static void _plugin_destroy(void) {
 
 	LIST_ITERATE(_g_clients, client, {
 		LIST_REMOVE(_g_clients, client);
-		free(client);
+		client_destroy(client);
 	});
 	_g_clients = NULL;
 
@@ -298,10 +283,7 @@ static void _plugin_create_session(janus_plugin_session *session, int *err) {
 	IF_DISABLED({ *err = -1; return; });
 	LOCK;
 	JLOG_INFO("main", "Creating session %p ...", session);
-	_client_s *client;
-	A_CALLOC(client, 1);
-	client->session = session;
-	client->transmit = true;
+	client_s *client = client_init(_g_gw, session, (_g_audio_dev_name != NULL));
 	LIST_APPEND(_g_clients, client);
 	atomic_store(&_g_has_watchers, true);
 	UNLOCK;
@@ -316,10 +298,10 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 		if (client->session == session) {
 			JLOG_INFO("main", "Removing session %p ...", session);
 			LIST_REMOVE(_g_clients, client);
-			free(client);
+			client_destroy(client);
 			found = true;
 		} else {
-			has_watchers = (has_watchers || client->transmit);
+			has_watchers = (has_watchers || atomic_load(&client->transmit));
 		}
 	});
 	if (!found) {
@@ -351,11 +333,11 @@ static void _set_transmit(janus_plugin_session *session, UNUSED const char *msg,
 	bool has_watchers = false;
 	LIST_ITERATE(_g_clients, client, {
 		if (client->session == session) {
-			client->transmit = transmit;
+			atomic_store(&client->transmit, transmit);
 			// JLOG_INFO("main", "%s session %p", msg, session);
 			found = true;
 		}
-		has_watchers = (has_watchers || client->transmit);
+		has_watchers = (has_watchers || atomic_load(&client->transmit));
 	});
 	if (!found) {
 		JLOG_WARN("main", "No session %p", session);

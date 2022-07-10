@@ -60,7 +60,14 @@ void queue_destroy(queue_s *queue) {
 
 int queue_put(queue_s *queue, void *item, long double timeout) {
 	A_MUTEX_LOCK(&queue->mutex);
-	WAIT_OR_UNLOCK(queue->size == queue->capacity, &queue->full_cond);
+	if (timeout == 0) {
+		if (queue->size == queue->capacity) {
+			A_MUTEX_UNLOCK(&queue->mutex);
+			return -1;
+		}
+	} else {
+		WAIT_OR_UNLOCK(queue->size == queue->capacity, &queue->full_cond);
+	}
 	queue->items[queue->in] = item;
 	++queue->size;
 	++queue->in;
