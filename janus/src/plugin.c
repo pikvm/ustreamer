@@ -129,7 +129,9 @@ static void *_clients_video_thread(UNUSED void *arg) {
 				if (memsink_fd_get_frame(fd, mem, frame, &frame_id) != 0) {
 					goto close_memsink;
 				}
+				LOCK;
 				rtpv_wrap(_g_rtpv, frame);
+				UNLOCK;
 			} else if (result == -1) {
 				goto close_memsink;
 			}
@@ -197,7 +199,9 @@ static void *_clients_audio_thread(UNUSED void *arg) {
 			uint64_t pts;
 			int result = audio_get_encoded(audio, data, &size, &pts);
 			if (result == 0) {
+				LOCK;
 				rtpa_wrap(_g_rtpa, data, size, pts);
+				UNLOCK;
 			} else if (result == -1) {
 				goto close_audio;
 			}
@@ -215,11 +219,9 @@ static void *_clients_audio_thread(UNUSED void *arg) {
 #undef IF_NOT_REPORTED
 
 static void _relay_rtp_clients(const rtp_s *rtp) {
-	LOCK;
 	LIST_ITERATE(_g_clients, client, {
 		client_send(client, rtp);
 	});
-	UNLOCK;
 }
 
 static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
