@@ -193,7 +193,7 @@ static void *_pcm_thread(void *v_audio) {
 			_pcm_buffer_s *out;
 			A_CALLOC(out, 1);
 			memcpy(out->data, in, audio->pcm_size);
-			assert(!queue_put(audio->pcm_queue, out, 0.1));
+			assert(!queue_put(audio->pcm_queue, out, 0));
 		} else {
 			JLOG_ERROR("audio", "PCM queue is full");
 		}
@@ -238,9 +238,7 @@ static void *_encoder_thread(void *v_audio) {
 			// https://datatracker.ietf.org/doc/html/rfc7587#section-4.2
 			audio->pts += HZ_TO_FRAMES(ENCODER_INPUT_HZ);
 
-			if (queue_get_free(audio->enc_queue)) {
-				assert(!queue_put(audio->enc_queue, out, 0.1));
-			} else {
+			if (queue_put(audio->enc_queue, out, 0) != 0) {
 				JLOG_ERROR("audio", "OPUS encoder queue is full");
 				free(out);
 			}
