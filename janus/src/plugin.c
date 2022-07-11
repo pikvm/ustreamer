@@ -72,14 +72,22 @@ static atomic_bool		_g_video_tid_created = false;
 static pthread_t		_g_audio_tid;
 static atomic_bool		_g_audio_tid_created = false;
 
-static pthread_mutex_t	_g_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t	_g_video_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t	_g_audio_lock = PTHREAD_MUTEX_INITIALIZER;
 static atomic_bool		_g_ready = false;
 static atomic_bool		_g_stop = false;
 static atomic_bool		_g_has_watchers = false;
 
 
-#define LOCK			A_MUTEX_LOCK(&_g_lock)
-#define UNLOCK			A_MUTEX_UNLOCK(&_g_lock)
+#define LOCK_VIDEO		A_MUTEX_LOCK(&_g_video_lock)
+#define UNLOCK_VIDEO	A_MUTEX_UNLOCK(&_g_video_lock)
+
+#define LOCK_AUDIO		A_MUTEX_LOCK(&_g_audio_lock)
+#define UNLOCK_AUDIO	A_MUTEX_UNLOCK(&_g_audio_lock)
+
+#define LOCK_ALL		{ LOCK_VIDEO; LOCK_AUDIO; }
+#define UNLOCK_ALL		{ UNLOCK_AUDIO; UNLOCK_VIDEO; }
+
 #define READY			atomic_load(&_g_ready)
 #define STOP			atomic_load(&_g_stop)
 #define HAS_WATCHERS	atomic_load(&_g_has_watchers)
@@ -129,9 +137,9 @@ static void *_clients_video_thread(UNUSED void *arg) {
 				if (memsink_fd_get_frame(fd, mem, frame, &frame_id) != 0) {
 					goto close_memsink;
 				}
-				LOCK;
+				LOCK_VIDEO;
 				rtpv_wrap(_g_rtpv, frame);
-				UNLOCK;
+				UNLOCK_VIDEO;
 			} else if (result == -1) {
 				goto close_memsink;
 			}
@@ -199,9 +207,9 @@ static void *_clients_audio_thread(UNUSED void *arg) {
 			uint64_t pts;
 			int result = audio_get_encoded(audio, data, &size, &pts);
 			if (result == 0) {
-				LOCK;
+				LOCK_AUDIO;
 				rtpa_wrap(_g_rtpa, data, size, pts);
-				UNLOCK;
+				UNLOCK_AUDIO;
 			} else if (result == -1) {
 				goto close_audio;
 			}
@@ -283,17 +291,17 @@ static void _plugin_destroy(void) {
 
 static void _plugin_create_session(janus_plugin_session *session, int *err) {
 	IF_DISABLED({ *err = -1; return; });
-	LOCK;
+	LOCK_ALL;
 	JLOG_INFO("main", "Creating session %p ...", session);
 	client_s *client = client_init(_g_gw, session, (_g_audio_dev_name != NULL));
 	LIST_APPEND(_g_clients, client);
 	atomic_store(&_g_has_watchers, true);
-	UNLOCK;
+	UNLOCK_ALL;
 }
 
 static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 	IF_DISABLED({ *err = -1; return; });
-	LOCK;
+	LOCK_ALL;
 	bool found = false;
 	bool has_watchers = false;
 	LIST_ITERATE(_g_clients, client, {
@@ -311,26 +319,26 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 		*err = -2;
 	}
 	atomic_store(&_g_has_watchers, has_watchers);
-	UNLOCK;
+	UNLOCK_ALL;
 }
 
 static json_t *_plugin_query_session(janus_plugin_session *session) {
 	IF_DISABLED({ return NULL; });
 	json_t *info = NULL;
-	LOCK;
+	LOCK_ALL;
 	LIST_ITERATE(_g_clients, client, {
 		if (client->session == session) {
 			info = json_string("session_found");
 			break;
 		}
 	});
-	UNLOCK;
+	UNLOCK_ALL;
 	return info;
 }
 
 static void _set_transmit(janus_plugin_session *session, UNUSED const char *msg, bool transmit) {
 	IF_DISABLED({ return; });
-	LOCK;
+	LOCK_ALL;
 	bool found = false;
 	bool has_watchers = false;
 	LIST_ITERATE(_g_clients, client, {
@@ -345,7 +353,7 @@ static void _set_transmit(janus_plugin_session *session, UNUSED const char *msg,
 		JLOG_WARN("main", "No session %p", session);
 	}
 	atomic_store(&_g_has_watchers, has_watchers);
-	UNLOCK;
+	UNLOCK_ALL;
 }
 
 #undef IF_DISABLED
