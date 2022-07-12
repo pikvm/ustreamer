@@ -98,8 +98,8 @@ static atomic_bool		_g_has_watchers = false;
 		if (error_reported != _error_code) { __VA_ARGS__; error_reported = _error_code; } \
 	}
 
-static void *_clients_video_thread(UNUSED void *arg) {
-	A_THREAD_RENAME("us_v_clients");
+static void *_video_thread(UNUSED void *arg) {
+	A_THREAD_RENAME("us_video");
 	atomic_store(&_g_video_tid_created, true);
 	atomic_store(&_g_ready, true);
 
@@ -162,8 +162,8 @@ static void *_clients_video_thread(UNUSED void *arg) {
 	return NULL;
 }
 
-static void *_clients_audio_thread(UNUSED void *arg) {
-	A_THREAD_RENAME("us_a_clients");
+static void *_audio_thread(UNUSED void *arg) {
+	A_THREAD_RENAME("us_audio");
 	atomic_store(&_g_audio_tid_created, true);
 	assert(_g_audio_dev_name);
 	assert(_g_tc358743_dev_path);
@@ -255,9 +255,9 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	_g_rtpv = rtpv_init(_relay_rtp_clients);
 	if (_g_audio_dev_name) {
 		_g_rtpa = rtpa_init(_relay_rtp_clients);
-		A_THREAD_CREATE(&_g_audio_tid, _clients_audio_thread, NULL);
+		A_THREAD_CREATE(&_g_audio_tid, _audio_thread, NULL);
 	}
-	A_THREAD_CREATE(&_g_video_tid, _clients_video_thread, NULL);
+	A_THREAD_CREATE(&_g_video_tid, _video_thread, NULL);
 	return 0;
 }
 
