@@ -35,6 +35,13 @@ rtp_s *rtp_init(unsigned payload, bool video) {
 	return rtp;
 }
 
+rtp_s *rtp_dup(const rtp_s *rtp) {
+	rtp_s *new;
+	A_CALLOC(new, 1);
+	memcpy(new, rtp, sizeof(rtp_s));
+	return new;
+}
+
 void rtp_destroy(rtp_s *rtp) {
 	free(rtp);
 }

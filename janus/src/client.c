@@ -55,10 +55,10 @@ void client_destroy(client_s *client) {
 	}
 
 	A_THREAD_JOIN(client->video_tid);
-	QUEUE_FREE_ITEMS_AND_DESTROY(client->video_queue, free);
+	QUEUE_FREE_ITEMS_AND_DESTROY(client->video_queue, rtp_destroy);
 	if (client->audio_queue != NULL) {
 		A_THREAD_JOIN(client->audio_tid);
-		QUEUE_FREE_ITEMS_AND_DESTROY(client->audio_queue, free);
+		QUEUE_FREE_ITEMS_AND_DESTROY(client->audio_queue, rtp_destroy);
 	}
 	free(client);
 }
@@ -70,13 +70,11 @@ void client_send(client_s *client, const rtp_s *rtp) {
 	) {
 		return;
 	}
-	rtp_s *new;
-	A_CALLOC(new, 1);
-	memcpy(new, rtp, sizeof(rtp_s));
+	rtp_s *new = rtp_dup(rtp);
 	if (queue_put((new->video ? client->video_queue : client->audio_queue), new, 0) != 0) {
 		JLOG_ERROR("client", "Session %p %s queue is full",
 			client->session, (new->video ? "video" : "audio"));
-		free(new);
+		rtp_destroy(new);
 	}
 }
 
@@ -107,7 +105,7 @@ static void *_common_thread(void *v_client, bool video) {
 				janus_plugin_rtp_extensions_reset(&packet.extensions);
 				client->gw->relay_rtp(client->session, &packet);
 			}
-			free(rtp);
+			rtp_destroy(rtp);
 		}
 	}
 	return NULL;
