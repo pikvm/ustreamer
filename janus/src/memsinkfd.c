@@ -50,8 +50,9 @@ frame_s *memsink_fd_get_frame(int fd, memsink_shared_s *mem, uint64_t *frame_id)
 	frame_s *frame = frame_init();
 	frame_set_data(frame, mem->data, mem->used);
 	FRAME_COPY_META(mem, frame);
+	frame->extra1_ts = get_now_monotonic();
 	*frame_id = mem->id;
-	mem->last_client_ts = get_now_monotonic();
+	mem->last_client_ts = frame->extra1_ts;
 
 	bool ok = true;
 	if (frame->format != V4L2_PIX_FMT_H264) {

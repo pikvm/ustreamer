@@ -54,6 +54,10 @@ typedef struct {
 	long double	grab_ts;
 	long double	encode_begin_ts;
 	long double	encode_end_ts;
+
+	long double extra1_ts;
+	long double extra2_ts;
+	long double extra3_ts;
 } frame_s;
 
 
