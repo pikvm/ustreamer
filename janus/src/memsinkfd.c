@@ -46,19 +46,25 @@ int memsink_fd_wait_frame(int fd, memsink_shared_s* mem, uint64_t last_id) {
 	return -2;
 }
 
-int memsink_fd_get_frame(int fd, memsink_shared_s *mem, frame_s *frame, uint64_t *frame_id) {
+frame_s *memsink_fd_get_frame(int fd, memsink_shared_s *mem, uint64_t *frame_id) {
+	frame_s *frame = frame_init();
 	frame_set_data(frame, mem->data, mem->used);
 	FRAME_COPY_META(mem, frame);
 	*frame_id = mem->id;
 	mem->last_client_ts = get_now_monotonic();
-	int retval = 0;
+
+	bool ok = true;
 	if (frame->format != V4L2_PIX_FMT_H264) {
 		JLOG_ERROR("video", "Got non-H264 frame from memsink");
-		retval = -1;
+		ok = false;
 	}
 	if (flock(fd, LOCK_UN) < 0) {
 		JLOG_PERROR("video", "Can't unlock memsink");
-		retval = -1;
+		ok = false;
 	}
-	return retval;
+	if (!ok) {
+		frame_destroy(frame);
+		frame = NULL;
+	}
+	return frame;
 }

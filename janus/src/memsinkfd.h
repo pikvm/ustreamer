@@ -35,4 +35,4 @@
 
 
 int memsink_fd_wait_frame(int fd, memsink_shared_s* mem, uint64_t last_id);
-int memsink_fd_get_frame(int fd, memsink_shared_s *mem, frame_s *frame, uint64_t *frame_id);
+frame_s *memsink_fd_get_frame(int fd, memsink_shared_s *mem, uint64_t *frame_id);
