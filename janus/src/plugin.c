@@ -55,8 +55,6 @@
 #include "config.h"
 
 
-static janus_plugin		*_g_plugin = NULL;
-
 static char				*_g_video_sink_name = NULL;
 static char				*_g_audio_dev_name = NULL;
 static char				*_g_tc358743_dev_path = NULL;
@@ -95,6 +93,9 @@ static atomic_bool		_g_has_watchers = false;
 #define READY			atomic_load(&_g_ready)
 #define STOP			atomic_load(&_g_stop)
 #define HAS_WATCHERS	atomic_load(&_g_has_watchers)
+
+
+janus_plugin *create(void);
 
 
 #define IF_NOT_REPORTED(...) { \
@@ -401,7 +402,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 			json_object_set_new(_event, "ustreamer", json_string("event")); \
 			json_object_set_new(_event, "error_code", json_integer(_error)); \
 			json_object_set_new(_event, "error", json_string(_reason)); \
-			_g_gw->push_event(session, _g_plugin, transaction, _event, NULL); \
+			_g_gw->push_event(session, create(), transaction, _event, NULL); \
 			json_decref(_event); \
 		}
 
@@ -424,7 +425,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 			json_t *_result = json_object(); \
 			json_object_set_new(_result, "status", json_string(_status)); \
 			json_object_set_new(_event, "result", _result); \
-			_g_gw->push_event(session, _g_plugin, transaction, _event, _jsep); \
+			_g_gw->push_event(session, create(), transaction, _event, _jsep); \
 			json_decref(_event); \
 		}
 
@@ -487,34 +488,32 @@ static void _plugin_incoming_rtp(UNUSED janus_plugin_session *handle, UNUSED jan
 	// Just a stub to avoid logging spam about the plugin's purpose
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Woverride-init"
-static janus_plugin _plugin = JANUS_PLUGIN_INIT(
-	.init = _plugin_init,
-	.destroy = _plugin_destroy,
+janus_plugin *create(void) {
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Woverride-init"
+	static janus_plugin plugin = JANUS_PLUGIN_INIT(
+		.init = _plugin_init,
+		.destroy = _plugin_destroy,
 
-	.create_session = _plugin_create_session,
-	.destroy_session = _plugin_destroy_session,
-	.query_session = _plugin_query_session,
+		.create_session = _plugin_create_session,
+		.destroy_session = _plugin_destroy_session,
+		.query_session = _plugin_query_session,
 
-	.setup_media = _plugin_setup_media,
-	.hangup_media = _plugin_hangup_media,
+		.setup_media = _plugin_setup_media,
+		.hangup_media = _plugin_hangup_media,
 
-	.handle_message = _plugin_handle_message,
+		.handle_message = _plugin_handle_message,
 
-	.get_api_compatibility = _plugin_get_api_compatibility,
-	.get_version = _plugin_get_version,
-	.get_version_string = _plugin_get_version_string,
-	.get_description = _plugin_get_description,
-	.get_name = _plugin_get_name,
-	.get_author = _plugin_get_author,
-	.get_package = _plugin_get_package,
+		.get_api_compatibility = _plugin_get_api_compatibility,
+		.get_version = _plugin_get_version,
+		.get_version_string = _plugin_get_version_string,
+		.get_description = _plugin_get_description,
+		.get_name = _plugin_get_name,
+		.get_author = _plugin_get_author,
+		.get_package = _plugin_get_package,
 
-	.incoming_rtp = _plugin_incoming_rtp,
-);
-#pragma GCC diagnostic pop
-
-janus_plugin *create(void) { // cppcheck-suppress unusedFunction
-	_g_plugin = &_plugin;
-	return _g_plugin;
+		.incoming_rtp = _plugin_incoming_rtp,
+	);
+#	pragma GCC diagnostic pop
+	return &plugin;
 }
