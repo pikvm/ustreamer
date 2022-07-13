@@ -121,7 +121,6 @@ static void *_video_rtp_thread(UNUSED void *arg) {
 static void *_video_sink_thread(UNUSED void *arg) {
 	A_THREAD_RENAME("us_video_sink");
 	atomic_store(&_g_video_sink_tid_created, true);
-	atomic_store(&_g_ready, true);
 
 	uint64_t frame_id = 0;
 	unsigned error_reported = 0;
@@ -275,6 +274,8 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	}
 	A_THREAD_CREATE(&_g_video_rtp_tid, _video_rtp_thread, NULL);
 	A_THREAD_CREATE(&_g_video_sink_tid, _video_sink_thread, NULL);
+
+	atomic_store(&_g_ready, true);
 	return 0;
 }
 
