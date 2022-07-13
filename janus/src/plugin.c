@@ -110,17 +110,9 @@ static void *_video_rtp_thread(UNUSED void *arg) {
 	while (!STOP) {
 		frame_s *frame;
 		if (queue_get(_g_video_queue, (void **)&frame, 0.1) == 0) {
-			frame->extra2_ts = get_now_monotonic();
 			LOCK_VIDEO;
 			rtpv_wrap(_g_rtpv, frame);
 			UNLOCK_VIDEO;
-			frame->extra3_ts = get_now_monotonic();
-			JLOG_INFO("video",
-				"grab_ts=%Lf, encode_begin_ts=%Lf, encode_end_ts=%Lf,"
-				" memsink_ts=%Lf, rtp_begin_ts=%Lf, rtp_end_ts=%Lf, latency=%Lf",
-				frame->grab_ts, frame->encode_begin_ts, frame->encode_end_ts,
-				frame->extra1_ts, frame->extra2_ts, frame->extra3_ts,
-				(frame->extra3_ts - frame->encode_begin_ts));
 			frame_destroy(frame);
 		}
 	}
