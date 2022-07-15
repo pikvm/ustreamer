@@ -103,6 +103,10 @@ static void *_common_thread(void *v_client, bool video) {
 				packet.buffer = (char *)rtp->datagram;
 				packet.length = rtp->used;
 				janus_plugin_rtp_extensions_reset(&packet.extensions);
+				if (video) {
+					packet.extensions.min_delay = 0;
+					packet.extensions.max_delay = 0;
+				}
 				client->gw->relay_rtp(client->session, &packet);
 			}
 			rtp_destroy(rtp);

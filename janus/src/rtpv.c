@@ -81,6 +81,7 @@ char *rtpv_make_sdp(rtpv_s *rtpv) {
 		"a=rtcp-fb:%u nack pli" RN
 		"a=rtcp-fb:%u goog-remb" RN
 		"a=ssrc:%" PRIu32 " cname:ustreamer" RN
+		"a=extmap:1 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay" RN
 		"a=sendonly" RN,
 		PAYLOAD, PAYLOAD, PAYLOAD, PAYLOAD,
 		PAYLOAD, sps,
