@@ -34,4 +34,13 @@
 #include "logging.h"
 
 
-int read_config(const char *config_dir_path, char **video_sink_name, char **audio_dev_name, char **tc358743_dev_path);
+typedef struct {
+	char	*video_sink_name;
+	char	*audio_dev_name;
+	char	*tc358743_dev_path;
+} plugin_config_s;
+
+
+// config_init() conflicts with something
+plugin_config_s *plugin_config_init(const char *config_dir_path);
+void plugin_config_destroy(plugin_config_s *config);

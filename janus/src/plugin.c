@@ -55,10 +55,7 @@
 #include "config.h"
 
 
-static char				*_g_video_sink_name = NULL;
-static char				*_g_audio_dev_name = NULL;
-static char				*_g_tc358743_dev_path = NULL;
-
+static plugin_config_s	*_g_config = NULL;
 const useconds_t		_g_watchers_polling = 100000;
 
 static client_s			*_g_clients = NULL;
@@ -136,7 +133,7 @@ static void *_video_sink_thread(UNUSED void *arg) {
 		int fd = -1;
 		memsink_shared_s *mem = NULL;
 
-		if ((fd = shm_open(_g_video_sink_name, O_RDWR, 0)) <= 0) {
+		if ((fd = shm_open(_g_config->video_sink_name, O_RDWR, 0)) <= 0) {
 			IF_NOT_REPORTED({ JLOG_PERROR("video", "Can't open memsink"); });
 			goto close_memsink;
 		}
@@ -183,8 +180,8 @@ static void *_video_sink_thread(UNUSED void *arg) {
 static void *_audio_thread(UNUSED void *arg) {
 	A_THREAD_RENAME("us_audio");
 	atomic_store(&_g_audio_tid_created, true);
-	assert(_g_audio_dev_name);
-	assert(_g_tc358743_dev_path);
+	assert(_g_config->audio_dev_name);
+	assert(_g_config->tc358743_dev_path);
 
 	unsigned error_reported = 0;
 
@@ -197,7 +194,7 @@ static void *_audio_thread(UNUSED void *arg) {
 		tc358743_info_s info = {0};
 		audio_s *audio = NULL;
 
-		if (tc358743_read_info(_g_tc358743_dev_path, &info) < 0) {
+		if (tc358743_read_info(_g_config->tc358743_dev_path, &info) < 0) {
 			goto close_audio;
 		}
 		if (!info.has_audio) {
@@ -205,7 +202,7 @@ static void *_audio_thread(UNUSED void *arg) {
 			goto close_audio;
 		}
 		IF_NOT_REPORTED({ JLOG_INFO("audio", "Detected host audio"); });
-		if ((audio = audio_init(_g_audio_dev_name, info.audio_hz)) == NULL) {
+		if ((audio = audio_init(_g_config->audio_dev_name, info.audio_hz)) == NULL) {
 			goto close_audio;
 		}
 
@@ -213,7 +210,7 @@ static void *_audio_thread(UNUSED void *arg) {
 
 		while (!STOP && HAS_WATCHERS) {
 			if (
-				tc358743_read_info(_g_tc358743_dev_path, &info) < 0
+				tc358743_read_info(_g_config->tc358743_dev_path, &info) < 0
 				|| !info.has_audio
 				|| audio->pcm_hz != info.audio_hz
 			) {
@@ -258,18 +255,14 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	// sysctl -w net.core.wmem_max=1000000
 
 	JLOG_INFO("main", "Initializing plugin ...");
-	if (gw == NULL || config_dir_path == NULL || read_config(config_dir_path,
-		&_g_video_sink_name,
-		&_g_audio_dev_name,
-		&_g_tc358743_dev_path
-	) < 0) {
+	if (gw == NULL || config_dir_path == NULL || ((_g_config = plugin_config_init(config_dir_path)) == NULL)) {
 		return -1;
 	}
 	_g_gw = gw;
 
 	_g_video_queue = queue_init(1024);
 	_g_rtpv = rtpv_init(_relay_rtp_clients);
-	if (_g_audio_dev_name) {
+	if (_g_config->audio_dev_name) {
 		_g_rtpa = rtpa_init(_relay_rtp_clients);
 		A_THREAD_CREATE(&_g_audio_tid, _audio_thread, NULL);
 	}
@@ -297,13 +290,9 @@ static void _plugin_destroy(void) {
 
 	QUEUE_FREE_ITEMS_AND_DESTROY(_g_video_queue, frame_destroy);
 
-#	define DEL(_func, _var) { if (_var) { _func(_var); } }
-	DEL(rtpa_destroy, _g_rtpa);
-	DEL(rtpv_destroy, _g_rtpv);
-	DEL(free, _g_tc358743_dev_path);
-	DEL(free, _g_audio_dev_name);
-	DEL(free, _g_video_sink_name);
-#	undef DEL
+	DELETE(_g_rtpa, rtpa_destroy);
+	DELETE(_g_rtpv, rtpv_destroy);
+	DELETE(_g_config, plugin_config_destroy);
 }
 
 #define IF_DISABLED(...) { if (!READY || STOP) { __VA_ARGS__ } }
@@ -312,7 +301,7 @@ static void _plugin_create_session(janus_plugin_session *session, int *err) {
 	IF_DISABLED({ *err = -1; return; });
 	LOCK_ALL;
 	JLOG_INFO("main", "Creating session %p ...", session);
-	client_s *client = client_init(_g_gw, session, (_g_audio_dev_name != NULL));
+	client_s *client = client_init(_g_gw, session, (_g_config->audio_dev_name != NULL));
 	LIST_APPEND(_g_clients, client);
 	atomic_store(&_g_has_watchers, true);
 	UNLOCK_ALL;

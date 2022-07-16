@@ -55,6 +55,7 @@
 
 #define A_CALLOC(_dest, _nmemb)		assert((_dest = calloc(_nmemb, sizeof(*(_dest)))))
 #define A_REALLOC(_dest, _nmemb)	assert((_dest = realloc(_dest, _nmemb * sizeof(*(_dest)))))
+#define DELETE(_dest, _free)		{ if (_dest) { _free(_dest); } }
 #define MEMSET_ZERO(_obj)			memset(&(_obj), 0, sizeof(_obj))
 
 #define A_ASPRINTF(_dest, _fmt, ...) assert(asprintf(&(_dest), _fmt, ##__VA_ARGS__) >= 0)
