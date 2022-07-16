@@ -48,14 +48,16 @@ typedef struct {
 
 
 #define QUEUE_FREE_ITEMS_AND_DESTROY(_queue, _free_item) { \
-		while (!queue_get_free(_queue)) { \
-			void *_ptr; \
-			assert(!queue_get(_queue, &_ptr, 0.1)); \
-			if (_ptr != NULL) { \
-				_free_item(_ptr); \
+		if (_queue) { \
+			while (!queue_get_free(_queue)) { \
+				void *_ptr; \
+				assert(!queue_get(_queue, &_ptr, 0.1)); \
+				if (_ptr != NULL) { \
+					_free_item(_ptr); \
+				} \
 			} \
+			queue_destroy(_queue); \
 		} \
-		queue_destroy(_queue); \
 	}
 
 
