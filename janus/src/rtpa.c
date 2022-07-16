@@ -26,7 +26,7 @@
 rtpa_s *rtpa_init(rtp_callback_f callback) {
 	rtpa_s *rtpa;
 	A_CALLOC(rtpa, 1);
-	rtpa->rtp = rtp_init(111, false);
+	rtpa->rtp = rtp_init(111, false, false);
 	rtpa->callback = callback;
 	return rtpa;
 }

@@ -24,6 +24,7 @@
 
 
 static char *_get_value(janus_config *jcfg, const char *section, const char *option);
+static bool _get_bool(janus_config *jcfg, const char *section, const char *option, bool def);
 
 
 plugin_config_s *plugin_config_init(const char *config_dir_path) {
@@ -49,6 +50,9 @@ plugin_config_s *plugin_config_init(const char *config_dir_path) {
 	) {
 		JLOG_ERROR("config", "Missing config value: video.sink (ex. memsink.object)");
 		goto error;
+	}
+	if ((config->video_zero_playout_delay = _get_bool(jcfg, "video", "zero_playout_delay", false)) == true) {
+		JLOG_INFO("config", "Enabled the experimental Playout-Delay=0 RTP extension for VIDEO");
 	}
 	if ((config->audio_dev_name = _get_value(jcfg, "audio", "device")) != NULL) {
 		JLOG_INFO("config", "Enabled the experimental AUDIO feature");
@@ -84,4 +88,14 @@ static char *_get_value(janus_config *jcfg, const char *section, const char *opt
 		return NULL;
 	}
 	return strdup(option_obj->value);
+}
+
+static bool _get_bool(janus_config *jcfg, const char *section, const char *option, bool def) {
+	char *tmp = _get_value(jcfg, section, option);
+	bool value = def;
+	if (tmp != NULL) {
+		value = (!strcasecmp(tmp, "1") || !strcasecmp(tmp, "true") || !strcasecmp(tmp, "yes"));
+		free(tmp);
+	}
+	return value;
 }

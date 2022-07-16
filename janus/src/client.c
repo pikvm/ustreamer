@@ -103,14 +103,13 @@ static void *_common_thread(void *v_client, bool video) {
 				packet.buffer = (char *)rtp->datagram;
 				packet.length = rtp->used;
 				janus_plugin_rtp_extensions_reset(&packet.extensions);
-				// FIXME: See rtpv.c
-				// Это очень эффективный способ уменьшить задержку, но WebRTC стек в хроме и фоксе
-				// слишком корявый, чтобы обработать это, тз-за чего на кейфреймах начинаются заикания.
+				// FIXME: Это очень эффективный способ уменьшить задержку, но WebRTC стек в хроме и фоксе
+				// слишком корявый, чтобы обработать это, из-за чего на кейфреймах начинаются заикания.
 				//   - https://github.com/Glimesh/janus-ftl-plugin/issues/101
-				/*if (video) {
+				if (rtp->zero_playout_delay) {
 					packet.extensions.min_delay = 0;
 					packet.extensions.max_delay = 0;
-				}*/
+				}
 				client->gw->relay_rtp(client->session, &packet);
 			}
 			rtp_destroy(rtp);

@@ -261,7 +261,7 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	_g_gw = gw;
 
 	_g_video_queue = queue_init(1024);
-	_g_rtpv = rtpv_init(_relay_rtp_clients);
+	_g_rtpv = rtpv_init(_relay_rtp_clients, _g_config->video_zero_playout_delay);
 	if (_g_config->audio_dev_name) {
 		_g_rtpa = rtpa_init(_relay_rtp_clients);
 		A_THREAD_CREATE(&_g_audio_tid, _audio_thread, NULL);

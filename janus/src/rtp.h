@@ -39,6 +39,7 @@
 typedef struct {
 	unsigned	payload;
 	bool		video;
+	bool		zero_playout_delay;
 	uint32_t	ssrc;
 
 	uint16_t	seq;
@@ -49,7 +50,7 @@ typedef struct {
 typedef void (*rtp_callback_f)(const rtp_s *rtp);
 
 
-rtp_s *rtp_init(unsigned payload, bool video);
+rtp_s *rtp_init(unsigned payload, bool video, bool zero_playout_delay);
 rtp_s *rtp_dup(const rtp_s *rtp);
 void rtp_destroy(rtp_s *rtp);
 

@@ -26,11 +26,12 @@
 #include "rtp.h"
 
 
-rtp_s *rtp_init(unsigned payload, bool video) {
+rtp_s *rtp_init(unsigned payload, bool video, bool zero_playout_delay) {
 	rtp_s *rtp;
 	A_CALLOC(rtp, 1);
 	rtp->payload = payload;
 	rtp->video = video;
+	rtp->zero_playout_delay = zero_playout_delay; // See client.c
 	rtp->ssrc = triple_u32(get_now_monotonic_u64());
 	return rtp;
 }

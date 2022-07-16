@@ -31,10 +31,10 @@ void _rtpv_process_nalu(rtpv_s *rtpv, const uint8_t *data, size_t size, uint32_t
 static ssize_t _find_annexb(const uint8_t *data, size_t size);
 
 
-rtpv_s *rtpv_init(rtp_callback_f callback) {
+rtpv_s *rtpv_init(rtp_callback_f callback, bool zero_playout_delay) {
 	rtpv_s *rtpv;
 	A_CALLOC(rtpv, 1);
-	rtpv->rtp = rtp_init(96, true);
+	rtpv->rtp = rtp_init(96, true, zero_playout_delay);
 	rtpv->callback = callback;
 	rtpv->sps = frame_init();
 	rtpv->pps = frame_init();
@@ -81,14 +81,14 @@ char *rtpv_make_sdp(rtpv_s *rtpv) {
 		"a=rtcp-fb:%u nack pli" RN
 		"a=rtcp-fb:%u goog-remb" RN
 		"a=ssrc:%" PRIu32 " cname:ustreamer" RN
-		// XXX: See client.c
-		// "a=extmap:1 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay" RN
+		"%s" // playout-delay
 		"a=sendonly" RN,
 		PAYLOAD, PAYLOAD, PAYLOAD, PAYLOAD,
 		PAYLOAD, sps,
 		PAYLOAD, pps,
 		PAYLOAD, PAYLOAD, PAYLOAD,
-		rtpv->rtp->ssrc
+		rtpv->rtp->ssrc,
+		(rtpv->rtp->zero_playout_delay ? "a=extmap:1 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay" RN : "")
 	);
 #	undef PAYLOAD
 

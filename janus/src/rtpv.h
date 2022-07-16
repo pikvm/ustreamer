@@ -50,7 +50,7 @@ typedef struct {
 } rtpv_s;
 
 
-rtpv_s *rtpv_init(rtp_callback_f callback);
+rtpv_s *rtpv_init(rtp_callback_f callback, bool zero_playout_delay);
 void rtpv_destroy(rtpv_s *rtpv);
 
 char *rtpv_make_sdp(rtpv_s *rtpv);
