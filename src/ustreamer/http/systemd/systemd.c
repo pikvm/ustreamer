@@ -23,10 +23,10 @@
 #include "systemd.h"
 
 
-evutil_socket_t evhttp_my_bind_systemd(struct evhttp *http) {
+evutil_socket_t us_evhttp_bind_systemd(struct evhttp *http) {
 	int fds = sd_listen_fds(1);
 	if (fds < 1) {
-		LOG_ERROR("No available systemd sockets");
+		US_LOG_ERROR("No available systemd sockets");
 		return -1;
 	}
 
@@ -39,7 +39,7 @@ evutil_socket_t evhttp_my_bind_systemd(struct evhttp *http) {
 	assert(!evutil_make_socket_nonblocking(fd));
 
 	if (evhttp_accept_socket(http, fd) < 0) {
-		LOG_PERROR("Can't evhttp_accept_socket() systemd socket");
+		US_LOG_PERROR("Can't evhttp_accept_socket() systemd socket");
 		return -1;
 	}
 	return fd;

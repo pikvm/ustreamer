@@ -34,5 +34,5 @@
 #include "logging.h"
 
 
-int memsink_fd_wait_frame(int fd, memsink_shared_s* mem, uint64_t last_id);
-frame_s *memsink_fd_get_frame(int fd, memsink_shared_s *mem, uint64_t *frame_id);
+int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s* mem, uint64_t last_id);
+us_frame_s *us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, uint64_t *frame_id);

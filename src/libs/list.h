@@ -25,47 +25,47 @@
 #include <assert.h>
 
 
-#define LIST_STRUCT(...) \
+#define US_LIST_STRUCT(...) \
 	__VA_ARGS__ *prev; \
 	__VA_ARGS__ *next;
 
-#define LIST_ITERATE(_first, _item, ...) { \
-		for (__typeof__(_first) _item = _first; _item;) { \
-			__typeof__(_first) _next = _item->next; \
+#define US_LIST_ITERATE(x_first, x_item, ...) { \
+		for (__typeof__(x_first) x_item = x_first; x_item;) { \
+			__typeof__(x_first) m_next = x_item->next; \
 			__VA_ARGS__ \
-			_item = _next; \
+			x_item = m_next; \
 		} \
 	}
 
-#define LIST_APPEND(_first, _item) { \
-		if (_first == NULL) { \
-			_first = _item; \
+#define US_LIST_APPEND(x_first, x_item) { \
+		if (x_first == NULL) { \
+			x_first = x_item; \
 		} else { \
-			__typeof__(_first) _last = _first; \
-			for (; _last->next; _last = _last->next); \
-			_item->prev = _last; \
-			_last->next = _item; \
+			__typeof__(x_first) m_last = x_first; \
+			for (; m_last->next; m_last = m_last->next); \
+			x_item->prev = m_last; \
+			m_last->next = x_item; \
 		} \
 	}
 
-#define LIST_APPEND_C(_first, _item, _count) { \
-		LIST_APPEND(_first, _item); \
-		++(_count); \
+#define US_LIST_APPEND_C(x_first, x_item, x_count) { \
+		US_LIST_APPEND(x_first, x_item); \
+		++(x_count); \
 	}
 
-#define LIST_REMOVE(_first, _item) { \
-		if (_item->prev == NULL) { \
-			_first = _item->next; \
+#define US_LIST_REMOVE(x_first, x_item) { \
+		if (x_item->prev == NULL) { \
+			x_first = x_item->next; \
 		} else { \
-			_item->prev->next = _item->next; \
+			x_item->prev->next = x_item->next; \
 		} \
-		if (_item->next != NULL) { \
-			_item->next->prev = _item->prev; \
+		if (x_item->next != NULL) { \
+			x_item->next->prev = x_item->prev; \
 		} \
 	}
 
-#define LIST_REMOVE_C(_first, _item, _count) { \
-		LIST_REMOVE(_first, _item); \
-		assert((_count) >= 1); \
-		--(_count); \
+#define US_LIST_REMOVE_C(x_first, x_item, x_count) { \
+		US_LIST_REMOVE(x_first, x_item); \
+		assert((x_count) >= 1); \
+		--(x_count); \
 	}

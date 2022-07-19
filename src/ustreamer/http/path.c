@@ -23,7 +23,7 @@
 #include "path.h"
 
 
-char *simplify_request_path(const char *str) {
+char *us_simplify_request_path(const char *str) {
 	// Based on Lighttpd sources:
 	//   - https://github.com/lighttpd/lighttpd1.4/blob/b31e7840d5403bc640579135b7004793b9ccd6c0/src/buffer.c#L840
 	//   - https://github.com/lighttpd/lighttpd1.4/blob/77c01f981725512653c01cde5ca74c11633dfec4/src/t/test_buffer.c
@@ -36,7 +36,7 @@ char *simplify_request_path(const char *str) {
 	char *out;
 	char *slash;
 
-	A_CALLOC(simplified, strlen(str) + 1);
+	US_CALLOC(simplified, strlen(str) + 1);
 
 	if (str[0] == '\0') {
 		simplified[0] = '\0';
@@ -112,7 +112,7 @@ char *simplify_request_path(const char *str) {
 #ifdef TEST_HTTP_PATH
 
 int test_simplify_request_path(const char *sample, const char *expected) {
-	char *result = simplify_request_path(sample);
+	char *result = us_simplify_request_path(sample);
 	int retval = -!!strcmp(result, expected);
 
 	printf("Testing '%s' -> '%s' ... ", sample, expected);

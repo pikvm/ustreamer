@@ -23,7 +23,7 @@
 #include "uri.h"
 
 
-bool uri_get_true(struct evkeyvalq *params, const char *key) {
+bool us_uri_get_true(struct evkeyvalq *params, const char *key) {
 	const char *value_str = evhttp_find_header(params, key);
 	if (value_str != NULL) {
 		if (
@@ -37,7 +37,7 @@ bool uri_get_true(struct evkeyvalq *params, const char *key) {
 	return false;
 }
 
-char *uri_get_string(struct evkeyvalq *params, const char *key) {
+char *us_uri_get_string(struct evkeyvalq *params, const char *key) {
 	const char *value_str = evhttp_find_header(params, key);
 	if (value_str != NULL) {
 		return evhttp_encode_uri(value_str);

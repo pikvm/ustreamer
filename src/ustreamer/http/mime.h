@@ -29,4 +29,4 @@
 #include "../../libs/tools.h"
 
 
-const char *guess_mime_type(const char *str);
+const char *us_guess_mime_type(const char *str);

@@ -28,53 +28,53 @@ static void *_audio_thread(void *v_client);
 static void *_common_thread(void *v_client, bool video);
 
 
-client_s *client_init(janus_callbacks *gw, janus_plugin_session *session, bool has_audio) {
-	client_s *client;
-	A_CALLOC(client, 1);
+us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_session *session, bool has_audio) {
+	us_janus_client_s *client;
+	US_CALLOC(client, 1);
 	client->gw = gw;
 	client->session = session;
 	atomic_init(&client->transmit, true);
 
 	atomic_init(&client->stop, false);
 
-	client->video_queue = queue_init(1024);
-	A_THREAD_CREATE(&client->video_tid, _video_thread, client);
+	client->video_queue = us_queue_init(1024);
+	US_THREAD_CREATE(&client->video_tid, _video_thread, client);
 
 	if (has_audio) {
-		client->audio_queue = queue_init(64);
-		A_THREAD_CREATE(&client->audio_tid, _audio_thread, client);
+		client->audio_queue = us_queue_init(64);
+		US_THREAD_CREATE(&client->audio_tid, _audio_thread, client);
 	}
 	return client;
 }
 
-void client_destroy(client_s *client) {
+void us_janus_client_destroy(us_janus_client_s *client) {
 	atomic_store(&client->stop, true);
-	queue_put(client->video_queue, NULL, 0);
+	us_queue_put(client->video_queue, NULL, 0);
 	if (client->audio_queue != NULL) {
-		queue_put(client->audio_queue, NULL, 0);
+		us_queue_put(client->audio_queue, NULL, 0);
 	}
 
-	A_THREAD_JOIN(client->video_tid);
-	QUEUE_FREE_ITEMS_AND_DESTROY(client->video_queue, rtp_destroy);
+	US_THREAD_JOIN(client->video_tid);
+	US_QUEUE_FREE_ITEMS_AND_DESTROY(client->video_queue, us_rtp_destroy);
 	if (client->audio_queue != NULL) {
-		A_THREAD_JOIN(client->audio_tid);
-		QUEUE_FREE_ITEMS_AND_DESTROY(client->audio_queue, rtp_destroy);
+		US_THREAD_JOIN(client->audio_tid);
+		US_QUEUE_FREE_ITEMS_AND_DESTROY(client->audio_queue, us_rtp_destroy);
 	}
 	free(client);
 }
 
-void client_send(client_s *client, const rtp_s *rtp) {
+void us_janus_client_send(us_janus_client_s *client, const us_rtp_s *rtp) {
 	if (
 		!atomic_load(&client->transmit)
 		|| (!rtp->video && client->audio_queue == NULL)
 	) {
 		return;
 	}
-	rtp_s *new = rtp_dup(rtp);
-	if (queue_put((new->video ? client->video_queue : client->audio_queue), new, 0) != 0) {
-		JLOG_ERROR("client", "Session %p %s queue is full",
+	us_rtp_s *new = us_rtp_dup(rtp);
+	if (us_queue_put((new->video ? client->video_queue : client->audio_queue), new, 0) != 0) {
+		US_JLOG_ERROR("client", "Session %p %s queue is full",
 			client->session, (new->video ? "video" : "audio"));
-		rtp_destroy(new);
+		us_rtp_destroy(new);
 	}
 }
 
@@ -87,13 +87,13 @@ static void *_audio_thread(void *v_client) {
 }
 
 static void *_common_thread(void *v_client, bool video) {
-	client_s *client = (client_s *)v_client;
-	queue_s *queue = (video ? client->video_queue : client->audio_queue);
+	us_janus_client_s *client = (us_janus_client_s *)v_client;
+	us_queue_s *queue = (video ? client->video_queue : client->audio_queue);
 	assert(queue != NULL); // Audio may be NULL
 
 	while (!atomic_load(&client->stop)) {
-		rtp_s *rtp;
-		if (!queue_get(queue, (void **)&rtp, 0.1)) {
+		us_rtp_s *rtp;
+		if (!us_queue_get(queue, (void **)&rtp, 0.1)) {
 			if (rtp == NULL) {
 				break;
 			}
@@ -112,7 +112,7 @@ static void *_common_thread(void *v_client, bool video) {
 				}
 				client->gw->relay_rtp(client->session, &packet);
 			}
-			rtp_destroy(rtp);
+			us_rtp_destroy(rtp);
 		}
 	}
 	return NULL;

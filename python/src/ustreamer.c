@@ -27,21 +27,21 @@ typedef struct {
 	double	drop_same_frames;
 
 	int					fd;
-	memsink_shared_s	*mem;
+	us_memsink_shared_s	*mem;
 
 	uint64_t	frame_id;
 	long double	frame_ts;
-	frame_s		*frame;
-} MemsinkObject;
+	us_frame_s		*frame;
+} _MemsinkObject;
 
 
-#define MEM(_next)		self->mem->_next
-#define FRAME(_next)	self->frame->_next
+#define _MEM(_next)		self->mem->_next
+#define _FRAME(_next)	self->frame->_next
 
 
-static void MemsinkObject_destroy_internals(MemsinkObject *self) {
+static void _MemsinkObject_destroy_internals(_MemsinkObject *self) {
 	if (self->mem != NULL) {
-		memsink_shared_unmap(self->mem);
+		us_memsink_shared_unmap(self->mem);
 		self->mem = NULL;
 	}
 	if (self->fd > 0) {
@@ -49,12 +49,12 @@ static void MemsinkObject_destroy_internals(MemsinkObject *self) {
 		self->fd = -1;
 	}
 	if (self->frame) {
-		frame_destroy(self->frame);
+		us_frame_destroy(self->frame);
 		self->frame = NULL;
 	}
 }
 
-static int MemsinkObject_init(MemsinkObject *self, PyObject *args, PyObject *kwargs) {
+static int _MemsinkObject_init(_MemsinkObject *self, PyObject *args, PyObject *kwargs) {
 	self->lock_timeout = 1;
 	self->wait_timeout = 1;
 
@@ -78,14 +78,14 @@ static int MemsinkObject_init(MemsinkObject *self, PyObject *args, PyObject *kwa
 
 #	undef SET_DOUBLE
 
-	self->frame = frame_init();
+	self->frame = us_frame_init();
 
 	if ((self->fd = shm_open(self->obj, O_RDWR, 0)) == -1) {
 		PyErr_SetFromErrno(PyExc_OSError);
 		goto error;
 	}
 
-	if ((self->mem = memsink_shared_map(self->fd)) == NULL) {
+	if ((self->mem = us_memsink_shared_map(self->fd)) == NULL) {
 		PyErr_SetFromErrno(PyExc_OSError);
 		goto error;
 	}
@@ -93,37 +93,37 @@ static int MemsinkObject_init(MemsinkObject *self, PyObject *args, PyObject *kwa
 	return 0;
 
 	error:
-		MemsinkObject_destroy_internals(self);
+		_MemsinkObject_destroy_internals(self);
 		return -1;
 }
 
-static PyObject *MemsinkObject_repr(MemsinkObject *self) {
+static PyObject *_MemsinkObject_repr(_MemsinkObject *self) {
 	char repr[1024];
 	snprintf(repr, 1023, "<Memsink(%s)>", self->obj);
 	return Py_BuildValue("s", repr);
 }
 
-static void MemsinkObject_dealloc(MemsinkObject *self) {
-	MemsinkObject_destroy_internals(self);
+static void _MemsinkObject_dealloc(_MemsinkObject *self) {
+	_MemsinkObject_destroy_internals(self);
 	PyObject_Del(self);
 }
 
-static PyObject *MemsinkObject_close(MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
-	MemsinkObject_destroy_internals(self);
+static PyObject *_MemsinkObject_close(_MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
+	_MemsinkObject_destroy_internals(self);
 	Py_RETURN_NONE;
 }
 
-static PyObject *MemsinkObject_enter(MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
+static PyObject *_MemsinkObject_enter(_MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
 	Py_INCREF(self);
 	return (PyObject *)self;
 }
 
-static PyObject *MemsinkObject_exit(MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
+static PyObject *_MemsinkObject_exit(_MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
 	return PyObject_CallMethod((PyObject *)self, "close", "");
 }
 
-static int wait_frame(MemsinkObject *self) {
-	long double deadline_ts = get_now_monotonic() + self->wait_timeout;
+static int _wait_frame(_MemsinkObject *self) {
+	long double deadline_ts = us_get_now_monotonic() + self->wait_timeout;
 
 #	define RETURN_OS_ERROR { \
 			Py_BLOCK_THREADS \
@@ -135,21 +135,21 @@ static int wait_frame(MemsinkObject *self) {
 	do {
 		Py_BEGIN_ALLOW_THREADS
 
-		int retval = flock_timedwait_monotonic(self->fd, self->lock_timeout);
-		now = get_now_monotonic();
+		int retval = us_flock_timedwait_monotonic(self->fd, self->lock_timeout);
+		now = us_get_now_monotonic();
 
 		if (retval < 0 && errno != EWOULDBLOCK) {
 			RETURN_OS_ERROR;
 
 		} else if (retval == 0) {
-			if (MEM(magic) == MEMSINK_MAGIC && MEM(version) == MEMSINK_VERSION && MEM(id) != self->frame_id) {
+			if (_MEM(magic) == US_MEMSINK_MAGIC && _MEM(version) == US_MEMSINK_VERSION && _MEM(id) != self->frame_id) {
 				if (self->drop_same_frames > 0) {
 					if (
-						FRAME_COMPARE_META_USED_NOTS(self->mem, self->frame)
+						US_FRAME_COMPARE_META_USED_NOTS(self->mem, self->frame)
 						&& (self->frame_ts + self->drop_same_frames > now)
-						&& !memcmp(FRAME(data), MEM(data), MEM(used))
+						&& !memcmp(_FRAME(data), _MEM(data), _MEM(used))
 					) {
-						self->frame_id = MEM(id);
+						self->frame_id = _MEM(id);
 						goto drop;
 					}
 				}
@@ -181,23 +181,23 @@ static int wait_frame(MemsinkObject *self) {
 	return -2;
 }
 
-static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
+static PyObject *_MemsinkObject_wait_frame(_MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
 	if (self->mem == NULL || self->fd <= 0) {
 		PyErr_SetString(PyExc_RuntimeError, "Closed");
 		return NULL;
 	}
 
-	switch (wait_frame(self)) {
+	switch (_wait_frame(self)) {
 		case 0: break;
 		case -2: Py_RETURN_NONE;
 		default: return NULL;
 	}
 
-	frame_set_data(self->frame, MEM(data), MEM(used));
-	FRAME_COPY_META(self->mem, self->frame);
-	self->frame_id = MEM(id);
-	self->frame_ts = get_now_monotonic();
-	MEM(last_client_ts) = self->frame_ts;
+	us_frame_set_data(self->frame, _MEM(data), _MEM(used));
+	US_FRAME_COPY_META(self->mem, self->frame);
+	self->frame_id = _MEM(id);
+	self->frame_ts = us_get_now_monotonic();
+	_MEM(last_client_ts) = self->frame_ts;
 
 	if (flock(self->fd, LOCK_UN) < 0) {
 		return PyErr_SetFromErrno(PyExc_OSError);
@@ -219,7 +219,7 @@ static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUS
 			} \
 			Py_DECREF(_tmp); \
 		}
-#	define SET_NUMBER(_key, _from, _to) SET_VALUE(#_key, Py##_to##_From##_from(FRAME(_key)))
+#	define SET_NUMBER(_key, _from, _to) SET_VALUE(#_key, Py##_to##_From##_from(_FRAME(_key)))
 
 	SET_NUMBER(width, Long, Long);
 	SET_NUMBER(height, Long, Long);
@@ -230,7 +230,7 @@ static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUS
 	SET_NUMBER(grab_ts, Double, Float);
 	SET_NUMBER(encode_begin_ts, Double, Float);
 	SET_NUMBER(encode_end_ts, Double, Float);
-	SET_VALUE("data", PyBytes_FromStringAndSize((const char *)FRAME(data), FRAME(used)));
+	SET_VALUE("data", PyBytes_FromStringAndSize((const char *)_FRAME(data), _FRAME(used)));
 
 #	undef SET_NUMBER
 #	undef SET_VALUE
@@ -238,12 +238,12 @@ static PyObject *MemsinkObject_wait_frame(MemsinkObject *self, PyObject *Py_UNUS
 	return dict_frame;
 }
 
-static PyObject *MemsinkObject_is_opened(MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
+static PyObject *_MemsinkObject_is_opened(_MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
 	return PyBool_FromLong(self->mem != NULL && self->fd > 0);
 }
 
 #define FIELD_GETTER(_field, _from, _to) \
-	static PyObject *MemsinkObject_getter_##_field(MemsinkObject *self, void *Py_UNUSED(closure)) { \
+	static PyObject *_MemsinkObject_getter_##_field(_MemsinkObject *self, void *Py_UNUSED(closure)) { \
 		return Py##_to##_From##_from(self->_field); \
 	}
 
@@ -254,9 +254,9 @@ FIELD_GETTER(drop_same_frames, Double, Float)
 
 #undef FIELD_GETTER
 
-static PyMethodDef MemsinkObject_methods[] = {
+static PyMethodDef _MemsinkObject_methods[] = {
 #	define ADD_METHOD(_name, _method, _flags) \
-		{.ml_name = _name, .ml_meth = (PyCFunction)MemsinkObject_##_method, .ml_flags = (_flags)}
+		{.ml_name = _name, .ml_meth = (PyCFunction)_MemsinkObject_##_method, .ml_flags = (_flags)}
 	ADD_METHOD("close", close, METH_NOARGS),
 	ADD_METHOD("__enter__", enter, METH_NOARGS),
 	ADD_METHOD("__exit__", exit, METH_VARARGS),
@@ -266,8 +266,8 @@ static PyMethodDef MemsinkObject_methods[] = {
 #	undef ADD_METHOD
 };
 
-static PyGetSetDef MemsinkObject_getsets[] = {
-#	define ADD_GETTER(_field) {.name = #_field, .get = (getter)MemsinkObject_getter_##_field}
+static PyGetSetDef _MemsinkObject_getsets[] = {
+#	define ADD_GETTER(_field) {.name = #_field, .get = (getter)_MemsinkObject_getter_##_field}
 	ADD_GETTER(obj),
 	ADD_GETTER(lock_timeout),
 	ADD_GETTER(wait_timeout),
@@ -276,43 +276,40 @@ static PyGetSetDef MemsinkObject_getsets[] = {
 #	undef ADD_GETTER
 };
 
-static PyTypeObject MemsinkType = {
+static PyTypeObject _MemsinkType = {
 	PyVarObject_HEAD_INIT(NULL, 0)
 	.tp_name		= "ustreamer.Memsink",
-	.tp_basicsize	= sizeof(MemsinkObject),
+	.tp_basicsize	= sizeof(_MemsinkObject),
 	.tp_flags		= Py_TPFLAGS_DEFAULT,
 	.tp_new			= PyType_GenericNew,
-	.tp_init		= (initproc)MemsinkObject_init,
-	.tp_dealloc		= (destructor)MemsinkObject_dealloc,
-	.tp_repr		= (reprfunc)MemsinkObject_repr,
-	.tp_methods		= MemsinkObject_methods,
-	.tp_getset		= MemsinkObject_getsets,
+	.tp_init		= (initproc)_MemsinkObject_init,
+	.tp_dealloc		= (destructor)_MemsinkObject_dealloc,
+	.tp_repr		= (reprfunc)_MemsinkObject_repr,
+	.tp_methods		= _MemsinkObject_methods,
+	.tp_getset		= _MemsinkObject_getsets,
 };
 
-static PyModuleDef ustreamer_Module = {
+static PyModuleDef _Module = {
 	PyModuleDef_HEAD_INIT,
 	.m_name = "ustreamer",
 	.m_size = -1,
 };
 
 PyMODINIT_FUNC PyInit_ustreamer(void) { // cppcheck-suppress unusedFunction
-	PyObject *module = PyModule_Create(&ustreamer_Module);
+	PyObject *module = PyModule_Create(&_Module);
 	if (module == NULL) {
 		return NULL;
 	}
 
-	if (PyType_Ready(&MemsinkType) < 0) {
+	if (PyType_Ready(&_MemsinkType) < 0) {
 		return NULL;
 	}
 
-	Py_INCREF(&MemsinkType);
+	Py_INCREF(&_MemsinkType);
 
-	if (PyModule_AddObject(module, "Memsink", (PyObject *)&MemsinkType) < 0) {
+	if (PyModule_AddObject(module, "Memsink", (PyObject *)&_MemsinkType) < 0) {
 		return NULL;
 	}
 
 	return module;
 }
-
-#undef FRAME
-#undef MEM

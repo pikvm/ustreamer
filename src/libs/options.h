@@ -30,4 +30,4 @@
 #include <sys/types.h>
 
 
-void build_short_options(const struct option opts[], char *short_opts, size_t size);
+void us_build_short_options(const struct option opts[], char *short_opts, size_t size);

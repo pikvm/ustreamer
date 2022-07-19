@@ -46,46 +46,46 @@
 #define ENCODER_TYPES_STR "CPU, HW, M2M-VIDEO, M2M-IMAGE, NOOP"
 
 typedef enum {
-	ENCODER_TYPE_UNKNOWN, // Only for encoder_parse_type() and main()
-	ENCODER_TYPE_CPU,
-	ENCODER_TYPE_HW,
-	ENCODER_TYPE_M2M_VIDEO,
-	ENCODER_TYPE_M2M_IMAGE,
-	ENCODER_TYPE_NOOP,
-} encoder_type_e;
+	US_ENCODER_TYPE_UNKNOWN, // Only for us_encoder_parse_type() and main()
+	US_ENCODER_TYPE_CPU,
+	US_ENCODER_TYPE_HW,
+	US_ENCODER_TYPE_M2M_VIDEO,
+	US_ENCODER_TYPE_M2M_IMAGE,
+	US_ENCODER_TYPE_NOOP,
+} us_encoder_type_e;
 
 typedef struct {
-	encoder_type_e	type;
-	unsigned		quality;
-	bool			cpu_forced;
-	pthread_mutex_t	mutex;
+	us_encoder_type_e	type;
+	unsigned			quality;
+	bool				cpu_forced;
+	pthread_mutex_t		mutex;
 
-	unsigned		n_m2ms;
-	m2m_encoder_s	**m2ms;
-} encoder_runtime_s;
-
-typedef struct {
-	encoder_type_e	type;
-	unsigned		n_workers;
-	char			*m2m_path;
-
-	encoder_runtime_s *run;
-} encoder_s;
+	unsigned			n_m2ms;
+	us_m2m_encoder_s		**m2ms;
+} us_encoder_runtime_s;
 
 typedef struct {
-	encoder_s	*enc;
-	hw_buffer_s	*hw;
-	frame_s		*dest;
-} encoder_job_s;
+	us_encoder_type_e		type;
+	unsigned				n_workers;
+	char					*m2m_path;
+
+	us_encoder_runtime_s	*run;
+} us_encoder_s;
+
+typedef struct {
+	us_encoder_s	*enc;
+	us_hw_buffer_s	*hw;
+	us_frame_s		*dest;
+} us_encoder_job_s;
 
 
-encoder_s *encoder_init(void);
-void encoder_destroy(encoder_s *enc);
+us_encoder_s *us_encoder_init(void);
+void us_encoder_destroy(us_encoder_s *enc);
 
-encoder_type_e encoder_parse_type(const char *str);
-const char *encoder_type_to_string(encoder_type_e type);
+us_encoder_type_e us_encoder_parse_type(const char *str);
+const char *us_encoder_type_to_string(us_encoder_type_e type);
 
-workers_pool_s *encoder_workers_pool_init(encoder_s *enc, device_s *dev);
-void encoder_get_runtime_params(encoder_s *enc, encoder_type_e *type, unsigned *quality);
+us_workers_pool_s *us_encoder_workers_pool_init(us_encoder_s *enc, us_device_s *dev);
+void us_encoder_get_runtime_params(us_encoder_s *enc, us_encoder_type_e *type, unsigned *quality);
 
-int encoder_compress(encoder_s *enc, unsigned worker_number, frame_s *src, frame_s *dest);
+int us_encoder_compress(us_encoder_s *enc, unsigned worker_number, us_frame_s *src, us_frame_s *dest);

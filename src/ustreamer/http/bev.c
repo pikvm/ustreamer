@@ -23,25 +23,25 @@
 #include "bev.h"
 
 
-char *bufferevent_my_format_reason(short what) {
+char *us_bufferevent_format_reason(short what) {
 	char *reason;
-	A_CALLOC(reason, 2048);
+	US_CALLOC(reason, 2048);
 
 	char perror_buf[1024] = {0};
-	char *perror_ptr = errno_to_string(EVUTIL_SOCKET_ERROR(), perror_buf, 1024); // evutil_socket_error_to_string() is not thread-safe
+	char *perror_ptr = us_errno_to_string(EVUTIL_SOCKET_ERROR(), perror_buf, 1024); // evutil_socket_error_to_string() is not thread-safe
 	bool first = true;
 
 	strcat(reason, perror_ptr);
 	strcat(reason, " (");
 
-#	define FILL_REASON(_bev, _name) { \
-			if (what & _bev) { \
+#	define FILL_REASON(x_bev, x_name) { \
+			if (what & x_bev) { \
 				if (first) { \
 					first = false; \
 				} else { \
 					strcat(reason, ","); \
 				} \
-				strcat(reason, _name); \
+				strcat(reason, x_name); \
 			} \
 		}
 

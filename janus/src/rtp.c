@@ -26,28 +26,28 @@
 #include "rtp.h"
 
 
-rtp_s *rtp_init(unsigned payload, bool video, bool zero_playout_delay) {
-	rtp_s *rtp;
-	A_CALLOC(rtp, 1);
+us_rtp_s *us_rtp_init(unsigned payload, bool video, bool zero_playout_delay) {
+	us_rtp_s *rtp;
+	US_CALLOC(rtp, 1);
 	rtp->payload = payload;
 	rtp->video = video;
 	rtp->zero_playout_delay = zero_playout_delay; // See client.c
-	rtp->ssrc = triple_u32(get_now_monotonic_u64());
+	rtp->ssrc = us_triple_u32(us_get_now_monotonic_u64());
 	return rtp;
 }
 
-rtp_s *rtp_dup(const rtp_s *rtp) {
-	rtp_s *new;
-	A_CALLOC(new, 1);
-	memcpy(new, rtp, sizeof(rtp_s));
+us_rtp_s *us_rtp_dup(const us_rtp_s *rtp) {
+	us_rtp_s *new;
+	US_CALLOC(new, 1);
+	memcpy(new, rtp, sizeof(us_rtp_s));
 	return new;
 }
 
-void rtp_destroy(rtp_s *rtp) {
+void us_rtp_destroy(us_rtp_s *rtp) {
 	free(rtp);
 }
 
-void rtp_write_header(rtp_s *rtp, uint32_t pts, bool marked) {
+void us_rtp_write_header(us_rtp_s *rtp, uint32_t pts, bool marked) {
 	uint32_t word0 = 0x80000000;
 	if (marked) {
 		word0 |= 1 << 23;

@@ -23,29 +23,29 @@
 #include "static.h"
 
 
-char *find_static_file_path(const char *root_path, const char *request_path) {
+char *us_find_static_file_path(const char *root_path, const char *request_path) {
 	char *path = NULL;
 
-	char *simplified_path = simplify_request_path(request_path);
+	char *simplified_path = us_simplify_request_path(request_path);
 	if (simplified_path[0] == '\0') {
-		LOG_VERBOSE("HTTP: Invalid request path %s to static", request_path);
+		US_LOG_VERBOSE("HTTP: Invalid request path %s to static", request_path);
 		goto error;
 	}
 
-	A_CALLOC(path, strlen(root_path) + strlen(simplified_path) + 16); // + reserved for /index.html
+	US_CALLOC(path, strlen(root_path) + strlen(simplified_path) + 16); // + reserved for /index.html
 	sprintf(path, "%s/%s", root_path, simplified_path);
 
 	struct stat st;
 #	define LOAD_STAT { \
 			if (lstat(path, &st) < 0) { \
-				LOG_VERBOSE_PERROR("HTTP: Can't stat() static path %s", path); \
+				US_LOG_VERBOSE_PERROR("HTTP: Can't stat() static path %s", path); \
 				goto error; \
 			} \
 		}
 
 	LOAD_STAT;
 	if (S_ISDIR(st.st_mode)) {
-		LOG_VERBOSE("HTTP: Requested static path %s is a directory, trying %s/index.html", path, path);
+		US_LOG_VERBOSE("HTTP: Requested static path %s is a directory, trying %s/index.html", path, path);
 		strcat(path, "/index.html");
 		LOAD_STAT;
 	}
@@ -53,12 +53,12 @@ char *find_static_file_path(const char *root_path, const char *request_path) {
 #	undef LOAD_STAT
 
 	if (!S_ISREG(st.st_mode)) {
-		LOG_VERBOSE("HTTP: Not a regular file: %s", path);
+		US_LOG_VERBOSE("HTTP: Not a regular file: %s", path);
 		goto error;
 	}
 
 	if (access(path, R_OK) < 0) {
-		LOG_VERBOSE_PERROR("HTTP: Can't access() R_OK file %s", path);
+		US_LOG_VERBOSE_PERROR("HTTP: Can't access() R_OK file %s", path);
 		goto error;
 	}
 

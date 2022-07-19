@@ -22,7 +22,7 @@
 #include "index_html.h"
 
 
-const char *const HTML_INDEX_PAGE = " \
+const char *const US_HTML_INDEX_PAGE = " \
 	<!DOCTYPE html> \
 	\
 	<html> \
@@ -33,7 +33,7 @@ const char *const HTML_INDEX_PAGE = " \
 	</head> \
 	\
 	<body> \
-		<h3>&micro;Streamer v" VERSION "</h3> \
+		<h3>&micro;Streamer v" US_VERSION "</h3> \
 		<hr> \
 		<ul> \
 			<li> \

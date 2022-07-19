@@ -23,55 +23,55 @@
 #include "frame.h"
 
 
-frame_s *frame_init(void) {
-	frame_s *frame;
-	A_CALLOC(frame, 1);
-	frame_realloc_data(frame, 512 * 1024);
+us_frame_s *us_frame_init(void) {
+	us_frame_s *frame;
+	US_CALLOC(frame, 1);
+	us_frame_realloc_data(frame, 512 * 1024);
 	frame->dma_fd = -1;
 	return frame;
 }
 
-void frame_destroy(frame_s *frame) {
+void us_frame_destroy(us_frame_s *frame) {
 	if (frame->data) {
 		free(frame->data);
 	}
 	free(frame);
 }
 
-void frame_realloc_data(frame_s *frame, size_t size) {
+void us_frame_realloc_data(us_frame_s *frame, size_t size) {
 	if (frame->allocated < size) {
-		A_REALLOC(frame->data, size);
+		US_REALLOC(frame->data, size);
 		frame->allocated = size;
 	}
 }
 
-void frame_set_data(frame_s *frame, const uint8_t *data, size_t size) {
-	frame_realloc_data(frame, size);
+void us_frame_set_data(us_frame_s *frame, const uint8_t *data, size_t size) {
+	us_frame_realloc_data(frame, size);
 	memcpy(frame->data, data, size);
 	frame->used = size;
 }
 
-void frame_append_data(frame_s *frame, const uint8_t *data, size_t size) {
+void us_frame_append_data(us_frame_s *frame, const uint8_t *data, size_t size) {
 	size_t new_used = frame->used + size;
-	frame_realloc_data(frame, new_used);
+	us_frame_realloc_data(frame, new_used);
 	memcpy(frame->data + frame->used, data, size);
 	frame->used = new_used;
 }
 
-void frame_copy(const frame_s *src, frame_s *dest) {
-	frame_set_data(dest, src->data, src->used);
-	FRAME_COPY_META(src, dest);
+void us_frame_copy(const us_frame_s *src, us_frame_s *dest) {
+	us_frame_set_data(dest, src->data, src->used);
+	US_FRAME_COPY_META(src, dest);
 }
 
-bool frame_compare(const frame_s *a, const frame_s *b) {
+bool us_frame_compare(const us_frame_s *a, const us_frame_s *b) {
 	return (
 		a->allocated && b->allocated
-		&& FRAME_COMPARE_META_USED_NOTS(a, b)
+		&& US_FRAME_COMPARE_META_USED_NOTS(a, b)
 		&& !memcmp(a->data, b->data, b->used)
 	);
 }
 
-unsigned frame_get_padding(const frame_s *frame) {
+unsigned us_frame_get_padding(const us_frame_s *frame) {
 	unsigned bytes_per_pixel = 0;
 	switch (frame->format) {
 		case V4L2_PIX_FMT_YUYV:
@@ -89,7 +89,7 @@ unsigned frame_get_padding(const frame_s *frame) {
 	return 0;
 }
 
-const char *fourcc_to_string(unsigned format, char *buf, size_t size) {
+const char *us_fourcc_to_string(unsigned format, char *buf, size_t size) {
 	assert(size >= 8);
 	buf[0] = format & 0x7F;
 	buf[1] = (format >> 8) & 0x7F;

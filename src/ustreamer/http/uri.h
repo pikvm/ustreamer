@@ -29,5 +29,5 @@
 #include <event2/keyvalq_struct.h>
 
 
-bool uri_get_true(struct evkeyvalq *params, const char *key);
-char *uri_get_string(struct evkeyvalq *params, const char *key);
+bool us_uri_get_true(struct evkeyvalq *params, const char *key);
+char *us_uri_get_string(struct evkeyvalq *params, const char *key);

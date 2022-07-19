@@ -36,13 +36,13 @@
 
 
 typedef struct {
-	rtp_s			*rtp;
-	rtp_callback_f	callback;
-} rtpa_s;
+	us_rtp_s			*rtp;
+	us_rtp_callback_f	callback;
+} us_rtpa_s;
 
 
-rtpa_s *rtpa_init(rtp_callback_f callback);
-void rtpa_destroy(rtpa_s *rtpa);
+us_rtpa_s *us_rtpa_init(us_rtp_callback_f callback);
+void us_rtpa_destroy(us_rtpa_s *rtpa);
 
-char *rtpa_make_sdp(rtpa_s *rtpa);
-void rtpa_wrap(rtpa_s *rtpa, const uint8_t *data, size_t size, uint32_t pts);
+char *us_rtpa_make_sdp(us_rtpa_s *rtpa);
+void us_rtpa_wrap(us_rtpa_s *rtpa, const uint8_t *data, size_t size, uint32_t pts);

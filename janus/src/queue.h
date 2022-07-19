@@ -44,26 +44,26 @@ typedef struct {
 	pthread_mutex_t	mutex;
 	pthread_cond_t	full_cond;
 	pthread_cond_t	empty_cond;
-} queue_s;
+} us_queue_s;
 
 
-#define QUEUE_FREE_ITEMS_AND_DESTROY(_queue, _free_item) { \
-		if (_queue) { \
-			while (!queue_get_free(_queue)) { \
-				void *_ptr; \
-				assert(!queue_get(_queue, &_ptr, 0.1)); \
-				if (_ptr != NULL) { \
-					_free_item(_ptr); \
+#define US_QUEUE_FREE_ITEMS_AND_DESTROY(x_queue, x_free_item) { \
+		if (x_queue) { \
+			while (!us_queue_get_free(x_queue)) { \
+				void *m_ptr; \
+				assert(!us_queue_get(x_queue, &m_ptr, 0.1)); \
+				if (m_ptr != NULL) { \
+					x_free_item(m_ptr); \
 				} \
 			} \
-			queue_destroy(_queue); \
+			us_queue_destroy(x_queue); \
 		} \
 	}
 
 
-queue_s *queue_init(unsigned capacity);
-void queue_destroy(queue_s *queue);
+us_queue_s *us_queue_init(unsigned capacity);
+void us_queue_destroy(us_queue_s *queue);
 
-int queue_put(queue_s *queue, void *item, long double timeout);
-int queue_get(queue_s *queue, void **item, long double timeout);
-int queue_get_free(queue_s *queue);
+int us_queue_put(us_queue_s *queue, void *item, long double timeout);
+int us_queue_get(us_queue_s *queue, void **item, long double timeout);
+int us_queue_get_free(us_queue_s *queue);

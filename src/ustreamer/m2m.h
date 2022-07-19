@@ -45,24 +45,24 @@
 typedef struct {
 	uint8_t	*data;
 	size_t	allocated;
-} m2m_buffer_s;
+} us_m2m_buffer_s;
 
 typedef struct {
 	int				fd;
-	m2m_buffer_s	*input_bufs;
+	us_m2m_buffer_s	*input_bufs;
 	unsigned		n_input_bufs;
-	m2m_buffer_s	*output_bufs;
+	us_m2m_buffer_s	*output_bufs;
 	unsigned		n_output_bufs;
 
-	unsigned	width;
-	unsigned	height;
-	unsigned	input_format;
-	unsigned	stride;
-	bool		dma;
-	bool		ready;
+	unsigned		width;
+	unsigned		height;
+	unsigned		input_format;
+	unsigned		stride;
+	bool			dma;
+	bool			ready;
 
-	int last_online;
-} m2m_encoder_runtime_s;
+	int				last_online;
+} us_m2m_encoder_runtime_s;
 
 typedef struct {
 	char			*name;
@@ -74,13 +74,13 @@ typedef struct {
 	unsigned		quality;
 	bool			allow_dma;
 
-	m2m_encoder_runtime_s *run;
-} m2m_encoder_s;
+	us_m2m_encoder_runtime_s *run;
+} us_m2m_encoder_s;
 
 
-m2m_encoder_s *m2m_h264_encoder_init(const char *name, const char *path, unsigned bitrate, unsigned gop);
-m2m_encoder_s *m2m_mjpeg_encoder_init(const char *name, const char *path, unsigned quality);
-m2m_encoder_s *m2m_jpeg_encoder_init(const char *name, const char *path, unsigned quality);
-void m2m_encoder_destroy(m2m_encoder_s *enc);
+us_m2m_encoder_s *us_m2m_h264_encoder_init(const char *name, const char *path, unsigned bitrate, unsigned gop);
+us_m2m_encoder_s *us_m2m_mjpeg_encoder_init(const char *name, const char *path, unsigned quality);
+us_m2m_encoder_s *us_m2m_jpeg_encoder_init(const char *name, const char *path, unsigned quality);
+void us_m2m_encoder_destroy(us_m2m_encoder_s *enc);
 
-int m2m_encoder_compress(m2m_encoder_s *enc, const frame_s *src, frame_s *dest, bool force_key);
+int us_m2m_encoder_compress(us_m2m_encoder_s *enc, const us_frame_s *src, us_frame_s *dest, bool force_key);

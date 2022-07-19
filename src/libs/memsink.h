@@ -42,27 +42,27 @@
 
 
 typedef struct {
-	const char	*name;
-	const char	*obj;
-	bool		server;
-	bool		rm;
-	unsigned	client_ttl; // Only for server
-	unsigned	timeout;
+	const char			*name;
+	const char			*obj;
+	bool				server;
+	bool				rm;
+	unsigned			client_ttl; // Only for server
+	unsigned			timeout;
 
 	int					fd;
-	memsink_shared_s	*mem;
+	us_memsink_shared_s	*mem;
 	uint64_t			last_id;
 	atomic_bool			has_clients; // Only for server
-} memsink_s;
+} us_memsink_s;
 
 
-memsink_s *memsink_init(
+us_memsink_s *us_memsink_init(
 	const char *name, const char *obj, bool server,
 	mode_t mode, bool rm, unsigned client_ttl, unsigned timeout);
 
-void memsink_destroy(memsink_s *sink);
+void us_memsink_destroy(us_memsink_s *sink);
 
-bool memsink_server_check(memsink_s *sink, const frame_s *frame);
-int memsink_server_put(memsink_s *sink, const frame_s *frame);
+bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame);
+int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame);
 
-int memsink_client_get(memsink_s *sink, frame_s *frame);
+int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame);

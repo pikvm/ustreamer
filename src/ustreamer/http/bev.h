@@ -32,4 +32,4 @@
 #include "../../libs/logging.h"
 
 
-char *bufferevent_my_format_reason(short what);
+char *us_bufferevent_format_reason(short what);

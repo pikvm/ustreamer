@@ -42,16 +42,16 @@
 
 
 typedef struct {
-	rtp_s			*rtp;
-	rtp_callback_f	callback;
-	frame_s			*sps; // Actually not a frame, just a bytes storage
-	frame_s			*pps;
-	pthread_mutex_t	mutex;
-} rtpv_s;
+	us_rtp_s			*rtp;
+	us_rtp_callback_f	callback;
+	us_frame_s			*sps; // Actually not a frame, just a bytes storage
+	us_frame_s			*pps;
+	pthread_mutex_t		mutex;
+} us_rtpv_s;
 
 
-rtpv_s *rtpv_init(rtp_callback_f callback, bool zero_playout_delay);
-void rtpv_destroy(rtpv_s *rtpv);
+us_rtpv_s *us_rtpv_init(us_rtp_callback_f callback, bool zero_playout_delay);
+void us_rtpv_destroy(us_rtpv_s *rtpv);
 
-char *rtpv_make_sdp(rtpv_s *rtpv);
-void rtpv_wrap(rtpv_s *rtpv, const frame_s *frame);
+char *us_rtpv_make_sdp(us_rtpv_s *rtpv);
+void us_rtpv_wrap(us_rtpv_s *rtpv, const us_frame_s *frame);

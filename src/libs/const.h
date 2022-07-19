@@ -22,11 +22,11 @@
 
 #pragma once
 
-#define VERSION_MAJOR 5
-#define VERSION_MINOR 16
+#define US_VERSION_MAJOR 5
+#define US_VERSION_MINOR 16
 
-#define MAKE_VERSION2(_major, _minor) #_major "." #_minor
-#define MAKE_VERSION1(_major, _minor) MAKE_VERSION2(_major, _minor)
-#define VERSION MAKE_VERSION1(VERSION_MAJOR, VERSION_MINOR)
+#define US_MAKE_VERSION2(_major, _minor) #_major "." #_minor
+#define US_MAKE_VERSION1(_major, _minor) US_MAKE_VERSION2(_major, _minor)
+#define US_VERSION US_MAKE_VERSION1(US_VERSION_MAJOR, US_VERSION_MINOR)
 
-#define VERSION_U ((unsigned)(VERSION_MAJOR * 1000 + VERSION_MINOR))
+#define US_VERSION_U ((unsigned)(US_VERSION_MAJOR * 1000 + US_VERSION_MINOR))

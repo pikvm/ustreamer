@@ -51,18 +51,18 @@ typedef struct {
 	SpeexResamplerState	*res;
 	OpusEncoder			*enc;
 
-	queue_s				*pcm_queue;
-	queue_s				*enc_queue;
+	us_queue_s				*pcm_queue;
+	us_queue_s				*enc_queue;
 	uint32_t			pts;
 
 	pthread_t			pcm_tid;
 	pthread_t			enc_tid;
 	bool				tids_created;
 	atomic_bool			stop;
-} audio_s;
+} us_audio_s;
 
 
-audio_s *audio_init(const char *name, unsigned pcm_hz);
-void audio_destroy(audio_s *audio);
+us_audio_s *us_audio_init(const char *name, unsigned pcm_hz);
+void us_audio_destroy(us_audio_s *audio);
 
-int audio_get_encoded(audio_s *audio, uint8_t *data, size_t *size, uint64_t *pts);
+int us_audio_get_encoded(us_audio_s *audio, uint8_t *data, size_t *size, uint64_t *pts);

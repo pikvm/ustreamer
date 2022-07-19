@@ -72,7 +72,7 @@ extern char **environ;
 
 
 #ifdef HAS_PDEATHSIG
-INLINE int process_track_parent_death(void) {
+INLINE int us_process_track_parent_death(void) {
 	pid_t parent = getppid();
 	int signum = SIGTERM;
 #	if defined(__linux__)
@@ -83,12 +83,12 @@ INLINE int process_track_parent_death(void) {
 #		error WTF?
 #	endif
 	if (retval < 0) {
-		LOG_PERROR("Can't set to receive SIGTERM on parent process death");
+		US_LOG_PERROR("Can't set to receive SIGTERM on parent process death");
 		return -1;
 	}
 
 	if (kill(parent, 0) < 0) {
-		LOG_PERROR("The parent process %d is already dead", parent);
+		US_LOG_PERROR("The parent process %d is already dead", parent);
 		return -1;
 	}
 
@@ -99,21 +99,21 @@ INLINE int process_track_parent_death(void) {
 #ifdef WITH_SETPROCTITLE
 #	pragma GCC diagnostic ignored "-Wunused-parameter"
 #	pragma GCC diagnostic push
-INLINE void process_set_name_prefix(int argc, char *argv[], const char *prefix) {
+INLINE void us_process_set_name_prefix(int argc, char *argv[], const char *prefix) {
 #	pragma GCC diagnostic pop
 
 	char *cmdline = NULL;
 	size_t allocated = 2048;
 	size_t used = 0;
 
-	A_REALLOC(cmdline, allocated);
+	US_REALLOC(cmdline, allocated);
 	cmdline[0] = '\0';
 
 	for (int index = 0; index < argc; ++index) {
 		size_t arg_len = strlen(argv[index]);
 		if (used + arg_len + 16 >= allocated) {
 			allocated += arg_len + 2048;
-			A_REALLOC(cmdline, allocated); // cppcheck-suppress memleakOnRealloc // False-positive (ok with assert)
+			US_REALLOC(cmdline, allocated); // cppcheck-suppress memleakOnRealloc // False-positive (ok with assert)
 		}
 
 		strcat(cmdline, " ");
@@ -130,18 +130,18 @@ INLINE void process_set_name_prefix(int argc, char *argv[], const char *prefix) 
 }
 #endif
 
-INLINE void process_notify_parent(void) {
+INLINE void us_process_notify_parent(void) {
 	pid_t parent = getppid();
 
 	if (kill(parent, SIGUSR2) < 0) {
-		LOG_PERROR("Can't send SIGUSR2 to the parent process %d", parent);
+		US_LOG_PERROR("Can't send SIGUSR2 to the parent process %d", parent);
 	}
 }
 
-INLINE void process_suicide(void) {
+INLINE void us_process_suicide(void) {
 	pid_t pid = getpid();
 
 	if (kill(pid, SIGTERM) < 0) {
-		LOG_PERROR("Can't send SIGTERM to own pid %d", pid);
+		US_LOG_PERROR("Can't send SIGTERM to own pid %d", pid);
 	}
 }

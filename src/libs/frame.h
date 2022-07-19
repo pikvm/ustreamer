@@ -35,84 +35,84 @@
 
 
 typedef struct {
-	uint8_t	*data;
-	size_t	used;
-	size_t	allocated;
-	int		dma_fd;
+	uint8_t		*data;
+	size_t		used;
+	size_t		allocated;
+	int			dma_fd;
 
-	unsigned width;
-	unsigned height;
-	unsigned format;
-	unsigned stride;
+	unsigned	width;
+	unsigned	height;
+	unsigned	format;
+	unsigned	stride;
 	// Stride is a bytesperline in V4L2
 	// https://www.kernel.org/doc/html/v4.14/media/uapi/v4l/pixfmt-v4l2.html
 	// https://medium.com/@oleg.shipitko/what-does-stride-mean-in-image-processing-bba158a72bcd
 
-	bool online;
-	bool key;
+	bool		online;
+	bool		key;
 
 	long double	grab_ts;
 	long double	encode_begin_ts;
 	long double	encode_end_ts;
-} frame_s;
+} us_frame_s;
 
 
-#define FRAME_COPY_META(_src, _dest) { \
-		_dest->width = _src->width; \
-		_dest->height = _src->height; \
-		_dest->format = _src->format; \
-		_dest->stride = _src->stride; \
-		_dest->online = _src->online; \
-		_dest->key = _src->key; \
-		_dest->grab_ts = _src->grab_ts; \
-		_dest->encode_begin_ts = _src->encode_begin_ts; \
-		_dest->encode_end_ts = _src->encode_end_ts; \
+#define US_FRAME_COPY_META(x_src, x_dest) { \
+		x_dest->width = x_src->width; \
+		x_dest->height = x_src->height; \
+		x_dest->format = x_src->format; \
+		x_dest->stride = x_src->stride; \
+		x_dest->online = x_src->online; \
+		x_dest->key = x_src->key; \
+		x_dest->grab_ts = x_src->grab_ts; \
+		x_dest->encode_begin_ts = x_src->encode_begin_ts; \
+		x_dest->encode_end_ts = x_src->encode_end_ts; \
 	}
 
-static inline void frame_copy_meta(const frame_s *src, frame_s *dest) {
-	FRAME_COPY_META(src, dest);
+static inline void us_frame_copy_meta(const us_frame_s *src, us_frame_s *dest) {
+	US_FRAME_COPY_META(src, dest);
 }
 
-#define FRAME_COMPARE_META_USED_NOTS(_a, _b) ( \
-		_a->used == _b->used \
-		&& _a->width == _b->width \
-		&& _a->height == _b->height \
-		&& _a->format == _b->format \
-		&& _a->stride == _b->stride \
-		&& _a->online == _b->online \
-		&& _a->key == _b->key \
+#define US_FRAME_COMPARE_META_USED_NOTS(x_a, x_b) ( \
+		x_a->used == x_b->used \
+		&& x_a->width == x_b->width \
+		&& x_a->height == x_b->height \
+		&& x_a->format == x_b->format \
+		&& x_a->stride == x_b->stride \
+		&& x_a->online == x_b->online \
+		&& x_a->key == x_b->key \
 	)
 
 
-static inline void frame_encoding_begin(const frame_s *src, frame_s *dest, unsigned format) {
+static inline void us_frame_encoding_begin(const us_frame_s *src, us_frame_s *dest, unsigned format) {
 	assert(src->used > 0);
-	frame_copy_meta(src, dest);
-	dest->encode_begin_ts = get_now_monotonic();
+	us_frame_copy_meta(src, dest);
+	dest->encode_begin_ts = us_get_now_monotonic();
 	dest->format = format;
 	dest->stride = 0;
 	dest->used = 0;
 }
 
-static inline void frame_encoding_end(frame_s *dest) {
+static inline void us_frame_encoding_end(us_frame_s *dest) {
 	assert(dest->used > 0);
-	dest->encode_end_ts = get_now_monotonic();
+	dest->encode_end_ts = us_get_now_monotonic();
 }
 
 
-frame_s *frame_init(void);
-void frame_destroy(frame_s *frame);
+us_frame_s *us_frame_init(void);
+void us_frame_destroy(us_frame_s *frame);
 
-void frame_realloc_data(frame_s *frame, size_t size);
-void frame_set_data(frame_s *frame, const uint8_t *data, size_t size);
-void frame_append_data(frame_s *frame, const uint8_t *data, size_t size);
+void us_frame_realloc_data(us_frame_s *frame, size_t size);
+void us_frame_set_data(us_frame_s *frame, const uint8_t *data, size_t size);
+void us_frame_append_data(us_frame_s *frame, const uint8_t *data, size_t size);
 
-void frame_copy(const frame_s *src, frame_s *dest);
-bool frame_compare(const frame_s *a, const frame_s *b);
+void us_frame_copy(const us_frame_s *src, us_frame_s *dest);
+bool us_frame_compare(const us_frame_s *a, const us_frame_s *b);
 
-unsigned frame_get_padding(const frame_s *frame);
+unsigned us_frame_get_padding(const us_frame_s *frame);
 
-const char *fourcc_to_string(unsigned format, char *buf, size_t size);
+const char *us_fourcc_to_string(unsigned format, char *buf, size_t size);
 
-static inline bool is_jpeg(unsigned format) {
+static inline bool us_is_jpeg(unsigned format) {
 	return (format == V4L2_PIX_FMT_JPEG || format == V4L2_PIX_FMT_MJPEG);
 }

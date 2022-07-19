@@ -23,17 +23,17 @@
 #include "file.h"
 
 
-output_file_s *output_file_init(const char *path, bool json) {
-	output_file_s *output;
-	A_CALLOC(output, 1);
+us_output_file_s *us_output_file_init(const char *path, bool json) {
+	us_output_file_s *output;
+	US_CALLOC(output, 1);
 
 	if (!strcmp(path, "-")) {
-		LOG_INFO("Using output: <stdout>");
+		US_LOG_INFO("Using output: <stdout>");
 		output->fp = stdout;
 	} else {
-		LOG_INFO("Using output: %s", path);
+		US_LOG_INFO("Using output: %s", path);
 		if ((output->fp = fopen(path, "wb")) == NULL) {
-			LOG_PERROR("Can't open output file");
+			US_LOG_PERROR("Can't open output file");
 			goto error;
 		}
 	}
@@ -42,14 +42,14 @@ output_file_s *output_file_init(const char *path, bool json) {
 	return output;
 
 	error:
-		output_file_destroy(output);
+		us_output_file_destroy(output);
 		return NULL;
 }
 
-void output_file_write(void *v_output, const frame_s *frame) {
-	output_file_s *output = (output_file_s *)v_output;
+void us_output_file_write(void *v_output, const us_frame_s *frame) {
+	us_output_file_s *output = (us_output_file_s *)v_output;
 	if (output->json) {
-		base64_encode(frame->data, frame->used, &output->base64_data, &output->base64_allocated);
+		us_base64_encode(frame->data, frame->used, &output->base64_data, &output->base64_allocated);
 		fprintf(output->fp,
 			"{\"size\": %zu, \"width\": %u, \"height\": %u,"
 			" \"format\": %u, \"stride\": %u, \"online\": %u,"
@@ -65,14 +65,14 @@ void output_file_write(void *v_output, const frame_s *frame) {
 	fflush(output->fp);
 }
 
-void output_file_destroy(void *v_output) {
-	output_file_s *output = (output_file_s *)v_output;
+void us_output_file_destroy(void *v_output) {
+	us_output_file_s *output = (us_output_file_s *)v_output;
 	if (output->base64_data) {
 		free(output->base64_data);
 	}
 	if (output->fp && output->fp != stdout) {
 		if (fclose(output->fp) < 0) {
-			LOG_PERROR("Can't close output file");
+			US_LOG_PERROR("Can't close output file");
 		}
 	}
 	free(output);

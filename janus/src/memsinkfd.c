@@ -23,21 +23,21 @@
 #include "memsinkfd.h"
 
 
-int memsink_fd_wait_frame(int fd, memsink_shared_s* mem, uint64_t last_id) {
-	long double deadline_ts = get_now_monotonic() + 1; // wait_timeout
+int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s* mem, uint64_t last_id) {
+	long double deadline_ts = us_get_now_monotonic() + 1; // wait_timeout
 	long double now;
 	do {
-		int result = flock_timedwait_monotonic(fd, 1); // lock_timeout
-		now = get_now_monotonic();
+		int result = us_flock_timedwait_monotonic(fd, 1); // lock_timeout
+		now = us_get_now_monotonic();
 		if (result < 0 && errno != EWOULDBLOCK) {
-			JLOG_PERROR("video", "Can't lock memsink");
+			US_JLOG_PERROR("video", "Can't lock memsink");
 			return -1;
 		} else if (result == 0) {
-			if (mem->magic == MEMSINK_MAGIC && mem->version == MEMSINK_VERSION && mem->id != last_id) {
+			if (mem->magic == US_MEMSINK_MAGIC && mem->version == US_MEMSINK_VERSION && mem->id != last_id) {
 				return 0;
 			}
 			if (flock(fd, LOCK_UN) < 0) {
-				JLOG_PERROR("video", "Can't unlock memsink");
+				US_JLOG_PERROR("video", "Can't unlock memsink");
 				return -1;
 			}
 		}
@@ -46,24 +46,24 @@ int memsink_fd_wait_frame(int fd, memsink_shared_s* mem, uint64_t last_id) {
 	return -2;
 }
 
-frame_s *memsink_fd_get_frame(int fd, memsink_shared_s *mem, uint64_t *frame_id) {
-	frame_s *frame = frame_init();
-	frame_set_data(frame, mem->data, mem->used);
-	FRAME_COPY_META(mem, frame);
+us_frame_s *us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, uint64_t *frame_id) {
+	us_frame_s *frame = us_frame_init();
+	us_frame_set_data(frame, mem->data, mem->used);
+	US_FRAME_COPY_META(mem, frame);
 	*frame_id = mem->id;
-	mem->last_client_ts = get_now_monotonic();
+	mem->last_client_ts = us_get_now_monotonic();
 
 	bool ok = true;
 	if (frame->format != V4L2_PIX_FMT_H264) {
-		JLOG_ERROR("video", "Got non-H264 frame from memsink");
+		US_JLOG_ERROR("video", "Got non-H264 frame from memsink");
 		ok = false;
 	}
 	if (flock(fd, LOCK_UN) < 0) {
-		JLOG_PERROR("video", "Can't unlock memsink");
+		US_JLOG_PERROR("video", "Can't unlock memsink");
 		ok = false;
 	}
 	if (!ok) {
-		frame_destroy(frame);
+		us_frame_destroy(frame);
 		frame = NULL;
 	}
 	return frame;

@@ -23,42 +23,42 @@
 #include "stream.h"
 
 
-h264_stream_s *h264_stream_init(memsink_s *sink, const char *path, unsigned bitrate, unsigned gop) {
-	h264_stream_s *h264;
-	A_CALLOC(h264, 1);
+us_h264_stream_s *us_h264_stream_init(us_memsink_s *sink, const char *path, unsigned bitrate, unsigned gop) {
+	us_h264_stream_s *h264;
+	US_CALLOC(h264, 1);
 	h264->sink = sink;
-	h264->tmp_src = frame_init();
-	h264->dest = frame_init();
+	h264->tmp_src = us_frame_init();
+	h264->dest = us_frame_init();
 	atomic_init(&h264->online, false);
-	h264->enc = m2m_h264_encoder_init("H264", path, bitrate, gop);
+	h264->enc = us_m2m_h264_encoder_init("H264", path, bitrate, gop);
 	return h264;
 }
 
-void h264_stream_destroy(h264_stream_s *h264) {
-	m2m_encoder_destroy(h264->enc);
-	frame_destroy(h264->dest);
-	frame_destroy(h264->tmp_src);
+void us_h264_stream_destroy(us_h264_stream_s *h264) {
+	us_m2m_encoder_destroy(h264->enc);
+	us_frame_destroy(h264->dest);
+	us_frame_destroy(h264->tmp_src);
 	free(h264);
 }
 
-void h264_stream_process(h264_stream_s *h264, const frame_s *frame, bool force_key) {
-	if (!memsink_server_check(h264->sink, frame)) {
+void us_h264_stream_process(us_h264_stream_s *h264, const us_frame_s *frame, bool force_key) {
+	if (!us_memsink_server_check(h264->sink, frame)) {
 		return;
 	}
 
-	if (is_jpeg(frame->format)) {
-		long double now = get_now_monotonic();
-		LOG_DEBUG("H264: Input frame is JPEG; decoding ...");
-		if (unjpeg(frame, h264->tmp_src, true) < 0) {
+	if (us_is_jpeg(frame->format)) {
+		long double now = us_get_now_monotonic();
+		US_LOG_DEBUG("H264: Input frame is JPEG; decoding ...");
+		if (us_unjpeg(frame, h264->tmp_src, true) < 0) {
 			return;
 		}
 		frame = h264->tmp_src;
-		LOG_VERBOSE("H264: JPEG decoded; time=%.3Lf", get_now_monotonic() - now);
+		US_LOG_VERBOSE("H264: JPEG decoded; time=%.3Lf", us_get_now_monotonic() - now);
 	}
 
 	bool online = false;
-	if (!m2m_encoder_compress(h264->enc, frame, h264->dest, force_key)) {
-		online = !memsink_server_put(h264->sink, h264->dest);
+	if (!us_m2m_encoder_compress(h264->enc, frame, h264->dest, force_key)) {
+		online = !us_memsink_server_put(h264->sink, h264->dest);
 	}
 	atomic_store(&h264->online, online);
 }

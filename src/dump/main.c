@@ -82,12 +82,12 @@ static const struct option _LONG_OPTS[] = {
 };
 
 
-volatile bool global_stop = false;
+volatile bool _g_stop = false;
 
 
 typedef struct {
 	void *v_output;
-	void (*write)(void *v_output, const frame_s *frame);
+	void (*write)(void *v_output, const us_frame_s *frame);
 	void (*destroy)(void *v_output);
 } _output_context_s;
 
@@ -104,8 +104,8 @@ static void _help(FILE *fp);
 
 
 int main(int argc, char *argv[]) {
-	LOGGING_INIT;
-	A_THREAD_RENAME("main");
+	US_LOGGING_INIT;
+	US_THREAD_RENAME("main");
 
 	char *sink_name = NULL;
 	unsigned sink_timeout = 1;
@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
 		}
 
 	char short_opts[128];
-	build_short_options(_LONG_OPTS, short_opts, 128);
+	us_build_short_options(_LONG_OPTS, short_opts, 128);
 
 	for (int ch; (ch = getopt_long(argc, argv, short_opts, _LONG_OPTS, NULL)) >= 0;) {
 		switch (ch) {
@@ -151,15 +151,15 @@ int main(int argc, char *argv[]) {
 			case _O_COUNT:			OPT_NUMBER("--count", count, 0, LLONG_MAX, 0);
 			case _O_INTERVAL:		OPT_LDOUBLE("--interval", interval, 0, 60);
 
-			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", us_log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
-			case _O_PERF:				OPT_SET(us_log_level, LOG_LEVEL_PERF);
-			case _O_VERBOSE:			OPT_SET(us_log_level, LOG_LEVEL_VERBOSE);
-			case _O_DEBUG:				OPT_SET(us_log_level, LOG_LEVEL_DEBUG);
+			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", us_log_level, US_LOG_LEVEL_INFO, US_LOG_LEVEL_DEBUG, 0);
+			case _O_PERF:				OPT_SET(us_log_level, US_LOG_LEVEL_PERF);
+			case _O_VERBOSE:			OPT_SET(us_log_level, US_LOG_LEVEL_VERBOSE);
+			case _O_DEBUG:				OPT_SET(us_log_level, US_LOG_LEVEL_DEBUG);
 			case _O_FORCE_LOG_COLORS:	OPT_SET(us_log_colored, true);
 			case _O_NO_LOG_COLORS:		OPT_SET(us_log_colored, false);
 
 			case _O_HELP:		_help(stdout); return 0;
-			case _O_VERSION:	puts(VERSION); return 0;
+			case _O_VERSION:	puts(US_VERSION); return 0;
 
 			case 0:		break;
 			default:	return 1;
@@ -178,11 +178,11 @@ int main(int argc, char *argv[]) {
 	_output_context_s ctx = {0};
 
 	if (output_path && output_path[0] != '\0') {
-		if ((ctx.v_output = (void *)output_file_init(output_path, output_json)) == NULL) {
+		if ((ctx.v_output = (void *)us_output_file_init(output_path, output_json)) == NULL) {
 			return 1;
 		}
-		ctx.write = output_file_write;
-		ctx.destroy = output_file_destroy;
+		ctx.write = us_output_file_write;
+		ctx.destroy = us_output_file_destroy;
 	}
 
 	_install_signal_handlers();
@@ -196,12 +196,12 @@ int main(int argc, char *argv[]) {
 
 static void _signal_handler(int signum) {
 	switch (signum) {
-		case SIGTERM:	LOG_INFO_NOLOCK("===== Stopping by SIGTERM ====="); break;
-		case SIGINT:	LOG_INFO_NOLOCK("===== Stopping by SIGINT ====="); break;
-		case SIGPIPE:	LOG_INFO_NOLOCK("===== Stopping by SIGPIPE ====="); break;
-		default:		LOG_INFO_NOLOCK("===== Stopping by %d =====", signum); break;
+		case SIGTERM:	US_LOG_INFO_NOLOCK("===== Stopping by SIGTERM ====="); break;
+		case SIGINT:	US_LOG_INFO_NOLOCK("===== Stopping by SIGINT ====="); break;
+		case SIGPIPE:	US_LOG_INFO_NOLOCK("===== Stopping by SIGPIPE ====="); break;
+		default:		US_LOG_INFO_NOLOCK("===== Stopping by %d =====", signum); break;
 	}
-	global_stop = true;
+	_g_stop = true;
 }
 
 static void _install_signal_handlers(void) {
@@ -213,13 +213,13 @@ static void _install_signal_handlers(void) {
 	assert(!sigaddset(&sig_act.sa_mask, SIGTERM));
 	assert(!sigaddset(&sig_act.sa_mask, SIGPIPE));
 
-	LOG_DEBUG("Installing SIGINT handler ...");
+	US_LOG_DEBUG("Installing SIGINT handler ...");
 	assert(!sigaction(SIGINT, &sig_act, NULL));
 
-	LOG_DEBUG("Installing SIGTERM handler ...");
+	US_LOG_DEBUG("Installing SIGTERM handler ...");
 	assert(!sigaction(SIGTERM, &sig_act, NULL));
 
-	LOG_DEBUG("Installing SIGTERM handler ...");
+	US_LOG_DEBUG("Installing SIGTERM handler ...");
 	assert(!sigaction(SIGPIPE, &sig_act, NULL));
 }
 
@@ -234,10 +234,10 @@ static int _dump_sink(
 
 	useconds_t interval_us = interval * 1000000;
 
-	frame_s *frame = frame_init();
-	memsink_s *sink = NULL;
+	us_frame_s *frame = us_frame_init();
+	us_memsink_s *sink = NULL;
 
-	if ((sink = memsink_init("input", sink_name, false, 0, false, 0, sink_timeout)) == NULL) {
+	if ((sink = us_memsink_init("input", sink_name, false, 0, false, 0, sink_timeout)) == NULL) {
 		goto error;
 	}
 
@@ -247,28 +247,28 @@ static int _dump_sink(
 
 	long double last_ts = 0;
 
-	while (!global_stop) {
-		int error = memsink_client_get(sink, frame);
+	while (!_g_stop) {
+		int error = us_memsink_client_get(sink, frame);
 		if (error == 0) {
-			const long double now = get_now_monotonic();
-			const long long now_second = floor_ms(now);
+			const long double now = us_get_now_monotonic();
+			const long long now_second = us_floor_ms(now);
 
 			char fourcc_str[8];
-			LOG_VERBOSE("Frame: size=%zu, res=%ux%u, fourcc=%s, stride=%u, online=%d, key=%d, latency=%.3Lf, diff=%.3Lf",
+			US_LOG_VERBOSE("Frame: size=%zu, res=%ux%u, fourcc=%s, stride=%u, online=%d, key=%d, latency=%.3Lf, diff=%.3Lf",
 				frame->used, frame->width, frame->height,
-				fourcc_to_string(frame->format, fourcc_str, 8),
+				us_fourcc_to_string(frame->format, fourcc_str, 8),
 				frame->stride, frame->online, frame->key,
 				now - frame->grab_ts, (last_ts ? now - last_ts : 0));
 			last_ts = now;
 
-			LOG_DEBUG("       grab_ts=%.3Lf, encode_begin_ts=%.3Lf, encode_end_ts=%.3Lf",
+			US_LOG_DEBUG("       grab_ts=%.3Lf, encode_begin_ts=%.3Lf, encode_end_ts=%.3Lf",
 				frame->grab_ts, frame->encode_begin_ts, frame->encode_end_ts);
 
 			if (now_second != fps_second) {
 				fps = fps_accum;
 				fps_accum = 0;
 				fps_second = now_second;
-				LOG_PERF_FPS("A new second has come; captured_fps=%u", fps);
+				US_LOG_PERF_FPS("A new second has come; captured_fps=%u", fps);
 			}
 			fps_accum += 1;
 
@@ -301,11 +301,11 @@ static int _dump_sink(
 
 	ok:
 		if (sink) {
-			memsink_destroy(sink);
+			us_memsink_destroy(sink);
 		}
-		frame_destroy(frame);
+		us_frame_destroy(frame);
 
-		LOG_INFO("Bye-bye");
+		US_LOG_INFO("Bye-bye");
 		return retval;
 }
 
@@ -313,7 +313,7 @@ static void _help(FILE *fp) {
 #	define SAY(_msg, ...) fprintf(fp, _msg "\n", ##__VA_ARGS__)
 	SAY("\nuStreamer-dump - Dump uStreamer's memory sink to file");
 	SAY("═════════════════════════════════════════════════════");
-	SAY("Version: %s; license: GPLv3", VERSION);
+	SAY("Version: %s; license: GPLv3", US_VERSION);
 	SAY("Copyright (C) 2018-2022 Maxim Devaev <mdevaev@gmail.com>\n");
 	SAY("Example:");
 	SAY("════════");

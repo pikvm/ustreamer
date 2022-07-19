@@ -29,13 +29,13 @@
 #include <sys/mman.h>
 
 
-#define MEMSINK_MAGIC	((uint64_t)0xCAFEBABECAFEBABE)
-#define MEMSINK_VERSION	((uint32_t)2)
+#define US_MEMSINK_MAGIC	((uint64_t)0xCAFEBABECAFEBABE)
+#define US_MEMSINK_VERSION	((uint32_t)2)
 
-#ifndef CFG_MEMSINK_MAX_DATA
-#	define CFG_MEMSINK_MAX_DATA 33554432
+#ifndef US_CFG_MEMSINK_MAX_DATA
+#	define US_CFG_MEMSINK_MAX_DATA 33554432
 #endif
-#define MEMSINK_MAX_DATA ((size_t)(CFG_MEMSINK_MAX_DATA))
+#define US_MEMSINK_MAX_DATA ((size_t)(US_CFG_MEMSINK_MAX_DATA))
 
 
 typedef struct {
@@ -58,14 +58,14 @@ typedef struct {
 
 	long double	last_client_ts;
 
-	uint8_t		data[MEMSINK_MAX_DATA];
-} memsink_shared_s;
+	uint8_t		data[US_MEMSINK_MAX_DATA];
+} us_memsink_shared_s;
 
 
-INLINE memsink_shared_s *memsink_shared_map(int fd) {
-	memsink_shared_s *mem = mmap(
+INLINE us_memsink_shared_s *us_memsink_shared_map(int fd) {
+	us_memsink_shared_s *mem = mmap(
 		NULL,
-		sizeof(memsink_shared_s),
+		sizeof(us_memsink_shared_s),
 		PROT_READ | PROT_WRITE,
 		MAP_SHARED,
 		fd,
@@ -78,7 +78,7 @@ INLINE memsink_shared_s *memsink_shared_map(int fd) {
 	return mem;
 }
 
-INLINE int memsink_shared_unmap(memsink_shared_s *mem) {
+INLINE int us_memsink_shared_unmap(us_memsink_shared_s *mem) {
 	assert(mem != NULL);
-	return munmap(mem, sizeof(memsink_shared_s));
+	return munmap(mem, sizeof(us_memsink_shared_s));
 }

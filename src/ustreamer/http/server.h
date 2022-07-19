@@ -76,30 +76,30 @@
 #endif
 
 
-typedef struct stream_client_sx {
-	struct server_sx *server;
-	struct evhttp_request *request;
+typedef struct us_stream_client_sx {
+	struct us_server_sx		*server;
+	struct evhttp_request	*request;
 
-	char			*key;
-	bool			extra_headers;
-	bool			advance_headers;
-	bool			dual_final_frames;
-	bool			zero_data;
+	char		*key;
+	bool		extra_headers;
+	bool		advance_headers;
+	bool		dual_final_frames;
+	bool		zero_data;
 
-	char			*hostport;
-	uint64_t		id;
-	bool			need_initial;
-	bool			need_first_frame;
-	bool			updated_prev;
-	unsigned		fps;
-	unsigned		fps_accum;
-	long long		fps_accum_second;
+	char		*hostport;
+	uint64_t	id;
+	bool		need_initial;
+	bool		need_first_frame;
+	bool		updated_prev;
+	unsigned	fps;
+	unsigned	fps_accum;
+	long long	fps_accum_second;
 
-	LIST_STRUCT(struct stream_client_sx);
-} stream_client_s;
+	US_LIST_STRUCT(struct us_stream_client_sx);
+} us_stream_client_s;
 
 typedef struct {
-	frame_s			*frame;
+	us_frame_s		*frame;
 	unsigned		captured_fps;
 	unsigned		queued_fps;
 	unsigned		dropped;
@@ -107,10 +107,10 @@ typedef struct {
 	long double		expose_cmp_ts;
 	long double		expose_end_ts;
 
-	bool		notify_last_online;
-	unsigned	notify_last_width;
-	unsigned	notify_last_height;
-} exposed_s;
+	bool			notify_last_online;
+	unsigned		notify_last_width;
+	unsigned		notify_last_height;
+} us_exposed_s;
 
 typedef struct {
 	struct event_base	*base;
@@ -123,14 +123,14 @@ typedef struct {
 	long double			last_request_ts;
 
 	struct event		*refresher;
-	stream_s			*stream;
-	exposed_s			*exposed;
+	us_stream_s			*stream;
+	us_exposed_s			*exposed;
 
-	stream_client_s		*stream_clients;
+	us_stream_client_s	*stream_clients;
 	unsigned			stream_clients_count;
-} server_runtime_s;
+} us_server_runtime_s;
 
-typedef struct server_sx {
+typedef struct us_server_sx {
 	char		*host;
 	unsigned	port;
 
@@ -157,13 +157,13 @@ typedef struct server_sx {
 	bool		notify_parent;
 	unsigned	exit_on_no_clients;
 
-	server_runtime_s *run;
-} server_s;
+	us_server_runtime_s *run;
+} us_server_s;
 
 
-server_s *server_init(stream_s *stream);
-void server_destroy(server_s *server);
+us_server_s *us_server_init(us_stream_s *stream);
+void us_server_destroy(us_server_s *server);
 
-int server_listen(server_s *server);
-void server_loop(server_s *server);
-void server_loop_break(server_s *server);
+int us_server_listen(us_server_s *server);
+void us_server_loop(us_server_s *server);
+void us_server_loop_break(us_server_s *server);

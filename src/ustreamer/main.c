@@ -41,8 +41,8 @@
 
 
 typedef struct {
-	stream_s *stream;
-	server_s *server;
+	us_stream_s *stream;
+	us_server_s *server;
 } _main_context_s;
 
 static _main_context_s *_ctx;
@@ -56,27 +56,27 @@ static void _block_thread_signals(void) {
 }
 
 static void *_stream_loop_thread(UNUSED void *arg) {
-	A_THREAD_RENAME("stream");
+	US_THREAD_RENAME("stream");
 	_block_thread_signals();
-	stream_loop(_ctx->stream);
+	us_stream_loop(_ctx->stream);
 	return NULL;
 }
 
 static void *_server_loop_thread(UNUSED void *arg) {
-	A_THREAD_RENAME("http");
+	US_THREAD_RENAME("http");
 	_block_thread_signals();
-	server_loop(_ctx->server);
+	us_server_loop(_ctx->server);
 	return NULL;
 }
 
 static void _signal_handler(int signum) {
 	switch (signum) {
-		case SIGTERM:	LOG_INFO_NOLOCK("===== Stopping by SIGTERM ====="); break;
-		case SIGINT:	LOG_INFO_NOLOCK("===== Stopping by SIGINT ====="); break;
-		default:		LOG_INFO_NOLOCK("===== Stopping by %d =====", signum); break;
+		case SIGTERM:	US_LOG_INFO_NOLOCK("===== Stopping by SIGTERM ====="); break;
+		case SIGINT:	US_LOG_INFO_NOLOCK("===== Stopping by SIGINT ====="); break;
+		default:		US_LOG_INFO_NOLOCK("===== Stopping by %d =====", signum); break;
 	}
-	stream_loop_break(_ctx->stream);
-	server_loop_break(_ctx->server);
+	us_stream_loop_break(_ctx->stream);
+	us_server_loop_break(_ctx->server);
 }
 
 static void _install_signal_handlers(void) {
@@ -87,13 +87,13 @@ static void _install_signal_handlers(void) {
 	assert(!sigaddset(&sig_act.sa_mask, SIGINT));
 	assert(!sigaddset(&sig_act.sa_mask, SIGTERM));
 
-	LOG_DEBUG("Installing SIGINT handler ...");
+	US_LOG_DEBUG("Installing SIGINT handler ...");
 	assert(!sigaction(SIGINT, &sig_act, NULL));
 
-	LOG_DEBUG("Installing SIGTERM handler ...");
+	US_LOG_DEBUG("Installing SIGTERM handler ...");
 	assert(!sigaction(SIGTERM, &sig_act, NULL));
 
-	LOG_DEBUG("Ignoring SIGPIPE ...");
+	US_LOG_DEBUG("Ignoring SIGPIPE ...");
 	assert(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
 }
 
@@ -101,18 +101,18 @@ int main(int argc, char *argv[]) {
 	assert(argc >= 0);
 	int exit_code = 0;
 
-	LOGGING_INIT;
-	A_THREAD_RENAME("main");
+	US_LOGGING_INIT;
+	US_THREAD_RENAME("main");
 
-	options_s *options = options_init(argc, argv);
-	device_s *dev = device_init();
-	encoder_s *enc = encoder_init();
-	stream_s *stream = stream_init(dev, enc);
-	server_s *server = server_init(stream);
+	us_options_s *options = us_options_init(argc, argv);
+	us_device_s *dev = us_device_init();
+	us_encoder_s *enc = us_encoder_init();
+	us_stream_s *stream = us_stream_init(dev, enc);
+	us_server_s *server = us_server_init(stream);
 
 	if ((exit_code = options_parse(options, dev, enc, stream, server)) == 0) {
 #		ifdef WITH_GPIO
-		gpio_init();
+		us_gpio_init();
 #		endif
 
 		_install_signal_handlers();
@@ -122,34 +122,34 @@ int main(int argc, char *argv[]) {
 		ctx.server = server;
 		_ctx = &ctx;
 
-		if ((exit_code = server_listen(server)) == 0) {
+		if ((exit_code = us_server_listen(server)) == 0) {
 #			ifdef WITH_GPIO
-			gpio_set_prog_running(true);
+			us_gpio_set_prog_running(true);
 #			endif
 
 			pthread_t stream_loop_tid;
 			pthread_t server_loop_tid;
-			A_THREAD_CREATE(&stream_loop_tid, _stream_loop_thread, NULL);
-			A_THREAD_CREATE(&server_loop_tid, _server_loop_thread, NULL);
-			A_THREAD_JOIN(server_loop_tid);
-			A_THREAD_JOIN(stream_loop_tid);
+			US_THREAD_CREATE(&stream_loop_tid, _stream_loop_thread, NULL);
+			US_THREAD_CREATE(&server_loop_tid, _server_loop_thread, NULL);
+			US_THREAD_JOIN(server_loop_tid);
+			US_THREAD_JOIN(stream_loop_tid);
 		}
 
 #		ifdef WITH_GPIO
-		gpio_set_prog_running(false);
-		gpio_destroy();
+		us_gpio_set_prog_running(false);
+		us_gpio_destroy();
 #		endif
 	}
 
-	server_destroy(server);
-	stream_destroy(stream);
-	encoder_destroy(enc);
-	device_destroy(dev);
-	options_destroy(options);
+	us_server_destroy(server);
+	us_stream_destroy(stream);
+	us_encoder_destroy(enc);
+	us_device_destroy(dev);
+	us_options_destroy(options);
 
 	if (exit_code == 0) {
-		LOG_INFO("Bye-bye");
+		US_LOG_INFO("Bye-bye");
 	}
-	LOGGING_DESTROY;
+	US_LOGGING_DESTROY;
 	return (exit_code < 0 ? 1 : 0);
 }

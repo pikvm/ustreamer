@@ -23,7 +23,7 @@
 #include "logging.h"
 
 
-enum log_level_t us_log_level;
+enum us_log_level_t us_log_level;
 
 bool us_log_colored;
 

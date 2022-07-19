@@ -23,12 +23,12 @@
 #include "memsink.h"
 
 
-memsink_s *memsink_init(
+us_memsink_s *us_memsink_init(
 	const char *name, const char *obj, bool server,
 	mode_t mode, bool rm, unsigned client_ttl, unsigned timeout) {
 
-	memsink_s *sink;
-	A_CALLOC(sink, 1);
+	us_memsink_s *sink;
+	US_CALLOC(sink, 1);
 	sink->name = name;
 	sink->obj = obj;
 	sink->server = server;
@@ -39,54 +39,54 @@ memsink_s *memsink_init(
 	sink->mem = MAP_FAILED;
 	atomic_init(&sink->has_clients, false);
 
-	LOG_INFO("Using %s-sink: %s", name, obj);
+	US_LOG_INFO("Using %s-sink: %s", name, obj);
 
 	mode_t mask = umask(0);
 	sink->fd = shm_open(sink->obj, (server ? O_RDWR | O_CREAT : O_RDWR), mode);
 	umask(mask);
 	if (sink->fd == -1) {
 		umask(mask);
-		LOG_PERROR("%s-sink: Can't open shared memory", name);
+		US_LOG_PERROR("%s-sink: Can't open shared memory", name);
 		goto error;
 	}
 
-	if (sink->server && ftruncate(sink->fd, sizeof(memsink_shared_s)) < 0) {
-		LOG_PERROR("%s-sink: Can't truncate shared memory", name);
+	if (sink->server && ftruncate(sink->fd, sizeof(us_memsink_shared_s)) < 0) {
+		US_LOG_PERROR("%s-sink: Can't truncate shared memory", name);
 		goto error;
 	}
 
-	if ((sink->mem = memsink_shared_map(sink->fd)) == NULL) {
-		LOG_PERROR("%s-sink: Can't mmap shared memory", name);
+	if ((sink->mem = us_memsink_shared_map(sink->fd)) == NULL) {
+		US_LOG_PERROR("%s-sink: Can't mmap shared memory", name);
 		goto error;
 	}
 
 	return sink;
 
 	error:
-		memsink_destroy(sink);
+		us_memsink_destroy(sink);
 		return NULL;
 }
 
-void memsink_destroy(memsink_s *sink) {
+void us_memsink_destroy(us_memsink_s *sink) {
 	if (sink->mem != MAP_FAILED) {
-		if (memsink_shared_unmap(sink->mem) < 0) {
-			LOG_PERROR("%s-sink: Can't unmap shared memory", sink->name);
+		if (us_memsink_shared_unmap(sink->mem) < 0) {
+			US_LOG_PERROR("%s-sink: Can't unmap shared memory", sink->name);
 		}
 	}
 	if (sink->fd >= 0) {
 		if (close(sink->fd) < 0) {
-			LOG_PERROR("%s-sink: Can't close shared memory fd", sink->name);
+			US_LOG_PERROR("%s-sink: Can't close shared memory fd", sink->name);
 		}
 		if (sink->rm && shm_unlink(sink->obj) < 0) {
 			if (errno != ENOENT) {
-				LOG_PERROR("%s-sink: Can't remove shared memory", sink->name);
+				US_LOG_PERROR("%s-sink: Can't remove shared memory", sink->name);
 			}
 		}
 	}
 	free(sink);
 }
 
-bool memsink_server_check(memsink_s *sink, const frame_s *frame) {
+bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame) {
 	// Return true (the need to write to memsink) on any of these conditions:
 	//   - EWOULDBLOCK - we have an active client;
 	//   - Incorrect magic or version - need to first write;
@@ -100,97 +100,97 @@ bool memsink_server_check(memsink_s *sink, const frame_s *frame) {
 			atomic_store(&sink->has_clients, true);
 			return true;
 		}
-		LOG_PERROR("%s-sink: Can't lock memory", sink->name);
+		US_LOG_PERROR("%s-sink: Can't lock memory", sink->name);
 		return false;
 	}
 
-	if (sink->mem->magic != MEMSINK_MAGIC || sink->mem->version != MEMSINK_VERSION) {
+	if (sink->mem->magic != US_MEMSINK_MAGIC || sink->mem->version != US_MEMSINK_VERSION) {
 		return true;
 	}
 
-	bool has_clients = (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic());
+	bool has_clients = (sink->mem->last_client_ts + sink->client_ttl > us_get_now_monotonic());
 	atomic_store(&sink->has_clients, has_clients);
 
 	if (flock(sink->fd, LOCK_UN) < 0) {
-		LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
+		US_LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
 		return false;
 	}
-	return (has_clients || !FRAME_COMPARE_META_USED_NOTS(sink->mem, frame));;
+	return (has_clients || !US_FRAME_COMPARE_META_USED_NOTS(sink->mem, frame));;
 }
 
-int memsink_server_put(memsink_s *sink, const frame_s *frame) {
+int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame) {
 	assert(sink->server);
 
-	const long double now = get_now_monotonic();
+	const long double now = us_get_now_monotonic();
 
-	if (frame->used > MEMSINK_MAX_DATA) {
-		LOG_ERROR("%s-sink: Can't put frame: is too big (%zu > %zu)",
-			sink->name, frame->used, MEMSINK_MAX_DATA);
+	if (frame->used > US_MEMSINK_MAX_DATA) {
+		US_LOG_ERROR("%s-sink: Can't put frame: is too big (%zu > %zu)",
+			sink->name, frame->used, US_MEMSINK_MAX_DATA);
 		return 0; // -2
 	}
 
-	if (flock_timedwait_monotonic(sink->fd, 1) == 0) {
-		LOG_VERBOSE("%s-sink: >>>>> Exposing new frame ...", sink->name);
+	if (us_flock_timedwait_monotonic(sink->fd, 1) == 0) {
+		US_LOG_VERBOSE("%s-sink: >>>>> Exposing new frame ...", sink->name);
 
-		sink->last_id = get_now_id();
+		sink->last_id = us_get_now_id();
 		sink->mem->id = sink->last_id;
 
 		memcpy(sink->mem->data, frame->data, frame->used);
 		sink->mem->used = frame->used;
-		FRAME_COPY_META(frame, sink->mem);
+		US_FRAME_COPY_META(frame, sink->mem);
 
-		sink->mem->magic = MEMSINK_MAGIC;
-		sink->mem->version = MEMSINK_VERSION;
-		atomic_store(&sink->has_clients, (sink->mem->last_client_ts + sink->client_ttl > get_now_monotonic()));
+		sink->mem->magic = US_MEMSINK_MAGIC;
+		sink->mem->version = US_MEMSINK_VERSION;
+		atomic_store(&sink->has_clients, (sink->mem->last_client_ts + sink->client_ttl > us_get_now_monotonic()));
 
 		if (flock(sink->fd, LOCK_UN) < 0) {
-			LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
+			US_LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
 			return -1;
 		}
-		LOG_VERBOSE("%s-sink: Exposed new frame; full exposition time = %.3Lf",
-			sink->name, get_now_monotonic() - now);
+		US_LOG_VERBOSE("%s-sink: Exposed new frame; full exposition time = %.3Lf",
+			sink->name, us_get_now_monotonic() - now);
 
 	} else if (errno == EWOULDBLOCK) {
-		LOG_VERBOSE("%s-sink: ===== Shared memory is busy now; frame skipped", sink->name);
+		US_LOG_VERBOSE("%s-sink: ===== Shared memory is busy now; frame skipped", sink->name);
 
 	} else {
-		LOG_PERROR("%s-sink: Can't lock memory", sink->name);
+		US_LOG_PERROR("%s-sink: Can't lock memory", sink->name);
 		return -1;
 	}
 	return 0;
 }
 
-int memsink_client_get(memsink_s *sink, frame_s *frame) { // cppcheck-suppress unusedFunction
+int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame) { // cppcheck-suppress unusedFunction
 	assert(!sink->server); // Client only
 
-	if (flock_timedwait_monotonic(sink->fd, sink->timeout) < 0) {
+	if (us_flock_timedwait_monotonic(sink->fd, sink->timeout) < 0) {
 		if (errno == EWOULDBLOCK) {
 			return -2;
 		}
-		LOG_PERROR("%s-sink: Can't lock memory", sink->name);
+		US_LOG_PERROR("%s-sink: Can't lock memory", sink->name);
 		return -1;
 	}
 
 	int retval = -2; // Not updated
-	if (sink->mem->magic == MEMSINK_MAGIC) {
-		if (sink->mem->version != MEMSINK_VERSION) {
-			LOG_ERROR("%s-sink: Protocol version mismatch: sink=%u, required=%u",
-				sink->name, sink->mem->version, MEMSINK_VERSION);
+	if (sink->mem->magic == US_MEMSINK_MAGIC) {
+		if (sink->mem->version != US_MEMSINK_VERSION) {
+			US_LOG_ERROR("%s-sink: Protocol version mismatch: sink=%u, required=%u",
+				sink->name, sink->mem->version, US_MEMSINK_VERSION);
 			retval = -1;
 			goto done;
 		}
 		if (sink->mem->id != sink->last_id) { // When updated
 			sink->last_id = sink->mem->id;
-			frame_set_data(frame, sink->mem->data, sink->mem->used);
-			FRAME_COPY_META(sink->mem, frame);
+			us_frame_set_data(frame, sink->mem->data, sink->mem->used);
+			US_FRAME_COPY_META(sink->mem, frame);
 			retval = 0;
 		}
-		sink->mem->last_client_ts = get_now_monotonic();
+		sink->mem->last_client_ts = us_get_now_monotonic();
 	}
 
 	done:
 		if (flock(sink->fd, LOCK_UN) < 0) {
-			LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
+			US_LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
 			return -1;
 		}
 		return retval;

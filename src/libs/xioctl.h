@@ -26,17 +26,15 @@
 
 #include <sys/ioctl.h>
 
-#include "tools.h"
 
-
-#ifndef CFG_XIOCTL_RETRIES
-#	define CFG_XIOCTL_RETRIES 4
+#ifndef US_CFG_XIOCTL_RETRIES
+#	define US_CFG_XIOCTL_RETRIES 4
 #endif
-#define XIOCTL_RETRIES ((unsigned)(CFG_XIOCTL_RETRIES))
+#define _XIOCTL_RETRIES ((unsigned)(US_CFG_XIOCTL_RETRIES))
 
 
-INLINE int xioctl(int fd, int request, void *arg) {
-	int retries = XIOCTL_RETRIES;
+INLINE int us_xioctl(int fd, int request, void *arg) {
+	int retries = _XIOCTL_RETRIES;
 	int retval = -1;
 
 	do {

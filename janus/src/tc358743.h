@@ -40,7 +40,7 @@
 typedef struct {
 	bool		has_audio;
 	unsigned	audio_hz;
-} tc358743_info_s;
+} us_tc358743_info_s;
 
 
-int tc358743_read_info(const char *path, tc358743_info_s *info);
+int us_tc358743_read_info(const char *path, us_tc358743_info_s *info);

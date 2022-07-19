@@ -27,19 +27,19 @@ static char *_get_value(janus_config *jcfg, const char *section, const char *opt
 static bool _get_bool(janus_config *jcfg, const char *section, const char *option, bool def);
 
 
-plugin_config_s *plugin_config_init(const char *config_dir_path) {
-	plugin_config_s *config;
-	A_CALLOC(config, 1);
+us_config_s *us_config_init(const char *config_dir_path) {
+	us_config_s *config;
+	US_CALLOC(config, 1);
 
 	char *config_file_path;
 	janus_config *jcfg = NULL;
 
-	A_ASPRINTF(config_file_path, "%s/%s.jcfg", config_dir_path, PLUGIN_PACKAGE);
-	JLOG_INFO("config", "Reading config file '%s' ...", config_file_path);
+	US_ASPRINTF(config_file_path, "%s/%s.jcfg", config_dir_path, US_PLUGIN_PACKAGE);
+	US_JLOG_INFO("config", "Reading config file '%s' ...", config_file_path);
 
 	jcfg = janus_config_parse(config_file_path);
 	if (jcfg == NULL) {
-		JLOG_ERROR("config", "Can't read config");
+		US_JLOG_ERROR("config", "Can't read config");
 		goto error;
 	}
 	janus_config_print(jcfg);
@@ -48,23 +48,23 @@ plugin_config_s *plugin_config_init(const char *config_dir_path) {
 		(config->video_sink_name = _get_value(jcfg, "memsink", "object")) == NULL
 		&& (config->video_sink_name = _get_value(jcfg, "video", "sink")) == NULL
 	) {
-		JLOG_ERROR("config", "Missing config value: video.sink (ex. memsink.object)");
+		US_JLOG_ERROR("config", "Missing config value: video.sink (ex. memsink.object)");
 		goto error;
 	}
 	if ((config->video_zero_playout_delay = _get_bool(jcfg, "video", "zero_playout_delay", false)) == true) {
-		JLOG_INFO("config", "Enabled the experimental Playout-Delay=0 RTP extension for VIDEO");
+		US_JLOG_INFO("config", "Enabled the experimental Playout-Delay=0 RTP extension for VIDEO");
 	}
 	if ((config->audio_dev_name = _get_value(jcfg, "audio", "device")) != NULL) {
-		JLOG_INFO("config", "Enabled the experimental AUDIO feature");
+		US_JLOG_INFO("config", "Enabled the experimental AUDIO feature");
 		if ((config->tc358743_dev_path = _get_value(jcfg, "audio", "tc358743")) == NULL) {
-			JLOG_INFO("config", "Missing config value: audio.tc358743");
+			US_JLOG_INFO("config", "Missing config value: audio.tc358743");
 			goto error;
 		}
 	}
 
 	goto ok;
 	error:
-		plugin_config_destroy(config);
+		us_config_destroy(config);
 		config = NULL;
 	ok:
 		if (jcfg) {
@@ -74,10 +74,10 @@ plugin_config_s *plugin_config_init(const char *config_dir_path) {
 		return config;
 }
 
-void plugin_config_destroy(plugin_config_s *config) {
-	DELETE(config->video_sink_name, free);
-	DELETE(config->audio_dev_name, free);
-	DELETE(config->tc358743_dev_path, free);
+void us_config_destroy(us_config_s *config) {
+	US_DELETE(config->video_sink_name, free);
+	US_DELETE(config->audio_dev_name, free);
+	US_DELETE(config->tc358743_dev_path, free);
 	free(config);
 }
 

@@ -23,41 +23,41 @@
 #include "stream.h"
 
 
-static workers_pool_s *_stream_init_loop(stream_s *stream);
-static workers_pool_s *_stream_init_one(stream_s *stream);
-static void _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps);
+static us_workers_pool_s *_stream_init_loop(us_stream_s *stream);
+static us_workers_pool_s *_stream_init_one(us_stream_s *stream);
+static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigned captured_fps);
 
 
-#define RUN(_next) stream->run->_next
+#define _RUN(x_next) stream->run->x_next
 
-#define SINK_PUT(_sink, _frame) { \
-		if (stream->_sink && memsink_server_check(stream->_sink, _frame)) {\
-			memsink_server_put(stream->_sink, _frame); \
+#define _SINK_PUT(x_sink, x_frame) { \
+		if (stream->x_sink && us_memsink_server_check(stream->x_sink, x_frame)) {\
+			us_memsink_server_put(stream->x_sink, x_frame); \
 		} \
 	}
 
-#define H264_PUT(_frame, _force_key) { \
-		if (RUN(h264)) { \
-			h264_stream_process(RUN(h264), _frame, _force_key); \
+#define _H264_PUT(x_frame, x_force_key) { \
+		if (_RUN(h264)) { \
+			us_h264_stream_process(_RUN(h264), x_frame, x_force_key); \
 		} \
 	}
 
 
-stream_s *stream_init(device_s *dev, encoder_s *enc) {
-	stream_runtime_s *run;
-	A_CALLOC(run, 1);
+us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
+	us_stream_runtime_s *run;
+	US_CALLOC(run, 1);
 	atomic_init(&run->stop, false);
 
-	video_s *video;
-	A_CALLOC(video, 1);
-	video->frame = frame_init();
+	us_video_s *video;
+	US_CALLOC(video, 1);
+	video->frame = us_frame_init();
 	atomic_init(&video->updated, false);
-	A_MUTEX_INIT(&video->mutex);
+	US_MUTEX_INIT(&video->mutex);
 	atomic_init(&video->has_clients, false);
 	run->video = video;
 
-	stream_s *stream;
-	A_CALLOC(stream, 1);
+	us_stream_s *stream;
+	US_CALLOC(stream, 1);
 	stream->dev = dev;
 	stream->enc = enc;
 	stream->last_as_blank = -1;
@@ -68,42 +68,42 @@ stream_s *stream_init(device_s *dev, encoder_s *enc) {
 	return stream;
 }
 
-void stream_destroy(stream_s *stream) {
-	A_MUTEX_DESTROY(&RUN(video->mutex));
-	frame_destroy(RUN(video->frame));
-	free(RUN(video));
+void us_stream_destroy(us_stream_s *stream) {
+	US_MUTEX_DESTROY(&_RUN(video->mutex));
+	us_frame_destroy(_RUN(video->frame));
+	free(_RUN(video));
 	free(stream->run);
 	free(stream);
 }
 
-void stream_loop(stream_s *stream) {
+void us_stream_loop(us_stream_s *stream) {
 	assert(stream->blank);
 
-	LOG_INFO("Using V4L2 device: %s", stream->dev->path);
-	LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
+	US_LOG_INFO("Using V4L2 device: %s", stream->dev->path);
+	US_LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
 
 	if (stream->h264_sink) {
-		RUN(h264) = h264_stream_init(stream->h264_sink, stream->h264_m2m_path, stream->h264_bitrate, stream->h264_gop);
+		_RUN(h264) = us_h264_stream_init(stream->h264_sink, stream->h264_m2m_path, stream->h264_bitrate, stream->h264_gop);
 	}
 
-	for (workers_pool_s *pool; (pool = _stream_init_loop(stream)) != NULL;) {
+	for (us_workers_pool_s *pool; (pool = _stream_init_loop(stream)) != NULL;) {
 		long double grab_after = 0;
 		unsigned fluency_passed = 0;
 		unsigned captured_fps = 0;
 		unsigned captured_fps_accum = 0;
 		long long captured_fps_second = 0;
 
-		LOG_INFO("Capturing ...");
+		US_LOG_INFO("Capturing ...");
 
-		while (!atomic_load(&RUN(stop))) {
-			SEP_DEBUG('-');
-			LOG_DEBUG("Waiting for worker ...");
+		while (!atomic_load(&_RUN(stop))) {
+			US_SEP_DEBUG('-');
+			US_LOG_DEBUG("Waiting for worker ...");
 
-			worker_s *ready_wr = workers_pool_wait(pool);
-			encoder_job_s *ready_job = (encoder_job_s *)(ready_wr->job);
+			us_worker_s *ready_wr = us_workers_pool_wait(pool);
+			us_encoder_job_s *ready_job = (us_encoder_job_s *)(ready_wr->job);
 
 			if (ready_job->hw) {
-				if (device_release_buffer(stream->dev, ready_job->hw) < 0) {
+				if (us_device_release_buffer(stream->dev, ready_job->hw) < 0) {
 					ready_wr->job_failed = true;
 				}
 				ready_job->hw = NULL;
@@ -111,9 +111,9 @@ void stream_loop(stream_s *stream) {
 				if (!ready_wr->job_failed) {
 					if (ready_wr->job_timely) {
 						_stream_expose_frame(stream, ready_job->dest, captured_fps);
-						LOG_PERF("##### Encoded frame exposed; worker=%s", ready_wr->name);
+						US_LOG_PERF("##### Encoded frame exposed; worker=%s", ready_wr->name);
 					} else {
-						LOG_PERF("----- Encoded frame dropped; worker=%s", ready_wr->name);
+						US_LOG_PERF("----- Encoded frame dropped; worker=%s", ready_wr->name);
 					}
 				} else {
 					break;
@@ -123,51 +123,51 @@ void stream_loop(stream_s *stream) {
 			bool h264_force_key = false;
 			if (stream->slowdown) {
 				unsigned slc = 0;
-				for (; slc < 10 && !atomic_load(&RUN(stop)) && !stream_has_clients(stream); ++slc) {
+				for (; slc < 10 && !atomic_load(&_RUN(stop)) && !us_stream_has_clients(stream); ++slc) {
 					usleep(100000);
 					++slc;
 				}
 				h264_force_key = (slc == 10);
 			}
 
-			if (atomic_load(&RUN(stop))) {
+			if (atomic_load(&_RUN(stop))) {
 				break;
 			}
 
 			bool has_read;
 			bool has_write;
 			bool has_error;
-			int selected = device_select(stream->dev, &has_read, &has_write, &has_error);
+			int selected = us_device_select(stream->dev, &has_read, &has_write, &has_error);
 
 			if (selected < 0) {
 				if (errno != EINTR) {
-					LOG_PERROR("Mainloop select() error");
+					US_LOG_PERROR("Mainloop select() error");
 					break;
 				}
 			} else if (selected == 0) { // Persistent timeout
 #				ifdef WITH_GPIO
-				gpio_set_stream_online(false);
+				us_gpio_set_stream_online(false);
 #				endif
 			} else {
 				if (has_read) {
-					LOG_DEBUG("Frame is ready");
+					US_LOG_DEBUG("Frame is ready");
 
 #					ifdef WITH_GPIO
-					gpio_set_stream_online(true);
+					us_gpio_set_stream_online(true);
 #					endif
 
-					const long double now = get_now_monotonic();
-					const long long now_second = floor_ms(now);
+					const long double now = us_get_now_monotonic();
+					const long long now_second = us_floor_ms(now);
 
-					hw_buffer_s *hw;
-					int buf_index = device_grab_buffer(stream->dev, &hw);
+					us_hw_buffer_s *hw;
+					int buf_index = us_device_grab_buffer(stream->dev, &hw);
 
 					if (buf_index >= 0) {
 						if (now < grab_after) {
 							fluency_passed += 1;
-							LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf",
+							US_LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf",
 								fluency_passed, now, grab_after);
-							if (device_release_buffer(stream->dev, hw) < 0) {
+							if (us_device_release_buffer(stream->dev, hw) < 0) {
 								break;
 							}
 						} else {
@@ -177,20 +177,20 @@ void stream_loop(stream_s *stream) {
 								captured_fps = captured_fps_accum;
 								captured_fps_accum = 0;
 								captured_fps_second = now_second;
-								LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps);
+								US_LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps);
 							}
 							captured_fps_accum += 1;
 
-							const long double fluency_delay = workers_pool_get_fluency_delay(pool, ready_wr);
+							const long double fluency_delay = us_workers_pool_get_fluency_delay(pool, ready_wr);
 							grab_after = now + fluency_delay;
-							LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
+							US_LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
 
 							ready_job->hw = hw;
-							workers_pool_assign(pool, ready_wr);
-							LOG_DEBUG("Assigned new frame in buffer=%d to worker=%s", buf_index, ready_wr->name);
+							us_workers_pool_assign(pool, ready_wr);
+							US_LOG_DEBUG("Assigned new frame in buffer=%d to worker=%s", buf_index, ready_wr->name);
 
-							SINK_PUT(raw_sink, &hw->raw);
-							H264_PUT(&hw->raw, h264_force_key);
+							_SINK_PUT(raw_sink, &hw->raw);
+							_H264_PUT(&hw->raw, h264_force_key);
 						}
 					} else if (buf_index != -2) { // -2 for broken frame
 						break;
@@ -198,72 +198,72 @@ void stream_loop(stream_s *stream) {
 				}
 
 				if (has_write) {
-					LOG_ERROR("Got unexpected writing event, seems device was disconnected");
+					US_LOG_ERROR("Got unexpected writing event, seems device was disconnected");
 					break;
 				}
 
 				if (has_error) {
-					LOG_INFO("Got V4L2 event");
-					if (device_consume_event(stream->dev) < 0) {
+					US_LOG_INFO("Got V4L2 event");
+					if (us_device_consume_event(stream->dev) < 0) {
 						break;
 					}
 				}
 			}
 		}
 
-		workers_pool_destroy(pool);
-		device_switch_capturing(stream->dev, false);
-		device_close(stream->dev);
+		us_workers_pool_destroy(pool);
+		us_device_switch_capturing(stream->dev, false);
+		us_device_close(stream->dev);
 
 #		ifdef WITH_GPIO
-		gpio_set_stream_online(false);
+		us_gpio_set_stream_online(false);
 #		endif
 	}
 
-	if (RUN(h264)) {
-		h264_stream_destroy(RUN(h264));
+	if (_RUN(h264)) {
+		us_h264_stream_destroy(_RUN(h264));
 	}
 }
 
-void stream_loop_break(stream_s *stream) {
-	atomic_store(&RUN(stop), true);
+void us_stream_loop_break(us_stream_s *stream) {
+	atomic_store(&_RUN(stop), true);
 }
 
-bool stream_has_clients(stream_s *stream) {
+bool us_stream_has_clients(us_stream_s *stream) {
 	return (
-		atomic_load(&RUN(video->has_clients))
+		atomic_load(&_RUN(video->has_clients))
 		// has_clients синков НЕ обновляются в реальном времени
 		|| (stream->sink != NULL && atomic_load(&stream->sink->has_clients))
-		|| (RUN(h264) != NULL && /*RUN(h264->sink) == NULL ||*/ atomic_load(&RUN(h264->sink->has_clients)))
+		|| (_RUN(h264) != NULL && /*_RUN(h264->sink) == NULL ||*/ atomic_load(&_RUN(h264->sink->has_clients)))
 	);
 }
 
-static workers_pool_s *_stream_init_loop(stream_s *stream) {
+static us_workers_pool_s *_stream_init_loop(us_stream_s *stream) {
 
-	workers_pool_s *pool = NULL;
+	us_workers_pool_s *pool = NULL;
 	int access_error = 0;
 
-	LOG_DEBUG("%s: stream->run->stop=%d", __FUNCTION__, atomic_load(&RUN(stop)));
+	US_LOG_DEBUG("%s: stream->run->stop=%d", __FUNCTION__, atomic_load(&_RUN(stop)));
 
-	while (!atomic_load(&RUN(stop))) {
+	while (!atomic_load(&_RUN(stop))) {
 		_stream_expose_frame(stream, NULL, 0);
 
 		if (access(stream->dev->path, R_OK|W_OK) < 0) {
 			if (access_error != errno) {
-				SEP_INFO('=');
-				LOG_PERROR("Can't access device");
-				LOG_INFO("Waiting for the device access ...");
+				US_SEP_INFO('=');
+				US_LOG_PERROR("Can't access device");
+				US_LOG_INFO("Waiting for the device access ...");
 				access_error = errno;
 			}
 			sleep(stream->error_delay);
 			continue;
 		} else {
-			SEP_INFO('=');
+			US_SEP_INFO('=');
 			access_error = 0;
 		}
 
 		if ((pool = _stream_init_one(stream)) == NULL) {
-			LOG_INFO("Sleeping %u seconds before new stream init ...", stream->error_delay);
+			US_LOG_INFO("Sleeping %u seconds before new stream init ...", stream->error_delay);
 			sleep(stream->error_delay);
 		} else {
 			break;
@@ -272,90 +272,86 @@ static workers_pool_s *_stream_init_loop(stream_s *stream) {
 	return pool;
 }
 
-static workers_pool_s *_stream_init_one(stream_s *stream) {
-	if (device_open(stream->dev) < 0) {
+static us_workers_pool_s *_stream_init_one(us_stream_s *stream) {
+	if (us_device_open(stream->dev) < 0) {
 		goto error;
 	}
 	if (
-		stream->enc->type == ENCODER_TYPE_M2M_VIDEO
-		|| stream->enc->type == ENCODER_TYPE_M2M_IMAGE
-		|| (RUN(h264) && !is_jpeg(stream->dev->run->format))
+		stream->enc->type == US_ENCODER_TYPE_M2M_VIDEO
+		|| stream->enc->type == US_ENCODER_TYPE_M2M_IMAGE
+		|| (_RUN(h264) && !us_is_jpeg(stream->dev->run->format))
 	) {
-		device_export_to_dma(stream->dev);
+		us_device_export_to_dma(stream->dev);
 	}
-	if (device_switch_capturing(stream->dev, true) < 0) {
+	if (us_device_switch_capturing(stream->dev, true) < 0) {
 		goto error;
 	}
-	return encoder_workers_pool_init(stream->enc, stream->dev);
+	return us_encoder_workers_pool_init(stream->enc, stream->dev);
 	error:
-		device_close(stream->dev);
+		us_device_close(stream->dev);
 		return NULL;
 }
 
-static void _stream_expose_frame(stream_s *stream, frame_s *frame, unsigned captured_fps) {
-#	define VID(_next) RUN(video->_next)
+static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigned captured_fps) {
+#	define VID(x_next) _RUN(video->x_next)
 
-	frame_s *new = NULL;
+	us_frame_s *new = NULL;
 
-	A_MUTEX_LOCK(&VID(mutex));
+	US_MUTEX_LOCK(&VID(mutex));
 
 	if (frame) {
 		new = frame;
-		RUN(last_as_blank_ts) = 0; // Останавливаем таймер
-		LOG_DEBUG("Exposed ALIVE video frame");
+		_RUN(last_as_blank_ts) = 0; // Останавливаем таймер
+		US_LOG_DEBUG("Exposed ALIVE video frame");
 
 	} else {
 		if (VID(frame->used == 0)) {
 			new = stream->blank; // Инициализация
-			RUN(last_as_blank_ts) = 0;
+			_RUN(last_as_blank_ts) = 0;
 
 		} else if (VID(frame->online)) { // Если переходим из online в offline
 			if (stream->last_as_blank < 0) { // Если last_as_blank выключен, просто покажем старую картинку
 				new = stream->blank;
-				LOG_INFO("Changed video frame to BLANK");
+				US_LOG_INFO("Changed video frame to BLANK");
 			} else if (stream->last_as_blank > 0) { // // Если нужен таймер - запустим
-				RUN(last_as_blank_ts) = get_now_monotonic() + stream->last_as_blank;
-				LOG_INFO("Freezed last ALIVE video frame for %d seconds", stream->last_as_blank);
+				_RUN(last_as_blank_ts) = us_get_now_monotonic() + stream->last_as_blank;
+				US_LOG_INFO("Freezed last ALIVE video frame for %d seconds", stream->last_as_blank);
 			} else {  // last_as_blank == 0 - показываем последний фрейм вечно
-				LOG_INFO("Freezed last ALIVE video frame forever");
+				US_LOG_INFO("Freezed last ALIVE video frame forever");
 			}
 
 		} else if (stream->last_as_blank < 0) {
 			new = stream->blank;
-			// LOG_INFO("Changed video frame to BLANK");
+			// US_LOG_INFO("Changed video frame to BLANK");
 		}
 
 		if ( // Если уже оффлайн, включена фича last_as_blank с таймером и он запущен
 			stream->last_as_blank > 0
-			&& RUN(last_as_blank_ts) != 0
-			&& RUN(last_as_blank_ts) < get_now_monotonic()
+			&& _RUN(last_as_blank_ts) != 0
+			&& _RUN(last_as_blank_ts) < us_get_now_monotonic()
 		) {
 			new = stream->blank;
-			RUN(last_as_blank_ts) = 0; // // Останавливаем таймер
-			LOG_INFO("Changed last ALIVE video frame to BLANK");
+			_RUN(last_as_blank_ts) = 0; // // Останавливаем таймер
+			US_LOG_INFO("Changed last ALIVE video frame to BLANK");
 		}
 	}
 
 	if (new) {
-		frame_copy(new, VID(frame));
+		us_frame_copy(new, VID(frame));
 	}
 	VID(frame->online) = (bool)frame;
 	VID(captured_fps) = captured_fps;
 	atomic_store(&VID(updated), true);
 
-	A_MUTEX_UNLOCK(&VID(mutex));
+	US_MUTEX_UNLOCK(&VID(mutex));
 
 	new = (frame ? frame : stream->blank);
-	SINK_PUT(sink, new);
+	_SINK_PUT(sink, new);
 
 	if (frame == NULL) {
-		SINK_PUT(raw_sink, stream->blank);
-		H264_PUT(stream->blank, false);
+		_SINK_PUT(raw_sink, stream->blank);
+		_H264_PUT(stream->blank, false);
 	}
 
 #	undef VID
 }
-
-#undef H264_PUT
-#undef SINK_PUT
-#undef RUN

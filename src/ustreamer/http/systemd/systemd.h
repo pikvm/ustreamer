@@ -34,4 +34,4 @@
 #include "../../../libs/logging.h"
 
 
-evutil_socket_t evhttp_my_bind_systemd(struct evhttp *http);
+evutil_socket_t us_evhttp_bind_systemd(struct evhttp *http);

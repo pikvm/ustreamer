@@ -41,9 +41,9 @@ typedef struct {
 	FILE		*fp;
 	char		*base64_data;
 	size_t		base64_allocated;
-} output_file_s;
+} us_output_file_s;
 
 
-output_file_s *output_file_init(const char *path, bool json);
-void output_file_write(void *v_output, const frame_s *frame);
-void output_file_destroy(void *v_output);
+us_output_file_s *us_output_file_init(const char *path, bool json);
+void us_output_file_write(void *v_output, const us_frame_s *frame);
+void us_output_file_destroy(void *v_output);

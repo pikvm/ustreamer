@@ -48,73 +48,73 @@
 #include "../libs/xioctl.h"
 
 
-#define VIDEO_MIN_WIDTH		((unsigned)160)
-#define VIDEO_MAX_WIDTH		((unsigned)10240)
+#define US_VIDEO_MIN_WIDTH		((unsigned)160)
+#define US_VIDEO_MAX_WIDTH		((unsigned)10240)
 
-#define VIDEO_MIN_HEIGHT	((unsigned)120)
-#define VIDEO_MAX_HEIGHT	((unsigned)4320)
+#define US_VIDEO_MIN_HEIGHT		((unsigned)120)
+#define US_VIDEO_MAX_HEIGHT		((unsigned)4320)
 
-#define VIDEO_MAX_FPS		((unsigned)120)
+#define US_VIDEO_MAX_FPS		((unsigned)120)
 
-#define STANDARD_UNKNOWN	V4L2_STD_UNKNOWN
-#define STANDARDS_STR		"PAL, NTSC, SECAM"
+#define US_STANDARD_UNKNOWN		V4L2_STD_UNKNOWN
+#define US_STANDARDS_STR		"PAL, NTSC, SECAM"
 
-#define FORMAT_UNKNOWN	-1
-#define FORMATS_STR		"YUYV, UYVY, RGB565, RGB24, MJPEG, JPEG"
+#define US_FORMAT_UNKNOWN		-1
+#define US_FORMATS_STR			"YUYV, UYVY, RGB565, RGB24, MJPEG, JPEG"
 
-#define IO_METHOD_UNKNOWN	-1
-#define IO_METHODS_STR		"MMAP, USERPTR"
+#define US_IO_METHOD_UNKNOWN	-1
+#define US_IO_METHODS_STR		"MMAP, USERPTR"
 
 
 typedef struct {
-	frame_s				raw;
+	us_frame_s			raw;
 	struct v4l2_buffer	buf;
 	int					dma_fd;
 	bool				grabbed;
-} hw_buffer_s;
+} us_hw_buffer_s;
 
 typedef struct {
-	int			fd;
-	unsigned	width;
-	unsigned	height;
-	unsigned	format;
-	unsigned	stride;
-	unsigned	hw_fps;
-	unsigned	jpeg_quality;
-	size_t		raw_size;
-	unsigned	n_bufs;
-	hw_buffer_s	*hw_bufs;
-	bool		capturing;
-	bool		persistent_timeout_reported;
-} device_runtime_s;
+	int				fd;
+	unsigned		width;
+	unsigned		height;
+	unsigned		format;
+	unsigned		stride;
+	unsigned		hw_fps;
+	unsigned		jpeg_quality;
+	size_t			raw_size;
+	unsigned		n_bufs;
+	us_hw_buffer_s	*hw_bufs;
+	bool			capturing;
+	bool			persistent_timeout_reported;
+} us_device_runtime_s;
 
 typedef enum {
 	CTL_MODE_NONE = 0,
 	CTL_MODE_VALUE,
 	CTL_MODE_AUTO,
 	CTL_MODE_DEFAULT,
-} control_mode_e;
+} us_control_mode_e;
 
 typedef struct {
-	control_mode_e	mode;
-	int				value;
-} control_s;
+	us_control_mode_e	mode;
+	int					value;
+} us_control_s;
 
 typedef struct {
-	control_s brightness;
-	control_s contrast;
-	control_s saturation;
-	control_s hue;
-	control_s gamma;
-	control_s sharpness;
-	control_s backlight_compensation;
-	control_s white_balance;
-	control_s gain;
-	control_s color_effect;
-	control_s rotate;
-	control_s flip_vertical;
-	control_s flip_horizontal;
-} controls_s;
+	us_control_s	brightness;
+	us_control_s	contrast;
+	us_control_s	saturation;
+	us_control_s	hue;
+	us_control_s	gamma;
+	us_control_s	sharpness;
+	us_control_s	backlight_compensation;
+	us_control_s	white_balance;
+	us_control_s	gain;
+	us_control_s	color_effect;
+	us_control_s	rotate;
+	us_control_s	flip_vertical;
+	us_control_s	flip_horizontal;
+} us_controls_s;
 
 typedef struct {
 	char				*path;
@@ -132,25 +132,25 @@ typedef struct {
 	bool				persistent;
 	unsigned			timeout;
 
-	controls_s ctl;
+	us_controls_s 		ctl;
 
-	device_runtime_s *run;
-} device_s;
+	us_device_runtime_s *run;
+} us_device_s;
 
 
-device_s *device_init(void);
-void device_destroy(device_s *dev);
+us_device_s *us_device_init(void);
+void us_device_destroy(us_device_s *dev);
 
-int device_parse_format(const char *str);
-v4l2_std_id device_parse_standard(const char *str);
-int device_parse_io_method(const char *str);
+int us_device_parse_format(const char *str);
+v4l2_std_id us_device_parse_standard(const char *str);
+int us_device_parse_io_method(const char *str);
 
-int device_open(device_s *dev);
-void device_close(device_s *dev);
+int us_device_open(us_device_s *dev);
+void us_device_close(us_device_s *dev);
 
-int device_export_to_dma(device_s *dev);
-int device_switch_capturing(device_s *dev, bool enable);
-int device_select(device_s *dev, bool *has_read, bool *has_write, bool *has_error);
-int device_grab_buffer(device_s *dev, hw_buffer_s **hw);
-int device_release_buffer(device_s *dev, hw_buffer_s *hw);
-int device_consume_event(device_s *dev);
+int us_device_export_to_dma(us_device_s *dev);
+int us_device_switch_capturing(us_device_s *dev, bool enable);
+int us_device_select(us_device_s *dev, bool *has_read, bool *has_write, bool *has_error);
+int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw);
+int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw);
+int us_device_consume_event(us_device_s *dev);

@@ -53,37 +53,37 @@
 #define INLINE inline __attribute__((always_inline))
 #define UNUSED __attribute__((unused))
 
-#define A_CALLOC(_dest, _nmemb)		assert((_dest = calloc(_nmemb, sizeof(*(_dest)))))
-#define A_REALLOC(_dest, _nmemb)	assert((_dest = realloc(_dest, _nmemb * sizeof(*(_dest)))))
-#define DELETE(_dest, _free)		{ if (_dest) { _free(_dest); } }
-#define MEMSET_ZERO(_obj)			memset(&(_obj), 0, sizeof(_obj))
+#define US_CALLOC(x_dest, x_nmemb)		assert(((x_dest) = calloc((x_nmemb), sizeof(*(x_dest)))))
+#define US_REALLOC(x_dest, x_nmemb)		assert(((x_dest) = realloc((x_dest), (x_nmemb) * sizeof(*(x_dest)))))
+#define US_DELETE(x_dest, x_free)		{ if (x_dest) { x_free(x_dest); } }
+#define US_MEMSET_ZERO(x_obj)			memset(&(x_obj), 0, sizeof(x_obj))
 
-#define A_ASPRINTF(_dest, _fmt, ...) assert(asprintf(&(_dest), _fmt, ##__VA_ARGS__) >= 0)
+#define US_ASPRINTF(x_dest, x_fmt, ...) assert(asprintf(&(x_dest), (x_fmt), ##__VA_ARGS__) >= 0)
 
-#define ARRAY_LEN(_array) (sizeof(_array) / sizeof(_array[0]))
+#define US_ARRAY_LEN(x_array) (sizeof(x_array) / sizeof((x_array)[0]))
 
 
-INLINE const char *bool_to_string(bool flag) {
+INLINE const char *us_bool_to_string(bool flag) {
 	return (flag ? "true" : "false");
 }
 
-INLINE size_t align_size(size_t size, size_t to) {
+INLINE size_t us_align_size(size_t size, size_t to) {
 	return ((size + (to - 1)) & ~(to - 1));
 }
 
-INLINE unsigned min_u(unsigned a, unsigned b) {
+INLINE unsigned us_min_u(unsigned a, unsigned b) {
 	return (a < b ? a : b);
 }
 
-INLINE unsigned max_u(unsigned a, unsigned b) {
+INLINE unsigned us_max_u(unsigned a, unsigned b) {
 	return (a > b ? a : b);
 }
 
-INLINE long long floor_ms(long double now) {
+INLINE long long us_floor_ms(long double now) {
 	return (long long)now - (now < (long long)now); // floor()
 }
 
-INLINE uint32_t triple_u32(uint32_t x) {
+INLINE uint32_t us_triple_u32(uint32_t x) {
 	// https://nullprogram.com/blog/2018/07/31/
 	x ^= x >> 17;
 	x *= UINT32_C(0xED5AD4BB);
@@ -95,7 +95,7 @@ INLINE uint32_t triple_u32(uint32_t x) {
 	return x;
 }
 
-INLINE void get_now(clockid_t clk_id, time_t *sec, long *msec) {
+INLINE void us_get_now(clockid_t clk_id, time_t *sec, long *msec) {
 	struct timespec ts;
 	assert(!clock_gettime(clk_id, &ts));
 	*sec = ts.tv_sec;
@@ -108,47 +108,47 @@ INLINE void get_now(clockid_t clk_id, time_t *sec, long *msec) {
 }
 
 #if defined(CLOCK_MONOTONIC_RAW)
-#	define X_CLOCK_MONOTONIC CLOCK_MONOTONIC_RAW
+#	define _X_CLOCK_MONOTONIC CLOCK_MONOTONIC_RAW
 #elif defined(CLOCK_MONOTONIC_FAST)
-#	define X_CLOCK_MONOTONIC CLOCK_MONOTONIC_FAST
+#	define _X_CLOCK_MONOTONIC CLOCK_MONOTONIC_FAST
 #else
-#	define X_CLOCK_MONOTONIC CLOCK_MONOTONIC
+#	define _X_CLOCK_MONOTONIC CLOCK_MONOTONIC
 #endif
 
-INLINE long double get_now_monotonic(void) {
+INLINE long double us_get_now_monotonic(void) {
 	time_t sec;
 	long msec;
-	get_now(X_CLOCK_MONOTONIC, &sec, &msec);
+	us_get_now(_X_CLOCK_MONOTONIC, &sec, &msec);
 	return (long double)sec + ((long double)msec) / 1000;
 }
 
-INLINE uint64_t get_now_monotonic_u64(void) {
+INLINE uint64_t us_get_now_monotonic_u64(void) {
 	struct timespec ts;
-	assert(!clock_gettime(X_CLOCK_MONOTONIC, &ts));
+	assert(!clock_gettime(_X_CLOCK_MONOTONIC, &ts));
 	return (uint64_t)(ts.tv_nsec / 1000) + (uint64_t)ts.tv_sec * 1000000;
 }
 
-#undef X_CLOCK_MONOTONIC
+#undef _X_CLOCK_MONOTONIC
 
-INLINE uint64_t get_now_id(void) {
-	uint64_t now = get_now_monotonic_u64();
-	return (uint64_t)triple_u32(now) | ((uint64_t)triple_u32(now + 12345) << 32);
+INLINE uint64_t us_get_now_id(void) {
+	uint64_t now = us_get_now_monotonic_u64();
+	return (uint64_t)us_triple_u32(now) | ((uint64_t)us_triple_u32(now + 12345) << 32);
 }
 
-INLINE long double get_now_real(void) {
+INLINE long double us_get_now_real(void) {
 	time_t sec;
 	long msec;
-	get_now(CLOCK_REALTIME, &sec, &msec);
+	us_get_now(CLOCK_REALTIME, &sec, &msec);
 	return (long double)sec + ((long double)msec) / 1000;
 }
 
-INLINE unsigned get_cores_available(void) {
+INLINE unsigned us_get_cores_available(void) {
 	long cores_sysconf = sysconf(_SC_NPROCESSORS_ONLN);
 	cores_sysconf = (cores_sysconf < 0 ? 0 : cores_sysconf);
-	return max_u(min_u(cores_sysconf, 4), 1);
+	return us_max_u(us_min_u(cores_sysconf, 4), 1);
 }
 
-INLINE void ld_to_timespec(long double ld, struct timespec *ts) {
+INLINE void us_ld_to_timespec(long double ld, struct timespec *ts) {
 	ts->tv_sec = (long)ld;
 	ts->tv_nsec = (ld - ts->tv_sec) * 1000000000L;
 	if (ts->tv_nsec > 999999999L) {
@@ -157,17 +157,17 @@ INLINE void ld_to_timespec(long double ld, struct timespec *ts) {
 	}
 }
 
-INLINE long double timespec_to_ld(const struct timespec *ts) {
+INLINE long double us_timespec_to_ld(const struct timespec *ts) {
 	return ts->tv_sec + ((long double)ts->tv_nsec) / 1000000000;
 }
 
-INLINE int flock_timedwait_monotonic(int fd, long double timeout) {
-	long double deadline_ts = get_now_monotonic() + timeout;
+INLINE int us_flock_timedwait_monotonic(int fd, long double timeout) {
+	long double deadline_ts = us_get_now_monotonic() + timeout;
 	int retval = -1;
 
 	while (true) {
 		retval = flock(fd, LOCK_EX | LOCK_NB);
-		if (retval == 0 || errno != EWOULDBLOCK || get_now_monotonic() > deadline_ts) {
+		if (retval == 0 || errno != EWOULDBLOCK || us_get_now_monotonic() > deadline_ts) {
 			break;
 		}
 		if (usleep(1000) < 0) {
@@ -177,7 +177,7 @@ INLINE int flock_timedwait_monotonic(int fd, long double timeout) {
 	return retval;
 }
 
-INLINE char *errno_to_string(int error, char *buf, size_t size) {
+INLINE char *us_errno_to_string(int error, char *buf, size_t size) {
 	assert(buf);
 	assert(size > 0);
 	locale_t locale = newlocale(LC_MESSAGES_MASK, "C", NULL);

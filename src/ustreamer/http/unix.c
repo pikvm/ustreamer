@@ -23,13 +23,13 @@
 #include "unix.h"
 
 
-evutil_socket_t evhttp_my_bind_unix(struct evhttp *http, const char *path, bool rm, mode_t mode) {
+evutil_socket_t us_evhttp_bind_unix(struct evhttp *http, const char *path, bool rm, mode_t mode) {
 	struct sockaddr_un addr = {0};
 
 #	define MAX_SUN_PATH (sizeof(addr.sun_path) - 1)
 
 	if (strlen(path) > MAX_SUN_PATH) {
-		LOG_ERROR("UNIX socket path is too long; max=%zu", MAX_SUN_PATH);
+		US_LOG_ERROR("UNIX socket path is too long; max=%zu", MAX_SUN_PATH);
 		return -1;
 	}
 
@@ -44,24 +44,24 @@ evutil_socket_t evhttp_my_bind_unix(struct evhttp *http, const char *path, bool 
 
 	if (rm && unlink(path) < 0) {
 		if (errno != ENOENT) {
-			LOG_PERROR("Can't remove old UNIX socket '%s'", path);
+			US_LOG_PERROR("Can't remove old UNIX socket '%s'", path);
 			return -1;
 		}
 	}
 	if (bind(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr_un)) < 0) {
-		LOG_PERROR("Can't bind HTTP to UNIX socket '%s'", path);
+		US_LOG_PERROR("Can't bind HTTP to UNIX socket '%s'", path);
 		return -1;
 	}
 	if (mode && chmod(path, mode) < 0) {
-		LOG_PERROR("Can't set permissions %o to UNIX socket '%s'", mode, path);
+		US_LOG_PERROR("Can't set permissions %o to UNIX socket '%s'", mode, path);
 		return -1;
 	}
 	if (listen(fd, 128) < 0) {
-		LOG_PERROR("Can't listen UNIX socket '%s'", path);
+		US_LOG_PERROR("Can't listen UNIX socket '%s'", path);
 		return -1;
 	}
 	if (evhttp_accept_socket(http, fd) < 0) {
-		LOG_PERROR("Can't evhttp_accept_socket() UNIX socket '%s'", path);
+		US_LOG_PERROR("Can't evhttp_accept_socket() UNIX socket '%s'", path);
 		return -1;
 	}
 	return fd;

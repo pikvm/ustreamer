@@ -27,12 +27,12 @@
 #include "const.h"
 
 
-#define JLOG_INFO(_prefix, _msg, ...)	JANUS_LOG(LOG_INFO, "== %s/%-9s -- " _msg "\n", PLUGIN_NAME, _prefix, ##__VA_ARGS__)
-#define JLOG_WARN(_prefix, _msg, ...)	JANUS_LOG(LOG_WARN, "== %s/%-9s -- " _msg "\n", PLUGIN_NAME, _prefix, ##__VA_ARGS__)
-#define JLOG_ERROR(_prefix, _msg, ...)	JANUS_LOG(LOG_ERR, "== %s/%-9s -- " _msg "\n", PLUGIN_NAME, _prefix, ##__VA_ARGS__)
+#define US_JLOG_INFO(x_prefix, x_msg, ...)	JANUS_LOG(LOG_INFO, "== %s/%-9s -- " x_msg "\n", US_PLUGIN_NAME, x_prefix, ##__VA_ARGS__)
+#define US_JLOG_WARN(x_prefix, x_msg, ...)	JANUS_LOG(LOG_WARN, "== %s/%-9s -- " x_msg "\n", US_PLUGIN_NAME, x_prefix, ##__VA_ARGS__)
+#define US_JLOG_ERROR(x_prefix, x_msg, ...)	JANUS_LOG(LOG_ERR, "== %s/%-9s -- " x_msg "\n", US_PLUGIN_NAME, x_prefix, ##__VA_ARGS__)
 
-#define JLOG_PERROR(_prefix, _msg, ...) { \
-		char _perror_buf[1024] = {0}; \
-		char *_perror_ptr = errno_to_string(errno, _perror_buf, 1023); \
-		JANUS_LOG(LOG_ERR, "[%s/%-9s] " _msg ": %s\n", PLUGIN_NAME, _prefix, ##__VA_ARGS__, _perror_ptr); \
+#define US_JLOG_PERROR(x_prefix, x_msg, ...) { \
+		char m_perror_buf[1024] = {0}; \
+		char *m_perror_ptr = us_errno_to_string(errno, m_perror_buf, 1023); \
+		JANUS_LOG(LOG_ERR, "[%s/%-9s] " x_msg ": %s\n", US_PLUGIN_NAME, x_prefix, ##__VA_ARGS__, m_perror_ptr); \
 	}

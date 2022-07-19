@@ -39,4 +39,4 @@
 #include "../../libs/logging.h"
 
 
-evutil_socket_t evhttp_my_bind_unix(struct evhttp *http, const char *path, bool rm, mode_t mode);
+evutil_socket_t us_evhttp_bind_unix(struct evhttp *http, const char *path, bool rm, mode_t mode);

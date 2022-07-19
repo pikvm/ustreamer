@@ -41,7 +41,7 @@ def main() -> None:
 
     html = html.strip()
     html = html.replace("\"", "\\\"")
-    html = html.replace("%VERSION%", "\" VERSION \"")
+    html = html.replace("%VERSION%", "\" US_VERSION \"")
     html = textwrap.indent(html, "\t", (lambda line: True))
     html = "\n".join(
         (f"{line} \\" if line.strip() else f"{line}\\")
@@ -49,7 +49,7 @@ def main() -> None:
     )
 
     text = f"{common.C_PREPEND}\n#include \"{h_path}\"\n\n\n"
-    text += f"const char *const HTML_{name}_PAGE = \" \\\n{html}\n\";\n"
+    text += f"const char *const US_HTML_{name}_PAGE = \" \\\n{html}\n\";\n"
 
     with open(c_path, "w") as c_file:
         c_file.write(text)

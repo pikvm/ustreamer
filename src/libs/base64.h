@@ -31,4 +31,4 @@
 #include "tools.h"
 
 
-void base64_encode(const uint8_t *data, size_t size, char **encoded, size_t *allocated);
+void us_base64_encode(const uint8_t *data, size_t size, char **encoded, size_t *allocated);

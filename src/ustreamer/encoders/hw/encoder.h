@@ -34,4 +34,4 @@
 #include "huffman.h"
 
 
-void hw_encoder_compress(const frame_s *src, frame_s *dest);
+void us_hw_encoder_compress(const us_frame_s *src, us_frame_s *dest);

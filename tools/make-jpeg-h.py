@@ -82,10 +82,10 @@ def main() -> None:
 
     text = f"{common.C_PREPEND}\n"
     text += f"#include \"{h_path}\"\n\n\n"
-    text += f"const unsigned {name}_JPEG_WIDTH = {width};\n"
-    text += f"const unsigned {name}_JPEG_HEIGHT = {height};\n\n"
-    text += f"const size_t {name}_JPEG_DATA_SIZE = {len(jpeg_data)};\n"
-    text += f"const uint8_t {name}_JPEG_DATA[] = {jpeg_data_text};\n"
+    text += f"const unsigned US_{name}_JPEG_WIDTH = {width};\n"
+    text += f"const unsigned US_{name}_JPEG_HEIGHT = {height};\n\n"
+    text += f"const size_t US_{name}_JPEG_DATA_SIZE = {len(jpeg_data)};\n"
+    text += f"const uint8_t US_{name}_JPEG_DATA[] = {jpeg_data_text};\n"
 
     with open(c_path, "w") as c_file:
         c_file.write(text)

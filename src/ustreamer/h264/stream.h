@@ -35,14 +35,14 @@
 
 
 typedef struct {
-	memsink_s		*sink;
-	frame_s			*tmp_src;
-	frame_s			*dest;
-	m2m_encoder_s	*enc;
-	atomic_bool		online;
-} h264_stream_s;
+	us_memsink_s		*sink;
+	us_frame_s			*tmp_src;
+	us_frame_s			*dest;
+	us_m2m_encoder_s	*enc;
+	atomic_bool			online;
+} us_h264_stream_s;
 
 
-h264_stream_s *h264_stream_init(memsink_s *sink, const char *path, unsigned bitrate, unsigned gop);
-void h264_stream_destroy(h264_stream_s *h264);
-void h264_stream_process(h264_stream_s *h264, const frame_s *frame, bool force_key);
+us_h264_stream_s *us_h264_stream_init(us_memsink_s *sink, const char *path, unsigned bitrate, unsigned gop);
+void us_h264_stream_destroy(us_h264_stream_s *h264);
+void us_h264_stream_process(us_h264_stream_s *h264, const us_frame_s *frame, bool force_key);

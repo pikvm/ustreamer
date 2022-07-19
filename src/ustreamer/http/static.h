@@ -35,4 +35,4 @@
 #include "path.h"
 
 
-char *find_static_file_path(const char *root_path, const char *request_path);
+char *us_find_static_file_path(const char *root_path, const char *request_path);

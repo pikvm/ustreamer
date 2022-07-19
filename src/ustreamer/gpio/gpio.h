@@ -41,46 +41,46 @@ typedef struct {
 	char 				*consumer;
 	struct gpiod_line	*line;
 	bool				state;
-} gpio_output_s;
+} us_gpio_output_s;
 
 typedef struct {
-	char *path;
-	char *consumer_prefix;
+	char	*path;
+	char	*consumer_prefix;
 
-	gpio_output_s prog_running;
-	gpio_output_s stream_online;
-	gpio_output_s has_http_clients;
+	us_gpio_output_s	prog_running;
+	us_gpio_output_s	stream_online;
+	us_gpio_output_s	has_http_clients;
 
 	pthread_mutex_t		mutex;
 	struct gpiod_chip	*chip;
-} gpio_s;
+} us_gpio_s;
 
 
-extern gpio_s us_gpio;
+extern us_gpio_s us_gpio;
 
 
-void gpio_init(void);
-void gpio_destroy(void);
-int gpio_inner_set(gpio_output_s *output, bool state);
+void us_gpio_init(void);
+void us_gpio_destroy(void);
+int us_gpio_inner_set(us_gpio_output_s *output, bool state);
 
 
-#define SET_STATE(_output, _state) { \
-		if (_output.line && _output.state != _state) { \
-			if (!gpio_inner_set(&_output, _state)) { \
-				_output.state = _state; \
+#define SET_STATE(x_output, x_state) { \
+		if (x_output.line && x_output.state != x_state) { \
+			if (!us_gpio_inner_set(&x_output, x_state)) { \
+				x_output.state = x_state; \
 			} \
 		} \
 	}
 
-INLINE void gpio_set_prog_running(bool state) {
+INLINE void us_gpio_set_prog_running(bool state) {
 	SET_STATE(us_gpio.prog_running, state);
 }
 
-INLINE void gpio_set_stream_online(bool state) {
+INLINE void us_gpio_set_stream_online(bool state) {
 	SET_STATE(us_gpio.stream_online, state);
 }
 
-INLINE void gpio_set_has_http_clients(bool state) {
+INLINE void us_gpio_set_has_http_clients(bool state) {
 	SET_STATE(us_gpio.has_http_clients, state);
 }
 

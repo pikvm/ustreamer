@@ -32,8 +32,8 @@
 
 
 // https://stackoverflow.com/questions/47635545/why-webrtc-chose-rtp-max-packet-size-to-1200-bytes
-#define RTP_DATAGRAM_SIZE	1200
-#define RTP_HEADER_SIZE		12
+#define US_RTP_DATAGRAM_SIZE	1200
+#define US_RTP_HEADER_SIZE		12
 
 
 typedef struct {
@@ -43,15 +43,15 @@ typedef struct {
 	uint32_t	ssrc;
 
 	uint16_t	seq;
-	uint8_t		datagram[RTP_DATAGRAM_SIZE];
+	uint8_t		datagram[US_RTP_DATAGRAM_SIZE];
 	size_t		used;
-} rtp_s;
+} us_rtp_s;
 
-typedef void (*rtp_callback_f)(const rtp_s *rtp);
+typedef void (*us_rtp_callback_f)(const us_rtp_s *rtp);
 
 
-rtp_s *rtp_init(unsigned payload, bool video, bool zero_playout_delay);
-rtp_s *rtp_dup(const rtp_s *rtp);
-void rtp_destroy(rtp_s *rtp);
+us_rtp_s *us_rtp_init(unsigned payload, bool video, bool zero_playout_delay);
+us_rtp_s *us_rtp_dup(const us_rtp_s *rtp);
+void us_rtp_destroy(us_rtp_s *rtp);
 
-void rtp_write_header(rtp_s *rtp, uint32_t pts, bool marked);
+void us_rtp_write_header(us_rtp_s *rtp, uint32_t pts, bool marked);

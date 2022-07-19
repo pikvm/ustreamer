@@ -27,8 +27,8 @@
 #include <sys/types.h>
 
 
-extern const unsigned BLANK_JPEG_WIDTH;
-extern const unsigned BLANK_JPEG_HEIGHT;
+extern const unsigned US_BLANK_JPEG_WIDTH;
+extern const unsigned US_BLANK_JPEG_HEIGHT;
 
-extern const size_t BLANK_JPEG_DATA_SIZE;
-extern const uint8_t BLANK_JPEG_DATA[];
+extern const size_t US_BLANK_JPEG_DATA_SIZE;
+extern const uint8_t US_BLANK_JPEG_DATA[];

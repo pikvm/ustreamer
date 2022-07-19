@@ -23,23 +23,23 @@
 #include "rtpa.h"
 
 
-rtpa_s *rtpa_init(rtp_callback_f callback) {
-	rtpa_s *rtpa;
-	A_CALLOC(rtpa, 1);
-	rtpa->rtp = rtp_init(111, false, false);
+us_rtpa_s *us_rtpa_init(us_rtp_callback_f callback) {
+	us_rtpa_s *rtpa;
+	US_CALLOC(rtpa, 1);
+	rtpa->rtp = us_rtp_init(111, false, false);
 	rtpa->callback = callback;
 	return rtpa;
 }
 
-void rtpa_destroy(rtpa_s *rtpa) {
-	rtp_destroy(rtpa->rtp);
+void us_rtpa_destroy(us_rtpa_s *rtpa) {
+	us_rtp_destroy(rtpa->rtp);
 	free(rtpa);
 }
 
-char *rtpa_make_sdp(rtpa_s *rtpa) {
+char *us_rtpa_make_sdp(us_rtpa_s *rtpa) {
 #	define PAYLOAD rtpa->rtp->payload
 	char *sdp;
-	A_ASPRINTF(sdp,
+	US_ASPRINTF(sdp,
 		"m=audio 1 RTP/SAVPF %u" RN
 		"c=IN IP4 0.0.0.0" RN
 		"a=rtpmap:%u OPUS/48000/2" RN
@@ -56,11 +56,11 @@ char *rtpa_make_sdp(rtpa_s *rtpa) {
 	return sdp;
 }
 
-void rtpa_wrap(rtpa_s *rtpa, const uint8_t *data, size_t size, uint32_t pts) {
-    if (size + RTP_HEADER_SIZE <= RTP_DATAGRAM_SIZE) {
-        rtp_write_header(rtpa->rtp, pts, false);
-        memcpy(rtpa->rtp->datagram + RTP_HEADER_SIZE, data, size);
-		rtpa->rtp->used = size + RTP_HEADER_SIZE;
+void us_rtpa_wrap(us_rtpa_s *rtpa, const uint8_t *data, size_t size, uint32_t pts) {
+    if (size + US_RTP_HEADER_SIZE <= US_RTP_DATAGRAM_SIZE) {
+        us_rtp_write_header(rtpa->rtp, pts, false);
+        memcpy(rtpa->rtp->datagram + US_RTP_HEADER_SIZE, data, size);
+		rtpa->rtp->used = size + US_RTP_HEADER_SIZE;
         rtpa->callback(rtpa->rtp);
 	}
 }

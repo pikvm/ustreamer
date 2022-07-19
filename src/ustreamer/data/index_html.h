@@ -27,4 +27,4 @@
 #include "../../libs/const.h"
 
 
-extern const char *const HTML_INDEX_PAGE;
+extern const char *const US_HTML_INDEX_PAGE;

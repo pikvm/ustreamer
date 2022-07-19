@@ -23,7 +23,7 @@
 #include "options.h"
 
 
-void build_short_options(const struct option opts[], char *short_opts, size_t size) {
+void us_build_short_options(const struct option opts[], char *short_opts, size_t size) {
 	memset(short_opts, 0, size);
     for (unsigned short_index = 0, opt_index = 0; opts[opt_index].name != NULL; ++opt_index) {
 		assert(short_index < size - 3);

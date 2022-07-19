@@ -23,12 +23,12 @@
 #include "queue.h"
 
 
-queue_s *queue_init(unsigned capacity) {
-	queue_s *queue;
-	A_CALLOC(queue, 1);
-	A_CALLOC(queue->items, capacity);
+us_queue_s *us_queue_init(unsigned capacity) {
+	us_queue_s *queue;
+	US_CALLOC(queue, 1);
+	US_CALLOC(queue->items, capacity);
 	queue->capacity = capacity;
-	A_MUTEX_INIT(&queue->mutex);
+	US_MUTEX_INIT(&queue->mutex);
 
 	pthread_condattr_t attrs;
 	assert(!pthread_condattr_init(&attrs));
@@ -39,61 +39,61 @@ queue_s *queue_init(unsigned capacity) {
 	return queue;
 }
 
-void queue_destroy(queue_s *queue) {
+void us_queue_destroy(us_queue_s *queue) {
 	free(queue->items);
 	free(queue);
 }
 
-#define WAIT_OR_UNLOCK(_var, _cond) { \
-		struct timespec _ts; \
-		assert(!clock_gettime(CLOCK_MONOTONIC, &_ts)); \
-		ld_to_timespec(timespec_to_ld(&_ts) + timeout, &_ts); \
-		while (_var) { \
-			int err = pthread_cond_timedwait(_cond, &queue->mutex, &_ts); \
+#define _WAIT_OR_UNLOCK(x_var, x_cond) { \
+		struct timespec m_ts; \
+		assert(!clock_gettime(CLOCK_MONOTONIC, &m_ts)); \
+		us_ld_to_timespec(us_timespec_to_ld(&m_ts) + timeout, &m_ts); \
+		while (x_var) { \
+			int err = pthread_cond_timedwait(x_cond, &queue->mutex, &m_ts); \
 			if (err == ETIMEDOUT) { \
-				A_MUTEX_UNLOCK(&queue->mutex); \
+				US_MUTEX_UNLOCK(&queue->mutex); \
 				return -1; \
 			} \
 			assert(!err); \
 		} \
 	}
 
-int queue_put(queue_s *queue, void *item, long double timeout) {
-	A_MUTEX_LOCK(&queue->mutex);
+int us_queue_put(us_queue_s *queue, void *item, long double timeout) {
+	US_MUTEX_LOCK(&queue->mutex);
 	if (timeout == 0) {
 		if (queue->size == queue->capacity) {
-			A_MUTEX_UNLOCK(&queue->mutex);
+			US_MUTEX_UNLOCK(&queue->mutex);
 			return -1;
 		}
 	} else {
-		WAIT_OR_UNLOCK(queue->size == queue->capacity, &queue->full_cond);
+		_WAIT_OR_UNLOCK(queue->size == queue->capacity, &queue->full_cond);
 	}
 	queue->items[queue->in] = item;
 	++queue->size;
 	++queue->in;
 	queue->in %= queue->capacity;
-	A_MUTEX_UNLOCK(&queue->mutex);
+	US_MUTEX_UNLOCK(&queue->mutex);
 	assert(!pthread_cond_broadcast(&queue->empty_cond));
 	return 0;
 }
 
-int queue_get(queue_s *queue, void **item, long double timeout) {
-	A_MUTEX_LOCK(&queue->mutex);
-	WAIT_OR_UNLOCK(queue->size == 0, &queue->empty_cond);
+int us_queue_get(us_queue_s *queue, void **item, long double timeout) {
+	US_MUTEX_LOCK(&queue->mutex);
+	_WAIT_OR_UNLOCK(queue->size == 0, &queue->empty_cond);
 	*item = queue->items[queue->out];
 	--queue->size;
 	++queue->out;
 	queue->out %= queue->capacity;
-	A_MUTEX_UNLOCK(&queue->mutex);
+	US_MUTEX_UNLOCK(&queue->mutex);
 	assert(!pthread_cond_broadcast(&queue->full_cond));
 	return 0;
 }
 
-#undef WAIT_OR_UNLOCK
+#undef _WAIT_OR_UNLOCK
 
-int queue_get_free(queue_s *queue) {
-	A_MUTEX_LOCK(&queue->mutex);
+int us_queue_get_free(us_queue_s *queue) {
+	US_MUTEX_LOCK(&queue->mutex);
 	unsigned size = queue->size;
-	A_MUTEX_UNLOCK(&queue->mutex);
+	US_MUTEX_UNLOCK(&queue->mutex);
 	return queue->capacity - size;
 }

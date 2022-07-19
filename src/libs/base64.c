@@ -37,11 +37,11 @@ static const char _ENCODING_TABLE[] = {
 static const unsigned _MOD_TABLE[] = {0, 2, 1};
 
 
-void base64_encode(const uint8_t *data, size_t size, char **encoded, size_t *allocated) {
+void us_base64_encode(const uint8_t *data, size_t size, char **encoded, size_t *allocated) {
 	const size_t encoded_size = 4 * ((size + 2) / 3) + 1; // +1 for '\0'
 
 	if (*encoded == NULL || (allocated && *allocated < encoded_size)) {
-		A_REALLOC(*encoded, encoded_size);
+		US_REALLOC(*encoded, encoded_size);
 		if (allocated) {
 			*allocated = encoded_size;
 		}

@@ -34,24 +34,24 @@
 #endif
 
 
-int tc358743_read_info(const char *path, tc358743_info_s *info) {
-	MEMSET_ZERO(*info);
+int us_tc358743_read_info(const char *path, us_tc358743_info_s *info) {
+	US_MEMSET_ZERO(*info);
 
 	int fd = -1;
 	if ((fd = open(path, O_RDWR)) < 0) {
-		JLOG_PERROR("audio", "Can't open TC358743 V4L2 device");
+		US_JLOG_PERROR("audio", "Can't open TC358743 V4L2 device");
 		return -1;
 	}
 
-#	define READ_CID(_cid, _field) { \
-			struct v4l2_control ctl = {0}; \
-			ctl.id = _cid; \
-			if (xioctl(fd, VIDIOC_G_CTRL, &ctl) < 0) { \
-				JLOG_PERROR("audio", "Can't get value of " #_cid); \
+#	define READ_CID(x_cid, x_field) { \
+			struct v4l2_control m_ctl = {0}; \
+			m_ctl.id = x_cid; \
+			if (us_xioctl(fd, VIDIOC_G_CTRL, &m_ctl) < 0) { \
+				US_JLOG_PERROR("audio", "Can't get value of " #x_cid); \
 				close(fd); \
 				return -1; \
 			} \
-			info->_field = ctl.value; \
+			info->x_field = m_ctl.value; \
 		}
 
 	READ_CID(TC358743_CID_AUDIO_PRESENT,		has_audio);

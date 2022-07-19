@@ -37,4 +37,4 @@
 #include "frame.h"
 
 
-int unjpeg(const frame_s *src, frame_s *dest, bool decode);
+int us_unjpeg(const us_frame_s *src, us_frame_s *dest, bool decode);

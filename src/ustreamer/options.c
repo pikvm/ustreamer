@@ -23,7 +23,7 @@
 #include "options.h"
 
 
-enum _OPT_VALUES {
+enum _US_OPT_VALUES {
 	_O_DEVICE = 'd',
 	_O_INPUT = 'i',
 	_O_RESOLUTION = 'r',
@@ -85,12 +85,12 @@ enum _OPT_VALUES {
 	_O_TCP_NODELAY,
 	_O_SERVER_TIMEOUT,
 
-#	define ADD_SINK(_prefix) \
-		_O_##_prefix, \
-		_O_##_prefix##_MODE, \
-		_O_##_prefix##_RM, \
-		_O_##_prefix##_CLIENT_TTL, \
-		_O_##_prefix##_TIMEOUT,
+#	define ADD_SINK(x_prefix) \
+		_O_##x_prefix, \
+		_O_##x_prefix##_MODE, \
+		_O_##x_prefix##_RM, \
+		_O_##x_prefix##_CLIENT_TTL, \
+		_O_##x_prefix##_TIMEOUT,
 	ADD_SINK(SINK)
 	ADD_SINK(RAW_SINK)
 	ADD_SINK(H264_SINK)
@@ -181,12 +181,12 @@ static const struct option _LONG_OPTS[] = {
 	{"tcp-nodelay",				no_argument,		NULL,	_O_TCP_NODELAY},
 	{"server-timeout",			required_argument,	NULL,	_O_SERVER_TIMEOUT},
 
-#	define ADD_SINK(_opt, _prefix) \
-		{_opt "sink",				required_argument,	NULL,	_O_##_prefix}, \
-		{_opt "sink-mode",			required_argument,	NULL,	_O_##_prefix##_MODE}, \
-		{_opt "sink-rm",			no_argument,		NULL,	_O_##_prefix##_RM}, \
-		{_opt "sink-client-ttl",	required_argument,	NULL,	_O_##_prefix##_CLIENT_TTL}, \
-		{_opt "sink-timeout",		required_argument,	NULL,	_O_##_prefix##_TIMEOUT},
+#	define ADD_SINK(x_opt, x_prefix) \
+		{x_opt "sink",				required_argument,	NULL,	_O_##x_prefix}, \
+		{x_opt "sink-mode",			required_argument,	NULL,	_O_##x_prefix##_MODE}, \
+		{x_opt "sink-rm",			no_argument,		NULL,	_O_##x_prefix##_RM}, \
+		{x_opt "sink-client-ttl",	required_argument,	NULL,	_O_##x_prefix##_CLIENT_TTL}, \
+		{x_opt "sink-timeout",		required_argument,	NULL,	_O_##x_prefix##_TIMEOUT},
 	ADD_SINK("", SINK)
 	ADD_SINK("raw-", RAW_SINK)
 	ADD_SINK("h264-", H264_SINK)
@@ -230,36 +230,28 @@ static const struct option _LONG_OPTS[] = {
 static int _parse_resolution(const char *str, unsigned *width, unsigned *height, bool limited);
 
 static void _features(void);
-static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, server_s *server);
+static void _help(FILE *fp, us_device_s *dev, us_encoder_s *enc, us_stream_s *stream, us_server_s *server);
 
 
-options_s *options_init(unsigned argc, char *argv[]) {
-	options_s *options;
-	A_CALLOC(options, 1);
+us_options_s *us_options_init(unsigned argc, char *argv[]) {
+	us_options_s *options;
+	US_CALLOC(options, 1);
 	options->argc = argc;
 	options->argv = argv;
 
-	A_CALLOC(options->argv_copy, argc);
+	US_CALLOC(options->argv_copy, argc);
 	for (unsigned index = 0; index < argc; ++index) {
 		assert(options->argv_copy[index] = strdup(argv[index]));
 	}
 	return options;
 }
 
-void options_destroy(options_s *options) {
-#	define ADD_SINK(_prefix) { \
-			if (options->_prefix) { \
-				memsink_destroy(options->_prefix); \
-			} \
-		}
-	ADD_SINK(sink);
-	ADD_SINK(raw_sink);
-	ADD_SINK(h264_sink);
-#	undef ADD_SINK
+void us_options_destroy(us_options_s *options) {
+	US_DELETE(options->sink, us_memsink_destroy);
+	US_DELETE(options->raw_sink, us_memsink_destroy);
+	US_DELETE(options->h264_sink, us_memsink_destroy);
 
-	if (options->blank) {
-		frame_destroy(options->blank);
-	}
+	US_DELETE(options->blank, us_frame_destroy);
 
 	for (unsigned index = 0; index < options->argc; ++index) {
 		free(options->argv_copy[index]);
@@ -270,32 +262,32 @@ void options_destroy(options_s *options) {
 }
 
 
-int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *stream, server_s *server) {
-#	define OPT_SET(_dest, _value) { \
-			_dest = _value; \
+int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us_stream_s *stream, us_server_s *server) {
+#	define OPT_SET(x_dest, x_value) { \
+			x_dest = x_value; \
 			break; \
 		}
 
-#	define OPT_NUMBER(_name, _dest, _min, _max, _base) { \
-			errno = 0; char *_end = NULL; long long _tmp = strtoll(optarg, &_end, _base); \
-			if (errno || *_end || _tmp < _min || _tmp > _max) { \
-				printf("Invalid value for '%s=%s': min=%lld, max=%lld\n", _name, optarg, (long long)_min, (long long)_max); \
+#	define OPT_NUMBER(x_name, x_dest, x_min, x_max, x_base) { \
+			errno = 0; char *m_end = NULL; long long m_tmp = strtoll(optarg, &m_end, x_base); \
+			if (errno || *m_end || m_tmp < x_min || m_tmp > x_max) { \
+				printf("Invalid value for '%s=%s': min=%lld, max=%lld\n", x_name, optarg, (long long)x_min, (long long)x_max); \
 				return -1; \
 			} \
-			_dest = _tmp; \
+			x_dest = m_tmp; \
 			break; \
 		}
 
-#	define OPT_RESOLUTION(_name, _dest_width, _dest_height, _limited) { \
-			switch (_parse_resolution(optarg, &_dest_width, &_dest_height, _limited)) { \
+#	define OPT_RESOLUTION(x_name, x_dest_width, x_dest_height, x_limited) { \
+			switch (_parse_resolution(optarg, &x_dest_width, &x_dest_height, x_limited)) { \
 				case -1: \
-					printf("Invalid resolution format for '%s=%s'\n", _name, optarg); \
+					printf("Invalid resolution format for '%s=%s'\n", x_name, optarg); \
 					return -1; \
 				case -2: \
-					printf("Invalid width of '%s=%s': min=%u, max=%u\n", _name, optarg, VIDEO_MIN_WIDTH, VIDEO_MAX_WIDTH); \
+					printf("Invalid width of '%s=%s': min=%u, max=%u\n", x_name, optarg, US_VIDEO_MIN_WIDTH, US_VIDEO_MAX_WIDTH); \
 					return -1; \
 				case -3: \
-					printf("Invalid height of '%s=%s': min=%u, max=%u\n", _name, optarg, VIDEO_MIN_HEIGHT, VIDEO_MAX_HEIGHT); \
+					printf("Invalid height of '%s=%s': min=%u, max=%u\n", x_name, optarg, US_VIDEO_MIN_HEIGHT, US_VIDEO_MAX_HEIGHT); \
 					return -1; \
 				case 0: break; \
 				default: assert(0 && "Unknown error"); \
@@ -303,48 +295,48 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			break; \
 		}
 
-#	define OPT_PARSE(_name, _dest, _func, _invalid, _available) { \
-			if ((_dest = _func(optarg)) == _invalid) { \
-				printf("Unknown " _name ": %s; available: %s\n", optarg, _available); \
+#	define OPT_PARSE(x_name, x_dest, x_func, x_invalid, x_available) { \
+			if ((x_dest = x_func(optarg)) == x_invalid) { \
+				printf("Unknown " x_name ": %s; available: %s\n", optarg, x_available); \
 				return -1; \
 			} \
 			break; \
 		}
 
-#	define OPT_CTL_DEFAULT_NOBREAK(_dest) { \
-			dev->ctl._dest.mode = CTL_MODE_DEFAULT; \
+#	define OPT_CTL_DEFAULT_NOBREAK(x_dest) { \
+			dev->ctl.x_dest.mode = CTL_MODE_DEFAULT; \
 		}
 
-#	define OPT_CTL_MANUAL(_dest) { \
+#	define OPT_CTL_MANUAL(x_dest) { \
 			if (!strcasecmp(optarg, "default")) { \
-				OPT_CTL_DEFAULT_NOBREAK(_dest); \
+				OPT_CTL_DEFAULT_NOBREAK(x_dest); \
 			} else { \
-				dev->ctl._dest.mode = CTL_MODE_VALUE; \
-				OPT_NUMBER("--"#_dest, dev->ctl._dest.value, INT_MIN, INT_MAX, 0); \
+				dev->ctl.x_dest.mode = CTL_MODE_VALUE; \
+				OPT_NUMBER("--"#x_dest, dev->ctl.x_dest.value, INT_MIN, INT_MAX, 0); \
 			} \
 			break; \
 		}
 
-#	define OPT_CTL_AUTO(_dest) { \
+#	define OPT_CTL_AUTO(x_dest) { \
 			if (!strcasecmp(optarg, "default")) { \
-				OPT_CTL_DEFAULT_NOBREAK(_dest); \
+				OPT_CTL_DEFAULT_NOBREAK(x_dest); \
 			} else if (!strcasecmp(optarg, "auto")) { \
-				dev->ctl._dest.mode = CTL_MODE_AUTO; \
+				dev->ctl.x_dest.mode = CTL_MODE_AUTO; \
 			} else { \
-				dev->ctl._dest.mode = CTL_MODE_VALUE; \
-				OPT_NUMBER("--"#_dest, dev->ctl._dest.value, INT_MIN, INT_MAX, 0); \
+				dev->ctl.x_dest.mode = CTL_MODE_VALUE; \
+				OPT_NUMBER("--"#x_dest, dev->ctl.x_dest.value, INT_MIN, INT_MAX, 0); \
 			} \
 			break; \
 		}
 
 	char *blank_path = NULL;
 
-#	define ADD_SINK(_prefix) \
-		char *_prefix##_name = NULL; \
-		mode_t _prefix##_mode = 0660; \
-		bool _prefix##_rm = false; \
-		unsigned _prefix##_client_ttl = 10; \
-		unsigned _prefix##_timeout = 1;
+#	define ADD_SINK(x_prefix) \
+		char *x_prefix##_name = NULL; \
+		mode_t x_prefix##_mode = 0660; \
+		bool x_prefix##_rm = false; \
+		unsigned x_prefix##_client_ttl = 10; \
+		unsigned x_prefix##_timeout = 1;
 	ADD_SINK(sink);
 	ADD_SINK(raw_sink);
 	ADD_SINK(h264_sink);
@@ -355,27 +347,27 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 #	endif
 
 	char short_opts[128];
-	build_short_options(_LONG_OPTS, short_opts, 128);
+	us_build_short_options(_LONG_OPTS, short_opts, 128);
 
 	for (int ch; (ch = getopt_long(options->argc, options->argv_copy, short_opts, _LONG_OPTS, NULL)) >= 0;) {
 		switch (ch) {
-			case _O_DEVICE:			OPT_SET(dev->path, optarg);
-			case _O_INPUT:			OPT_NUMBER("--input", dev->input, 0, 128, 0);
-			case _O_RESOLUTION:		OPT_RESOLUTION("--resolution", dev->width, dev->height, true);
+			case _O_DEVICE:				OPT_SET(dev->path, optarg);
+			case _O_INPUT:				OPT_NUMBER("--input", dev->input, 0, 128, 0);
+			case _O_RESOLUTION:			OPT_RESOLUTION("--resolution", dev->width, dev->height, true);
 #			pragma GCC diagnostic ignored "-Wsign-compare"
 #			pragma GCC diagnostic push
-			case _O_FORMAT:			OPT_PARSE("pixel format", dev->format, device_parse_format, FORMAT_UNKNOWN, FORMATS_STR);
+			case _O_FORMAT:				OPT_PARSE("pixel format", dev->format, us_device_parse_format, US_FORMAT_UNKNOWN, US_FORMATS_STR);
 #			pragma GCC diagnostic pop
-			case _O_TV_STANDARD:	OPT_PARSE("TV standard", dev->standard, device_parse_standard, STANDARD_UNKNOWN, STANDARDS_STR);
-			case _O_IO_METHOD:		OPT_PARSE("IO method", dev->io_method, device_parse_io_method, IO_METHOD_UNKNOWN, IO_METHODS_STR);
-			case _O_DESIRED_FPS:	OPT_NUMBER("--desired-fps", dev->desired_fps, 0, VIDEO_MAX_FPS, 0);
-			case _O_MIN_FRAME_SIZE:	OPT_NUMBER("--min-frame-size", dev->min_frame_size, 1, 8192, 0);
-			case _O_PERSISTENT:		OPT_SET(dev->persistent, true);
-			case _O_DV_TIMINGS:		OPT_SET(dev->dv_timings, true);
-			case _O_BUFFERS:		OPT_NUMBER("--buffers", dev->n_bufs, 1, 32, 0);
-			case _O_WORKERS:		OPT_NUMBER("--workers", enc->n_workers, 1, 32, 0);
-			case _O_QUALITY:		OPT_NUMBER("--quality", dev->jpeg_quality, 1, 100, 0);
-			case _O_ENCODER:		OPT_PARSE("encoder type", enc->type, encoder_parse_type, ENCODER_TYPE_UNKNOWN, ENCODER_TYPES_STR);
+			case _O_TV_STANDARD:		OPT_PARSE("TV standard", dev->standard, us_device_parse_standard, US_STANDARD_UNKNOWN, US_STANDARDS_STR);
+			case _O_IO_METHOD:			OPT_PARSE("IO method", dev->io_method, us_device_parse_io_method, US_IO_METHOD_UNKNOWN, US_IO_METHODS_STR);
+			case _O_DESIRED_FPS:		OPT_NUMBER("--desired-fps", dev->desired_fps, 0, US_VIDEO_MAX_FPS, 0);
+			case _O_MIN_FRAME_SIZE:		OPT_NUMBER("--min-frame-size", dev->min_frame_size, 1, 8192, 0);
+			case _O_PERSISTENT:			OPT_SET(dev->persistent, true);
+			case _O_DV_TIMINGS:			OPT_SET(dev->dv_timings, true);
+			case _O_BUFFERS:			OPT_NUMBER("--buffers", dev->n_bufs, 1, 32, 0);
+			case _O_WORKERS:			OPT_NUMBER("--workers", enc->n_workers, 1, 32, 0);
+			case _O_QUALITY:			OPT_NUMBER("--quality", dev->jpeg_quality, 1, 100, 0);
+			case _O_ENCODER:			OPT_PARSE("encoder type", enc->type, us_encoder_parse_type, US_ENCODER_TYPE_UNKNOWN, ENCODER_TYPES_STR);
 			case _O_GLITCHED_RESOLUTIONS: break; // Deprecated
 			case _O_BLANK:				OPT_SET(blank_path, optarg);
 			case _O_LAST_AS_BLANK:		OPT_NUMBER("--last-as-blank", stream->last_as_blank, 0, 86400, 0);
@@ -409,7 +401,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			case _O_WHITE_BALANCE:			OPT_CTL_AUTO(white_balance);
 			case _O_GAIN:					OPT_CTL_AUTO(gain);
 			case _O_COLOR_EFFECT:			OPT_CTL_MANUAL(color_effect);
-			case _O_ROTATE:			 	OPT_CTL_MANUAL(rotate);
+			case _O_ROTATE:				 	OPT_CTL_MANUAL(rotate);
 			case _O_FLIP_VERTICAL:			OPT_CTL_MANUAL(flip_vertical);
 			case _O_FLIP_HORIZONTAL:		OPT_CTL_MANUAL(flip_horizontal);
 
@@ -424,24 +416,24 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 			case _O_USER:				OPT_SET(server->user, optarg);
 			case _O_PASSWD:				OPT_SET(server->passwd, optarg);
 			case _O_STATIC:				OPT_SET(server->static_path, optarg);
-			case _O_DROP_SAME_FRAMES:	OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, VIDEO_MAX_FPS, 0);
+			case _O_DROP_SAME_FRAMES:	OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, US_VIDEO_MAX_FPS, 0);
 			case _O_FAKE_RESOLUTION:	OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, false);
 			case _O_ALLOW_ORIGIN:		OPT_SET(server->allow_origin, optarg);
 			case _O_TCP_NODELAY:		OPT_SET(server->tcp_nodelay, true);
 			case _O_SERVER_TIMEOUT:		OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
-#			define ADD_SINK(_opt, _lp, _up) \
-				case _O_##_up:				OPT_SET(_lp##_name, optarg); \
-				case _O_##_up##_MODE:		OPT_NUMBER("--" #_opt "sink-mode", _lp##_mode, INT_MIN, INT_MAX, 8); \
-				case _O_##_up##_RM:			OPT_SET(_lp##_rm, true); \
-				case _O_##_up##_CLIENT_TTL:	OPT_NUMBER("--" #_opt "sink-client-ttl", _lp##_client_ttl, 1, 60, 0); \
-				case _O_##_up##_TIMEOUT:	OPT_NUMBER("--" #_opt "sink-timeout", _lp##_timeout, 1, 60, 0);
+#			define ADD_SINK(x_opt, x_lp, x_up) \
+				case _O_##x_up:					OPT_SET(x_lp##_name, optarg); \
+				case _O_##x_up##_MODE:			OPT_NUMBER("--" #x_opt "sink-mode", x_lp##_mode, INT_MIN, INT_MAX, 8); \
+				case _O_##x_up##_RM:			OPT_SET(x_lp##_rm, true); \
+				case _O_##x_up##_CLIENT_TTL:	OPT_NUMBER("--" #x_opt "sink-client-ttl", x_lp##_client_ttl, 1, 60, 0); \
+				case _O_##x_up##_TIMEOUT:		OPT_NUMBER("--" #x_opt "sink-timeout", x_lp##_timeout, 1, 60, 0);
 			ADD_SINK("", sink, SINK)
 			ADD_SINK("raw-", raw_sink, RAW_SINK)
 			ADD_SINK("h264-", h264_sink, H264_SINK)
-			case _O_H264_BITRATE:		OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 25, 20000, 0);
-			case _O_H264_GOP:			OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
-			case _O_H264_M2M_DEVICE:	OPT_SET(stream->h264_m2m_path, optarg);
+			case _O_H264_BITRATE:			OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 25, 20000, 0);
+			case _O_H264_GOP:				OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
+			case _O_H264_M2M_DEVICE:		OPT_SET(stream->h264_m2m_path, optarg);
 #			undef ADD_SINK
 
 #			ifdef WITH_GPIO
@@ -454,7 +446,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 
 #			ifdef HAS_PDEATHSIG
 			case _O_EXIT_ON_PARENT_DEATH:
-				if (process_track_parent_death() < 0) {
+				if (us_process_track_parent_death() < 0) {
 					return -1;
 				};
 				break;
@@ -465,15 +457,15 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 #			endif
 			case _O_NOTIFY_PARENT:			OPT_SET(server->notify_parent, true);
 
-			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", us_log_level, LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, 0);
-			case _O_PERF:				OPT_SET(us_log_level, LOG_LEVEL_PERF);
-			case _O_VERBOSE:			OPT_SET(us_log_level, LOG_LEVEL_VERBOSE);
-			case _O_DEBUG:				OPT_SET(us_log_level, LOG_LEVEL_DEBUG);
+			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", us_log_level, US_LOG_LEVEL_INFO, US_LOG_LEVEL_DEBUG, 0);
+			case _O_PERF:				OPT_SET(us_log_level, US_LOG_LEVEL_PERF);
+			case _O_VERBOSE:			OPT_SET(us_log_level, US_LOG_LEVEL_VERBOSE);
+			case _O_DEBUG:				OPT_SET(us_log_level, US_LOG_LEVEL_DEBUG);
 			case _O_FORCE_LOG_COLORS:	OPT_SET(us_log_colored, true);
 			case _O_NO_LOG_COLORS:		OPT_SET(us_log_colored, false);
 
 			case _O_HELP:		_help(stdout, dev, enc, stream, server); return 1;
-			case _O_VERSION:	puts(VERSION); return 1;
+			case _O_VERSION:	puts(US_VERSION); return 1;
 			case _O_FEATURES:	_features(); return 1;
 
 			case 0:		break;
@@ -481,22 +473,22 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 		}
 	}
 
-	options->blank = blank_frame_init(blank_path);
+	options->blank = us_blank_frame_init(blank_path);
 	stream->blank = options->blank;
 
-#	define ADD_SINK(_label, _prefix) { \
-			if (_prefix##_name && _prefix##_name[0] != '\0') { \
-				options->_prefix = memsink_init( \
-					_label, \
-					_prefix##_name, \
+#	define ADD_SINK(x_label, x_prefix) { \
+			if (x_prefix##_name && x_prefix##_name[0] != '\0') { \
+				options->x_prefix = us_memsink_init( \
+					x_label, \
+					x_prefix##_name, \
 					true, \
-					_prefix##_mode, \
-					_prefix##_rm, \
-					_prefix##_client_ttl, \
-					_prefix##_timeout \
+					x_prefix##_mode, \
+					x_prefix##_rm, \
+					x_prefix##_client_ttl, \
+					x_prefix##_timeout \
 				); \
 			} \
-			stream->_prefix = options->_prefix; \
+			stream->x_prefix = options->x_prefix; \
 		}
 	ADD_SINK("JPEG", sink);
 	ADD_SINK("RAW", raw_sink);
@@ -505,7 +497,7 @@ int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *s
 
 #	ifdef WITH_SETPROCTITLE
 	if (process_name_prefix != NULL) {
-		process_set_name_prefix(options->argc, options->argv, process_name_prefix);
+		us_process_set_name_prefix(options->argc, options->argv, process_name_prefix);
 	}
 #	endif
 
@@ -526,10 +518,10 @@ static int _parse_resolution(const char *str, unsigned *width, unsigned *height,
 		return -1;
 	}
 	if (limited) {
-		if (tmp_width < VIDEO_MIN_WIDTH || tmp_width > VIDEO_MAX_WIDTH) {
+		if (tmp_width < US_VIDEO_MIN_WIDTH || tmp_width > US_VIDEO_MAX_WIDTH) {
 			return -2;
 		}
-		if (tmp_height < VIDEO_MIN_HEIGHT || tmp_height > VIDEO_MAX_HEIGHT) {
+		if (tmp_height < US_VIDEO_MIN_HEIGHT || tmp_height > US_VIDEO_MAX_HEIGHT) {
 			return -3;
 		}
 	}
@@ -570,11 +562,11 @@ static void _features(void) {
 #	endif
 }
 
-static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, server_s *server) {
-#	define SAY(_msg, ...) fprintf(fp, _msg "\n", ##__VA_ARGS__)
+static void _help(FILE *fp, us_device_s *dev, us_encoder_s *enc, us_stream_s *stream, us_server_s *server) {
+#	define SAY(x_msg, ...) fprintf(fp, x_msg "\n", ##__VA_ARGS__)
 	SAY("\nuStreamer - Lightweight and fast MJPEG-HTTP streamer");
 	SAY("═══════════════════════════════════════════════════");
-	SAY("Version: %s; license: GPLv3", VERSION);
+	SAY("Version: %s; license: GPLv3", US_VERSION);
 	SAY("Copyright (C) 2018-2022 Maxim Devaev <mdevaev@gmail.com>\n");
 	SAY("Capturing options:");
 	SAY("══════════════════");
@@ -582,12 +574,12 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("    -i|--input <N>  ────────────────────── Input channel. Default: %u.\n", dev->input);
 	SAY("    -r|--resolution <WxH>  ─────────────── Initial image resolution. Default: %ux%u.\n", dev->width, dev->height);
 	SAY("    -m|--format <fmt>  ─────────────────── Image format.");
-	SAY("                                           Available: %s; default: YUYV.\n", FORMATS_STR);
+	SAY("                                           Available: %s; default: YUYV.\n", US_FORMATS_STR);
 	SAY("    -a|--tv-standard <std>  ────────────── Force TV standard.");
-	SAY("                                           Available: %s; default: disabled.\n", STANDARDS_STR);
+	SAY("                                           Available: %s; default: disabled.\n", US_STANDARDS_STR);
 	SAY("    -I|--io-method <method>  ───────────── Set V4L2 IO method (see kernel documentation).");
 	SAY("                                           Changing of this parameter may increase the performance. Or not.");
-	SAY("                                           Available: %s; default: MMAP.\n", IO_METHODS_STR);
+	SAY("                                           Available: %s; default: MMAP.\n", US_IO_METHODS_STR);
 	SAY("    -f|--desired-fps <N>  ──────────────── Desired FPS. Default: maximum possible.\n");
 	SAY("    -z|--min-frame-size <N>  ───────────── Drop frames smaller then this limit. Useful if the device");
 	SAY("                                           produces small-sized garbage frames. Default: %zu bytes.\n", dev->min_frame_size);
@@ -666,14 +658,14 @@ static void _help(FILE *fp, device_s *dev, encoder_s *enc, stream_s *stream, ser
 	SAY("                                  Default: disabled.\n");
 	SAY("    --allow-origin <str>  ─────── Set Access-Control-Allow-Origin header. Default: disabled.\n");
 	SAY("    --server-timeout <sec>  ───── Timeout for client connections. Default: %u.\n", server->timeout);
-#	define ADD_SINK(_name, _opt) \
-		SAY(_name " sink options:"); \
+#	define ADD_SINK(x_name, x_opt) \
+		SAY(x_name " sink options:"); \
 		SAY("══════════════════"); \
-		SAY("    --" _opt "sink <name>  ──────────── Use the shared memory to sink " _name " frames. Default: disabled.\n"); \
-		SAY("    --" _opt "sink-mode <mode>  ─────── Set " _name " sink permissions (like 777). Default: 660.\n"); \
-		SAY("    --" _opt "sink-rm  ──────────────── Remove shared memory on stop. Default: disabled.\n"); \
-		SAY("    --" _opt "sink-client-ttl <sec>  ── Client TTL. Default: 10.\n"); \
-		SAY("    --" _opt "sink-timeout <sec>  ───── Timeout for lock. Default: 1.\n");
+		SAY("    --" x_opt "sink <name>  ──────────── Use the shared memory to sink " x_name " frames. Default: disabled.\n"); \
+		SAY("    --" x_opt "sink-mode <mode>  ─────── Set " x_name " sink permissions (like 777). Default: 660.\n"); \
+		SAY("    --" x_opt "sink-rm  ──────────────── Remove shared memory on stop. Default: disabled.\n"); \
+		SAY("    --" x_opt "sink-client-ttl <sec>  ── Client TTL. Default: 10.\n"); \
+		SAY("    --" x_opt "sink-timeout <sec>  ───── Timeout for lock. Default: 1.\n");
 	ADD_SINK("JPEG", "")
 	ADD_SINK("RAW", "raw-")
 	ADD_SINK("H264", "h264-")

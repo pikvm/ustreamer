@@ -22,5 +22,5 @@
 
 #pragma once
 
-#define PLUGIN_NAME		"ustreamer"
-#define PLUGIN_PACKAGE	"janus.plugin.ustreamer"
+#define US_PLUGIN_NAME		"ustreamer"
+#define US_PLUGIN_PACKAGE	"janus.plugin.ustreamer"

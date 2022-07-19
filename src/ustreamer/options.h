@@ -50,17 +50,17 @@
 
 
 typedef struct {
-	unsigned	argc;
-	char		**argv;
-	char		**argv_copy;
-	frame_s		*blank;
-	memsink_s	*sink;
-	memsink_s	*raw_sink;
-	memsink_s	*h264_sink;
-} options_s;
+	unsigned		argc;
+	char			**argv;
+	char			**argv_copy;
+	us_frame_s		*blank;
+	us_memsink_s	*sink;
+	us_memsink_s	*raw_sink;
+	us_memsink_s	*h264_sink;
+} us_options_s;
 
 
-options_s *options_init(unsigned argc, char *argv[]);
-void options_destroy(options_s *options);
+us_options_s *us_options_init(unsigned argc, char *argv[]);
+void us_options_destroy(us_options_s *options);
 
-int options_parse(options_s *options, device_s *dev, encoder_s *enc, stream_s *stream, server_s *server);
+int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us_stream_s *stream, us_server_s *server);

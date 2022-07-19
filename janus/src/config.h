@@ -40,9 +40,8 @@ typedef struct {
 
 	char	*audio_dev_name;
 	char	*tc358743_dev_path;
-} plugin_config_s;
+} us_config_s;
 
 
-// config_init() conflicts with something
-plugin_config_s *plugin_config_init(const char *config_dir_path);
-void plugin_config_destroy(plugin_config_s *config);
+us_config_s *us_config_init(const char *config_dir_path);
+void us_config_destroy(us_config_s *config);

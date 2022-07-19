@@ -39,7 +39,7 @@
 #include "rtp.h"
 
 
-typedef struct client_sx {
+typedef struct us_janus_client_sx {
 	janus_callbacks			*gw;
     janus_plugin_session	*session;
     atomic_bool				transmit;
@@ -48,14 +48,14 @@ typedef struct client_sx {
 	pthread_t	audio_tid;
 	atomic_bool	stop;
 
-	queue_s		*video_queue;
-	queue_s		*audio_queue;
+	us_queue_s		*video_queue;
+	us_queue_s		*audio_queue;
 
-    LIST_STRUCT(struct client_sx);
-} client_s;
+    US_LIST_STRUCT(struct us_janus_client_sx);
+} us_janus_client_s;
 
 
-client_s *client_init(janus_callbacks *gw, janus_plugin_session *session, bool has_audio);
-void client_destroy(client_s *client);
+us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_session *session, bool has_audio);
+void us_janus_client_destroy(us_janus_client_s *client);
 
-void client_send(client_s *client, const rtp_s *rtp);
+void us_janus_client_send(us_janus_client_s *client, const us_rtp_s *rtp);

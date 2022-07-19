@@ -31,4 +31,4 @@
 #include "../../libs/tools.h"
 
 
-char *simplify_request_path(const char *str);
+char *us_simplify_request_path(const char *str);

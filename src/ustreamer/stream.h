@@ -49,48 +49,48 @@
 
 
 typedef struct {
-	frame_s			*frame;
+	us_frame_s		*frame;
 	unsigned		captured_fps;
 	atomic_bool		updated;
 	pthread_mutex_t	mutex;
 
 	atomic_bool		has_clients; // For slowdown
-} video_s;
+} us_video_s;
 
 typedef struct {
-	video_s		*video;
-	long double	last_as_blank_ts;
+	us_video_s		*video;
+	long double		last_as_blank_ts;
 
-	h264_stream_s *h264;
+	us_h264_stream_s	*h264;
 
-	atomic_bool stop;
-} stream_runtime_s;
+	atomic_bool		stop;
+} us_stream_runtime_s;
 
 typedef struct {
-	device_s	*dev;
-	encoder_s	*enc;
+	us_device_s		*dev;
+	us_encoder_s	*enc;
 
-	frame_s		*blank;
-	int			last_as_blank;
-	bool		slowdown;
-	unsigned	error_delay;
+	us_frame_s		*blank;
+	int				last_as_blank;
+	bool			slowdown;
+	unsigned		error_delay;
 
-	memsink_s	*sink;
-	memsink_s	*raw_sink;
+	us_memsink_s	*sink;
+	us_memsink_s	*raw_sink;
 
-	memsink_s	*h264_sink;
-	unsigned	h264_bitrate;
-	unsigned	h264_gop;
-	char		*h264_m2m_path;
+	us_memsink_s	*h264_sink;
+	unsigned		h264_bitrate;
+	unsigned		h264_gop;
+	char			*h264_m2m_path;
 
-	stream_runtime_s *run;
-} stream_s;
+	us_stream_runtime_s	*run;
+} us_stream_s;
 
 
-stream_s *stream_init(device_s *dev, encoder_s *enc);
-void stream_destroy(stream_s *stream);
+us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc);
+void us_stream_destroy(us_stream_s *stream);
 
-void stream_loop(stream_s *stream);
-void stream_loop_break(stream_s *stream);
+void us_stream_loop(us_stream_s *stream);
+void us_stream_loop_break(us_stream_s *stream);
 
-bool stream_has_clients(stream_s *stream);
+bool us_stream_has_clients(us_stream_s *stream);
