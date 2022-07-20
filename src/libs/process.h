@@ -73,12 +73,12 @@ extern char **environ;
 
 #ifdef HAS_PDEATHSIG
 INLINE int us_process_track_parent_death(void) {
-	pid_t parent = getppid();
+	const pid_t parent = getppid();
 	int signum = SIGTERM;
 #	if defined(__linux__)
-	int retval = prctl(PR_SET_PDEATHSIG, signum);
+	const int retval = prctl(PR_SET_PDEATHSIG, signum);
 #	elif defined(__FreeBSD__)
-	int retval = procctl(P_PID, 0, PROC_PDEATHSIG_CTL, &signum);
+	const int retval = procctl(P_PID, 0, PROC_PDEATHSIG_CTL, &signum);
 #	else
 #		error WTF?
 #	endif
@@ -91,7 +91,6 @@ INLINE int us_process_track_parent_death(void) {
 		US_LOG_PERROR("The parent process %d is already dead", parent);
 		return -1;
 	}
-
 	return 0;
 }
 #endif
@@ -131,16 +130,14 @@ INLINE void us_process_set_name_prefix(int argc, char *argv[], const char *prefi
 #endif
 
 INLINE void us_process_notify_parent(void) {
-	pid_t parent = getppid();
-
+	const pid_t parent = getppid();
 	if (kill(parent, SIGUSR2) < 0) {
 		US_LOG_PERROR("Can't send SIGUSR2 to the parent process %d", parent);
 	}
 }
 
 INLINE void us_process_suicide(void) {
-	pid_t pid = getpid();
-
+	const pid_t pid = getpid();
 	if (kill(pid, SIGTERM) < 0) {
 		US_LOG_PERROR("Can't send SIGTERM to own pid %d", pid);
 	}

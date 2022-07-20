@@ -48,12 +48,12 @@ static const struct {
 
 const char *us_guess_mime_type(const char *path) {
 	// FIXME: false-positive cppcheck
-	char *dot = strrchr(path, '.'); // cppcheck-suppress ctunullpointer
+	const char *dot = strrchr(path, '.'); // cppcheck-suppress ctunullpointer
 	if (dot == NULL || strchr(dot, '/') != NULL) {
 		goto misc;
 	}
 
-	char *ext = dot + 1;
+	const char *ext = dot + 1;
 	for (unsigned index = 0; index < US_ARRAY_LEN(_MIME_TYPES); ++index) {
 		if (!evutil_ascii_strcasecmp(ext, _MIME_TYPES[index].ext)) {
 			return _MIME_TYPES[index].mime;

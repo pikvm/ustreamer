@@ -47,7 +47,7 @@ void us_h264_stream_process(us_h264_stream_s *h264, const us_frame_s *frame, boo
 	}
 
 	if (us_is_jpeg(frame->format)) {
-		long double now = us_get_now_monotonic();
+		const long double now = us_get_now_monotonic();
 		US_LOG_DEBUG("H264: Input frame is JPEG; decoding ...");
 		if (us_unjpeg(frame, h264->tmp_src, true) < 0) {
 			return;

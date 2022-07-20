@@ -50,7 +50,7 @@ void us_frame_set_data(us_frame_s *frame, const uint8_t *data, size_t size) {
 }
 
 void us_frame_append_data(us_frame_s *frame, const uint8_t *data, size_t size) {
-	size_t new_used = frame->used + size;
+	const size_t new_used = frame->used + size;
 	us_frame_realloc_data(frame, new_used);
 	memcpy(frame->data + frame->used, data, size);
 	frame->used = new_used;

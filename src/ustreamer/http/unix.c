@@ -38,8 +38,8 @@ evutil_socket_t us_evhttp_bind_unix(struct evhttp *http, const char *path, bool 
 
 #	undef MAX_SUN_PATH
 
-	evutil_socket_t fd = -1;
-	assert((fd = socket(AF_UNIX, SOCK_STREAM, 0)) >= 0);
+	const evutil_socket_t fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	assert(fd >= 0);
 	assert(!evutil_make_socket_nonblocking(fd));
 
 	if (rm && unlink(path) < 0) {

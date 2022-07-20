@@ -77,12 +77,12 @@ void us_stream_destroy(us_stream_s *stream) {
 }
 
 void us_stream_loop(us_stream_s *stream) {
-	assert(stream->blank);
+	assert(stream->blank != NULL);
 
 	US_LOG_INFO("Using V4L2 device: %s", stream->dev->path);
 	US_LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
 
-	if (stream->h264_sink) {
+	if (stream->h264_sink != NULL) {
 		_RUN(h264) = us_h264_stream_init(stream->h264_sink, stream->h264_m2m_path, stream->h264_bitrate, stream->h264_gop);
 	}
 
@@ -99,10 +99,10 @@ void us_stream_loop(us_stream_s *stream) {
 			US_SEP_DEBUG('-');
 			US_LOG_DEBUG("Waiting for worker ...");
 
-			us_worker_s *ready_wr = us_workers_pool_wait(pool);
-			us_encoder_job_s *ready_job = (us_encoder_job_s *)(ready_wr->job);
+			us_worker_s *const ready_wr = us_workers_pool_wait(pool);
+			us_encoder_job_s *const ready_job = (us_encoder_job_s *)(ready_wr->job);
 
-			if (ready_job->hw) {
+			if (ready_job->hw != NULL) {
 				if (us_device_release_buffer(stream->dev, ready_job->hw) < 0) {
 					ready_wr->job_failed = true;
 				}
@@ -137,7 +137,7 @@ void us_stream_loop(us_stream_s *stream) {
 			bool has_read;
 			bool has_write;
 			bool has_error;
-			int selected = us_device_select(stream->dev, &has_read, &has_write, &has_error);
+			const int selected = us_device_select(stream->dev, &has_read, &has_write, &has_error);
 
 			if (selected < 0) {
 				if (errno != EINTR) {
@@ -160,7 +160,7 @@ void us_stream_loop(us_stream_s *stream) {
 					const long long now_second = us_floor_ms(now);
 
 					us_hw_buffer_s *hw;
-					int buf_index = us_device_grab_buffer(stream->dev, &hw);
+					const int buf_index = us_device_grab_buffer(stream->dev, &hw);
 
 					if (buf_index >= 0) {
 						if (now < grab_after) {
@@ -220,9 +220,7 @@ void us_stream_loop(us_stream_s *stream) {
 #		endif
 	}
 
-	if (_RUN(h264)) {
-		us_h264_stream_destroy(_RUN(h264));
-	}
+	US_DELETE(_RUN(h264), us_h264_stream_destroy);
 }
 
 void us_stream_loop_break(us_stream_s *stream) {
@@ -299,7 +297,7 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigne
 
 	US_MUTEX_LOCK(&VID(mutex));
 
-	if (frame) {
+	if (frame != NULL) {
 		new = frame;
 		_RUN(last_as_blank_ts) = 0; // Останавливаем таймер
 		US_LOG_DEBUG("Exposed ALIVE video frame");
@@ -336,10 +334,10 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigne
 		}
 	}
 
-	if (new) {
+	if (new != NULL) {
 		us_frame_copy(new, VID(frame));
 	}
-	VID(frame->online) = (bool)frame;
+	VID(frame->online) = (frame != NULL);
 	VID(captured_fps) = captured_fps;
 	atomic_store(&VID(updated), true);
 

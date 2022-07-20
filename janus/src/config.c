@@ -67,9 +67,7 @@ us_config_s *us_config_init(const char *config_dir_path) {
 		us_config_destroy(config);
 		config = NULL;
 	ok:
-		if (jcfg) {
-			janus_config_destroy(jcfg);
-		}
+		US_DELETE(jcfg, janus_config_destroy);
 		free(config_file_path);
 		return config;
 }
@@ -87,11 +85,11 @@ static char *_get_value(janus_config *jcfg, const char *section, const char *opt
 	if (option_obj == NULL || option_obj->value == NULL || option_obj->value[0] == '\0') {
 		return NULL;
 	}
-	return strdup(option_obj->value);
+	return us_strdup(option_obj->value);
 }
 
 static bool _get_bool(janus_config *jcfg, const char *section, const char *option, bool def) {
-	char *tmp = _get_value(jcfg, section, option);
+	char *const tmp = _get_value(jcfg, section, option);
 	bool value = def;
 	if (tmp != NULL) {
 		value = (!strcasecmp(tmp, "1") || !strcasecmp(tmp, "true") || !strcasecmp(tmp, "yes"));

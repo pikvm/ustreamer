@@ -104,17 +104,17 @@ INLINE void us_thread_get_name(char *name) { // Always required for logging
 #endif
 
 #if defined(__linux__)
-		pid_t tid = syscall(SYS_gettid);
+		const pid_t tid = syscall(SYS_gettid);
 #elif defined(__FreeBSD__)
-		pid_t tid = syscall(SYS_thr_self);
+		const pid_t tid = syscall(SYS_thr_self);
 #elif defined(__OpenBSD__)
-		pid_t tid = syscall(SYS_getthrid);
+		const pid_t tid = syscall(SYS_getthrid);
 #elif defined(__NetBSD__)
-		pid_t tid = syscall(SYS__lwp_self);
+		const pid_t tid = syscall(SYS__lwp_self);
 #elif defined(__DragonFly__)
-		pid_t tid = syscall(SYS_lwp_gettid);
+		const pid_t tid = syscall(SYS_lwp_gettid);
 #else
-		pid_t tid = 0; // Makes cppcheck happy
+		const pid_t tid = 0; // Makes cppcheck happy
 #	warning gettid() not implemented
 #endif
 		assert(snprintf(name, US_MAX_THREAD_NAME, "tid=%d", tid) > 0);

@@ -73,7 +73,7 @@ void us_gpio_destroy(void) {
 	_gpio_output_destroy(&us_gpio.prog_running);
 	_gpio_output_destroy(&us_gpio.stream_online);
 	_gpio_output_destroy(&us_gpio.has_http_clients);
-	if (us_gpio.chip) {
+	if (us_gpio.chip != NULL) {
 		gpiod_chip_close(us_gpio.chip);
 		us_gpio.chip = NULL;
 		US_MUTEX_DESTROY(&us_gpio.mutex);
@@ -83,8 +83,8 @@ void us_gpio_destroy(void) {
 int us_gpio_inner_set(us_gpio_output_s *output, bool state) {
 	int retval = 0;
 
-	assert(us_gpio.chip);
-	assert(output->line);
+	assert(us_gpio.chip != NULL);
+	assert(output->line != NULL);
 	assert(output->state != state); // Must be checked in macro for the performance
 	US_MUTEX_LOCK(&us_gpio.mutex);
 
@@ -99,7 +99,7 @@ int us_gpio_inner_set(us_gpio_output_s *output, bool state) {
 }
 
 static void _gpio_output_init(us_gpio_output_s *output) {
-	assert(us_gpio.chip);
+	assert(us_gpio.chip != NULL);
 	assert(output->line == NULL);
 
 	US_ASPRINTF(output->consumer, "%s::%s", us_gpio.consumer_prefix, output->role);
@@ -117,11 +117,11 @@ static void _gpio_output_init(us_gpio_output_s *output) {
 }
 
 static void _gpio_output_destroy(us_gpio_output_s *output) {
-	if (output->line) {
+	if (output->line != NULL) {
 		gpiod_line_release(output->line);
 		output->line = NULL;
 	}
-	if (output->consumer) {
+	if (output->consumer != NULL) {
 		free(output->consumer);
 		output->consumer = NULL;
 	}

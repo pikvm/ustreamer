@@ -117,7 +117,7 @@ void us_rtpv_wrap(us_rtpv_s *rtpv, const us_frame_s *frame) {
 		offset += next_start;
 
 		if (last_offset >= 0) {
-			const uint8_t *data = frame->data + last_offset + _PRE;
+			const uint8_t *const data = frame->data + last_offset + _PRE;
 			size_t size = offset - last_offset - _PRE;
 			if (data[size - 1] == 0) { // Check for extra 00
 				--size;
@@ -129,7 +129,7 @@ void us_rtpv_wrap(us_rtpv_s *rtpv, const us_frame_s *frame) {
 	}
 
 	if (last_offset >= 0) {
-		const uint8_t *data = frame->data + last_offset + _PRE;
+		const uint8_t *const data = frame->data + last_offset + _PRE;
 		size_t size = frame->used - last_offset - _PRE;
 		_rtpv_process_nalu(rtpv, data, size, pts, true);
 	}
@@ -144,7 +144,7 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const uint8_t *data, size_t size, uint3
 		case 7: ps = rtpv->sps; break;
 		case 8: ps = rtpv->pps; break;
 	}
-	if (ps) {
+	if (ps != NULL) {
 		US_MUTEX_LOCK(&rtpv->mutex);
 		us_frame_set_data(ps, data, size);
 		US_MUTEX_UNLOCK(&rtpv->mutex);

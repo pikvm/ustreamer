@@ -24,7 +24,7 @@
 
 
 evutil_socket_t us_evhttp_bind_systemd(struct evhttp *http) {
-	int fds = sd_listen_fds(1);
+	const int fds = sd_listen_fds(1);
 	if (fds < 1) {
 		US_LOG_ERROR("No available systemd sockets");
 		return -1;

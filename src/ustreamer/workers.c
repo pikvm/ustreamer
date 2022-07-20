@@ -134,10 +134,10 @@ void us_workers_pool_assign(us_workers_pool_s *pool, us_worker_s *ready_wr/*, vo
 		pool->oldest_wr = ready_wr;
 		pool->latest_wr = pool->oldest_wr;
 	} else {
-		if (ready_wr->next_wr) {
+		if (ready_wr->next_wr != NULL) {
 			ready_wr->next_wr->prev_wr = ready_wr->prev_wr;
 		}
-		if (ready_wr->prev_wr) {
+		if (ready_wr->prev_wr != NULL) {
 			ready_wr->prev_wr->next_wr = ready_wr->next_wr;
 		}
 		ready_wr->prev_wr = pool->latest_wr;
@@ -189,7 +189,7 @@ static void *_worker_thread(void *v_worker) {
 		US_MUTEX_UNLOCK(&wr->has_job_mutex);
 
 		if (!atomic_load(&wr->pool->stop)) {
-			long double job_start_ts = us_get_now_monotonic();
+			const long double job_start_ts = us_get_now_monotonic();
 			wr->job_failed = !wr->pool->run_job(wr);
 			if (!wr->job_failed) {
 				wr->job_start_ts = job_start_ts;

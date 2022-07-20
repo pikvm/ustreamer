@@ -49,7 +49,7 @@ void us_queue_destroy(us_queue_s *queue) {
 		assert(!clock_gettime(CLOCK_MONOTONIC, &m_ts)); \
 		us_ld_to_timespec(us_timespec_to_ld(&m_ts) + timeout, &m_ts); \
 		while (x_var) { \
-			int err = pthread_cond_timedwait(x_cond, &queue->mutex, &m_ts); \
+			const int err = pthread_cond_timedwait(x_cond, &queue->mutex, &m_ts); \
 			if (err == ETIMEDOUT) { \
 				US_MUTEX_UNLOCK(&queue->mutex); \
 				return -1; \
@@ -93,7 +93,7 @@ int us_queue_get(us_queue_s *queue, void **item, long double timeout) {
 
 int us_queue_get_free(us_queue_s *queue) {
 	US_MUTEX_LOCK(&queue->mutex);
-	unsigned size = queue->size;
+	const unsigned size = queue->size;
 	US_MUTEX_UNLOCK(&queue->mutex);
 	return queue->capacity - size;
 }

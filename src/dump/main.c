@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	_install_signal_handlers();
-	int retval = abs(_dump_sink(sink_name, sink_timeout, count, interval, &ctx));
+	const int retval = abs(_dump_sink(sink_name, sink_timeout, count, interval, &ctx));
 	if (ctx.v_output && ctx.destroy) {
 		ctx.destroy(ctx.v_output);
 	}
@@ -232,7 +232,7 @@ static int _dump_sink(
 		count = -1;
 	}
 
-	useconds_t interval_us = interval * 1000000;
+	const useconds_t interval_us = interval * 1000000;
 
 	us_frame_s *frame = us_frame_init();
 	us_memsink_s *sink = NULL;
@@ -272,7 +272,7 @@ static int _dump_sink(
 			}
 			fps_accum += 1;
 
-			if (ctx->v_output) {
+			if (ctx->v_output != NULL) {
 				ctx->write(ctx->v_output, frame);
 			}
 

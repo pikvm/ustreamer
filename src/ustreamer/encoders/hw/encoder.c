@@ -42,7 +42,7 @@ void _copy_plus_huffman(const us_frame_s *src, us_frame_s *dest) {
 
 	if (!_is_huffman(src->data)) {
 		const uint8_t *src_ptr = src->data;
-		const uint8_t *src_end = src->data + src->used;
+		const uint8_t *const src_end = src->data + src->used;
 
 		while ((((src_ptr[0] << 8) | src_ptr[1]) != 0xFFC0) && (src_ptr < src_end)) {
 			src_ptr += 1;

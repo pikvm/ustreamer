@@ -168,11 +168,11 @@ int us_audio_get_encoded(us_audio_s *audio, uint8_t *data, size_t *size, uint64_
 static void *_pcm_thread(void *v_audio) {
 	US_THREAD_RENAME("us_a_pcm");
 
-	us_audio_s *audio = (us_audio_s *)v_audio;
+	us_audio_s *const audio = (us_audio_s *)v_audio;
 	uint8_t in[_MAX_BUF8];
 
 	while (!atomic_load(&audio->stop)) {
-		int frames = snd_pcm_readi(audio->pcm, in, audio->pcm_frames);
+		const int frames = snd_pcm_readi(audio->pcm, in, audio->pcm_frames);
 		if (frames < 0) {
 			_JLOG_PERROR_ALSA(frames, "audio", "Fatal: Can't capture PCM frames");
 			break;
@@ -198,14 +198,14 @@ static void *_pcm_thread(void *v_audio) {
 static void *_encoder_thread(void *v_audio) {
 	US_THREAD_RENAME("us_a_enc");
 
-	us_audio_s *audio = (us_audio_s *)v_audio;
+	us_audio_s *const audio = (us_audio_s *)v_audio;
 	int16_t in_res[_MAX_BUF16];
 
 	while (!atomic_load(&audio->stop)) {
 		_pcm_buffer_s *in;
 		if (!us_queue_get(audio->pcm_queue, (void **)&in, 0.1)) {
 			int16_t *in_ptr;
-			if (audio->res) {
+			if (audio->res != NULL) {
 				assert(audio->pcm_hz != _ENCODER_INPUT_HZ);
 				uint32_t in_count = audio->pcm_frames;
 				uint32_t out_count = _HZ_TO_FRAMES(_ENCODER_INPUT_HZ);
@@ -218,7 +218,7 @@ static void *_encoder_thread(void *v_audio) {
 
 			_enc_buffer_s *out;
 			US_CALLOC(out, 1);
-			int size = opus_encode(audio->enc, in_ptr, _HZ_TO_FRAMES(_ENCODER_INPUT_HZ), out->data, US_ARRAY_LEN(out->data));
+			const int size = opus_encode(audio->enc, in_ptr, _HZ_TO_FRAMES(_ENCODER_INPUT_HZ), out->data, US_ARRAY_LEN(out->data));
 			free(in);
 			if (size < 0) {
 				_JLOG_PERROR_OPUS(size, "audio", "Fatal: Can't encode PCM frame to OPUS");

@@ -126,11 +126,11 @@ static us_m2m_encoder_s *_m2m_encoder_init(
 
 	us_m2m_encoder_s *enc;
 	US_CALLOC(enc, 1);
-	assert(enc->name = strdup(name));
+	enc->name = us_strdup(name);
 	if (path == NULL) {
-		assert(enc->path = strdup(output_format == V4L2_PIX_FMT_JPEG ? "/dev/video31" : "/dev/video11"));
+		enc->path = us_strdup(output_format == V4L2_PIX_FMT_JPEG ? "/dev/video31" : "/dev/video11");
 	} else {
-		assert(enc->path = strdup(path));
+		enc->path = us_strdup(path);
 	}
 	enc->output_format = output_format;
 	enc->fps = fps;
@@ -150,7 +150,7 @@ static us_m2m_encoder_s *_m2m_encoder_init(
 	}
 
 static void _m2m_encoder_prepare(us_m2m_encoder_s *enc, const us_frame_s *frame) {
-	bool dma = (enc->allow_dma && frame->dma_fd >= 0);
+	const bool dma = (enc->allow_dma && frame->dma_fd >= 0);
 
 	_E_LOG_INFO("Configuring encoder: DMA=%d ...", dma);
 
@@ -312,7 +312,7 @@ static int _m2m_encoder_init_buffers(
 				MAP_SHARED,
 				_RUN(fd),
 				plane.m.mem_offset
-			)) == NULL) {
+			)) == MAP_FAILED) {
 				_E_LOG_PERROR("Can't map %s buffer=%u", name, *n_bufs_ptr);
 				goto error;
 			}
@@ -346,7 +346,7 @@ static void _m2m_encoder_cleanup(us_m2m_encoder_s *enc) {
 	}
 
 #	define DESTROY_BUFFERS(x_name, x_target) { \
-		if (_RUN(x_target##_bufs)) { \
+		if (_RUN(x_target##_bufs) != NULL) { \
 			for (unsigned m_index = 0; m_index < _RUN(n_##x_target##_bufs); ++m_index) { \
 				if (_RUN(x_target##_bufs[m_index].allocated) > 0 && _RUN(x_target##_bufs[m_index].data) != NULL) { \
 					if (munmap(_RUN(x_target##_bufs[m_index].data), _RUN(x_target##_bufs[m_index].allocated)) < 0) { \
@@ -415,7 +415,7 @@ static int _m2m_encoder_compress_raw(us_m2m_encoder_s *enc, const us_frame_s *sr
 		_E_LOG_DEBUG("Grabbed INPUT buffer=%u", input_buf.index);
 	}
 
-	uint64_t now = us_get_now_monotonic_u64();
+	const uint64_t now = us_get_now_monotonic_u64();
 	struct timeval ts = {
 		.tv_sec = now / 1000000,
 		.tv_usec = now % 1000000,

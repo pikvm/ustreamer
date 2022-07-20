@@ -61,15 +61,15 @@ typedef struct {
 	pthread_mutex_t		mutex;
 
 	unsigned			n_m2ms;
-	us_m2m_encoder_s		**m2ms;
+	us_m2m_encoder_s	**m2ms;
 } us_encoder_runtime_s;
 
 typedef struct {
-	us_encoder_type_e		type;
-	unsigned				n_workers;
-	char					*m2m_path;
+	us_encoder_type_e	type;
+	unsigned			n_workers;
+	char				*m2m_path;
 
-	us_encoder_runtime_s	*run;
+	us_encoder_runtime_s *run;
 } us_encoder_s;
 
 typedef struct {

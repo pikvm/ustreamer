@@ -96,7 +96,7 @@ janus_plugin *create(void);
 
 
 #define _IF_NOT_REPORTED(...) { \
-		unsigned _error_code = __LINE__; \
+		const unsigned _error_code = __LINE__; \
 		if (error_reported != _error_code) { __VA_ARGS__; error_reported = _error_code; } \
 	}
 
@@ -147,9 +147,9 @@ static void *_video_sink_thread(UNUSED void *arg) {
 
 		US_JLOG_INFO("video", "Memsink opened; reading frames ...");
 		while (!_STOP && _HAS_WATCHERS) {
-			int result = us_memsink_fd_wait_frame(fd, mem, frame_id);
+			const int result = us_memsink_fd_wait_frame(fd, mem, frame_id);
 			if (result == 0) {
-				us_frame_s *frame = us_memsink_fd_get_frame(fd, mem, &frame_id);
+				us_frame_s *const frame = us_memsink_fd_get_frame(fd, mem, &frame_id);
 				if (frame == NULL) {
 					goto close_memsink;
 				}
@@ -180,8 +180,8 @@ static void *_video_sink_thread(UNUSED void *arg) {
 static void *_audio_thread(UNUSED void *arg) {
 	US_THREAD_RENAME("us_audio");
 	atomic_store(&_g_audio_tid_created, true);
-	assert(_g_config->audio_dev_name);
-	assert(_g_config->tc358743_dev_path);
+	assert(_g_config->audio_dev_name != NULL);
+	assert(_g_config->tc358743_dev_path != NULL);
 
 	unsigned error_reported = 0;
 
@@ -220,7 +220,7 @@ static void *_audio_thread(UNUSED void *arg) {
 			size_t size = US_RTP_DATAGRAM_SIZE - US_RTP_HEADER_SIZE;
 			uint8_t data[size];
 			uint64_t pts;
-			int result = us_audio_get_encoded(audio, data, &size, &pts);
+			const int result = us_audio_get_encoded(audio, data, &size, &pts);
 			if (result == 0) {
 				_LOCK_AUDIO;
 				us_rtpa_wrap(_g_rtpa, data, size, pts);
@@ -260,7 +260,7 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 
 	_g_video_queue = us_queue_init(1024);
 	_g_rtpv = us_rtpv_init(_relay_rtp_clients, _g_config->video_zero_playout_delay);
-	if (_g_config->audio_dev_name) {
+	if (_g_config->audio_dev_name != NULL) {
 		_g_rtpa = us_rtpa_init(_relay_rtp_clients);
 		US_THREAD_CREATE(&_g_audio_tid, _audio_thread, NULL);
 	}
@@ -299,7 +299,7 @@ static void _plugin_create_session(janus_plugin_session *session, int *err) {
 	_IF_DISABLED({ *err = -1; return; });
 	_LOCK_ALL;
 	US_JLOG_INFO("main", "Creating session %p ...", session);
-	us_janus_client_s *client = us_janus_client_init(_g_gw, session, (_g_config->audio_dev_name != NULL));
+	us_janus_client_s *const client = us_janus_client_init(_g_gw, session, (_g_config->audio_dev_name != NULL));
 	US_LIST_APPEND(_g_clients, client);
 	atomic_store(&_g_has_watchers, true);
 	_UNLOCK_ALL;
@@ -373,8 +373,8 @@ static struct janus_plugin_result *_plugin_handle_message(
 	assert(transaction != NULL);
 
 #	define FREE_MSG_JSEP { \
-			if (msg) json_decref(msg); \
-			if (jsep) json_decref(jsep); \
+			US_DELETE(msg, json_decref); \
+			US_DELETE(jsep, json_decref); \
 		}
 
 	if (session == NULL || msg == NULL) {
@@ -393,23 +393,23 @@ static struct janus_plugin_result *_plugin_handle_message(
 			json_decref(m_event); \
 		}
 
-	json_t *request_obj = json_object_get(msg, "request");
+	json_t *const request_obj = json_object_get(msg, "request");
 	if (request_obj == NULL) {
 		PUSH_ERROR(400, "Request missing");
 		goto ok_wait;
 	}
 
-	const char *request_str = json_string_value(request_obj);
-	if (!request_str) {
+	const char *const request_str = json_string_value(request_obj);
+	if (request_str == NULL) {
 		PUSH_ERROR(400, "Request not a string");
 		goto ok_wait;
 	}
 	// US_JLOG_INFO("main", "Message: %s", request_str);
 
 #	define PUSH_STATUS(x_status, x_jsep) { \
-			json_t *m_event = json_object(); \
+			json_t *const m_event = json_object(); \
 			json_object_set_new(m_event, "ustreamer", json_string("event")); \
-			json_t *m_result = json_object(); \
+			json_t *const m_result = json_object(); \
 			json_object_set_new(m_result, "status", json_string(x_status)); \
 			json_object_set_new(m_event, "result", m_result); \
 			_g_gw->push_event(session, create(), transaction, m_event, x_jsep); \
@@ -425,12 +425,12 @@ static struct janus_plugin_result *_plugin_handle_message(
 	} else if (!strcmp(request_str, "watch")) {
 		char *sdp;
 		{
-			char *video_sdp = us_rtpv_make_sdp(_g_rtpv);
+			char *const video_sdp = us_rtpv_make_sdp(_g_rtpv);
 			if (video_sdp == NULL) {
 				PUSH_ERROR(503, "Haven't received SPS/PPS from memsink yet");
 				goto ok_wait;
 			}
-			char *audio_sdp = (_g_rtpa ? us_rtpa_make_sdp(_g_rtpa) : strdup(""));
+			char *const audio_sdp = (_g_rtpa ? us_rtpa_make_sdp(_g_rtpa) : us_strdup(""));
 			US_ASPRINTF(sdp,
 				"v=0" RN
 				"o=- %" PRIu64 " 1 IN IP4 0.0.0.0" RN
@@ -442,7 +442,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 			free(audio_sdp);
 			free(video_sdp);
 		}
-		json_t *offer_jsep = json_pack("{ssss}", "type", "offer", "sdp", sdp);
+		json_t *const offer_jsep = json_pack("{ssss}", "type", "offer", "sdp", sdp);
 		free(sdp);
 		PUSH_STATUS("started", offer_jsep);
 		json_decref(offer_jsep);

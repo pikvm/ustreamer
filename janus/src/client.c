@@ -70,7 +70,7 @@ void us_janus_client_send(us_janus_client_s *client, const us_rtp_s *rtp) {
 	) {
 		return;
 	}
-	us_rtp_s *new = us_rtp_dup(rtp);
+	us_rtp_s *const new = us_rtp_dup(rtp);
 	if (us_queue_put((new->video ? client->video_queue : client->audio_queue), new, 0) != 0) {
 		US_JLOG_ERROR("client", "Session %p %s queue is full",
 			client->session, (new->video ? "video" : "audio"));
@@ -87,8 +87,8 @@ static void *_audio_thread(void *v_client) {
 }
 
 static void *_common_thread(void *v_client, bool video) {
-	us_janus_client_s *client = (us_janus_client_s *)v_client;
-	us_queue_s *queue = (video ? client->video_queue : client->audio_queue);
+	us_janus_client_s *const client = (us_janus_client_s *)v_client;
+	us_queue_s *const queue = (video ? client->video_queue : client->audio_queue);
 	assert(queue != NULL); // Audio may be NULL
 
 	while (!atomic_load(&client->stop)) {

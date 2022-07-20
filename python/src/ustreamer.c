@@ -48,7 +48,7 @@ static void _MemsinkObject_destroy_internals(_MemsinkObject *self) {
 		close(self->fd);
 		self->fd = -1;
 	}
-	if (self->frame) {
+	if (self->frame != NULL) {
 		us_frame_destroy(self->frame);
 		self->frame = NULL;
 	}
@@ -123,7 +123,7 @@ static PyObject *_MemsinkObject_exit(_MemsinkObject *self, PyObject *Py_UNUSED(i
 }
 
 static int _wait_frame(_MemsinkObject *self) {
-	long double deadline_ts = us_get_now_monotonic() + self->wait_timeout;
+	const long double deadline_ts = us_get_now_monotonic() + self->wait_timeout;
 
 #	define RETURN_OS_ERROR { \
 			Py_BLOCK_THREADS \
@@ -135,7 +135,7 @@ static int _wait_frame(_MemsinkObject *self) {
 	do {
 		Py_BEGIN_ALLOW_THREADS
 
-		int retval = us_flock_timedwait_monotonic(self->fd, self->lock_timeout);
+		const int retval = us_flock_timedwait_monotonic(self->fd, self->lock_timeout);
 		now = us_get_now_monotonic();
 
 		if (retval < 0 && errno != EWOULDBLOCK) {

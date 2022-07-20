@@ -94,10 +94,10 @@ static void _jpeg_set_dest_frame(j_compress_ptr jpeg, us_frame_s *frame) {
 	if (jpeg->dest == NULL) {
 		assert((jpeg->dest = (struct jpeg_destination_mgr *)(*jpeg->mem->alloc_small)(
 			(j_common_ptr) jpeg, JPOOL_PERMANENT, sizeof(_jpeg_dest_manager_s)
-		)));
+		)) != NULL);
 	}
 
-	_jpeg_dest_manager_s *dest = (_jpeg_dest_manager_s *)jpeg->dest;
+	_jpeg_dest_manager_s *const dest = (_jpeg_dest_manager_s *)jpeg->dest;
 	dest->mgr.init_destination = _jpeg_init_destination;
 	dest->mgr.empty_output_buffer = _jpeg_empty_output_buffer;
 	dest->mgr.term_destination = _jpeg_term_destination;
@@ -123,13 +123,13 @@ static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg, const 
 		uint8_t *ptr = line_buf;
 
 		for (unsigned x = 0; x < frame->width; ++x) {
-			int y = (!z ? data[0] << 8 : data[2] << 8);
-			int u = data[1] - 128;
-			int v = data[3] - 128;
+			const int y = (!z ? data[0] << 8 : data[2] << 8);
+			const int u = data[1] - 128;
+			const int v = data[3] - 128;
 
-			int r = YUV_R(y, u, v);
-			int g = YUV_G(y, u, v);
-			int b = YUV_B(y, u, v);
+			const int r = YUV_R(y, u, v);
+			const int g = YUV_G(y, u, v);
+			const int b = YUV_B(y, u, v);
 
 			*(ptr++) = NORM_COMPONENT(r);
 			*(ptr++) = NORM_COMPONENT(g);
@@ -161,13 +161,13 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const 
 		uint8_t *ptr = line_buf;
 
 		for (unsigned x = 0; x < frame->width; ++x) {
-			int y = (!z ? data[1] << 8 : data[3] << 8);
-			int u = data[0] - 128;
-			int v = data[2] - 128;
+			const int y = (!z ? data[1] << 8 : data[3] << 8);
+			const int u = data[0] - 128;
+			const int v = data[2] - 128;
 
-			int r = YUV_R(y, u, v);
-			int g = YUV_G(y, u, v);
-			int b = YUV_B(y, u, v);
+			const int r = YUV_R(y, u, v);
+			const int g = YUV_G(y, u, v);
+			const int b = YUV_B(y, u, v);
 
 			*(ptr++) = NORM_COMPONENT(r);
 			*(ptr++) = NORM_COMPONENT(g);
@@ -203,7 +203,7 @@ static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, cons
 		uint8_t *ptr = line_buf;
 
 		for (unsigned x = 0; x < frame->width; ++x) {
-			unsigned int two_byte = (data[1] << 8) + data[0];
+			const unsigned int two_byte = (data[1] << 8) + data[0];
 
 			*(ptr++) = data[1] & 248; // Red
 			*(ptr++) = (uint8_t)((two_byte & 2016) >> 3); // Green
@@ -235,12 +235,12 @@ static void _jpeg_write_scanlines_rgb24(struct jpeg_compress_struct *jpeg, const
 #define JPEG_OUTPUT_BUFFER_SIZE ((size_t)4096)
 
 static void _jpeg_init_destination(j_compress_ptr jpeg) {
-	_jpeg_dest_manager_s *dest = (_jpeg_dest_manager_s *)jpeg->dest;
+	_jpeg_dest_manager_s *const dest = (_jpeg_dest_manager_s *)jpeg->dest;
 
 	// Allocate the output buffer - it will be released when done with image
 	assert((dest->buf = (JOCTET *)(*jpeg->mem->alloc_small)(
 		(j_common_ptr) jpeg, JPOOL_IMAGE, JPEG_OUTPUT_BUFFER_SIZE * sizeof(JOCTET)
-	)));
+	)) != NULL);
 
 	dest->mgr.next_output_byte = dest->buf;
 	dest->mgr.free_in_buffer = JPEG_OUTPUT_BUFFER_SIZE;
@@ -249,7 +249,7 @@ static void _jpeg_init_destination(j_compress_ptr jpeg) {
 static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg) {
 	// Called whenever local jpeg buffer fills up
 
-	_jpeg_dest_manager_s *dest = (_jpeg_dest_manager_s *)jpeg->dest;
+	_jpeg_dest_manager_s *const dest = (_jpeg_dest_manager_s *)jpeg->dest;
 
 	us_frame_append_data(dest->frame, dest->buf, JPEG_OUTPUT_BUFFER_SIZE);
 
@@ -263,8 +263,8 @@ static void _jpeg_term_destination(j_compress_ptr jpeg) {
 	// Called by jpeg_finish_compress after all data has been written.
 	// Usually needs to flush buffer.
 
-	_jpeg_dest_manager_s *dest = (_jpeg_dest_manager_s *)jpeg->dest;
-	size_t final = JPEG_OUTPUT_BUFFER_SIZE - dest->mgr.free_in_buffer;
+	_jpeg_dest_manager_s *const dest = (_jpeg_dest_manager_s *)jpeg->dest;
+	const size_t final = JPEG_OUTPUT_BUFFER_SIZE - dest->mgr.free_in_buffer;
 
 	// Write any data remaining in the buffer.
 	us_frame_append_data(dest->frame, dest->buf, final);

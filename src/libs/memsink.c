@@ -40,7 +40,7 @@ us_memsink_s *us_memsink_init(
 
 	US_LOG_INFO("Using %s-sink: %s", name, obj);
 
-	mode_t mask = umask(0);
+	const mode_t mask = umask(0);
 	sink->fd = shm_open(sink->obj, (server ? O_RDWR | O_CREAT : O_RDWR), mode);
 	umask(mask);
 	if (sink->fd == -1) {
@@ -107,7 +107,7 @@ bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame) {
 		return true;
 	}
 
-	bool has_clients = (sink->mem->last_client_ts + sink->client_ttl > us_get_now_monotonic());
+	const bool has_clients = (sink->mem->last_client_ts + sink->client_ttl > us_get_now_monotonic());
 	atomic_store(&sink->has_clients, has_clients);
 
 	if (flock(sink->fd, LOCK_UN) < 0) {

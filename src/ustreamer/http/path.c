@@ -74,7 +74,7 @@ char *us_simplify_request_path(const char *str) {
 		// (out <= str) still true; also now (slash < out)
 
 		if (ch == '/' || ch == '\0') {
-			size_t toklen = out - slash;
+			const size_t toklen = out - slash;
 
 			if (toklen == 3 && pre2 == '.' && pre1 == '.' && *slash == '/') {
 				// "/../" or ("/.." at end of string)

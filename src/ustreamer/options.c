@@ -241,7 +241,7 @@ us_options_s *us_options_init(unsigned argc, char *argv[]) {
 
 	US_CALLOC(options->argv_copy, argc);
 	for (unsigned index = 0; index < argc; ++index) {
-		assert(options->argv_copy[index] = strdup(argv[index]));
+		options->argv_copy[index] = us_strdup(argv[index]);
 	}
 	return options;
 }
@@ -269,7 +269,7 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 		}
 
 #	define OPT_NUMBER(x_name, x_dest, x_min, x_max, x_base) { \
-			errno = 0; char *m_end = NULL; long long m_tmp = strtoll(optarg, &m_end, x_base); \
+			errno = 0; char *m_end = NULL; const long long m_tmp = strtoll(optarg, &m_end, x_base); \
 			if (errno || *m_end || m_tmp < x_min || m_tmp > x_max) { \
 				printf("Invalid value for '%s=%s': min=%lld, max=%lld\n", x_name, optarg, (long long)x_min, (long long)x_max); \
 				return -1; \

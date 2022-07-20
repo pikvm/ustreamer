@@ -174,7 +174,7 @@ int us_device_open(us_device_s *dev) {
 void us_device_close(us_device_s *dev) {
 	_RUN(persistent_timeout_reported) = false;
 
-	if (_RUN(hw_bufs)) {
+	if (_RUN(hw_bufs) != NULL) {
 		US_LOG_DEBUG("Releasing device buffers ...");
 		for (unsigned index = 0; index < _RUN(n_bufs); ++index) {
 #			define HW(x_next) _RUN(hw_bufs)[index].x_next
@@ -191,9 +191,7 @@ void us_device_close(us_device_s *dev) {
 					}
 				}
 			} else { // V4L2_MEMORY_USERPTR
-				if (HW(raw.data)) {
-					free(HW(raw.data));
-				}
+				US_DELETE(HW(raw.data), free);
 			}
 
 #			undef HW
@@ -464,12 +462,9 @@ static int _device_apply_dv_timings(us_device_s *dev) {
 	if (_D_XIOCTL(VIDIOC_QUERY_DV_TIMINGS, &dv) == 0) {
 		if (dv.type == V4L2_DV_BT_656_1120) {
 			// See v4l2_print_dv_timings() in the kernel
-			unsigned htot = V4L2_DV_BT_FRAME_WIDTH(&dv.bt);
-			unsigned vtot = V4L2_DV_BT_FRAME_HEIGHT(&dv.bt);
-			if (dv.bt.interlaced) {
-				vtot /= 2;
-			}
-			unsigned fps = ((htot * vtot) > 0 ? ((100 * (uint64_t)dv.bt.pixelclock)) / (htot * vtot) : 0);
+			const unsigned htot = V4L2_DV_BT_FRAME_WIDTH(&dv.bt);
+			const unsigned vtot = V4L2_DV_BT_FRAME_HEIGHT(&dv.bt) / (dv.bt.interlaced ? 2 : 1);
+			const unsigned fps = ((htot * vtot) > 0 ? ((100 * (uint64_t)dv.bt.pixelclock)) / (htot * vtot) : 0);
 			US_LOG_INFO("Got new DV-timings: %ux%u%s%u.%02u, pixclk=%llu, vsync=%u, hsync=%u",
 				dv.bt.width, dv.bt.height, (dv.bt.interlaced ? "i" : "p"), fps / 100, fps % 100,
 				(unsigned long long)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync); // See #11 about %llu
@@ -730,7 +725,7 @@ static int _device_open_io_method_userptr(us_device_s *dev) {
 
 	for (_RUN(n_bufs) = 0; _RUN(n_bufs) < req.count; ++_RUN(n_bufs)) {
 #       define HW(x_next) _RUN(hw_bufs)[_RUN(n_bufs)].x_next
-		assert(HW(raw.data) = aligned_alloc(page_size, buf_size));
+		assert((HW(raw.data) = aligned_alloc(page_size, buf_size)) != NULL);
 		memset(HW(raw.data), 0, buf_size);
 		HW(raw.allocated) = buf_size;
 #		undef HW
@@ -882,7 +877,7 @@ static const char *_format_to_string_nullable(unsigned format) {
 }
 
 static const char *_format_to_string_supported(unsigned format) {
-	const char *format_str = _format_to_string_nullable(format);
+	const char *const format_str = _format_to_string_nullable(format);
 	return (format_str == NULL ? "unsupported" : format_str);
 }
 

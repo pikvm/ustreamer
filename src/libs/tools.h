@@ -53,8 +53,8 @@
 #define INLINE inline __attribute__((always_inline))
 #define UNUSED __attribute__((unused))
 
-#define US_CALLOC(x_dest, x_nmemb)		assert(((x_dest) = calloc((x_nmemb), sizeof(*(x_dest)))))
-#define US_REALLOC(x_dest, x_nmemb)		assert(((x_dest) = realloc((x_dest), (x_nmemb) * sizeof(*(x_dest)))))
+#define US_CALLOC(x_dest, x_nmemb)		assert(((x_dest) = calloc((x_nmemb), sizeof(*(x_dest)))) != NULL)
+#define US_REALLOC(x_dest, x_nmemb)		assert(((x_dest) = realloc((x_dest), (x_nmemb) * sizeof(*(x_dest)))) != NULL)
 #define US_DELETE(x_dest, x_free)		{ if (x_dest) { x_free(x_dest); } }
 #define US_MEMSET_ZERO(x_obj)			memset(&(x_obj), 0, sizeof(x_obj))
 
@@ -62,6 +62,12 @@
 
 #define US_ARRAY_LEN(x_array) (sizeof(x_array) / sizeof((x_array)[0]))
 
+
+INLINE char *us_strdup(const char *str) {
+	char *const new = strdup(str);
+	assert(new != NULL);
+	return new;
+}
 
 INLINE const char *us_bool_to_string(bool flag) {
 	return (flag ? "true" : "false");
@@ -131,7 +137,7 @@ INLINE uint64_t us_get_now_monotonic_u64(void) {
 #undef _X_CLOCK_MONOTONIC
 
 INLINE uint64_t us_get_now_id(void) {
-	uint64_t now = us_get_now_monotonic_u64();
+	const uint64_t now = us_get_now_monotonic_u64();
 	return (uint64_t)us_triple_u32(now) | ((uint64_t)us_triple_u32(now + 12345) << 32);
 }
 
@@ -162,7 +168,7 @@ INLINE long double us_timespec_to_ld(const struct timespec *ts) {
 }
 
 INLINE int us_flock_timedwait_monotonic(int fd, long double timeout) {
-	long double deadline_ts = us_get_now_monotonic() + timeout;
+	const long double deadline_ts = us_get_now_monotonic() + timeout;
 	int retval = -1;
 
 	while (true) {
@@ -178,10 +184,10 @@ INLINE int us_flock_timedwait_monotonic(int fd, long double timeout) {
 }
 
 INLINE char *us_errno_to_string(int error, char *buf, size_t size) {
-	assert(buf);
+	assert(buf != NULL);
 	assert(size > 0);
 	locale_t locale = newlocale(LC_MESSAGES_MASK, "C", NULL);
-	char *str = "!!! newlocale() error !!!";
+	const char *str = "!!! newlocale() error !!!";
 	strncpy(buf, (locale ? strerror_l(error, locale) : str), size - 1);
 	buf[size - 1] = '\0';
 	if (locale) {

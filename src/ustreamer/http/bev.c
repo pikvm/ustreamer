@@ -27,8 +27,9 @@ char *us_bufferevent_format_reason(short what) {
 	char *reason;
 	US_CALLOC(reason, 2048);
 
+	// evutil_socket_error_to_string() is not thread-safe
 	char perror_buf[1024] = {0};
-	char *perror_ptr = us_errno_to_string(EVUTIL_SOCKET_ERROR(), perror_buf, 1024); // evutil_socket_error_to_string() is not thread-safe
+	const char *perror_ptr = us_errno_to_string(EVUTIL_SOCKET_ERROR(), perror_buf, 1024);
 	bool first = true;
 
 	strcat(reason, perror_ptr);

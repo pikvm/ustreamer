@@ -62,11 +62,9 @@ us_encoder_s *us_encoder_init(void) {
 }
 
 void us_encoder_destroy(us_encoder_s *enc) {
-	if (_ER(m2ms)) {
+	if (_ER(m2ms) != NULL) {
 		for (unsigned index = 0; index < _ER(n_m2ms); ++index) {
-			if (_ER(m2ms[index])) {
-				us_m2m_encoder_destroy(_ER(m2ms[index]));
-			}
+			US_DELETE(_ER(m2ms[index]), us_m2m_encoder_destroy)
 		}
 		free(_ER(m2ms));
 	}
@@ -158,10 +156,11 @@ us_workers_pool_s *us_encoder_workers_pool_init(us_encoder_s *enc, us_device_s *
 		}
 		US_MUTEX_UNLOCK(&_ER(mutex));
 
-		long double desired_interval = 0;
-		if (dev->desired_fps > 0 && (dev->desired_fps < dev->run->hw_fps || dev->run->hw_fps == 0)) {
-			desired_interval = (long double)1 / dev->desired_fps;
-		}
+		const long double desired_interval = (
+			dev->desired_fps > 0 && (dev->desired_fps < dev->run->hw_fps || dev->run->hw_fps == 0)
+			? (long double)1 / dev->desired_fps
+			: 0
+		);
 
 		return us_workers_pool_init(
 			"JPEG", "jw", n_workers, desired_interval,

@@ -34,7 +34,7 @@ us_frame_s *us_blank_frame_init(const char *path) {
 		blank = _init_external(path);
 	}
 
-	if (blank) {
+	if (blank != NULL) {
 		US_LOG_INFO("Using external blank placeholder: %s", path);
 	} else {
 		blank = _init_internal();
@@ -44,7 +44,7 @@ us_frame_s *us_blank_frame_init(const char *path) {
 }
 
 static us_frame_s *_init_internal(void) {
-	us_frame_s *blank = us_frame_init();
+	us_frame_s *const blank = us_frame_init();
 	us_frame_set_data(blank, US_BLANK_JPEG_DATA, US_BLANK_JPEG_DATA_SIZE);
 	blank->width = US_BLANK_JPEG_WIDTH;
 	blank->height = US_BLANK_JPEG_HEIGHT;
@@ -69,7 +69,7 @@ static us_frame_s *_init_external(const char *path) {
 			us_frame_realloc_data(blank, blank->used + CHUNK_SIZE * 2);
 		}
 
-		size_t readed = fread(blank->data + blank->used, 1, CHUNK_SIZE, fp);
+		const size_t readed = fread(blank->data + blank->used, 1, CHUNK_SIZE, fp);
 		blank->used += readed;
 
 		if (readed < CHUNK_SIZE) {
@@ -83,7 +83,7 @@ static us_frame_s *_init_external(const char *path) {
 	}
 #	undef CHUNK_SIZE
 
-	us_frame_s *decoded = us_frame_init();
+	us_frame_s *const decoded = us_frame_init();
 	if (us_unjpeg(blank, decoded, false) < 0) {
 		us_frame_destroy(decoded);
 		goto error;
@@ -99,9 +99,7 @@ static us_frame_s *_init_external(const char *path) {
 		blank = NULL;
 
 	ok:
-		if (fp) {
-			fclose(fp);
-		}
+		US_DELETE(fp, fclose);
 
 	return blank;
 }

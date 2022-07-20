@@ -26,7 +26,7 @@
 char *us_find_static_file_path(const char *root_path, const char *request_path) {
 	char *path = NULL;
 
-	char *simplified_path = us_simplify_request_path(request_path);
+	char *const simplified_path = us_simplify_request_path(request_path);
 	if (simplified_path[0] == '\0') {
 		US_LOG_VERBOSE("HTTP: Invalid request path %s to static", request_path);
 		goto error;
@@ -65,9 +65,7 @@ char *us_find_static_file_path(const char *root_path, const char *request_path) 
 	goto ok;
 
 	error:
-		if (path) {
-			free(path);
-		}
+		US_DELETE(path, free);
 		path = NULL;
 
 	ok:

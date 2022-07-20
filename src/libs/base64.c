@@ -54,7 +54,7 @@ void us_base64_encode(const uint8_t *data, size_t size, char **encoded, size_t *
 		OCTET(octet_c);
 #		undef OCTET
 
-		unsigned triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
+		const unsigned triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
 
 #		define ENCODE(_offset) (*encoded)[encoded_index++] = _ENCODING_TABLE[(triple >> _offset * 6) & 0x3F]
 		ENCODE(3);
