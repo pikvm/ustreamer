@@ -166,11 +166,9 @@ static void *_video_sink_thread(UNUSED void *arg) {
 			if (mem != NULL) {
 				US_JLOG_INFO("video", "Memsink closed");
 				us_memsink_shared_unmap(mem);
-				mem = NULL;
 			}
-			if (fd > 0) {
+			if (fd >= 0) {
 				close(fd);
-				fd = -1;
 			}
 			sleep(1); // error_delay
 	}

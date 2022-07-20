@@ -44,7 +44,7 @@ static void _MemsinkObject_destroy_internals(_MemsinkObject *self) {
 		us_memsink_shared_unmap(self->mem);
 		self->mem = NULL;
 	}
-	if (self->fd > 0) {
+	if (self->fd >= 0) {
 		close(self->fd);
 		self->fd = -1;
 	}
