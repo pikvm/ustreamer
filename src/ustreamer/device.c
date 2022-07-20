@@ -185,7 +185,7 @@ void us_device_close(us_device_s *dev) {
 			}
 
 			if (dev->io_method == V4L2_MEMORY_MMAP) {
-				if (HW(raw.allocated) > 0 && HW(raw.data) != MAP_FAILED) {
+				if (HW(raw.allocated) > 0 && HW(raw.data) != NULL) {
 					if (munmap(HW(raw.data), HW(raw.allocated)) < 0) {
 						US_LOG_PERROR("Can't unmap device buffer=%u", index);
 					}
@@ -694,6 +694,7 @@ static int _device_open_io_method_mmap(us_device_s *dev) {
 			US_LOG_PERROR("Can't map device buffer=%u", _RUN(n_bufs));
 			return -1;
 		}
+		assert(HW(raw.data) != NULL);
 		HW(raw.allocated) = buf.length;
 
 #		undef HW

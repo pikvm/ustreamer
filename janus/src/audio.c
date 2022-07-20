@@ -134,20 +134,12 @@ void us_audio_destroy(us_audio_s *audio) {
 		US_THREAD_JOIN(audio->pcm_tid);
 		US_THREAD_JOIN(audio->enc_tid);
 	}
-	if (audio->enc) {
-		opus_encoder_destroy(audio->enc);
-	}
-	if (audio->res) {
-		speex_resampler_destroy(audio->res);
-	}
-	if (audio->pcm) {
-		snd_pcm_close(audio->pcm);
-	}
-	if (audio->pcm_params) {
-		snd_pcm_hw_params_free(audio->pcm_params);
-	}
-	US_QUEUE_FREE_ITEMS_AND_DESTROY(audio->enc_queue, free);
-	US_QUEUE_FREE_ITEMS_AND_DESTROY(audio->pcm_queue, free);
+	US_DELETE(audio->enc, opus_encoder_destroy);
+	US_DELETE(audio->res, speex_resampler_destroy);
+	US_DELETE(audio->pcm, snd_pcm_close);
+	US_DELETE(audio->pcm_params, snd_pcm_hw_params_free);
+	US_QUEUE_DELETE_WITH_ITEMS(audio->enc_queue, free);
+	US_QUEUE_DELETE_WITH_ITEMS(audio->pcm_queue, free);
 	if (audio->tids_created) {
 		US_JLOG_INFO("audio", "Pipeline closed");
 	}

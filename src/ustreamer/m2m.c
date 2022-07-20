@@ -312,10 +312,11 @@ static int _m2m_encoder_init_buffers(
 				MAP_SHARED,
 				_RUN(fd),
 				plane.m.mem_offset
-			)) == MAP_FAILED) {
+			)) == NULL) {
 				_E_LOG_PERROR("Can't map %s buffer=%u", name, *n_bufs_ptr);
 				goto error;
 			}
+			assert((*bufs_ptr)[*n_bufs_ptr].data != NULL);
 			(*bufs_ptr)[*n_bufs_ptr].allocated = plane.length;
 
 			_E_LOG_DEBUG("Queuing %s buffer=%u ...", name, *n_bufs_ptr);
@@ -347,7 +348,7 @@ static void _m2m_encoder_cleanup(us_m2m_encoder_s *enc) {
 #	define DESTROY_BUFFERS(x_name, x_target) { \
 		if (_RUN(x_target##_bufs)) { \
 			for (unsigned m_index = 0; m_index < _RUN(n_##x_target##_bufs); ++m_index) { \
-				if (_RUN(x_target##_bufs[m_index].allocated) > 0 && _RUN(x_target##_bufs[m_index].data) != MAP_FAILED) { \
+				if (_RUN(x_target##_bufs[m_index].allocated) > 0 && _RUN(x_target##_bufs[m_index].data) != NULL) { \
 					if (munmap(_RUN(x_target##_bufs[m_index].data), _RUN(x_target##_bufs[m_index].allocated)) < 0) { \
 						_E_LOG_PERROR("Can't unmap %s buffer=%u", #x_name, m_index); \
 					} \

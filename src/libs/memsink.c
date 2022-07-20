@@ -36,7 +36,6 @@ us_memsink_s *us_memsink_init(
 	sink->client_ttl = client_ttl;
 	sink->timeout = timeout;
 	sink->fd = -1;
-	sink->mem = MAP_FAILED;
 	atomic_init(&sink->has_clients, false);
 
 	US_LOG_INFO("Using %s-sink: %s", name, obj);
@@ -68,7 +67,7 @@ us_memsink_s *us_memsink_init(
 }
 
 void us_memsink_destroy(us_memsink_s *sink) {
-	if (sink->mem != MAP_FAILED) {
+	if (sink->mem != NULL) {
 		if (us_memsink_shared_unmap(sink->mem) < 0) {
 			US_LOG_PERROR("%s-sink: Can't unmap shared memory", sink->name);
 		}

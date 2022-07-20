@@ -55,10 +55,10 @@ void us_janus_client_destroy(us_janus_client_s *client) {
 	}
 
 	US_THREAD_JOIN(client->video_tid);
-	US_QUEUE_FREE_ITEMS_AND_DESTROY(client->video_queue, us_rtp_destroy);
+	US_QUEUE_DELETE_WITH_ITEMS(client->video_queue, us_rtp_destroy);
 	if (client->audio_queue != NULL) {
 		US_THREAD_JOIN(client->audio_tid);
-		US_QUEUE_FREE_ITEMS_AND_DESTROY(client->audio_queue, us_rtp_destroy);
+		US_QUEUE_DELETE_WITH_ITEMS(client->audio_queue, us_rtp_destroy);
 	}
 	free(client);
 }

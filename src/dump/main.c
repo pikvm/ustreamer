@@ -300,9 +300,7 @@ static int _dump_sink(
 		retval = -1;
 
 	ok:
-		if (sink) {
-			us_memsink_destroy(sink);
-		}
+		US_DELETE(sink, us_memsink_destroy);
 		us_frame_destroy(frame);
 
 		US_LOG_INFO("Bye-bye");

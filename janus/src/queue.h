@@ -47,13 +47,12 @@ typedef struct {
 } us_queue_s;
 
 
-#define US_QUEUE_FREE_ITEMS_AND_DESTROY(x_queue, x_free_item) { \
+#define US_QUEUE_DELETE_WITH_ITEMS(x_queue, x_free_item) { \
 		if (x_queue) { \
 			while (!us_queue_get_free(x_queue)) { \
 				void *m_ptr; \
-				assert(!us_queue_get(x_queue, &m_ptr, 0.1)); \
-				if (m_ptr != NULL) { \
-					x_free_item(m_ptr); \
+				if (!us_queue_get(x_queue, &m_ptr, 0)) { \
+					US_DELETE(m_ptr, x_free_item); \
 				} \
 			} \
 			us_queue_destroy(x_queue); \

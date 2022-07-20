@@ -231,9 +231,7 @@ static void *_audio_thread(UNUSED void *arg) {
 		}
 
 		close_audio:
-			if (audio != NULL) {
-				us_audio_destroy(audio);
-			}
+			US_DELETE(audio, us_audio_destroy);
 			sleep(1); // error_delay
 	}
 	return NULL;
@@ -288,7 +286,7 @@ static void _plugin_destroy(void) {
 		us_janus_client_destroy(client);
 	});
 
-	US_QUEUE_FREE_ITEMS_AND_DESTROY(_g_video_queue, us_frame_destroy);
+	US_QUEUE_DELETE_WITH_ITEMS(_g_video_queue, us_frame_destroy);
 
 	US_DELETE(_g_rtpa, us_rtpa_destroy);
 	US_DELETE(_g_rtpv, us_rtpv_destroy);

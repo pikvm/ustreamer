@@ -67,9 +67,7 @@ void us_output_file_write(void *v_output, const us_frame_s *frame) {
 
 void us_output_file_destroy(void *v_output) {
 	us_output_file_s *output = (us_output_file_s *)v_output;
-	if (output->base64_data) {
-		free(output->base64_data);
-	}
+	US_DELETE(output->base64_data, free);
 	if (output->fp && output->fp != stdout) {
 		if (fclose(output->fp) < 0) {
 			US_LOG_PERROR("Can't close output file");

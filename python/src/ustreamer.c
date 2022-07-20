@@ -29,14 +29,14 @@ typedef struct {
 	int					fd;
 	us_memsink_shared_s	*mem;
 
-	uint64_t	frame_id;
-	long double	frame_ts;
+	uint64_t		frame_id;
+	long double		frame_ts;
 	us_frame_s		*frame;
 } _MemsinkObject;
 
 
-#define _MEM(_next)		self->mem->_next
-#define _FRAME(_next)	self->frame->_next
+#define _MEM(x_next)	self->mem->x_next
+#define _FRAME(x_next)	self->frame->x_next
 
 
 static void _MemsinkObject_destroy_internals(_MemsinkObject *self) {

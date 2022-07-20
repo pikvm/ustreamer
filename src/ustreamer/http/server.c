@@ -93,7 +93,7 @@ void us_server_destroy(us_server_s *server) {
 	}
 
 	evhttp_free(_RUN(http));
-	if (_RUN(ext_fd)) {
+	if (_RUN(ext_fd) >= 0) {
 		close(_RUN(ext_fd));
 	}
 	event_base_free(_RUN(base));
@@ -108,9 +108,7 @@ void us_server_destroy(us_server_s *server) {
 		free(client);
 	});
 
-	if (_RUN(auth_token)) {
-		free(_RUN(auth_token));
-	}
+	US_DELETE(_RUN(auth_token), free);
 
 	us_frame_destroy(_EX(frame));
 	free(_RUN(exposed));
@@ -377,18 +375,10 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 		if (fd >= 0) {
 			close(fd);
 		}
-		if (static_path) {
-			free(static_path);
-		}
-		if (buf) {
-			evbuffer_free(buf);
-		}
-		if (decoded_path) {
-			free(decoded_path);
-		}
-		if (uri) {
-			evhttp_uri_free(uri);
-		}
+		US_DELETE(static_path, free);
+		US_DELETE(buf, evbuffer_free);
+		US_DELETE(decoded_path, free);
+		US_DELETE(uri, evhttp_uri_free);
 }
 
 #undef COMPAT_REQUEST
@@ -927,9 +917,7 @@ static char *_http_get_client_hostport(struct evhttp_request *request) {
 
 	const char *xff = _http_get_header(request, "X-Forwarded-For");
 	if (xff) {
-		if (addr) {
-			free(addr);
-		}
+		US_DELETE(addr, free);
 		assert(addr = strndup(xff, 1024));
 		for (unsigned index = 0; addr[index]; ++index) {
 			if (addr[index] == ',') {

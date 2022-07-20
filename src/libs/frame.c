@@ -32,9 +32,7 @@ us_frame_s *us_frame_init(void) {
 }
 
 void us_frame_destroy(us_frame_s *frame) {
-	if (frame->data) {
-		free(frame->data);
-	}
+	US_DELETE(frame->data, free);
 	free(frame);
 }
 
