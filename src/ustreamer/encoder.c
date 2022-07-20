@@ -74,20 +74,20 @@ void us_encoder_destroy(us_encoder_s *enc) {
 }
 
 us_encoder_type_e us_encoder_parse_type(const char *str) {
-	for (unsigned index = 0; index < US_ARRAY_LEN(_ENCODER_TYPES); ++index) {
-		if (!strcasecmp(str, _ENCODER_TYPES[index].name)) {
-			return _ENCODER_TYPES[index].type;
+	US_ARRAY_ITERATE(_ENCODER_TYPES, 0, item, {
+		if (!strcasecmp(item->name, str)) {
+			return item->type;
 		}
-	}
+	});
 	return US_ENCODER_TYPE_UNKNOWN;
 }
 
 const char *us_encoder_type_to_string(us_encoder_type_e type) {
-	for (unsigned index = 0; index < US_ARRAY_LEN(_ENCODER_TYPES); ++index) {
-		if (_ENCODER_TYPES[index].type == type) {
-			return _ENCODER_TYPES[index].name;
+	US_ARRAY_ITERATE(_ENCODER_TYPES, 0, item, {
+		if (item->type == type) {
+			return item->name;
 		}
-	}
+	});
 	return _ENCODER_TYPES[0].name;
 }
 

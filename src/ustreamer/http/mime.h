@@ -27,6 +27,7 @@
 #include <event2/util.h>
 
 #include "../../libs/tools.h"
+#include "../../libs/array.h"
 
 
 const char *us_guess_mime_type(const char *str);

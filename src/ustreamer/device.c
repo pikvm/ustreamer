@@ -111,29 +111,29 @@ void us_device_destroy(us_device_s *dev) {
 }
 
 int us_device_parse_format(const char *str) {
-	for (unsigned index = 0; index < US_ARRAY_LEN(_FORMATS); ++index) {
-		if (!strcasecmp(str, _FORMATS[index].name)) {
-			return _FORMATS[index].format;
+	US_ARRAY_ITERATE(_FORMATS, 0, item, {
+		if (!strcasecmp(item->name, str)) {
+			return item->format;
 		}
-	}
+	});
 	return US_FORMAT_UNKNOWN;
 }
 
 v4l2_std_id us_device_parse_standard(const char *str) {
-	for (unsigned index = 1; index < US_ARRAY_LEN(_STANDARDS); ++index) {
-		if (!strcasecmp(str, _STANDARDS[index].name)) {
-			return _STANDARDS[index].standard;
+	US_ARRAY_ITERATE(_STANDARDS, 1, item, {
+		if (!strcasecmp(item->name, str)) {
+			return item->standard;
 		}
-	}
+	});
 	return US_STANDARD_UNKNOWN;
 }
 
 int us_device_parse_io_method(const char *str) {
-	for (unsigned index = 0; index < US_ARRAY_LEN(_IO_METHODS); ++index) {
-		if (!strcasecmp(str, _IO_METHODS[index].name)) {
-			return _IO_METHODS[index].io_method;
+	US_ARRAY_ITERATE(_IO_METHODS, 0, item, {
+		if (!strcasecmp(item->name, str)) {
+			return item->io_method;
 		}
-	}
+	});
 	return US_IO_METHOD_UNKNOWN;
 }
 
@@ -868,11 +868,11 @@ static void _device_set_control(
 }
 
 static const char *_format_to_string_nullable(unsigned format) {
-	for (unsigned index = 0; index < US_ARRAY_LEN(_FORMATS); ++index) {
-		if (format == _FORMATS[index].format) {
-			return _FORMATS[index].name;
+	US_ARRAY_ITERATE(_FORMATS, 0, item, {
+		if (item->format == format) {
+			return item->name;
 		}
-	}
+	});
 	return NULL;
 }
 
@@ -882,19 +882,19 @@ static const char *_format_to_string_supported(unsigned format) {
 }
 
 static const char *_standard_to_string(v4l2_std_id standard) {
-	for (unsigned index = 0; index < US_ARRAY_LEN(_STANDARDS); ++index) {
-		if (standard == _STANDARDS[index].standard) {
-			return _STANDARDS[index].name;
+	US_ARRAY_ITERATE(_STANDARDS, 0, item, {
+		if (item->standard == standard) {
+			return item->name;
 		}
-	}
+	});
 	return _STANDARDS[0].name;
 }
 
 static const char *_io_method_to_string_supported(enum v4l2_memory io_method) {
-	for (unsigned index = 0; index < US_ARRAY_LEN(_IO_METHODS); ++index) {
-		if (io_method == _IO_METHODS[index].io_method) {
-			return _IO_METHODS[index].name;
+	US_ARRAY_ITERATE(_IO_METHODS, 0, item, {
+		if (item->io_method == io_method) {
+			return item->name;
 		}
-	}
+	});
 	return "unsupported";
 }

@@ -42,6 +42,7 @@
 #include <linux/v4l2-controls.h>
 
 #include "../libs/tools.h"
+#include "../libs/array.h"
 #include "../libs/logging.h"
 #include "../libs/threading.h"
 #include "../libs/frame.h"

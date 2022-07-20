@@ -36,6 +36,7 @@
 #include <opus/opus.h>
 
 #include "uslibs/tools.h"
+#include "uslibs/array.h"
 #include "uslibs/threading.h"
 
 #include "logging.h"

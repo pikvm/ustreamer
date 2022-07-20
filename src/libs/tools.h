@@ -60,8 +60,6 @@
 
 #define US_ASPRINTF(x_dest, x_fmt, ...) assert(asprintf(&(x_dest), (x_fmt), ##__VA_ARGS__) >= 0)
 
-#define US_ARRAY_LEN(x_array) (sizeof(x_array) / sizeof((x_array)[0]))
-
 
 INLINE char *us_strdup(const char *str) {
 	char *const new = strdup(str);

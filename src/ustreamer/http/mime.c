@@ -54,11 +54,11 @@ const char *us_guess_mime_type(const char *path) {
 	}
 
 	const char *ext = dot + 1;
-	for (unsigned index = 0; index < US_ARRAY_LEN(_MIME_TYPES); ++index) {
-		if (!evutil_ascii_strcasecmp(ext, _MIME_TYPES[index].ext)) {
-			return _MIME_TYPES[index].mime;
+	US_ARRAY_ITERATE(_MIME_TYPES, 0, item, {
+		if (!evutil_ascii_strcasecmp(item->ext, ext)) {
+			return item->mime;
 		}
-	}
+	});
 
 	misc:
 		return "application/misc";
