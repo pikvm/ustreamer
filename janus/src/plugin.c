@@ -78,11 +78,11 @@ static atomic_bool		_g_stop = false;
 static atomic_bool		_g_has_watchers = false;
 
 
-#define _LOCK_VIDEO		US_MUTEX_LOCK(&_g_video_lock)
-#define _UNLOCK_VIDEO	US_MUTEX_UNLOCK(&_g_video_lock)
+#define _LOCK_VIDEO		US_MUTEX_LOCK(_g_video_lock)
+#define _UNLOCK_VIDEO	US_MUTEX_UNLOCK(_g_video_lock)
 
-#define _LOCK_AUDIO		US_MUTEX_LOCK(&_g_audio_lock)
-#define _UNLOCK_AUDIO	US_MUTEX_UNLOCK(&_g_audio_lock)
+#define _LOCK_AUDIO		US_MUTEX_LOCK(_g_audio_lock)
+#define _UNLOCK_AUDIO	US_MUTEX_UNLOCK(_g_audio_lock)
 
 #define _LOCK_ALL		{ _LOCK_VIDEO; _LOCK_AUDIO; }
 #define _UNLOCK_ALL		{ _UNLOCK_AUDIO; _UNLOCK_VIDEO; }
@@ -260,10 +260,10 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	_g_rtpv = us_rtpv_init(_relay_rtp_clients, _g_config->video_zero_playout_delay);
 	if (_g_config->audio_dev_name != NULL) {
 		_g_rtpa = us_rtpa_init(_relay_rtp_clients);
-		US_THREAD_CREATE(&_g_audio_tid, _audio_thread, NULL);
+		US_THREAD_CREATE(_g_audio_tid, _audio_thread, NULL);
 	}
-	US_THREAD_CREATE(&_g_video_rtp_tid, _video_rtp_thread, NULL);
-	US_THREAD_CREATE(&_g_video_sink_tid, _video_sink_thread, NULL);
+	US_THREAD_CREATE(_g_video_rtp_tid, _video_rtp_thread, NULL);
+	US_THREAD_CREATE(_g_video_sink_tid, _video_sink_thread, NULL);
 
 	atomic_store(&_g_ready, true);
 	return 0;

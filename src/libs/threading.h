@@ -46,7 +46,7 @@
 #	define US_MAX_THREAD_NAME ((size_t)16)
 #endif
 
-#define US_THREAD_CREATE(x_tid, x_func, x_arg)	assert(!pthread_create((x_tid), NULL, (x_func), (x_arg)))
+#define US_THREAD_CREATE(x_tid, x_func, x_arg)	assert(!pthread_create(&(x_tid), NULL, (x_func), (x_arg)))
 #define US_THREAD_JOIN(x_tid)					assert(!pthread_join((x_tid), NULL))
 
 #ifdef WITH_PTHREAD_NP
@@ -59,15 +59,15 @@
 #	define US_THREAD_RENAME(_fmt, ...)
 #endif
 
-#define US_MUTEX_INIT(x_mutex)		assert(!pthread_mutex_init((x_mutex), NULL))
-#define US_MUTEX_DESTROY(x_mutex)	assert(!pthread_mutex_destroy(x_mutex))
-#define US_MUTEX_LOCK(x_mutex)		assert(!pthread_mutex_lock(x_mutex))
-#define US_MUTEX_UNLOCK(x_mutex)	assert(!pthread_mutex_unlock(x_mutex))
+#define US_MUTEX_INIT(x_mutex)		assert(!pthread_mutex_init(&(x_mutex), NULL))
+#define US_MUTEX_DESTROY(x_mutex)	assert(!pthread_mutex_destroy(&(x_mutex)))
+#define US_MUTEX_LOCK(x_mutex)		assert(!pthread_mutex_lock(&(x_mutex)))
+#define US_MUTEX_UNLOCK(x_mutex)	assert(!pthread_mutex_unlock(&(x_mutex)))
 
-#define US_COND_INIT(x_cond)		assert(!pthread_cond_init((x_cond), NULL))
-#define US_COND_DESTROY(x_cond)		assert(!pthread_cond_destroy(x_cond))
-#define US_COND_SIGNAL(...)			assert(!pthread_cond_signal(__VA_ARGS__))
-#define US_COND_WAIT_TRUE(x_var, x_cond, x_mutex) { while(!(x_var)) assert(!pthread_cond_wait((x_cond), (x_mutex))); }
+#define US_COND_INIT(x_cond)		assert(!pthread_cond_init(&(x_cond), NULL))
+#define US_COND_DESTROY(x_cond)		assert(!pthread_cond_destroy(&(x_cond)))
+#define US_COND_SIGNAL(x_cond)		assert(!pthread_cond_signal(&(x_cond)))
+#define US_COND_WAIT_TRUE(x_var, x_cond, x_mutex) { while(!(x_var)) assert(!pthread_cond_wait(&(x_cond), &(x_mutex))); }
 
 
 #ifdef WITH_PTHREAD_NP

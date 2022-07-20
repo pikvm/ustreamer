@@ -52,7 +52,7 @@ us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 	US_CALLOC(video, 1);
 	video->frame = us_frame_init();
 	atomic_init(&video->updated, false);
-	US_MUTEX_INIT(&video->mutex);
+	US_MUTEX_INIT(video->mutex);
 	atomic_init(&video->has_clients, false);
 	run->video = video;
 
@@ -69,7 +69,7 @@ us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 }
 
 void us_stream_destroy(us_stream_s *stream) {
-	US_MUTEX_DESTROY(&_RUN(video->mutex));
+	US_MUTEX_DESTROY(_RUN(video->mutex));
 	us_frame_destroy(_RUN(video->frame));
 	free(_RUN(video));
 	free(stream->run);
@@ -295,7 +295,7 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigne
 
 	us_frame_s *new = NULL;
 
-	US_MUTEX_LOCK(&VID(mutex));
+	US_MUTEX_LOCK(VID(mutex));
 
 	if (frame != NULL) {
 		new = frame;
@@ -341,7 +341,7 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigne
 	VID(captured_fps) = captured_fps;
 	atomic_store(&VID(updated), true);
 
-	US_MUTEX_UNLOCK(&VID(mutex));
+	US_MUTEX_UNLOCK(VID(mutex));
 
 	new = (frame ? frame : stream->blank);
 	_SINK_PUT(sink, new);

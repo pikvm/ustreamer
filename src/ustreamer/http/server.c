@@ -856,7 +856,7 @@ static void _http_refresher(UNUSED int fd, UNUSED short what, void *v_server) {
 static bool _expose_new_frame(us_server_s *server) {
 	bool updated = false;
 
-	US_MUTEX_LOCK(&_VID(mutex));
+	US_MUTEX_LOCK(_VID(mutex));
 
 	US_LOG_DEBUG("HTTP: Updating exposed frame (online=%d) ...", _VID(frame->online));
 
@@ -895,7 +895,7 @@ static bool _expose_new_frame(us_server_s *server) {
 	updated = true;
 	not_updated:
 		atomic_store(&_VID(updated), false);
-		US_MUTEX_UNLOCK(&_VID(mutex));
+		US_MUTEX_UNLOCK(_VID(mutex));
 		return updated;
 }
 

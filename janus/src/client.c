@@ -38,11 +38,11 @@ us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_sessio
 	atomic_init(&client->stop, false);
 
 	client->video_queue = us_queue_init(1024);
-	US_THREAD_CREATE(&client->video_tid, _video_thread, client);
+	US_THREAD_CREATE(client->video_tid, _video_thread, client);
 
 	if (has_audio) {
 		client->audio_queue = us_queue_init(64);
-		US_THREAD_CREATE(&client->audio_tid, _audio_thread, client);
+		US_THREAD_CREATE(client->audio_tid, _audio_thread, client);
 	}
 	return client;
 }

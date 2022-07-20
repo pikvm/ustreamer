@@ -118,8 +118,8 @@ us_audio_s *us_audio_init(const char *name, unsigned pcm_hz) {
 
 	US_JLOG_INFO("audio", "Pipeline configured on %uHz; capturing ...", audio->pcm_hz);
 	audio->tids_created = true;
-	US_THREAD_CREATE(&audio->enc_tid, _encoder_thread, audio);
-	US_THREAD_CREATE(&audio->pcm_tid, _pcm_thread, audio);
+	US_THREAD_CREATE(audio->enc_tid, _encoder_thread, audio);
+	US_THREAD_CREATE(audio->pcm_tid, _pcm_thread, audio);
 
 	return audio;
 

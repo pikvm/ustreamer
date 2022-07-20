@@ -55,19 +55,19 @@ extern pthread_mutex_t us_log_mutex;
 #define US_LOGGING_INIT { \
 		us_log_level = US_LOG_LEVEL_INFO; \
 		us_log_colored = isatty(2); \
-		US_MUTEX_INIT(&us_log_mutex); \
+		US_MUTEX_INIT(us_log_mutex); \
 	}
 
-#define US_LOGGING_DESTROY US_MUTEX_DESTROY(&us_log_mutex)
+#define US_LOGGING_DESTROY	US_MUTEX_DESTROY(us_log_mutex)
 
-#define US_LOGGING_LOCK		US_MUTEX_LOCK(&us_log_mutex)
-#define US_LOGGING_UNLOCK	US_MUTEX_UNLOCK(&us_log_mutex)
+#define US_LOGGING_LOCK		US_MUTEX_LOCK(us_log_mutex)
+#define US_LOGGING_UNLOCK	US_MUTEX_UNLOCK(us_log_mutex)
 
 
 #define US_COLOR_GRAY		"\x1b[30;1m"
 #define US_COLOR_RED		"\x1b[31;1m"
 #define US_COLOR_GREEN		"\x1b[32;1m"
-#define US_COLOR_YELLOW	"\x1b[33;1m"
+#define US_COLOR_YELLOW		"\x1b[33;1m"
 #define US_COLOR_BLUE		"\x1b[34;1m"
 #define US_COLOR_CYAN		"\x1b[36;1m"
 #define US_COLOR_RESET		"\x1b[0m"

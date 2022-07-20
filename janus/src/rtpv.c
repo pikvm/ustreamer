@@ -38,12 +38,12 @@ us_rtpv_s *us_rtpv_init(us_rtp_callback_f callback, bool zero_playout_delay) {
 	rtpv->callback = callback;
 	rtpv->sps = us_frame_init();
 	rtpv->pps = us_frame_init();
-	US_MUTEX_INIT(&rtpv->mutex);
+	US_MUTEX_INIT(rtpv->mutex);
 	return rtpv;
 }
 
 void us_rtpv_destroy(us_rtpv_s *rtpv) {
-	US_MUTEX_DESTROY(&rtpv->mutex);
+	US_MUTEX_DESTROY(rtpv->mutex);
 	us_frame_destroy(rtpv->pps);
 	us_frame_destroy(rtpv->sps);
 	us_rtp_destroy(rtpv->rtp);
@@ -51,10 +51,10 @@ void us_rtpv_destroy(us_rtpv_s *rtpv) {
 }
 
 char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
-	US_MUTEX_LOCK(&rtpv->mutex);
+	US_MUTEX_LOCK(rtpv->mutex);
 
 	if (rtpv->sps->used == 0 || rtpv->pps->used == 0) {
-		US_MUTEX_UNLOCK(&rtpv->mutex);
+		US_MUTEX_UNLOCK(rtpv->mutex);
 		return NULL;
 	}
 
@@ -63,7 +63,7 @@ char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
 	us_base64_encode(rtpv->sps->data, rtpv->sps->used, &sps, NULL);
 	us_base64_encode(rtpv->pps->data, rtpv->pps->used, &pps, NULL);
 
-	US_MUTEX_UNLOCK(&rtpv->mutex);
+	US_MUTEX_UNLOCK(rtpv->mutex);
 
 #	define PAYLOAD rtpv->rtp->payload
 	// https://tools.ietf.org/html/rfc6184
@@ -145,9 +145,9 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const uint8_t *data, size_t size, uint3
 		case 8: ps = rtpv->pps; break;
 	}
 	if (ps != NULL) {
-		US_MUTEX_LOCK(&rtpv->mutex);
+		US_MUTEX_LOCK(rtpv->mutex);
 		us_frame_set_data(ps, data, size);
-		US_MUTEX_UNLOCK(&rtpv->mutex);
+		US_MUTEX_UNLOCK(rtpv->mutex);
 	}
 
 #	define DG rtpv->rtp->datagram

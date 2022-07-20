@@ -129,8 +129,8 @@ int main(int argc, char *argv[]) {
 
 			pthread_t stream_loop_tid;
 			pthread_t server_loop_tid;
-			US_THREAD_CREATE(&stream_loop_tid, _stream_loop_thread, NULL);
-			US_THREAD_CREATE(&server_loop_tid, _server_loop_thread, NULL);
+			US_THREAD_CREATE(stream_loop_tid, _stream_loop_thread, NULL);
+			US_THREAD_CREATE(server_loop_tid, _server_loop_thread, NULL);
 			US_THREAD_JOIN(server_loop_tid);
 			US_THREAD_JOIN(stream_loop_tid);
 		}

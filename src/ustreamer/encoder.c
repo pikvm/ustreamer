@@ -51,7 +51,7 @@ us_encoder_s *us_encoder_init(void) {
 	US_CALLOC(run, 1);
 	run->type = US_ENCODER_TYPE_CPU;
 	run->quality = 80;
-	US_MUTEX_INIT(&run->mutex);
+	US_MUTEX_INIT(run->mutex);
 
 	us_encoder_s *enc;
 	US_CALLOC(enc, 1);
@@ -68,7 +68,7 @@ void us_encoder_destroy(us_encoder_s *enc) {
 		}
 		free(_ER(m2ms));
 	}
-	US_MUTEX_DESTROY(&_ER(mutex));
+	US_MUTEX_DESTROY(_ER(mutex));
 	free(enc->run);
 	free(enc);
 }
@@ -148,13 +148,13 @@ us_workers_pool_s *us_encoder_workers_pool_init(us_encoder_s *enc, us_device_s *
 			US_LOG_INFO("Using JPEG quality: %u%%", quality);
 		}
 
-		US_MUTEX_LOCK(&_ER(mutex));
+		US_MUTEX_LOCK(_ER(mutex));
 		_ER(type) = type;
 		_ER(quality) = quality;
 		if (cpu_forced) {
 			_ER(cpu_forced) = true;
 		}
-		US_MUTEX_UNLOCK(&_ER(mutex));
+		US_MUTEX_UNLOCK(_ER(mutex));
 
 		const long double desired_interval = (
 			dev->desired_fps > 0 && (dev->desired_fps < dev->run->hw_fps || dev->run->hw_fps == 0)
@@ -172,10 +172,10 @@ us_workers_pool_s *us_encoder_workers_pool_init(us_encoder_s *enc, us_device_s *
 }
 
 void us_encoder_get_runtime_params(us_encoder_s *enc, us_encoder_type_e *type, unsigned *quality) {
-	US_MUTEX_LOCK(&_ER(mutex));
+	US_MUTEX_LOCK(_ER(mutex));
 	*type = _ER(type);
 	*quality = _ER(quality);
-	US_MUTEX_UNLOCK(&_ER(mutex));
+	US_MUTEX_UNLOCK(_ER(mutex));
 }
 
 static void *_worker_job_init(void *v_enc) {
@@ -236,8 +236,8 @@ static bool _worker_run_job(us_worker_s *wr) {
 	error:
 		US_LOG_ERROR("Compression failed: worker=%s, buffer=%u", wr->name, job->hw->buf.index);
 		US_LOG_ERROR("Error while compressing buffer, falling back to CPU");
-		US_MUTEX_LOCK(&_ER(mutex));
+		US_MUTEX_LOCK(_ER(mutex));
 		_ER(cpu_forced) = true;
-		US_MUTEX_UNLOCK(&_ER(mutex));
+		US_MUTEX_UNLOCK(_ER(mutex));
 		return false;
 }

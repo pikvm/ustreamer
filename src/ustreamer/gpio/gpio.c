@@ -57,7 +57,7 @@ void us_gpio_init(void) {
 		|| us_gpio.stream_online.pin >= 0
 		|| us_gpio.has_http_clients.pin >= 0
 	) {
-		US_MUTEX_INIT(&us_gpio.mutex);
+		US_MUTEX_INIT(us_gpio.mutex);
 		US_LOG_INFO("GPIO: Using chip device: %s", us_gpio.path);
 		if ((us_gpio.chip = gpiod_chip_open(us_gpio.path)) != NULL) {
 			_gpio_output_init(&us_gpio.prog_running);
@@ -76,7 +76,7 @@ void us_gpio_destroy(void) {
 	if (us_gpio.chip != NULL) {
 		gpiod_chip_close(us_gpio.chip);
 		us_gpio.chip = NULL;
-		US_MUTEX_DESTROY(&us_gpio.mutex);
+		US_MUTEX_DESTROY(us_gpio.mutex);
 	}
 }
 
@@ -86,7 +86,7 @@ int us_gpio_inner_set(us_gpio_output_s *output, bool state) {
 	assert(us_gpio.chip != NULL);
 	assert(output->line != NULL);
 	assert(output->state != state); // Must be checked in macro for the performance
-	US_MUTEX_LOCK(&us_gpio.mutex);
+	US_MUTEX_LOCK(us_gpio.mutex);
 
 	if (gpiod_line_set_value(output->line, (int)state) < 0) { \
 		US_LOG_PERROR("GPIO: Can't write value %d to line %s (will be disabled)", state, output->consumer); \
@@ -94,7 +94,7 @@ int us_gpio_inner_set(us_gpio_output_s *output, bool state) {
 		retval = -1;
 	}
 
-	US_MUTEX_UNLOCK(&us_gpio.mutex);
+	US_MUTEX_UNLOCK(us_gpio.mutex);
 	return retval;
 }
 

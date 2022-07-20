@@ -46,8 +46,8 @@ us_workers_pool_s *us_workers_pool_init(
 	pool->n_workers = n_workers;
 	US_CALLOC(pool->workers, pool->n_workers);
 
-	US_MUTEX_INIT(&pool->free_workers_mutex);
-	US_COND_INIT(&pool->free_workers_cond);
+	US_MUTEX_INIT(pool->free_workers_mutex);
+	US_COND_INIT(pool->free_workers_cond);
 
 	for (unsigned number = 0; number < pool->n_workers; ++number) {
 #		define WR(x_next) pool->workers[number].x_next
@@ -55,14 +55,14 @@ us_workers_pool_s *us_workers_pool_init(
 		WR(number) = number;
 		US_ASPRINTF(WR(name), "%s-%u", wr_prefix, number);
 
-		US_MUTEX_INIT(&WR(has_job_mutex));
+		US_MUTEX_INIT(WR(has_job_mutex));
 		atomic_init(&WR(has_job), false);
-		US_COND_INIT(&WR(has_job_cond));
+		US_COND_INIT(WR(has_job_cond));
 
 		WR(pool) = pool;
 		WR(job) = job_init(job_init_arg);
 
-		US_THREAD_CREATE(&WR(tid), _worker_thread, (void *)&(pool->workers[number]));
+		US_THREAD_CREATE(WR(tid), _worker_thread, (void *)&(pool->workers[number]));
 		pool->free_workers += 1;
 
 #		undef WR
@@ -77,14 +77,14 @@ void us_workers_pool_destroy(us_workers_pool_s *pool) {
 	for (unsigned number = 0; number < pool->n_workers; ++number) {
 #		define WR(x_next) pool->workers[number].x_next
 
-		US_MUTEX_LOCK(&WR(has_job_mutex));
+		US_MUTEX_LOCK(WR(has_job_mutex));
 		atomic_store(&WR(has_job), true); // Final job: die
-		US_MUTEX_UNLOCK(&WR(has_job_mutex));
-		US_COND_SIGNAL(&WR(has_job_cond));
+		US_MUTEX_UNLOCK(WR(has_job_mutex));
+		US_COND_SIGNAL(WR(has_job_cond));
 
 		US_THREAD_JOIN(WR(tid));
-		US_MUTEX_DESTROY(&WR(has_job_mutex));
-		US_COND_DESTROY(&WR(has_job_cond));
+		US_MUTEX_DESTROY(WR(has_job_mutex));
+		US_COND_DESTROY(WR(has_job_cond));
 
 		free(WR(name));
 
@@ -93,8 +93,8 @@ void us_workers_pool_destroy(us_workers_pool_s *pool) {
 #		undef WR
 	}
 
-	US_MUTEX_DESTROY(&pool->free_workers_mutex);
-	US_COND_DESTROY(&pool->free_workers_cond);
+	US_MUTEX_DESTROY(pool->free_workers_mutex);
+	US_COND_DESTROY(pool->free_workers_cond);
 
 	free(pool->workers);
 	free(pool);
@@ -103,9 +103,9 @@ void us_workers_pool_destroy(us_workers_pool_s *pool) {
 us_worker_s *us_workers_pool_wait(us_workers_pool_s *pool) {
 	us_worker_s *ready_wr = NULL;
 
-	US_MUTEX_LOCK(&pool->free_workers_mutex);
-	US_COND_WAIT_TRUE(pool->free_workers, &pool->free_workers_cond, &pool->free_workers_mutex);
-	US_MUTEX_UNLOCK(&pool->free_workers_mutex);
+	US_MUTEX_LOCK(pool->free_workers_mutex);
+	US_COND_WAIT_TRUE(pool->free_workers, pool->free_workers_cond, pool->free_workers_mutex);
+	US_MUTEX_UNLOCK(pool->free_workers_mutex);
 
 	if (pool->oldest_wr && !atomic_load(&pool->oldest_wr->has_job)) {
 		ready_wr = pool->oldest_wr;
@@ -146,15 +146,15 @@ void us_workers_pool_assign(us_workers_pool_s *pool, us_worker_s *ready_wr/*, vo
 	}
 	pool->latest_wr->next_wr = NULL;
 
-	US_MUTEX_LOCK(&ready_wr->has_job_mutex);
+	US_MUTEX_LOCK(ready_wr->has_job_mutex);
 	//ready_wr->job = job;
 	atomic_store(&ready_wr->has_job, true);
-	US_MUTEX_UNLOCK(&ready_wr->has_job_mutex);
-	US_COND_SIGNAL(&ready_wr->has_job_cond);
+	US_MUTEX_UNLOCK(ready_wr->has_job_mutex);
+	US_COND_SIGNAL(ready_wr->has_job_cond);
 
-	US_MUTEX_LOCK(&pool->free_workers_mutex);
+	US_MUTEX_LOCK(pool->free_workers_mutex);
 	pool->free_workers -= 1;
-	US_MUTEX_UNLOCK(&pool->free_workers_mutex);
+	US_MUTEX_UNLOCK(pool->free_workers_mutex);
 }
 
 long double us_workers_pool_get_fluency_delay(us_workers_pool_s *pool, us_worker_s *ready_wr) {
@@ -184,9 +184,9 @@ static void *_worker_thread(void *v_worker) {
 	while (!atomic_load(&wr->pool->stop)) {
 		US_LOG_DEBUG("Worker %s waiting for a new job ...", wr->name);
 
-		US_MUTEX_LOCK(&wr->has_job_mutex);
-		US_COND_WAIT_TRUE(atomic_load(&wr->has_job), &wr->has_job_cond, &wr->has_job_mutex);
-		US_MUTEX_UNLOCK(&wr->has_job_mutex);
+		US_MUTEX_LOCK(wr->has_job_mutex);
+		US_COND_WAIT_TRUE(atomic_load(&wr->has_job), wr->has_job_cond, wr->has_job_mutex);
+		US_MUTEX_UNLOCK(wr->has_job_mutex);
 
 		if (!atomic_load(&wr->pool->stop)) {
 			const long double job_start_ts = us_get_now_monotonic();
@@ -199,10 +199,10 @@ static void *_worker_thread(void *v_worker) {
 			atomic_store(&wr->has_job, false);
 		}
 
-		US_MUTEX_LOCK(&wr->pool->free_workers_mutex);
+		US_MUTEX_LOCK(wr->pool->free_workers_mutex);
 		wr->pool->free_workers += 1;
-		US_MUTEX_UNLOCK(&wr->pool->free_workers_mutex);
-		US_COND_SIGNAL(&wr->pool->free_workers_cond);
+		US_MUTEX_UNLOCK(wr->pool->free_workers_mutex);
+		US_COND_SIGNAL(wr->pool->free_workers_cond);
 	}
 
 	US_LOG_DEBUG("Bye-bye (worker %s)", wr->name);
