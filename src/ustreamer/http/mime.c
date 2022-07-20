@@ -24,8 +24,8 @@
 
 
 static const struct {
-	const char *ext;
-	const char *mime;
+	const char *ext; // cppcheck-suppress unusedStructMember
+	const char *mime; // cppcheck-suppress unusedStructMember
 } _MIME_TYPES[] = {
 	{"html",	"text/html"},
 	{"htm",		"text/html"},

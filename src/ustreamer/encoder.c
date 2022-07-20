@@ -25,7 +25,7 @@
 
 static const struct {
 	const char *name;
-	const us_encoder_type_e type;
+	const us_encoder_type_e type; // cppcheck-suppress unusedStructMember
 } _ENCODER_TYPES[] = {
 	{"CPU",			US_ENCODER_TYPE_CPU},
 	{"HW",			US_ENCODER_TYPE_HW},

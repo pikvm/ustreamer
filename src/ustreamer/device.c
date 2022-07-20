@@ -34,8 +34,8 @@ static const struct {
 };
 
 static const struct {
-	const char *name;
-	const unsigned format;
+	const char *name; // cppcheck-suppress unusedStructMember
+	const unsigned format; // cppcheck-suppress unusedStructMember
 } _FORMATS[] = {
 	{"YUYV",	V4L2_PIX_FMT_YUYV},
 	{"UYVY",	V4L2_PIX_FMT_UYVY},
@@ -46,8 +46,8 @@ static const struct {
 };
 
 static const struct {
-	const char *name;
-	const enum v4l2_memory io_method;
+	const char *name; // cppcheck-suppress unusedStructMember
+	const enum v4l2_memory io_method; // cppcheck-suppress unusedStructMember
 } _IO_METHODS[] = {
 	{"MMAP",	V4L2_MEMORY_MMAP},
 	{"USERPTR",	V4L2_MEMORY_USERPTR},
