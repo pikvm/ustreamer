@@ -151,12 +151,12 @@ int main(int argc, char *argv[]) {
 			case _O_COUNT:			OPT_NUMBER("--count", count, 0, LLONG_MAX, 0);
 			case _O_INTERVAL:		OPT_LDOUBLE("--interval", interval, 0, 60);
 
-			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", us_log_level, US_LOG_LEVEL_INFO, US_LOG_LEVEL_DEBUG, 0);
-			case _O_PERF:				OPT_SET(us_log_level, US_LOG_LEVEL_PERF);
-			case _O_VERBOSE:			OPT_SET(us_log_level, US_LOG_LEVEL_VERBOSE);
-			case _O_DEBUG:				OPT_SET(us_log_level, US_LOG_LEVEL_DEBUG);
-			case _O_FORCE_LOG_COLORS:	OPT_SET(us_log_colored, true);
-			case _O_NO_LOG_COLORS:		OPT_SET(us_log_colored, false);
+			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", us_g_log_level, US_LOG_LEVEL_INFO, US_LOG_LEVEL_DEBUG, 0);
+			case _O_PERF:				OPT_SET(us_g_log_level, US_LOG_LEVEL_PERF);
+			case _O_VERBOSE:			OPT_SET(us_g_log_level, US_LOG_LEVEL_VERBOSE);
+			case _O_DEBUG:				OPT_SET(us_g_log_level, US_LOG_LEVEL_DEBUG);
+			case _O_FORCE_LOG_COLORS:	OPT_SET(us_g_log_colored, true);
+			case _O_NO_LOG_COLORS:		OPT_SET(us_g_log_colored, false);
 
 			case _O_HELP:		_help(stdout); return 0;
 			case _O_VERSION:	puts(US_VERSION); return 0;
@@ -330,7 +330,7 @@ static void _help(FILE *fp) {
 	SAY("    --log-level <N>  ──── Verbosity level of messages from 0 (info) to 3 (debug).");
 	SAY("                          Enabling debugging messages can slow down the program.");
 	SAY("                          Available levels: 0 (info), 1 (performance), 2 (verbose), 3 (debug).");
-	SAY("                          Default: %d.\n", us_log_level);
+	SAY("                          Default: %d.\n", us_g_log_level);
 	SAY("    --perf  ───────────── Enable performance messages (same as --log-level=1). Default: disabled.\n");
 	SAY("    --verbose  ────────── Enable verbose messages and lower (same as --log-level=2). Default: disabled.\n");
 	SAY("    --debug  ──────────── Enable debug messages and lower (same as --log-level=3). Default: disabled.\n");

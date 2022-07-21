@@ -56,7 +56,7 @@ typedef struct {
 } us_gpio_s;
 
 
-extern us_gpio_s us_gpio;
+extern us_gpio_s us_g_gpio;
 
 
 void us_gpio_init(void);
@@ -73,15 +73,15 @@ int us_gpio_inner_set(us_gpio_output_s *output, bool state);
 	}
 
 INLINE void us_gpio_set_prog_running(bool state) {
-	SET_STATE(us_gpio.prog_running, state);
+	SET_STATE(us_g_gpio.prog_running, state);
 }
 
 INLINE void us_gpio_set_stream_online(bool state) {
-	SET_STATE(us_gpio.stream_online, state);
+	SET_STATE(us_g_gpio.stream_online, state);
 }
 
 INLINE void us_gpio_set_has_http_clients(bool state) {
-	SET_STATE(us_gpio.has_http_clients, state);
+	SET_STATE(us_g_gpio.has_http_clients, state);
 }
 
 #undef SET_STATE
