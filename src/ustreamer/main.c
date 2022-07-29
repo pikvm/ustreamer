@@ -40,12 +40,9 @@
 #endif
 
 
-typedef struct {
-	us_stream_s *stream;
-	us_server_s *server;
-} _main_context_s;
+static us_stream_s	*_g_stream = NULL;
+static us_server_s	*_g_server = NULL;
 
-static _main_context_s *_ctx;
 
 static void _block_thread_signals(void) {
 	sigset_t mask;
@@ -58,14 +55,14 @@ static void _block_thread_signals(void) {
 static void *_stream_loop_thread(UNUSED void *arg) {
 	US_THREAD_RENAME("stream");
 	_block_thread_signals();
-	us_stream_loop(_ctx->stream);
+	us_stream_loop(_g_stream);
 	return NULL;
 }
 
 static void *_server_loop_thread(UNUSED void *arg) {
 	US_THREAD_RENAME("http");
 	_block_thread_signals();
-	us_server_loop(_ctx->server);
+	us_server_loop(_g_server);
 	return NULL;
 }
 
@@ -75,8 +72,8 @@ static void _signal_handler(int signum) {
 		case SIGINT:	US_LOG_INFO_NOLOCK("===== Stopping by SIGINT ====="); break;
 		default:		US_LOG_INFO_NOLOCK("===== Stopping by %d =====", signum); break;
 	}
-	us_stream_loop_break(_ctx->stream);
-	us_server_loop_break(_ctx->server);
+	us_stream_loop_break(_g_stream);
+	us_server_loop_break(_g_server);
 }
 
 static void _install_signal_handlers(void) {
@@ -107,22 +104,17 @@ int main(int argc, char *argv[]) {
 	us_options_s *options = us_options_init(argc, argv);
 	us_device_s *dev = us_device_init();
 	us_encoder_s *enc = us_encoder_init();
-	us_stream_s *stream = us_stream_init(dev, enc);
-	us_server_s *server = us_server_init(stream);
+	_g_stream = us_stream_init(dev, enc);
+	_g_server = us_server_init(_g_stream);
 
-	if ((exit_code = options_parse(options, dev, enc, stream, server)) == 0) {
+	if ((exit_code = options_parse(options, dev, enc, _g_stream, _g_server)) == 0) {
 #		ifdef WITH_GPIO
 		us_gpio_init();
 #		endif
 
 		_install_signal_handlers();
 
-		_main_context_s ctx;
-		ctx.stream = stream;
-		ctx.server = server;
-		_ctx = &ctx;
-
-		if ((exit_code = us_server_listen(server)) == 0) {
+		if ((exit_code = us_server_listen(_g_server)) == 0) {
 #			ifdef WITH_GPIO
 			us_gpio_set_prog_running(true);
 #			endif
@@ -141,8 +133,8 @@ int main(int argc, char *argv[]) {
 #		endif
 	}
 
-	us_server_destroy(server);
-	us_stream_destroy(stream);
+	us_server_destroy(_g_server);
+	us_stream_destroy(_g_stream);
 	us_encoder_destroy(enc);
 	us_device_destroy(dev);
 	us_options_destroy(options);
