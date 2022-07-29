@@ -76,7 +76,7 @@ int us_queue_put(us_queue_s *queue, void *item, long double timeout) {
 	++queue->in;
 	queue->in %= queue->capacity;
 	US_MUTEX_UNLOCK(queue->mutex);
-	assert(!pthread_cond_broadcast(&queue->empty_cond));
+	US_COND_BROADCAST(queue->empty_cond);
 	return 0;
 }
 
@@ -88,7 +88,7 @@ int us_queue_get(us_queue_s *queue, void **item, long double timeout) {
 	++queue->out;
 	queue->out %= queue->capacity;
 	US_MUTEX_UNLOCK(queue->mutex);
-	assert(!pthread_cond_broadcast(&queue->full_cond));
+	US_COND_BROADCAST(queue->full_cond);
 	return 0;
 }
 
