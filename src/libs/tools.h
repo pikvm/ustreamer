@@ -193,3 +193,8 @@ INLINE char *us_errno_to_string(int error, char *buf, size_t size) {
 	}
 	return buf;
 }
+
+INLINE const char *us_signum_to_string(int signum) {
+	const char *const str = sigabbrev_np(signum);
+	return (str == NULL ? "???" : str);
+}

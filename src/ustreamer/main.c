@@ -67,11 +67,7 @@ static void *_server_loop_thread(UNUSED void *arg) {
 }
 
 static void _signal_handler(int signum) {
-	switch (signum) {
-		case SIGTERM:	US_LOG_INFO_NOLOCK("===== Stopping by SIGTERM ====="); break;
-		case SIGINT:	US_LOG_INFO_NOLOCK("===== Stopping by SIGINT ====="); break;
-		default:		US_LOG_INFO_NOLOCK("===== Stopping by %d =====", signum); break;
-	}
+	US_LOG_INFO_NOLOCK("===== Stopping by SIG%s =====", us_signum_to_string(signum));
 	us_stream_loop_break(_g_stream);
 	us_server_loop_break(_g_server);
 }

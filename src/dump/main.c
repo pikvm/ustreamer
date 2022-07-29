@@ -195,12 +195,7 @@ int main(int argc, char *argv[]) {
 
 
 static void _signal_handler(int signum) {
-	switch (signum) {
-		case SIGTERM:	US_LOG_INFO_NOLOCK("===== Stopping by SIGTERM ====="); break;
-		case SIGINT:	US_LOG_INFO_NOLOCK("===== Stopping by SIGINT ====="); break;
-		case SIGPIPE:	US_LOG_INFO_NOLOCK("===== Stopping by SIGPIPE ====="); break;
-		default:		US_LOG_INFO_NOLOCK("===== Stopping by %d =====", signum); break;
-	}
+	US_LOG_INFO_NOLOCK("===== Stopping by SIG%s =====", us_signum_to_string(signum));
 	_g_stop = true;
 }
 
