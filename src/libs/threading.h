@@ -67,7 +67,7 @@
 #define US_COND_INIT(x_cond)		assert(!pthread_cond_init(&(x_cond), NULL))
 #define US_COND_DESTROY(x_cond)		assert(!pthread_cond_destroy(&(x_cond)))
 #define US_COND_SIGNAL(x_cond)		assert(!pthread_cond_signal(&(x_cond)))
-#define US_COND_WAIT_TRUE(x_var, x_cond, x_mutex) { while(!(x_var)) assert(!pthread_cond_wait(&(x_cond), &(x_mutex))); }
+#define US_COND_WAIT_FOR(x_var, x_cond, x_mutex) { while(!(x_var)) assert(!pthread_cond_wait(&(x_cond), &(x_mutex))); }
 
 
 #ifdef WITH_PTHREAD_NP

@@ -104,7 +104,7 @@ us_worker_s *us_workers_pool_wait(us_workers_pool_s *pool) {
 	us_worker_s *ready_wr = NULL;
 
 	US_MUTEX_LOCK(pool->free_workers_mutex);
-	US_COND_WAIT_TRUE(pool->free_workers, pool->free_workers_cond, pool->free_workers_mutex);
+	US_COND_WAIT_FOR(pool->free_workers, pool->free_workers_cond, pool->free_workers_mutex);
 	US_MUTEX_UNLOCK(pool->free_workers_mutex);
 
 	if (pool->oldest_wr && !atomic_load(&pool->oldest_wr->has_job)) {
@@ -185,7 +185,7 @@ static void *_worker_thread(void *v_worker) {
 		US_LOG_DEBUG("Worker %s waiting for a new job ...", wr->name);
 
 		US_MUTEX_LOCK(wr->has_job_mutex);
-		US_COND_WAIT_TRUE(atomic_load(&wr->has_job), wr->has_job_cond, wr->has_job_mutex);
+		US_COND_WAIT_FOR(atomic_load(&wr->has_job), wr->has_job_cond, wr->has_job_mutex);
 		US_MUTEX_UNLOCK(wr->has_job_mutex);
 
 		if (!atomic_load(&wr->pool->stop)) {
