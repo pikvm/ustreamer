@@ -38,6 +38,12 @@
 #include <sys/types.h>
 #include <sys/file.h>
 
+#if defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 32
+#	define HAS_SIGABBREV_NP
+#else
+#	include <signal.h>
+#endif
+
 
 #ifdef NDEBUG
 #	error WTF dude? Asserts are good things!
@@ -194,7 +200,22 @@ INLINE char *us_errno_to_string(int error, char *buf, size_t size) {
 	return buf;
 }
 
-INLINE const char *us_signum_to_string(int signum) {
-	const char *const str = sigabbrev_np(signum);
-	return (str == NULL ? "???" : str);
+INLINE char *us_signum_to_string(int signum) {
+#	ifdef HAS_SIGABBREV_NP
+	const char *const name = sigabbrev_np(signum);
+#	else
+	const char *const name = (
+		signum == SIGTERM ? "TERM" :
+		signum == SIGINT ? "INT" :
+		signum == SIGPIPE ? "PIPE" :
+		NULL
+	);
+#	endif
+	char *buf;
+	if (name != NULL) {
+		US_ASPRINTF(buf, "SIG%s", name);
+	} else {
+		US_ASPRINTF(buf, "SIG[%d]", signum);
+	}
+	return buf;
 }

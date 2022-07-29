@@ -195,7 +195,9 @@ int main(int argc, char *argv[]) {
 
 
 static void _signal_handler(int signum) {
-	US_LOG_INFO_NOLOCK("===== Stopping by SIG%s =====", us_signum_to_string(signum));
+	char *const name = us_signum_to_string(signum);
+	US_LOG_INFO_NOLOCK("===== Stopping by %s =====", name);
+	free(name);
 	_g_stop = true;
 }
 

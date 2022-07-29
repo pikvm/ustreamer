@@ -67,7 +67,9 @@ static void *_server_loop_thread(UNUSED void *arg) {
 }
 
 static void _signal_handler(int signum) {
-	US_LOG_INFO_NOLOCK("===== Stopping by SIG%s =====", us_signum_to_string(signum));
+	char *const name = us_signum_to_string(signum);
+	US_LOG_INFO_NOLOCK("===== Stopping by %s =====", name);
+	free(name);
 	us_stream_loop_break(_g_stream);
 	us_server_loop_break(_g_server);
 }
