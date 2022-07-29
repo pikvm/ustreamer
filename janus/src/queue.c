@@ -40,6 +40,9 @@ us_queue_s *us_queue_init(unsigned capacity) {
 }
 
 void us_queue_destroy(us_queue_s *queue) {
+	US_COND_DESTROY(queue->empty_cond);
+	US_COND_DESTROY(queue->full_cond);
+	US_MUTEX_DESTROY(queue->mutex);
 	free(queue->items);
 	free(queue);
 }
