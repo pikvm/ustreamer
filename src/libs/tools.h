@@ -187,15 +187,14 @@ INLINE int us_flock_timedwait_monotonic(int fd, long double timeout) {
 	return retval;
 }
 
-INLINE char *us_errno_to_string(int error, char *buf, size_t size) {
-	assert(buf != NULL);
-	assert(size > 0);
+INLINE char *us_errno_to_string(int error) {
 	locale_t locale = newlocale(LC_MESSAGES_MASK, "C", NULL);
-	const char *str = "!!! newlocale() error !!!";
-	strncpy(buf, (locale ? strerror_l(error, locale) : str), size - 1);
-	buf[size - 1] = '\0';
+	char *buf;
 	if (locale) {
+		buf = us_strdup(strerror_l(error, locale));
 		freelocale(locale);
+	} else {
+		buf = us_strdup("!!! newlocale() error !!!");
 	}
 	return buf;
 }

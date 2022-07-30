@@ -28,11 +28,11 @@ char *us_bufferevent_format_reason(short what) {
 	US_CALLOC(reason, 2048);
 
 	// evutil_socket_error_to_string() is not thread-safe
-	char perror_buf[1024] = {0};
-	const char *perror_ptr = us_errno_to_string(EVUTIL_SOCKET_ERROR(), perror_buf, 1024);
+	char *const perror_str = us_errno_to_string(EVUTIL_SOCKET_ERROR());
 	bool first = true;
 
-	strcat(reason, perror_ptr);
+	strcat(reason, perror_str);
+	free(perror_str);
 	strcat(reason, " (");
 
 #	define FILL_REASON(x_bev, x_name) { \

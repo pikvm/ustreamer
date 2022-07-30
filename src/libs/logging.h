@@ -116,9 +116,9 @@ extern pthread_mutex_t us_g_log_mutex;
 	}
 
 #define US_LOG_PERROR(x_msg, ...) { \
-		char m_perror_buf[1024] = {0}; \
-		char *m_perror_ptr = us_errno_to_string(errno, m_perror_buf, 1024); \
-		US_LOG_ERROR(x_msg ": %s", ##__VA_ARGS__, m_perror_ptr); \
+		char *const m_perror_str = us_errno_to_string(errno); \
+		US_LOG_ERROR(x_msg ": %s", ##__VA_ARGS__, m_perror_str); \
+		free(m_perror_str); \
 	}
 
 #define US_LOG_INFO(x_msg, ...) { \
@@ -149,9 +149,9 @@ extern pthread_mutex_t us_g_log_mutex;
 
 #define US_LOG_VERBOSE_PERROR(x_msg, ...) { \
 		if (us_g_log_level >= US_LOG_LEVEL_VERBOSE) { \
-			char m_perror_buf[1024] = {0}; \
-			char *m_perror_ptr = us_errno_to_string(errno, m_perror_buf, 1023); \
-			US_LOG_PRINTF(US_COLOR_BLUE, "VERB ", US_COLOR_BLUE, x_msg ": %s", ##__VA_ARGS__, m_perror_ptr); \
+			char *m_perror_str = us_errno_to_string(errno); \
+			US_LOG_PRINTF(US_COLOR_BLUE, "VERB ", US_COLOR_BLUE, x_msg ": %s", ##__VA_ARGS__, m_perror_str); \
+			free(m_perror_str); \
 		} \
 	}
 

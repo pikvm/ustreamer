@@ -32,7 +32,7 @@
 #define US_JLOG_ERROR(x_prefix, x_msg, ...)	JANUS_LOG(LOG_ERR, "== %s/%-9s -- " x_msg "\n", US_PLUGIN_NAME, x_prefix, ##__VA_ARGS__)
 
 #define US_JLOG_PERROR(x_prefix, x_msg, ...) { \
-		char m_perror_buf[1024] = {0}; \
-		char *m_perror_ptr = us_errno_to_string(errno, m_perror_buf, 1023); \
-		JANUS_LOG(LOG_ERR, "[%s/%-9s] " x_msg ": %s\n", US_PLUGIN_NAME, x_prefix, ##__VA_ARGS__, m_perror_ptr); \
+		char *const m_perror_str = us_errno_to_string(errno); \
+		JANUS_LOG(LOG_ERR, "[%s/%-9s] " x_msg ": %s\n", US_PLUGIN_NAME, x_prefix, ##__VA_ARGS__, m_perror_str); \
+		free(m_perror_str); \
 	}
