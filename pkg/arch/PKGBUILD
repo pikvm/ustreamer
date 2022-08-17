@@ -22,8 +22,8 @@ if [ -e /usr/bin/python3 ]; then
 	makedepends+=(python-setuptools)
 fi
 if [ -e /usr/include/janus/plugins/plugin.h ];then
-	depends+=(janus-gateway-pikvm alsa-lib opus)
-	makedepends+=(janus-gateway-pikvm alsa-lib opus)
+	depends+=(janus-gateway alsa-lib opus)
+	makedepends+=(janus-gateway alsa-lib opus)
 	_options="$_options WITH_JANUS=1"
 fi
 
