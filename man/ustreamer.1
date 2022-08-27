@@ -10,7 +10,7 @@ ustreamer \- stream MJPEG video from any V4L2 device to the network
 .RI [OPTIONS]
 
 .SH DESCRIPTION
-µStreamer (\fBustreamer\fP) is a lightweight and very quick server to stream MJPEG video from any V4L2 device to the network. All new browsers have native support of this video format, as well as most video players such as mplayer, VLC etc. µStreamer is a part of the Pi-KVM project designed to stream VGA and HDMI screencast hardware data with the highest resolution and FPS possible.
+µStreamer (\fBustreamer\fP) is a lightweight and very quick server to stream MJPEG video from any V4L2 device to the network. All new browsers have native support of this video format, as well as most video players such as mplayer, VLC etc. µStreamer is a part of the PiKVM project designed to stream VGA and HDMI screencast hardware data with the highest resolution and FPS possible.
 
 .SH USAGE
 Without arguments, \fBustreamer\fR will try to open \fB/dev/video0\fR with 640x480 resolution and start streaming on \fBhttp://127\.0\.0\.1:8080\fR\. You can override this behavior using parameters \fB\-\-device\fR, \fB\-\-host\fR and \fB\-\-port\fR\. For example, to stream to the world, run: \fBustreamer --device=/dev/video1 --host=0.0.0.0 --port=80\fR
