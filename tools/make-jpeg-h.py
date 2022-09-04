@@ -26,13 +26,11 @@ import os
 import io
 import struct
 
-from typing import Tuple
-
 import common
 
 
 # =====
-def _get_jpeg_size(data: bytes) -> Tuple[int, int]:
+def _get_jpeg_size(data: bytes) -> tuple[int, int]:
     # https://sheep.horse/2013/9/finding_the_dimensions_of_a_jpeg_file_in_python.html
 
     stream = io.BytesIO(data)

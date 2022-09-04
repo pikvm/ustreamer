@@ -1,14 +1,12 @@
 import os
 
-from typing import List
-
 from setuptools import Extension
 from setuptools import setup
 
 
 # =====
-def _find_sources(suffix: str) -> List[str]:
-    sources: List[str] = []
+def _find_sources(suffix: str) -> list[str]:
+    sources: list[str] = []
     for (root_path, _, names) in os.walk("src"):
         for name in names:
             if name.endswith(suffix):
