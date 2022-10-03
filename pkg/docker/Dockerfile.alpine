@@ -1,0 +1,30 @@
+FROM alpine:3.16 as build
+RUN apk add --no-cache \
+		alpine-sdk \
+		linux-headers \
+		libjpeg-turbo-dev \
+		libevent-dev \
+		libbsd-dev \
+		libgpiod-dev
+
+WORKDIR /build/ustreamer/
+COPY . .
+RUN make -j5 WITH_GPIO=1
+
+FROM alpine:3.16 as run
+
+RUN apk add --no-cache \
+		libevent \
+		libjpeg-turbo \
+		libevent \
+		libgpiod \
+		libbsd
+
+WORKDIR /ustreamer
+COPY --from=build /build/ustreamer/src/ustreamer.bin ustreamer
+
+EXPOSE 8080
+ENTRYPOINT ["./ustreamer", "--host=0.0.0.0"]
+CMD ["--dv-timings", "--format", "UYVY"]
+
+# vim: syntax=dockerfile
