@@ -81,6 +81,36 @@ $ ./ustreamer \
 
 You can always view the full list of options with ```ustreamer --help```.
 
+# Docker (Raspberry Pi 4 HDMI)
+## Preparations
+
+Add following lines to /boot/firmware/usercfg.txt:
+```
+gpu_mem=128
+dtoverlay=tc358743
+```
+Check size of CMA:
+```bash
+$ dmesg | grep cma-reserved
+[    0.000000] Memory: 7700524K/8244224K available (11772K kernel code, 1278K rwdata, 4320K rodata, 4096K init, 1077K bss, 281556K reserved, 262144K cma-reserved)
+```
+If it is smaller than 128M add following to /boot/firmware/cmdline.txt:
+```
+cma=128M
+```
+Save changes and reboot.
+## Launch
+Set HDMI EDID (it is not saved between reboots):
+```bash
+$ wget https://raw.githubusercontent.com/pikvm/kvmd/master/configs/kvmd/tc358743-edid.hex
+$ sudo v4l2-ctl --device=/dev//dev/video0 --set-edid=file=tc358743-edid.hex --fix-edid-checksums --info-edid
+```
+Start container:
+```bash
+$ docker run --device /dev/video0:/dev/video0 -p 8080:8080 pikvm/ustreamer:latest
+```
+Then access the web interface at port 8080 (e.g. http://raspberrypi.local:8080).
+
 -----
 # Raspberry Pi Camera Example
 Example usage for the Raspberry Pi v1 camera:

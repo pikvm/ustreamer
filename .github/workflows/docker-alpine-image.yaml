@@ -3,6 +3,7 @@ name: Build Alpine
 on:
     push:
         branches: [master]
+        tags: [v*]
     pull_request:
         branches: [master]
 
@@ -14,6 +15,15 @@ jobs:
         name: Checkout
         uses: actions/checkout@v3
       -
+        name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: pikvm/ustreamer
+          tags: |
+            type=ref,event=tag
+            type=sha,format=long
+      -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       -
@@ -21,5 +31,41 @@ jobs:
         uses: docker/setup-buildx-action@v2
         with:
           driver-opts: image=moby/buildkit:master
-      - name: Build
-        run: docker buildx build --file pkg/docker/Dockerfile.alpine --platform linux/arm64,linux/amd64,linux/arm/v7 .
+      -
+        name: Build and export to Docker
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          load: true
+          tags: ustreamer
+          file: pkg/docker/Dockerfile.alpine
+      -
+        name: Test
+        run: |
+          echo version: $(docker run --rm -t ustreamer --version)
+          echo -e "features:\n$(docker run --rm -t ustreamer --features)"
+      -
+        name: Build multi arch
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          platforms: linux/arm64,linux/amd64,linux/arm/v7
+          file: pkg/docker/Dockerfile.alpine
+      -
+        name: Login to DockerHub
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}          
+      -
+        name: Push
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          platforms: linux/arm64,linux/amd64,linux/arm/v7
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          file: pkg/docker/Dockerfile.alpine
