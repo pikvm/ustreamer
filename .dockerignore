@@ -7,3 +7,4 @@
 !python/**
 !janus/**
 !man/**
+!pkg/docker/entry.sh

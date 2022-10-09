@@ -2,7 +2,7 @@ name: Build Alpine
 
 on:
     push:
-        branches: [master]
+        branches: [master, build_*]
         tags: [v*]
     pull_request:
         branches: [master]
@@ -59,8 +59,8 @@ jobs:
       -
         name: Test
         run: |
-          echo version: $(docker run --rm -t ustreamer --version)
-          echo -e "features:\n$(docker run --rm -t ustreamer --features)"
+          echo version: $(docker run --rm -e NO_EDID=1 -t ustreamer --version)
+          echo -e "features:\n$(docker run --rm -e NO_EDID=1 -t ustreamer --features)"
       -
         name: Build multi arch
         uses: docker/build-push-action@v3
