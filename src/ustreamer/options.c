@@ -483,6 +483,8 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 		}
 	}
 
+	US_LOG_INFO("Starting PiKVM uStreamer %s ...", US_VERSION);
+
 	options->blank = us_blank_frame_init(blank_path);
 	stream->blank = options->blank;
 

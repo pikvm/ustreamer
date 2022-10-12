@@ -250,7 +250,7 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	// sysctl -w net.core.rmem_max=1000000 
 	// sysctl -w net.core.wmem_max=1000000
 
-	US_JLOG_INFO("main", "Initializing plugin ...");
+	US_JLOG_INFO("main", "Initializing PiKVM uStreamer plugin %s ...", US_VERSION);
 	if (gw == NULL || config_dir_path == NULL || ((_g_config = us_config_init(config_dir_path)) == NULL)) {
 		return -1;
 	}
