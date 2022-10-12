@@ -75,6 +75,7 @@ us_server_s *us_server_init(us_stream_s *stream) {
 	server->passwd = "";
 	server->static_path = "";
 	server->allow_origin = "";
+	server->instance_id = "";
 	server->timeout = 10;
 	server->run = run;
 
@@ -400,7 +401,9 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 
 	_A_EVBUFFER_ADD_PRINTF(buf,
 		"{\"ok\": true, \"result\": {"
+		" \"instance_id\": \"%s\","
 		" \"encoder\": {\"type\": \"%s\", \"quality\": %u},",
+		server->instance_id,
 		us_encoder_type_to_string(enc_type),
 		enc_quality
 	);

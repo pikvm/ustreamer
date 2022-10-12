@@ -149,6 +149,7 @@ typedef struct us_server_sx {
 	char		*passwd;
 	char		*static_path;
 	char		*allow_origin;
+	char		*instance_id;
 
 	unsigned	drop_same_frames;
 	unsigned	fake_width;

@@ -82,6 +82,7 @@ enum _US_OPT_VALUES {
 	_O_PASSWD,
 	_O_STATIC,
 	_O_ALLOW_ORIGIN,
+	_O_INSTANCE_ID,
 	_O_TCP_NODELAY,
 	_O_SERVER_TIMEOUT,
 
@@ -177,6 +178,7 @@ static const struct option _LONG_OPTS[] = {
 	{"static",					required_argument,	NULL,	_O_STATIC},
 	{"drop-same-frames",		required_argument,	NULL,	_O_DROP_SAME_FRAMES},
 	{"allow-origin",			required_argument,	NULL,	_O_ALLOW_ORIGIN},
+	{"instance-id",				required_argument,	NULL,	_O_INSTANCE_ID},
 	{"fake-resolution",			required_argument,	NULL,	_O_FAKE_RESOLUTION},
 	{"tcp-nodelay",				no_argument,		NULL,	_O_TCP_NODELAY},
 	{"server-timeout",			required_argument,	NULL,	_O_SERVER_TIMEOUT},
@@ -228,6 +230,7 @@ static const struct option _LONG_OPTS[] = {
 
 
 static int _parse_resolution(const char *str, unsigned *width, unsigned *height, bool limited);
+static int _check_instance_id(const char *str);
 
 static void _features(void);
 static void _help(FILE *fp, us_device_s *dev, us_encoder_s *enc, us_stream_s *stream, us_server_s *server);
@@ -419,6 +422,13 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 			case _O_DROP_SAME_FRAMES:	OPT_NUMBER("--drop-same-frames", server->drop_same_frames, 0, US_VIDEO_MAX_FPS, 0);
 			case _O_FAKE_RESOLUTION:	OPT_RESOLUTION("--fake-resolution", server->fake_width, server->fake_height, false);
 			case _O_ALLOW_ORIGIN:		OPT_SET(server->allow_origin, optarg);
+			case _O_INSTANCE_ID:
+				if (_check_instance_id(optarg) != 0) {
+					printf("Invalid instance ID, it should be like: ^[a-zA-Z0-9\\./+_-]*$\n");
+					return -1;
+				}
+				server->instance_id = optarg;
+				break;
 			case _O_TCP_NODELAY:		OPT_SET(server->tcp_nodelay, true);
 			case _O_SERVER_TIMEOUT:		OPT_NUMBER("--server-timeout", server->timeout, 1, 60, 0);
 
@@ -527,6 +537,18 @@ static int _parse_resolution(const char *str, unsigned *width, unsigned *height,
 	}
 	*width = tmp_width;
 	*height = tmp_height;
+	return 0;
+}
+
+static int _check_instance_id(const char *str) {
+	for (const char *ptr = str; *ptr; ++ptr) {
+		if (!(isascii(*ptr) && (
+			isalpha(*ptr) || isdigit(*ptr)
+			|| *ptr == '.' || *ptr == '/' || *ptr == '+' || *ptr == '_' || *ptr == '-'
+		))) {
+			return -1;
+		}
+	}
 	return 0;
 }
 
@@ -657,6 +679,8 @@ static void _help(FILE *fp, us_device_s *dev, us_encoder_s *enc, us_stream_s *st
 	SAY("    --tcp-nodelay  ────────────── Set TCP_NODELAY flag to the client /stream socket. Only for TCP socket.");
 	SAY("                                  Default: disabled.\n");
 	SAY("    --allow-origin <str>  ─────── Set Access-Control-Allow-Origin header. Default: disabled.\n");
+	SAY("    --instance-id <str>  ──────── A short string identifier to be displayed in the /state handle.");
+	SAY("                                  It must satisfy regexp ^[a-zA-Z0-9\\./+_-]*$. Default: an empty string.\n");
 	SAY("    --server-timeout <sec>  ───── Timeout for client connections. Default: %u.\n", server->timeout);
 #	define ADD_SINK(x_name, x_opt) \
 		SAY(x_name " sink options:"); \
