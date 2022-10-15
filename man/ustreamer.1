@@ -203,6 +203,9 @@ Default: disabled.
 .BR \-\-allow\-origin\ \fIstr
 Set Access\-Control\-Allow\-Origin header. Default: disabled.
 .TP
+.BR \-\-instance\-id\ \fIstr
+A short string identifier to be displayed in the /state handle. It must satisfy regexp ^[a-zA-Z0-9\./+_-]*$. Default: an empty string.
+.TP
 .BR \-\-server\-timeout\ \fIsec
 Timeout for client connections. Default: 10.
 
