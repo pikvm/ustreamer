@@ -100,16 +100,13 @@ cma=128M
 ```
 Save changes and reboot.
 ## Launch
-Set HDMI EDID (it is not saved between reboots):
-```bash
-$ wget https://raw.githubusercontent.com/pikvm/kvmd/master/configs/kvmd/tc358743-edid.hex
-$ sudo v4l2-ctl --device=/dev//dev/video0 --set-edid=file=tc358743-edid.hex --fix-edid-checksums --info-edid
-```
 Start container:
 ```bash
 $ docker run --device /dev/video0:/dev/video0 -p 8080:8080 pikvm/ustreamer:latest
 ```
 Then access the web interface at port 8080 (e.g. http://raspberrypi.local:8080).
+## EDID
+Container will set HDMI EDID before starging ustreamer. Use `-e NO_EDID=1` to not set EDID. Use `-e EDID_HEX=xx` to specify custom EDID data.
 
 -----
 # Raspberry Pi Camera Example
