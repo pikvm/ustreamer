@@ -102,12 +102,12 @@ Save changes and reboot.
 ## Launch
 Start container:
 ```bash
-$ docker run --device /dev/video0:/dev/video0 -p 8080:8080 pikvm/ustreamer:latest
+$ docker run --device /dev/video0:/dev/video0 -e EDID=1 -p 8080:8080 pikvm/ustreamer:latest
 ```
 Then access the web interface at port 8080 (e.g. http://raspberrypi.local:8080).
 ## Custom config
 ```bash
-$ docker run --rm -e EDID=1 pikvm/ustreamer:latest \
+$ docker run --rm pikvm/ustreamer:latest \
     --format=uyvy \
     --workers=3 \
     --persistent \
