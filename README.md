@@ -107,7 +107,7 @@ $ docker run --device /dev/video0:/dev/video0 -p 8080:8080 pikvm/ustreamer:lates
 Then access the web interface at port 8080 (e.g. http://raspberrypi.local:8080).
 ## Custom config
 ```bash
-$ docker run --rm -e NO_EDID=1 pikvm/ustreamer:latest \
+$ docker run --rm -e EDID=1 pikvm/ustreamer:latest \
     --format=uyvy \
     --workers=3 \
     --persistent \
@@ -115,7 +115,7 @@ $ docker run --rm -e NO_EDID=1 pikvm/ustreamer:latest \
     --drop-same-frames=30
 ```
 ## EDID
-Container will set HDMI EDID before starging ustreamer. Use `-e NO_EDID=1` to not set EDID. Use `-e EDID_HEX=xx` to specify custom EDID data.
+Add `-e EDID=1` to set HDMI EDID before starging ustreamer. Use together with `-e EDID_HEX=xx` to specify custom EDID data.
 
 -----
 # Raspberry Pi Camera Example
