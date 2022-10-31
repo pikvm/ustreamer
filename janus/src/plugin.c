@@ -76,6 +76,7 @@ static pthread_mutex_t	_g_audio_lock = PTHREAD_MUTEX_INITIALIZER;
 static atomic_bool		_g_ready = false;
 static atomic_bool		_g_stop = false;
 static atomic_bool		_g_has_watchers = false;
+static atomic_bool		_g_key_required = false;
 
 
 #define _LOCK_VIDEO		US_MUTEX_LOCK(_g_video_lock)
@@ -149,10 +150,13 @@ static void *_video_sink_thread(UNUSED void *arg) {
 		while (!_STOP && _HAS_WATCHERS) {
 			const int result = us_memsink_fd_wait_frame(fd, mem, frame_id);
 			if (result == 0) {
-				us_frame_s *const frame = us_memsink_fd_get_frame(fd, mem, &frame_id);
+				us_frame_s *const frame = us_memsink_fd_get_frame(fd, mem, &frame_id, atomic_load(&_g_key_required));
 				if (frame == NULL) {
 					goto close_memsink;
 				}
+//				if (frame->key) {
+//					atomic_store(&_g_key_required, false);
+//				}
 				if (us_queue_put(_g_video_queue, frame, 0) != 0) {
 					_IF_NOT_REPORTED({ US_JLOG_PERROR("video", "Video queue is full"); });
 					us_frame_destroy(frame);
@@ -423,6 +427,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 	} else if (!strcmp(request_str, "watch")) {
 		char *sdp;
 		{
+//			atomic_store(&_g_key_required, true);
 			char *const video_sdp = us_rtpv_make_sdp(_g_rtpv);
 			if (video_sdp == NULL) {
 				PUSH_ERROR(503, "Haven't received SPS/PPS from memsink yet");

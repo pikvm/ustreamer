@@ -181,9 +181,15 @@ static int _wait_frame(_MemsinkObject *self) {
 	return -2;
 }
 
-static PyObject *_MemsinkObject_wait_frame(_MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
+static PyObject *_MemsinkObject_wait_frame(_MemsinkObject *self, PyObject *args, PyObject *kwargs) {
 	if (self->mem == NULL || self->fd <= 0) {
 		PyErr_SetString(PyExc_RuntimeError, "Closed");
+		return NULL;
+	}
+
+	bool key_required = false;
+	static char *kws[] = {"key_required", NULL};
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|p", kws, &key_required)) {
 		return NULL;
 	}
 
@@ -198,6 +204,9 @@ static PyObject *_MemsinkObject_wait_frame(_MemsinkObject *self, PyObject *Py_UN
 	self->frame_id = _MEM(id);
 	self->frame_ts = us_get_now_monotonic();
 	_MEM(last_client_ts) = self->frame_ts;
+	if (key_required) {
+		_MEM(key_requested) = true;
+	}
 
 	if (flock(self->fd, LOCK_UN) < 0) {
 		return PyErr_SetFromErrno(PyExc_OSError);
@@ -260,7 +269,7 @@ static PyMethodDef _MemsinkObject_methods[] = {
 	ADD_METHOD("close", close, METH_NOARGS),
 	ADD_METHOD("__enter__", enter, METH_NOARGS),
 	ADD_METHOD("__exit__", exit, METH_VARARGS),
-	ADD_METHOD("wait_frame", wait_frame, METH_NOARGS),
+	ADD_METHOD("wait_frame", wait_frame, METH_VARARGS | METH_KEYWORDS),
 	ADD_METHOD("is_opened", is_opened, METH_NOARGS),
 	{},
 #	undef ADD_METHOD

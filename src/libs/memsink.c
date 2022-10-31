@@ -117,7 +117,7 @@ bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame) {
 	return (has_clients || !US_FRAME_COMPARE_META_USED_NOTS(sink->mem, frame));;
 }
 
-int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame) {
+int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *const key_requested) {
 	assert(sink->server);
 
 	const long double now = us_get_now_monotonic();
@@ -133,6 +133,12 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame) {
 
 		sink->last_id = us_get_now_id();
 		sink->mem->id = sink->last_id;
+		if (sink->mem->key_requested && frame->key) {
+			sink->mem->key_requested = false;
+		}
+		if (key_requested != NULL) {
+			*key_requested = sink->mem->key_requested;
+		}
 
 		memcpy(sink->mem->data, frame->data, frame->used);
 		sink->mem->used = frame->used;
@@ -140,6 +146,7 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame) {
 
 		sink->mem->magic = US_MEMSINK_MAGIC;
 		sink->mem->version = US_MEMSINK_VERSION;
+
 		atomic_store(&sink->has_clients, (sink->mem->last_client_ts + sink->client_ttl > us_get_now_monotonic()));
 
 		if (flock(sink->fd, LOCK_UN) < 0) {
@@ -159,7 +166,7 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame) {
 	return 0;
 }
 
-int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame) { // cppcheck-suppress unusedFunction
+int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool key_required) { // cppcheck-suppress unusedFunction
 	assert(!sink->server); // Client only
 
 	if (us_flock_timedwait_monotonic(sink->fd, sink->timeout) < 0) {
@@ -185,6 +192,9 @@ int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame) { // cppcheck-s
 			retval = 0;
 		}
 		sink->mem->last_client_ts = us_get_now_monotonic();
+		if (key_required) {
+			sink->mem->key_requested = true;
+		}
 	}
 
 	done:

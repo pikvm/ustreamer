@@ -46,12 +46,15 @@ int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s* mem, uint64_t last_id)
 	return -2;
 }
 
-us_frame_s *us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, uint64_t *frame_id) {
+us_frame_s *us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, uint64_t *frame_id, bool key_required) {
 	us_frame_s *frame = us_frame_init();
 	us_frame_set_data(frame, mem->data, mem->used);
 	US_FRAME_COPY_META(mem, frame);
 	*frame_id = mem->id;
 	mem->last_client_ts = us_get_now_monotonic();
+	if (key_required) {
+		mem->key_requested = true;
+	}
 
 	bool ok = true;
 	if (frame->format != V4L2_PIX_FMT_H264) {

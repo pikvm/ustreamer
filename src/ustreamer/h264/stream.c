@@ -56,9 +56,15 @@ void us_h264_stream_process(us_h264_stream_s *h264, const us_frame_s *frame, boo
 		US_LOG_VERBOSE("H264: JPEG decoded; time=%.3Lf", us_get_now_monotonic() - now);
 	}
 
+	if (h264->key_requested) {
+		US_LOG_INFO("H264: Requested keyframe by a sink client");
+		h264->key_requested = false;
+		force_key = true;
+	}
+
 	bool online = false;
 	if (!us_m2m_encoder_compress(h264->enc, frame, h264->dest, force_key)) {
-		online = !us_memsink_server_put(h264->sink, h264->dest);
+		online = !us_memsink_server_put(h264->sink, h264->dest, &h264->key_requested);
 	}
 	atomic_store(&h264->online, online);
 }

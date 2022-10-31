@@ -30,7 +30,7 @@
 
 
 #define US_MEMSINK_MAGIC	((uint64_t)0xCAFEBABECAFEBABE)
-#define US_MEMSINK_VERSION	((uint32_t)2)
+#define US_MEMSINK_VERSION	((uint32_t)3)
 
 #ifndef US_CFG_MEMSINK_MAX_DATA
 #	define US_CFG_MEMSINK_MAX_DATA 33554432
@@ -57,6 +57,7 @@ typedef struct {
 	long double	encode_end_ts;
 
 	long double	last_client_ts;
+	bool		key_requested;
 
 	uint8_t		data[US_MEMSINK_MAX_DATA];
 } us_memsink_shared_s;

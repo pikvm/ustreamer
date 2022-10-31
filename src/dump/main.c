@@ -48,6 +48,7 @@ enum _OPT_VALUES {
 	_O_OUTPUT_JSON = 'j',
 	_O_COUNT = 'c',
 	_O_INTERVAL = 'i',
+	_O_KEY = 'k',
 
 	_O_HELP = 'h',
 	_O_VERSION = 'v',
@@ -67,6 +68,7 @@ static const struct option _LONG_OPTS[] = {
 	{"output-json",			no_argument,		NULL,	_O_OUTPUT_JSON},
 	{"count",				required_argument,	NULL,	_O_COUNT},
 	{"interval",			required_argument,	NULL,	_O_INTERVAL},
+	{"key",					no_argument,		NULL,	_O_KEY},
 
 	{"log-level",			required_argument,	NULL,	_O_LOG_LEVEL},
 	{"perf",				no_argument,		NULL,	_O_PERF},
@@ -98,6 +100,7 @@ static void _install_signal_handlers(void);
 static int _dump_sink(
 	const char *sink_name, unsigned sink_timeout,
 	long long count, long double interval,
+	bool key_required,
 	_output_context_s *ctx);
 
 static void _help(FILE *fp);
@@ -113,6 +116,7 @@ int main(int argc, char *argv[]) {
 	bool output_json = false;
 	long long count = 0;
 	long double interval = 0;
+	bool key_required = false;
 
 #	define OPT_SET(_dest, _value) { \
 			_dest = _value; \
@@ -150,6 +154,7 @@ int main(int argc, char *argv[]) {
 			case _O_OUTPUT_JSON:	OPT_SET(output_json, true);
 			case _O_COUNT:			OPT_NUMBER("--count", count, 0, LLONG_MAX, 0);
 			case _O_INTERVAL:		OPT_LDOUBLE("--interval", interval, 0, 60);
+			case _O_KEY:			OPT_SET(key_required, true);
 
 			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", us_g_log_level, US_LOG_LEVEL_INFO, US_LOG_LEVEL_DEBUG, 0);
 			case _O_PERF:				OPT_SET(us_g_log_level, US_LOG_LEVEL_PERF);
@@ -186,7 +191,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	_install_signal_handlers();
-	const int retval = abs(_dump_sink(sink_name, sink_timeout, count, interval, &ctx));
+	const int retval = abs(_dump_sink(sink_name, sink_timeout, count, interval, key_required, &ctx));
 	if (ctx.v_output && ctx.destroy) {
 		ctx.destroy(ctx.v_output);
 	}
@@ -223,6 +228,7 @@ static void _install_signal_handlers(void) {
 static int _dump_sink(
 	const char *sink_name, unsigned sink_timeout,
 	long long count, long double interval,
+	bool key_required,
 	_output_context_s *ctx) {
 
 	if (count == 0) {
@@ -245,8 +251,10 @@ static int _dump_sink(
 	long double last_ts = 0;
 
 	while (!_g_stop) {
-		int error = us_memsink_client_get(sink, frame);
+		const int error = us_memsink_client_get(sink, frame, key_required);
 		if (error == 0) {
+			key_required = false;
+
 			const long double now = us_get_now_monotonic();
 			const long long now_second = us_floor_ms(now);
 
@@ -322,6 +330,7 @@ static void _help(FILE *fp) {
 	SAY("    -j|--output-json  ──────── Format output as JSON. Required option --output. Default: disabled.\n");
 	SAY("    -c|--count  <N>  ───────── Limit the number of frames. Default: 0 (infinite).\n");
 	SAY("    -i|--interval <sec>  ───── Delay between reading frames (float). Default: 0.\n");
+	SAY("    -k|--key  ──────────────── Request keyframe from the sink. Default: disabled.\n");
 	SAY("Logging options:");
 	SAY("════════════════");
 	SAY("    --log-level <N>  ──── Verbosity level of messages from 0 (info) to 3 (debug).");

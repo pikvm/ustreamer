@@ -32,7 +32,7 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigne
 
 #define _SINK_PUT(x_sink, x_frame) { \
 		if (stream->x_sink && us_memsink_server_check(stream->x_sink, x_frame)) {\
-			us_memsink_server_put(stream->x_sink, x_frame); \
+			us_memsink_server_put(stream->x_sink, x_frame, NULL); \
 		} \
 	}
 

@@ -36,6 +36,7 @@
 
 typedef struct {
 	us_memsink_s		*sink;
+	bool				key_requested;
 	us_frame_s			*tmp_src;
 	us_frame_s			*dest;
 	us_m2m_encoder_s	*enc;
