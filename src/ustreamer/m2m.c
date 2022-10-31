@@ -220,7 +220,11 @@ static void _m2m_encoder_prepare(us_m2m_encoder_s *enc, const us_frame_s *frame)
 		fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_DEFAULT;
 		fmt.fmt.pix_mp.num_planes = 1;
 		// fmt.fmt.pix_mp.plane_fmt[0].bytesperline = 0;
-		// fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512 << 10;
+		if (enc->output_format == V4L2_PIX_FMT_H264) {
+			// https://github.com/pikvm/ustreamer/issues/169
+			// https://github.com/raspberrypi/linux/pull/5232
+			fmt.fmt.pix_mp.plane_fmt[0].sizeimage = (1024 + 512) << 10; // 1.5Mb
+		}
 		_E_LOG_DEBUG("Configuring OUTPUT format ...");
 		_E_XIOCTL(VIDIOC_S_FMT, &fmt, "Can't set OUTPUT format");
 		if (fmt.fmt.pix_mp.pixelformat != enc->output_format) {
