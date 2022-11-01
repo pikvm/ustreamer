@@ -251,7 +251,8 @@ static int _dump_sink(
 	long double last_ts = 0;
 
 	while (!_g_stop) {
-		const int error = us_memsink_client_get(sink, frame, key_required);
+		bool key_requested;
+		const int error = us_memsink_client_get(sink, frame, &key_requested, key_required);
 		if (error == 0) {
 			key_required = false;
 
@@ -259,11 +260,12 @@ static int _dump_sink(
 			const long long now_second = us_floor_ms(now);
 
 			char fourcc_str[8];
-			US_LOG_VERBOSE("Frame: size=%zu, res=%ux%u, fourcc=%s, stride=%u, online=%d, key=%d, latency=%.3Lf, diff=%.3Lf",
-				frame->used, frame->width, frame->height,
+			US_LOG_VERBOSE("Frame: res=%ux%u, fmt=%s, stride=%u, online=%d, key=%d, kr=%d, latency=%.3Lf, diff=%.3Lf, size=%zu",
+				frame->width, frame->height,
 				us_fourcc_to_string(frame->format, fourcc_str, 8),
-				frame->stride, frame->online, frame->key,
-				now - frame->grab_ts, (last_ts ? now - last_ts : 0));
+				frame->stride, frame->online, frame->key, key_requested,
+				now - frame->grab_ts, (last_ts ? now - last_ts : 0),
+				frame->used);
 			last_ts = now;
 
 			US_LOG_DEBUG("       grab_ts=%.3Lf, encode_begin_ts=%.3Lf, encode_end_ts=%.3Lf",

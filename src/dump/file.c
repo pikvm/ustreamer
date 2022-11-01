@@ -52,11 +52,11 @@ void us_output_file_write(void *v_output, const us_frame_s *frame) {
 		us_base64_encode(frame->data, frame->used, &output->base64_data, &output->base64_allocated);
 		fprintf(output->fp,
 			"{\"size\": %zu, \"width\": %u, \"height\": %u,"
-			" \"format\": %u, \"stride\": %u, \"online\": %u,"
+			" \"format\": %u, \"stride\": %u, \"online\": %u, \"key\": %u,"
 			" \"grab_ts\": %.3Lf, \"encode_begin_ts\": %.3Lf, \"encode_end_ts\": %.3Lf,"
 			" \"data\": \"%s\"}\n",
 			frame->used, frame->width, frame->height,
-			frame->format, frame->stride, frame->online,
+			frame->format, frame->stride, frame->online, frame->key,
 			frame->grab_ts, frame->encode_begin_ts, frame->encode_end_ts,
 			output->base64_data);
 	} else {

@@ -136,9 +136,7 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *con
 		if (sink->mem->key_requested && frame->key) {
 			sink->mem->key_requested = false;
 		}
-		if (key_requested != NULL) {
-			*key_requested = sink->mem->key_requested;
-		}
+		*key_requested = sink->mem->key_requested;
 
 		memcpy(sink->mem->data, frame->data, frame->used);
 		sink->mem->used = frame->used;
@@ -166,7 +164,7 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *con
 	return 0;
 }
 
-int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool key_required) { // cppcheck-suppress unusedFunction
+int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *const key_requested, bool key_required) { // cppcheck-suppress unusedFunction
 	assert(!sink->server); // Client only
 
 	if (us_flock_timedwait_monotonic(sink->fd, sink->timeout) < 0) {
@@ -189,6 +187,7 @@ int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool key_requir
 			sink->last_id = sink->mem->id;
 			us_frame_set_data(frame, sink->mem->data, sink->mem->used);
 			US_FRAME_COPY_META(sink->mem, frame);
+			*key_requested = sink->mem->key_requested;
 			retval = 0;
 		}
 		sink->mem->last_client_ts = us_get_now_monotonic();
