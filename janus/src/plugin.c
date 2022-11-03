@@ -429,10 +429,6 @@ static struct janus_plugin_result *_plugin_handle_message(
 		{
 //			atomic_store(&_g_key_required, true);
 			char *const video_sdp = us_rtpv_make_sdp(_g_rtpv);
-			if (video_sdp == NULL) {
-				PUSH_ERROR(503, "Haven't received SPS/PPS from memsink yet");
-				goto ok_wait;
-			}
 			char *const audio_sdp = (_g_rtpa ? us_rtpa_make_sdp(_g_rtpa) : us_strdup(""));
 			US_ASPRINTF(sdp,
 				"v=0" RN

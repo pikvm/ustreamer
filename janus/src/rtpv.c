@@ -36,35 +36,15 @@ us_rtpv_s *us_rtpv_init(us_rtp_callback_f callback, bool zero_playout_delay) {
 	US_CALLOC(rtpv, 1);
 	rtpv->rtp = us_rtp_init(96, true, zero_playout_delay);
 	rtpv->callback = callback;
-	rtpv->sps = us_frame_init();
-	rtpv->pps = us_frame_init();
-	US_MUTEX_INIT(rtpv->mutex);
 	return rtpv;
 }
 
 void us_rtpv_destroy(us_rtpv_s *rtpv) {
-	US_MUTEX_DESTROY(rtpv->mutex);
-	us_frame_destroy(rtpv->pps);
-	us_frame_destroy(rtpv->sps);
 	us_rtp_destroy(rtpv->rtp);
 	free(rtpv);
 }
 
 char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
-	US_MUTEX_LOCK(rtpv->mutex);
-
-	if (rtpv->sps->used == 0 || rtpv->pps->used == 0) {
-		US_MUTEX_UNLOCK(rtpv->mutex);
-		return NULL;
-	}
-
-	char *sps = NULL;
-	char *pps = NULL;
-	us_base64_encode(rtpv->sps->data, rtpv->sps->used, &sps, NULL);
-	us_base64_encode(rtpv->pps->data, rtpv->pps->used, &pps, NULL);
-
-	US_MUTEX_UNLOCK(rtpv->mutex);
-
 #	define PAYLOAD rtpv->rtp->payload
 	// https://tools.ietf.org/html/rfc6184
 	// https://github.com/meetecho/janus-gateway/issues/2443
@@ -75,8 +55,6 @@ char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
 		"a=rtpmap:%u H264/90000" RN
 		"a=fmtp:%u profile-level-id=42E01F" RN
 		"a=fmtp:%u packetization-mode=1" RN
-		"a=fmtp:%u sprop-sps=%s" RN
-		"a=fmtp:%u sprop-pps=%s" RN
 		"a=rtcp-fb:%u nack" RN
 		"a=rtcp-fb:%u nack pli" RN
 		"a=rtcp-fb:%u goog-remb" RN
@@ -84,17 +62,12 @@ char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
 		"%s" // playout-delay
 		"a=sendonly" RN,
 		PAYLOAD, PAYLOAD, PAYLOAD, PAYLOAD,
-		PAYLOAD, sps,
-		PAYLOAD, pps,
 		PAYLOAD, PAYLOAD, PAYLOAD,
 		rtpv->rtp->ssrc,
 		(rtpv->rtp->zero_playout_delay ? "a=extmap:1 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay" RN : "")
 	);
-#	undef PAYLOAD
-
-	free(sps);
-	free(pps);
 	return sdp;
+#	undef PAYLOAD
 }
 
 #define _PRE 3 // Annex B prefix length
@@ -136,21 +109,10 @@ void us_rtpv_wrap(us_rtpv_s *rtpv, const us_frame_s *frame) {
 }
 
 void _rtpv_process_nalu(us_rtpv_s *rtpv, const uint8_t *data, size_t size, uint32_t pts, bool marked) {
+#	define DG rtpv->rtp->datagram
+
 	const unsigned ref_idc = (data[0] >> 5) & 3;
 	const unsigned type = data[0] & 0x1F;
-
-	us_frame_s *ps = NULL;
-	switch (type) {
-		case 7: ps = rtpv->sps; break;
-		case 8: ps = rtpv->pps; break;
-	}
-	if (ps != NULL) {
-		US_MUTEX_LOCK(rtpv->mutex);
-		us_frame_set_data(ps, data, size);
-		US_MUTEX_UNLOCK(rtpv->mutex);
-	}
-
-#	define DG rtpv->rtp->datagram
 
 	if (size + US_RTP_HEADER_SIZE <= US_RTP_DATAGRAM_SIZE) {
 		us_rtp_write_header(rtpv->rtp, pts, marked);

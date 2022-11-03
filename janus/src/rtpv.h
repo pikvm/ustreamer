@@ -31,12 +31,8 @@
 #include <sys/types.h>
 #include <linux/videodev2.h>
 
-#include <pthread.h>
-
 #include "uslibs/tools.h"
-#include "uslibs/threading.h"
 #include "uslibs/frame.h"
-#include "uslibs/base64.h"
 
 #include "rtp.h"
 
@@ -44,9 +40,6 @@
 typedef struct {
 	us_rtp_s			*rtp;
 	us_rtp_callback_f	callback;
-	us_frame_s			*sps; // Actually not a frame, just a bytes storage
-	us_frame_s			*pps;
-	pthread_mutex_t		mutex;
 } us_rtpv_s;
 
 
