@@ -435,9 +435,14 @@ static struct janus_plugin_result *_plugin_handle_message(
 				"s=PiKVM uStreamer" RN
 				"t=0 0" RN
 				"%s%s",
+#if JANUS_PLUGIN_API_VERSION >= 100
 				// Place video SDP before audio SDP so that the video and audio streams
 				// have predictable indices, even if audio is not available.
 				us_get_now_id() >> 1, video_sdp, audio_sdp
+#else
+				// For versions of Janus prior to 1.x, place the audio SDP first.
+				us_get_now_id() >> 1, audio_sdp, video_sdp
+#endif
 			);
 			free(audio_sdp);
 			free(video_sdp);
