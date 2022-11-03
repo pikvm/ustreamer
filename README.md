@@ -38,7 +38,7 @@ If you're going to live-stream from your backyard webcam and need to control it,
 You'll need  ```make```, ```gcc```, ```libevent``` with ```pthreads``` support, ```libjpeg9```/```libjpeg-turbo``` and ```libbsd``` (only for Linux).
 
 * Arch: `sudo pacman -S libevent libjpeg-turbo libutil-linux libbsd`.
-* Raspbian: `sudo apt install libevent-dev libjpeg8-dev libbsd-dev`. Add `libgpiod-dev` for `WITH_GPIO=1` and `libsystemd-dev` for `WITH_SYSTEMD=1`.
+* Raspbian: `sudo apt install libevent-dev libjpeg8-dev libbsd-dev`. Add `libgpiod-dev` for `WITH_GPIO=1` and `libsystemd-dev` for `WITH_SYSTEMD=1` and `libasound2-dev libspeex-dev libspeexdsp-dev libopus-dev` for `WITH_JANUS=1`.
 * Debian/Ubuntu: `sudo apt install build-essential libevent-dev libjpeg-dev libbsd-dev`.
 * Alpine: `sudo apk add libevent-dev libbsd-dev libjpeg-turbo-dev musl-dev`. Build with `WITH_PTHREAD_NP=0`.
 
