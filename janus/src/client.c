@@ -102,11 +102,11 @@ static void *_common_thread(void *v_client, bool video) {
 				packet.video = rtp->video;
 				packet.buffer = (char *)rtp->datagram;
 				packet.length = rtp->used;
-#if JANUS_PLUGIN_API_VERSION >= 100
+#				if JANUS_PLUGIN_API_VERSION >= 100
 				// The uStreamer Janus plugin places video in stream index 0 and audio
 				// (if available) in stream index 1.
 				packet.mindex = (rtp->video ? 0 : 1);
-#endif
+#				endif
 				janus_plugin_rtp_extensions_reset(&packet.extensions);
 				// FIXME: Это очень эффективный способ уменьшить задержку, но WebRTC стек в хроме и фоксе
 				// слишком корявый, чтобы обработать это, из-за чего на кейфреймах начинаются заикания.
