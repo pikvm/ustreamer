@@ -48,7 +48,7 @@ enum _OPT_VALUES {
 	_O_OUTPUT_JSON = 'j',
 	_O_COUNT = 'c',
 	_O_INTERVAL = 'i',
-	_O_KEY = 'k',
+	_O_KEY_REQUIRED = 'k',
 
 	_O_HELP = 'h',
 	_O_VERSION = 'v',
@@ -68,7 +68,7 @@ static const struct option _LONG_OPTS[] = {
 	{"output-json",			no_argument,		NULL,	_O_OUTPUT_JSON},
 	{"count",				required_argument,	NULL,	_O_COUNT},
 	{"interval",			required_argument,	NULL,	_O_INTERVAL},
-	{"key",					no_argument,		NULL,	_O_KEY},
+	{"key-required",		no_argument,		NULL,	_O_KEY_REQUIRED},
 
 	{"log-level",			required_argument,	NULL,	_O_LOG_LEVEL},
 	{"perf",				no_argument,		NULL,	_O_PERF},
@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
 			case _O_OUTPUT_JSON:	OPT_SET(output_json, true);
 			case _O_COUNT:			OPT_NUMBER("--count", count, 0, LLONG_MAX, 0);
 			case _O_INTERVAL:		OPT_LDOUBLE("--interval", interval, 0, 60);
-			case _O_KEY:			OPT_SET(key_required, true);
+			case _O_KEY_REQUIRED:	OPT_SET(key_required, true);
 
 			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", us_g_log_level, US_LOG_LEVEL_INFO, US_LOG_LEVEL_DEBUG, 0);
 			case _O_PERF:				OPT_SET(us_g_log_level, US_LOG_LEVEL_PERF);
@@ -332,7 +332,7 @@ static void _help(FILE *fp) {
 	SAY("    -j|--output-json  ──────── Format output as JSON. Required option --output. Default: disabled.\n");
 	SAY("    -c|--count  <N>  ───────── Limit the number of frames. Default: 0 (infinite).\n");
 	SAY("    -i|--interval <sec>  ───── Delay between reading frames (float). Default: 0.\n");
-	SAY("    -k|--key  ──────────────── Request keyframe from the sink. Default: disabled.\n");
+	SAY("    -k|--key-required  ─────── Request keyframe from the sink. Default: disabled.\n");
 	SAY("Logging options:");
 	SAY("════════════════");
 	SAY("    --log-level <N>  ──── Verbosity level of messages from 0 (info) to 3 (debug).");
