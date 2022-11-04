@@ -154,9 +154,9 @@ static void *_video_sink_thread(UNUSED void *arg) {
 				if (frame == NULL) {
 					goto close_memsink;
 				}
-//				if (frame->key) {
-//					atomic_store(&_g_key_required, false);
-//				}
+				if (frame->key) {
+					atomic_store(&_g_key_required, false);
+				}
 				if (us_queue_put(_g_video_queue, frame, 0) != 0) {
 					_IF_NOT_REPORTED({ US_JLOG_PERROR("video", "Video queue is full"); });
 					us_frame_destroy(frame);
@@ -427,7 +427,6 @@ static struct janus_plugin_result *_plugin_handle_message(
 	} else if (!strcmp(request_str, "watch")) {
 		char *sdp;
 		{
-//			atomic_store(&_g_key_required, true);
 			char *const video_sdp = us_rtpv_make_sdp(_g_rtpv);
 			char *const audio_sdp = (_g_rtpa ? us_rtpa_make_sdp(_g_rtpa) : us_strdup(""));
 			US_ASPRINTF(sdp,
@@ -454,6 +453,10 @@ static struct janus_plugin_result *_plugin_handle_message(
 		free(sdp);
 		PUSH_STATUS("started", offer_jsep);
 		json_decref(offer_jsep);
+
+	} else if (!strcmp(request_str, "key_required")) {
+		US_JLOG_INFO("main", "Got keyframe request from a client");
+		atomic_store(&_g_key_required, true);
 
 	} else {
 		PUSH_ERROR(405, "Not implemented");
