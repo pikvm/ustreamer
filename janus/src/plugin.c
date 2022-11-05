@@ -35,6 +35,7 @@
 #include <pthread.h>
 #include <jansson.h>
 #include <janus/plugins/plugin.h>
+#include <janus/rtcp.h>
 
 #include "uslibs/const.h"
 #include "uslibs/tools.h"
@@ -455,7 +456,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 		json_decref(offer_jsep);
 
 	} else if (!strcmp(request_str, "key_required")) {
-		US_JLOG_INFO("main", "Got keyframe request from a client");
+		// US_JLOG_INFO("main", "Got key_required message");
 		atomic_store(&_g_key_required, true);
 
 	} else {
@@ -471,6 +472,13 @@ static struct janus_plugin_result *_plugin_handle_message(
 #	undef FREE_MSG_JSEP
 }
 
+static void _plugin_incoming_rtcp(UNUSED janus_plugin_session *handle, UNUSED janus_plugin_rtcp *packet) {
+	if (packet->video && janus_rtcp_has_pli(packet->buffer, packet->length)) {
+		// US_JLOG_INFO("main", "Got video PLI");
+		atomic_store(&_g_key_required, true);
+	}
+}
+
 
 // ***** Plugin *****
 
@@ -481,10 +489,6 @@ static const char *_plugin_get_description(void)	{ return "PiKVM uStreamer Janus
 static const char *_plugin_get_name(void)			{ return US_PLUGIN_NAME; }
 static const char *_plugin_get_author(void)			{ return "Maxim Devaev <mdevaev@gmail.com>"; }
 static const char *_plugin_get_package(void)		{ return US_PLUGIN_PACKAGE; }
-
-static void _plugin_incoming_rtp(UNUSED janus_plugin_session *handle, UNUSED janus_plugin_rtp *packet) {
-	// Just a stub to avoid logging spam about the plugin's purpose
-}
 
 janus_plugin *create(void) {
 #	pragma GCC diagnostic push
@@ -510,7 +514,7 @@ janus_plugin *create(void) {
 		.get_author = _plugin_get_author,
 		.get_package = _plugin_get_package,
 
-		.incoming_rtp = _plugin_incoming_rtp,
+		.incoming_rtcp = _plugin_incoming_rtcp,
 	);
 #	pragma GCC diagnostic pop
 	return &plugin;
