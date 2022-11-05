@@ -23,7 +23,7 @@ _USTR_SRCS = $(shell ls \
 	ustreamer/data/*.c \
 	ustreamer/encoders/cpu/*.c \
 	ustreamer/encoders/hw/*.c \
-	ustreamer/h264/*.c \
+	ustreamer/*.c \
 )
 
 _DUMP_LIBS = $(_COMMON_LIBS)

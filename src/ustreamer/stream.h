@@ -42,7 +42,7 @@
 #include "device.h"
 #include "encoder.h"
 #include "workers.h"
-#include "h264/stream.h"
+#include "h264.h"
 #ifdef WITH_GPIO
 #	include "gpio/gpio.h"
 #endif
