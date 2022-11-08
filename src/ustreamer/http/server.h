@@ -60,6 +60,7 @@
 #include "../../libs/base64.h"
 #include "../../libs/list.h"
 #include "../data/index_html.h"
+#include "../data/favicon_ico.h"
 #include "../encoder.h"
 #include "../stream.h"
 #ifdef WITH_GPIO

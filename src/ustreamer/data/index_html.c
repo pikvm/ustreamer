@@ -28,7 +28,7 @@ const char *const US_HTML_INDEX_PAGE = " \
 	<html> \
 	<head> \
 		<meta charset=\"utf-8\" /> \
-		<title>uStreamer</title> \
+		<title>μStreamer</title> \
 		<style>body {font-family: monospace;}</style> \
 	</head> \
 	\

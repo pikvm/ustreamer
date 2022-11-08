@@ -71,6 +71,7 @@ install-strip: install
 
 regen:
 	tools/$(MAKE)-jpeg-h.py src/ustreamer/data/blank.jpeg src/ustreamer/data/blank_jpeg.c BLANK
+	tools/$(MAKE)-ico-h.py src/ustreamer/data/favicon.ico src/ustreamer/data/favicon_ico.c FAVICON
 	tools/$(MAKE)-html-h.py src/ustreamer/data/index.html src/ustreamer/data/index_html.c INDEX
 
 

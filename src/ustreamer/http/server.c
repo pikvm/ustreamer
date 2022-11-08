@@ -28,6 +28,7 @@ static int _http_preprocess_request(struct evhttp_request *request, us_server_s 
 static int _http_check_run_compat_action(struct evhttp_request *request, void *v_server);
 
 static void _http_callback_root(struct evhttp_request *request, void *v_server);
+static void _http_callback_favicon(struct evhttp_request *request, void *v_server);
 static void _http_callback_static(struct evhttp_request *request, void *v_server);
 static void _http_callback_state(struct evhttp_request *request, void *v_server);
 static void _http_callback_snapshot(struct evhttp_request *request, void *v_server);
@@ -128,6 +129,7 @@ int us_server_listen(us_server_s *server) {
 			evhttp_set_gencb(_RUN(http), _http_callback_static, (void *)server);
 		} else {
 			assert(!evhttp_set_cb(_RUN(http), "/", _http_callback_root, (void *)server));
+			assert(!evhttp_set_cb(_RUN(http), "/favicon.ico", _http_callback_favicon, (void *)server));
 		}
 		assert(!evhttp_set_cb(_RUN(http), "/state", _http_callback_state, (void *)server));
 		assert(!evhttp_set_cb(_RUN(http), "/snapshot", _http_callback_snapshot, (void *)server));
@@ -303,6 +305,20 @@ static void _http_callback_root(struct evhttp_request *request, void *v_server) 
 	_A_EVBUFFER_NEW(buf);
 	_A_EVBUFFER_ADD_PRINTF(buf, "%s", US_HTML_INDEX_PAGE);
 	ADD_HEADER("Content-Type", "text/html");
+	evhttp_send_reply(request, HTTP_OK, "OK", buf);
+
+	evbuffer_free(buf);
+}
+
+static void _http_callback_favicon(struct evhttp_request *request, void *v_server) {
+	us_server_s *const server = (us_server_s *)v_server;
+
+	PREPROCESS_REQUEST;
+
+	struct evbuffer *buf;
+	_A_EVBUFFER_NEW(buf);
+	_A_EVBUFFER_ADD(buf, (const void *)US_FAVICON_ICO_DATA, US_FAVICON_ICO_DATA_SIZE);
+	ADD_HEADER("Content-Type", "image/x-icon");
 	evhttp_send_reply(request, HTTP_OK, "OK", buf);
 
 	evbuffer_free(buf);
