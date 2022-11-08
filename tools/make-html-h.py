@@ -36,8 +36,8 @@ def main() -> None:
     h_path = os.path.basename(c_path[:-2] + ".h")
     name = sys.argv[3]
 
-    with open(html_path, "r") as html_file:
-        html = html_file.read()
+    with open(html_path, "r") as file:
+        html = file.read()
 
     html = html.strip()
     html = html.replace("\"", "\\\"")
@@ -51,8 +51,8 @@ def main() -> None:
     text = f"{common.C_PREPEND}\n#include \"{h_path}\"\n\n\n"
     text += f"const char *const US_HTML_{name}_PAGE = \" \\\n{html}\n\";\n"
 
-    with open(c_path, "w") as c_file:
-        c_file.write(text)
+    with open(c_path, "w") as file:
+        file.write(text)
 
 
 # =====

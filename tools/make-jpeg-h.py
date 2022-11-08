@@ -65,28 +65,28 @@ def main() -> None:
     h_path = os.path.basename(c_path[:-2]) + ".h"
     name = sys.argv[3]
 
-    with open(jpeg_path, "rb") as jpeg_file:
-        jpeg_data = jpeg_file.read()
+    with open(jpeg_path, "rb") as file:
+        data = file.read()
 
-    (width, height) = _get_jpeg_size(jpeg_data)
+    (width, height) = _get_jpeg_size(data)
 
-    jpeg_data_text = "{\n\t" + ",\n\t".join(
+    data_text = "{\n\t" + ",\n\t".join(
         ", ".join(
             f"0x{ch:02X}"
-            for ch in jpeg_data[index:index + 20]
+            for ch in data[index:index + 20]
         )
-        for index in range(0, len(jpeg_data), 20)
+        for index in range(0, len(data), 20)
     ) + ",\n}"
 
     text = f"{common.C_PREPEND}\n"
     text += f"#include \"{h_path}\"\n\n\n"
     text += f"const unsigned US_{name}_JPEG_WIDTH = {width};\n"
     text += f"const unsigned US_{name}_JPEG_HEIGHT = {height};\n\n"
-    text += f"const size_t US_{name}_JPEG_DATA_SIZE = {len(jpeg_data)};\n"
-    text += f"const uint8_t US_{name}_JPEG_DATA[] = {jpeg_data_text};\n"
+    text += f"const size_t US_{name}_JPEG_DATA_SIZE = {len(data)};\n"
+    text += f"const uint8_t US_{name}_JPEG_DATA[] = {data_text};\n"
 
-    with open(c_path, "w") as c_file:
-        c_file.write(text)
+    with open(c_path, "w") as file:
+        file.write(text)
 
 
 # =====
