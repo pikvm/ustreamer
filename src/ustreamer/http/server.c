@@ -563,8 +563,8 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 #			endif
 		}
 
-		US_LOG_INFO("HTTP: Registered client: %s, id=%" PRIx64 "; clients now: %u",
-			client->hostport, client->id, _RUN(stream_clients_count));
+		US_LOG_INFO("HTTP: NEW client (now=%u): %s, id=%" PRIx64,
+			_RUN(stream_clients_count), client->hostport, client->id);
 
 		struct bufferevent *const buf_event = evhttp_connection_get_bufferevent(conn);
 		if (server->tcp_nodelay && !_RUN(ext_fd)) {
@@ -743,8 +743,8 @@ static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UN
 	}
 
 	char *const reason = us_bufferevent_format_reason(what);
-	US_LOG_INFO("HTTP: Disconnected client: %s, id=%" PRIx64 ", %s; clients now: %u",
-		client->hostport, client->id, reason, _RUN(stream_clients_count));
+	US_LOG_INFO("HTTP: DEL client (now=%u): %s, id=%" PRIx64 ", %s",
+		_RUN(stream_clients_count), client->hostport, client->id, reason);
 	free(reason);
 
 	struct evhttp_connection *const conn = evhttp_request_get_connection(client->request);
