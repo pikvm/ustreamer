@@ -476,6 +476,7 @@ static int _m2m_encoder_compress_raw(us_m2m_encoder_s *enc, const us_frame_s *sr
 			} else {
 				us_frame_set_data(dest, _RUN(output_bufs[output_buf.index].data), output_plane.bytesused);
 				dest->key = output_buf.flags & V4L2_BUF_FLAG_KEYFRAME;
+				dest->gop = enc->gop;
 				done = true;
 			}
 
