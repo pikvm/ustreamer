@@ -34,15 +34,30 @@ Footnotes:
 If you're going to live-stream from your backyard webcam and need to control it, use mjpg-streamer. If you need a high-quality image with high FPS - µStreamer for the win.
 
 -----
-# Building
+# Installation
+
+## Building
+You need to download the µStreamer onto your system and build it from the sources.
+
+AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer.
+
+FreeBSD port: https://www.freshports.org/multimedia/ustreamer.
+
+### Preconditions
 You'll need  ```make```, ```gcc```, ```libevent``` with ```pthreads``` support, ```libjpeg9```/```libjpeg-turbo``` and ```libbsd``` (only for Linux).
 
 * Arch: `sudo pacman -S libevent libjpeg-turbo libutil-linux libbsd`.
-* Raspbian: `sudo apt install libevent-dev libjpeg8-dev libbsd-dev`. Add `libgpiod-dev` for `WITH_GPIO=1` and `libsystemd-dev` for `WITH_SYSTEMD=1` and `libasound2-dev libspeex-dev libspeexdsp-dev libopus-dev` for `WITH_JANUS=1`.
+* Raspbian: `sudo apt install libevent-dev libjpeg9-dev libbsd-dev`. Add `libgpiod-dev` for `WITH_GPIO=1` and `libsystemd-dev` for `WITH_SYSTEMD=1` and `libasound2-dev libspeex-dev libspeexdsp-dev libopus-dev` for `WITH_JANUS=1`.
 * Debian/Ubuntu: `sudo apt install build-essential libevent-dev libjpeg-dev libbsd-dev`.
 * Alpine: `sudo apk add libevent-dev libbsd-dev libjpeg-turbo-dev musl-dev`. Build with `WITH_PTHREAD_NP=0`.
 
 To enable GPIO support install [libgpiod](https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/about) and pass option ```WITH_GPIO=1```. If the compiler reports about a missing function ```pthread_get_name_np()``` (or similar), add option ```WITH_PTHREAD_NP=0``` (it's enabled by default). For the similar error with ```setproctitle()``` add option ```WITH_SETPROCTITLE=0```.
+
+> **Note**
+> Raspian: In case your version of Raspian is too told for there to be a libjpeg9 package, use `libjpeg8-dev` instead: `E: Package 'libjpeg9-dev' has no installation candidate`.
+
+### Make
+The most convenient process is to clone the µStreamer Git repository onto your system. If you don't have Git installed and don't want to install it either, you can download and unzip the sources from GitHub using `wget https://github.com/pikvm/ustreamer/archive/refs/heads/master.zip`.
 
 ```
 $ git clone --depth=1 https://github.com/pikvm/ustreamer
@@ -51,9 +66,15 @@ $ make
 $ ./ustreamer --help
 ```
 
-AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer.
+## Update
+Assuming you have a µStreamer clone as discussed above you can update µStreamer as follows.
 
-FreeBSD port: https://www.freshports.org/multimedia/ustreamer.
+```
+$ cd ustreamer
+$ git pull
+$ make clean
+$ make
+```
 
 -----
 # Usage
