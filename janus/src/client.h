@@ -44,12 +44,12 @@ typedef struct us_janus_client_sx {
     janus_plugin_session	*session;
     atomic_bool				transmit;
 
-	pthread_t	video_tid;
-	pthread_t	audio_tid;
-	atomic_bool	stop;
+	pthread_t				video_tid;
+	pthread_t				audio_tid;
+	atomic_bool				stop;
 
-	us_queue_s		*video_queue;
-	us_queue_s		*audio_queue;
+	us_queue_s				*video_queue;
+	us_queue_s				*audio_queue;
 
     US_LIST_STRUCT(struct us_janus_client_sx);
 } us_janus_client_s;

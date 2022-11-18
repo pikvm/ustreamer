@@ -52,8 +52,8 @@ typedef struct {
 	SpeexResamplerState	*res;
 	OpusEncoder			*enc;
 
-	us_queue_s				*pcm_queue;
-	us_queue_s				*enc_queue;
+	us_queue_s			*pcm_queue;
+	us_queue_s			*enc_queue;
 	uint32_t			pts;
 
 	pthread_t			pcm_tid;
