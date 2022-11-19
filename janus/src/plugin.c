@@ -118,7 +118,7 @@ static void *_video_sink_thread(UNUSED void *arg) {
 	atomic_store(&_g_video_sink_tid_created, true);
 
 	uint64_t frame_id = 0;
-	unsigned once = 0;
+	int once = 0;
 
 	while (!_STOP) {
 		if (!_HAS_WATCHERS) {
@@ -181,7 +181,7 @@ static void *_audio_thread(UNUSED void *arg) {
 	assert(_g_config->audio_dev_name != NULL);
 	assert(_g_config->tc358743_dev_path != NULL);
 
-	unsigned once = 0;
+	int once = 0;
 
 	while (!_STOP) {
 		if (!_HAS_WATCHERS) {

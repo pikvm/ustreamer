@@ -38,7 +38,7 @@
 	}
 
 #define US_ONCE(...) { \
-		const unsigned m_reported = __LINE__; \
+		const int m_reported = __LINE__; \
 		if (m_reported != once) { \
 			__VA_ARGS__; \
 			once = m_reported; \
