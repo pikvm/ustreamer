@@ -477,6 +477,11 @@ static struct janus_plugin_result *_plugin_handle_message(
 			_UNLOCK_ALL;
 		}
 
+	} else if (!strcmp(request_str, "features")) {
+		json_t *const features = json_pack("{sb}", "audio", (_g_rtpa != NULL));
+		PUSH_STATUS("features", features);
+		json_decref(features);
+
 	} else if (!strcmp(request_str, "key_required")) {
 		// US_JLOG_INFO("main", "Got key_required message");
 		atomic_store(&_g_key_required, true);
