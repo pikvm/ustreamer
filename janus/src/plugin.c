@@ -464,15 +464,16 @@ static struct janus_plugin_result *_plugin_handle_message(
 			free(sdp);
 		}
 
-		if (with_audio) {
+		{
 			_LOCK_ALL;
+			bool has_listeners = false;
 			US_LIST_ITERATE(_g_clients, client, {
 				if (client->session == session) {
-					atomic_store(&client->transmit_audio, true);
-					break;
+					atomic_store(&client->transmit_audio, with_audio);
 				}
+				has_listeners = (has_listeners || atomic_load(&client->transmit_audio));
 			});
-			atomic_store(&_g_has_listeners, true);
+			atomic_store(&_g_has_listeners, has_listeners);
 			_UNLOCK_ALL;
 		}
 
