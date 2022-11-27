@@ -108,14 +108,14 @@ static void *_common_thread(void *v_client, bool video) {
 				packet.mindex = (rtp->video ? 0 : 1);
 #				endif
 				janus_plugin_rtp_extensions_reset(&packet.extensions);
-				if (rtp->zero_playout_delay) {
+				/*if (rtp->zero_playout_delay) {
 					// https://github.com/pikvm/pikvm/issues/784
 					packet.extensions.min_delay = 0;
 					packet.extensions.max_delay = 0;
 				} else {
 					packet.extensions.min_delay = 0;
 					packet.extensions.max_delay = 1000;
-				}
+				}*/
 				client->gw->relay_rtp(client->session, &packet);
 			}
 			us_rtp_destroy(rtp);
