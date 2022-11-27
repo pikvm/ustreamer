@@ -41,8 +41,9 @@
 
 typedef struct us_janus_client_sx {
 	janus_callbacks			*gw;
-    janus_plugin_session	*session;
-    atomic_bool				transmit;
+	janus_plugin_session	*session;
+	atomic_bool				transmit;
+	atomic_bool				transmit_audio;
 
 	pthread_t				video_tid;
 	pthread_t				audio_tid;
@@ -55,7 +56,7 @@ typedef struct us_janus_client_sx {
 } us_janus_client_s;
 
 
-us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_session *session, bool has_audio);
+us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_session *session);
 void us_janus_client_destroy(us_janus_client_s *client);
 
 void us_janus_client_send(us_janus_client_s *client, const us_rtp_s *rtp);

@@ -77,6 +77,7 @@ static pthread_mutex_t	_g_audio_lock = PTHREAD_MUTEX_INITIALIZER;
 static atomic_bool		_g_ready = false;
 static atomic_bool		_g_stop = false;
 static atomic_bool		_g_has_watchers = false;
+static atomic_bool		_g_has_listeners = false;
 static atomic_bool		_g_key_required = false;
 
 
@@ -92,6 +93,7 @@ static atomic_bool		_g_key_required = false;
 #define _READY			atomic_load(&_g_ready)
 #define _STOP			atomic_load(&_g_stop)
 #define _HAS_WATCHERS	atomic_load(&_g_has_watchers)
+#define _HAS_LISTENERS	atomic_load(&_g_has_listeners)
 
 
 janus_plugin *create(void);
@@ -184,7 +186,7 @@ static void *_audio_thread(UNUSED void *arg) {
 	int once = 0;
 
 	while (!_STOP) {
-		if (!_HAS_WATCHERS) {
+		if (!_HAS_WATCHERS || !_HAS_LISTENERS) {
 			usleep(_g_watchers_polling);
 			continue;
 		}
@@ -206,7 +208,7 @@ static void *_audio_thread(UNUSED void *arg) {
 
 		once = 0;
 
-		while (!_STOP && _HAS_WATCHERS) {
+		while (!_STOP && _HAS_WATCHERS && _HAS_LISTENERS) {
 			if (
 				us_tc358743_read_info(_g_config->tc358743_dev_path, &info) < 0
 				|| !info.has_audio
@@ -295,7 +297,7 @@ static void _plugin_create_session(janus_plugin_session *session, int *err) {
 	_IF_DISABLED({ *err = -1; return; });
 	_LOCK_ALL;
 	US_JLOG_INFO("main", "Creating session %p ...", session);
-	us_janus_client_s *const client = us_janus_client_init(_g_gw, session, (_g_config->audio_dev_name != NULL));
+	us_janus_client_s *const client = us_janus_client_init(_g_gw, session);
 	US_LIST_APPEND(_g_clients, client);
 	atomic_store(&_g_has_watchers, true);
 	_UNLOCK_ALL;
@@ -306,6 +308,7 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 	_LOCK_ALL;
 	bool found = false;
 	bool has_watchers = false;
+	bool has_listeners = false;
 	US_LIST_ITERATE(_g_clients, client, {
 		if (client->session == session) {
 			US_JLOG_INFO("main", "Removing session %p ...", session);
@@ -314,6 +317,7 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 			found = true;
 		} else {
 			has_watchers = (has_watchers || atomic_load(&client->transmit));
+			has_listeners = (has_listeners || atomic_load(&client->transmit_audio));
 		}
 	});
 	if (!found) {
@@ -321,6 +325,7 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 		*err = -2;
 	}
 	atomic_store(&_g_has_watchers, has_watchers);
+	atomic_store(&_g_has_listeners, has_listeners);
 	_UNLOCK_ALL;
 }
 
@@ -419,10 +424,21 @@ static struct janus_plugin_result *_plugin_handle_message(
 		PUSH_STATUS("stopped", NULL);
 
 	} else if (!strcmp(request_str, "watch")) {
-		char *sdp;
+		bool with_audio = false;
 		{
+			json_t *const params_obj = json_object_get(msg, "params");
+			if (params_obj != NULL) {
+				json_t *const audio_obj = json_object_get(params_obj, "audio");
+				if (audio_obj != NULL && json_is_boolean(audio_obj)) {
+					with_audio = (_g_rtpa != NULL && json_boolean_value(audio_obj));
+				}
+			}
+		}
+
+		{
+			char *sdp;
 			char *const video_sdp = us_rtpv_make_sdp(_g_rtpv);
-			char *const audio_sdp = (_g_rtpa ? us_rtpa_make_sdp(_g_rtpa) : us_strdup(""));
+			char *const audio_sdp = (with_audio ? us_rtpa_make_sdp(_g_rtpa) : us_strdup(""));
 			US_ASPRINTF(sdp,
 				"v=0" RN
 				"o=- %" PRIu64 " 1 IN IP4 0.0.0.0" RN
@@ -440,13 +456,25 @@ static struct janus_plugin_result *_plugin_handle_message(
 				audio_sdp, video_sdp
 #				endif
 			);
+			json_t *const offer_jsep = json_pack("{ssss}", "type", "offer", "sdp", sdp);
+			PUSH_STATUS("started", offer_jsep);
+			json_decref(offer_jsep);
 			free(audio_sdp);
 			free(video_sdp);
+			free(sdp);
 		}
-		json_t *const offer_jsep = json_pack("{ssss}", "type", "offer", "sdp", sdp);
-		free(sdp);
-		PUSH_STATUS("started", offer_jsep);
-		json_decref(offer_jsep);
+
+		if (with_audio) {
+			_LOCK_ALL;
+			US_LIST_ITERATE(_g_clients, client, {
+				if (client->session == session) {
+					atomic_store(&client->transmit_audio, true);
+					break;
+				}
+			});
+			atomic_store(&_g_has_listeners, true);
+			_UNLOCK_ALL;
+		}
 
 	} else if (!strcmp(request_str, "key_required")) {
 		// US_JLOG_INFO("main", "Got key_required message");
