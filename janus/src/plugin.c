@@ -394,13 +394,13 @@ static struct janus_plugin_result *_plugin_handle_message(
 			json_decref(m_event); \
 		}
 
-	json_t *const request_obj = json_object_get(msg, "request");
-	if (request_obj == NULL) {
+	json_t *const request = json_object_get(msg, "request");
+	if (request == NULL) {
 		PUSH_ERROR(400, "Request missing");
 		goto ok_wait;
 	}
 
-	const char *const request_str = json_string_value(request_obj);
+	const char *const request_str = json_string_value(request);
 	if (request_str == NULL) {
 		PUSH_ERROR(400, "Request not a string");
 		goto ok_wait;
@@ -426,11 +426,11 @@ static struct janus_plugin_result *_plugin_handle_message(
 	} else if (!strcmp(request_str, "watch")) {
 		bool with_audio = false;
 		{
-			json_t *const params_obj = json_object_get(msg, "params");
-			if (params_obj != NULL) {
-				json_t *const audio_obj = json_object_get(params_obj, "audio");
-				if (audio_obj != NULL && json_is_boolean(audio_obj)) {
-					with_audio = (_g_rtpa != NULL && json_boolean_value(audio_obj));
+			json_t *const params = json_object_get(msg, "params");
+			if (params != NULL) {
+				json_t *const audio = json_object_get(params, "audio");
+				if (audio != NULL && json_is_boolean(audio)) {
+					with_audio = (_g_rtpa != NULL && json_boolean_value(audio));
 				}
 			}
 		}
