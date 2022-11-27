@@ -36,7 +36,6 @@
 
 typedef struct {
 	char	*video_sink_name;
-	bool	video_zero_playout_delay;
 
 	char	*audio_dev_name;
 	char	*tc358743_dev_path;

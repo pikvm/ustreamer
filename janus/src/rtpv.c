@@ -31,10 +31,10 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const uint8_t *data, size_t size, uint3
 static ssize_t _find_annexb(const uint8_t *data, size_t size);
 
 
-us_rtpv_s *us_rtpv_init(us_rtp_callback_f callback, bool zero_playout_delay) {
+us_rtpv_s *us_rtpv_init(us_rtp_callback_f callback) {
 	us_rtpv_s *rtpv;
 	US_CALLOC(rtpv, 1);
-	rtpv->rtp = us_rtp_init(96, true, zero_playout_delay);
+	rtpv->rtp = us_rtp_init(96, true);
 	rtpv->callback = callback;
 	return rtpv;
 }
@@ -59,12 +59,11 @@ char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
 		"a=rtcp-fb:%u nack pli" RN
 		"a=rtcp-fb:%u goog-remb" RN
 		"a=ssrc:%" PRIu32 " cname:ustreamer" RN
-		"%s" // playout-delay
+		"a=extmap:1 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay" RN
 		"a=sendonly" RN,
 		PAYLOAD, PAYLOAD, PAYLOAD, PAYLOAD,
 		PAYLOAD, PAYLOAD, PAYLOAD,
-		rtpv->rtp->ssrc,
-		(rtpv->rtp->zero_playout_delay ? "a=extmap:1 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay" RN : "")
+		rtpv->rtp->ssrc
 	);
 	return sdp;
 #	undef PAYLOAD
@@ -77,6 +76,8 @@ void us_rtpv_wrap(us_rtpv_s *rtpv, const us_frame_s *frame) {
 	//   - https://github.com/pikvm/ustreamer/issues/115#issuecomment-893071775
 
 	assert(frame->format == V4L2_PIX_FMT_H264);
+
+	rtpv->rtp->zero_playout_delay = (frame->gop == 0);
 
 	const uint32_t pts = us_get_now_monotonic_u64() * 9 / 100; // PTS units are in 90 kHz
 	ssize_t last_offset = -_PRE;

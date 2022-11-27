@@ -50,6 +50,7 @@ typedef struct {
 
 	bool		online;
 	bool		key;
+	unsigned	gop;
 
 	long double	grab_ts;
 	long double	encode_begin_ts;
@@ -64,6 +65,7 @@ typedef struct {
 		x_dest->stride = x_src->stride; \
 		x_dest->online = x_src->online; \
 		x_dest->key = x_src->key; \
+		x_dest->gop = x_src->gop; \
 		x_dest->grab_ts = x_src->grab_ts; \
 		x_dest->encode_begin_ts = x_src->encode_begin_ts; \
 		x_dest->encode_end_ts = x_src->encode_end_ts; \
@@ -81,6 +83,7 @@ static inline void us_frame_copy_meta(const us_frame_s *src, us_frame_s *dest) {
 		&& x_a->stride == x_b->stride \
 		&& x_a->online == x_b->online \
 		&& x_a->key == x_b->key \
+		&& x_a->gop == x_b->gop \
 	)
 
 

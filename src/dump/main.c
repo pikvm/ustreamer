@@ -260,16 +260,16 @@ static int _dump_sink(
 			const long long now_second = us_floor_ms(now);
 
 			char fourcc_str[8];
-			US_LOG_VERBOSE("Frame: res=%ux%u, fmt=%s, stride=%u, online=%d, key=%d, kr=%d, latency=%.3Lf, diff=%.3Lf, size=%zu",
-				frame->width, frame->height,
+			US_LOG_VERBOSE("Frame: %s - %ux%u -- online=%d, key=%d, kr=%d, gop=%u, latency=%.3Lf, backlog=%.3Lf, size=%zu",
 				us_fourcc_to_string(frame->format, fourcc_str, 8),
-				frame->stride, frame->online, frame->key, key_requested,
+				frame->width, frame->height,
+				frame->online, frame->key, key_requested, frame->gop,
 				now - frame->grab_ts, (last_ts ? now - last_ts : 0),
 				frame->used);
 			last_ts = now;
 
-			US_LOG_DEBUG("       grab_ts=%.3Lf, encode_begin_ts=%.3Lf, encode_end_ts=%.3Lf",
-				frame->grab_ts, frame->encode_begin_ts, frame->encode_end_ts);
+			US_LOG_DEBUG("       stride=%u, grab_ts=%.3Lf, encode_begin_ts=%.3Lf, encode_end_ts=%.3Lf",
+				frame->stride, frame->grab_ts, frame->encode_begin_ts, frame->encode_end_ts);
 
 			if (now_second != fps_second) {
 				fps = fps_accum;

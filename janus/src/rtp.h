@@ -39,18 +39,18 @@
 typedef struct {
 	unsigned	payload;
 	bool		video;
-	bool		zero_playout_delay;
 	uint32_t	ssrc;
 
 	uint16_t	seq;
 	uint8_t		datagram[US_RTP_DATAGRAM_SIZE];
 	size_t		used;
+	bool		zero_playout_delay;
 } us_rtp_s;
 
 typedef void (*us_rtp_callback_f)(const us_rtp_s *rtp);
 
 
-us_rtp_s *us_rtp_init(unsigned payload, bool video, bool zero_playout_delay);
+us_rtp_s *us_rtp_init(unsigned payload, bool video);
 us_rtp_s *us_rtp_dup(const us_rtp_s *rtp);
 void us_rtp_destroy(us_rtp_s *rtp);
 
