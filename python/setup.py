@@ -17,7 +17,7 @@ def _find_sources(suffix: str) -> list[str]:
 if __name__ == "__main__":
     setup(
         name="ustreamer",
-        version="5.32",
+        version="5.33",
         description="uStreamer tools",
         author="Maxim Devaev",
         author_email="mdevaev@gmail.com",
