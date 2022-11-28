@@ -407,21 +407,24 @@ static struct janus_plugin_result *_plugin_handle_message(
 	}
 	// US_JLOG_INFO("main", "Message: %s", request_str);
 
-#	define PUSH_STATUS(x_status, x_jsep) { \
+#	define PUSH_STATUS(x_status, x_payload, x_jsep) { \
 			json_t *const m_event = json_object(); \
 			json_object_set_new(m_event, "ustreamer", json_string("event")); \
 			json_t *const m_result = json_object(); \
 			json_object_set_new(m_result, "status", json_string(x_status)); \
+			if (x_payload != NULL) { \
+				json_object_set_new(m_result, x_status, x_payload); \
+			} \
 			json_object_set_new(m_event, "result", m_result); \
 			_g_gw->push_event(session, create(), transaction, m_event, x_jsep); \
 			json_decref(m_event); \
 		}
 
 	if (!strcmp(request_str, "start")) {
-		PUSH_STATUS("started", NULL);
+		PUSH_STATUS("started", NULL, NULL);
 
 	} else if (!strcmp(request_str, "stop")) {
-		PUSH_STATUS("stopped", NULL);
+		PUSH_STATUS("stopped", NULL, NULL);
 
 	} else if (!strcmp(request_str, "watch")) {
 		bool with_audio = false;
@@ -457,7 +460,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 #				endif
 			);
 			json_t *const offer_jsep = json_pack("{ssss}", "type", "offer", "sdp", sdp);
-			PUSH_STATUS("started", offer_jsep);
+			PUSH_STATUS("started", NULL, offer_jsep);
 			json_decref(offer_jsep);
 			free(audio_sdp);
 			free(video_sdp);
@@ -479,7 +482,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 
 	} else if (!strcmp(request_str, "features")) {
 		json_t *const features = json_pack("{sb}", "audio", (_g_rtpa != NULL));
-		PUSH_STATUS("features", features);
+		PUSH_STATUS("features", features, NULL);
 		json_decref(features);
 
 	} else if (!strcmp(request_str, "key_required")) {
