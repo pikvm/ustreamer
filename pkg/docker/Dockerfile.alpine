@@ -24,7 +24,7 @@ RUN apk add --no-cache \
 WORKDIR /ustreamer
 COPY --from=build /build/ustreamer/src/ustreamer.bin ustreamer
 
-RUN wget https://raw.githubusercontent.com/pikvm/kvmd/master/configs/kvmd/tc358743-edid.hex -O /edid.hex
+RUN wget https://raw.githubusercontent.com/pikvm/kvmd/master/configs/kvmd/edid/v3-hdmi.hex -O /edid.hex
 COPY pkg/docker/entry.sh /
 
 EXPOSE 8080
