@@ -55,6 +55,19 @@ static void *_pcm_thread(void *v_audio);
 static void *_encoder_thread(void *v_audio);
 
 
+bool us_audio_probe(const char *name) {
+	snd_pcm_t *pcm;
+	int err;
+	US_JLOG_INFO("audio", "Probing PCM capture ...");
+	if ((err = snd_pcm_open(&pcm, name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
+		_JLOG_PERROR_ALSA(err, "audio", "Can't probe PCM capture");
+		return false;
+	}
+	snd_pcm_close(pcm);
+	US_JLOG_INFO("audio", "PCM capture is available");
+	return true;
+}
+
 us_audio_s *us_audio_init(const char *name, unsigned pcm_hz) {
 	us_audio_s *audio;
 	US_CALLOC(audio, 1);

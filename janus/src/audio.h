@@ -63,6 +63,8 @@ typedef struct {
 } us_audio_s;
 
 
+bool us_audio_probe(const char *name);
+
 us_audio_s *us_audio_init(const char *name, unsigned pcm_hz);
 void us_audio_destroy(us_audio_s *audio);
 

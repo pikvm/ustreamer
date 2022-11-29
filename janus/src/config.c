@@ -52,7 +52,6 @@ us_config_s *us_config_init(const char *config_dir_path) {
 		goto error;
 	}
 	if ((config->audio_dev_name = _get_value(jcfg, "audio", "device")) != NULL) {
-		US_JLOG_INFO("config", "Enabled the experimental AUDIO feature");
 		if ((config->tc358743_dev_path = _get_value(jcfg, "audio", "tc358743")) == NULL) {
 			US_JLOG_INFO("config", "Missing config value: audio.tc358743");
 			goto error;
