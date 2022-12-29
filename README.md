@@ -2,8 +2,6 @@
 [![CI](https://github.com/pikvm/ustreamer/workflows/CI/badge.svg)](https://github.com/pikvm/ustreamer/actions?query=workflow%3ACI)
 [![Discord](https://img.shields.io/discord/580094191938437144?logo=discord)](https://discord.gg/bpmXfz5)
 
-[[Русская версия]](README.ru.md)
-
 µStreamer is a lightweight and very quick server to stream [MJPEG](https://en.wikipedia.org/wiki/Motion_JPEG) video from any V4L2 device to the net. All new browsers have native support of this video format, as well as most video players such as mplayer, VLC etc.
 µStreamer is a part of the [PiKVM](https://github.com/pikvm/pikvm) project designed to stream [VGA](https://www.amazon.com/dp/B0126O0RDC) and [HDMI](https://auvidea.com/b101-hdmi-to-csi-2-bridge-15-pin-fpc/) screencast hardware data with the highest resolution and FPS possible.
 
@@ -40,6 +38,8 @@ If you're going to live-stream from your backyard webcam and need to control it,
 You need to download the µStreamer onto your system and build it from the sources.
 
 AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer.
+
+Fedora package in the repo: https://src.fedoraproject.org/rpms/ustreamer.
 
 FreeBSD port: https://www.freshports.org/multimedia/ustreamer.
 
