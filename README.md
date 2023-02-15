@@ -148,7 +148,7 @@ $ docker run --rm pikvm/ustreamer:latest \
 ```
 
 ## EDID
-Add `-e EDID=1` to set HDMI EDID before starging ustreamer. Use together with `-e EDID_HEX=xx` to specify custom EDID data.
+Add `-e EDID=1` to set HDMI EDID before starting ustreamer. Use together with `-e EDID_HEX=xx` to specify custom EDID data.
 
 -----
 # Raspberry Pi Camera Example
