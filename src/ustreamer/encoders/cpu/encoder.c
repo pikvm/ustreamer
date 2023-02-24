@@ -228,7 +228,7 @@ static void _jpeg_write_scanlines_rgb24(struct jpeg_compress_struct *jpeg, const
 		JSAMPROW scanlines[1] = {data};
 		jpeg_write_scanlines(jpeg, scanlines, 1);
 
-		data += (jpeg->next_scanline * frame->width * 3) + padding;
+		data += (frame->width * 3) + padding;
 	}
 }
 
