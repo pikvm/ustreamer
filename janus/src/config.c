@@ -53,8 +53,21 @@ us_config_s *us_config_init(const char *config_dir_path) {
 	}
 	if ((config->audio_dev_name = _get_value(jcfg, "audio", "device")) != NULL) {
 		if ((config->tc358743_dev_path = _get_value(jcfg, "audio", "tc358743")) == NULL) {
-			US_JLOG_INFO("config", "Missing config value: audio.tc358743");
-			goto error;
+			if((config->pcm_path = _get_value(jcfg, "audio", "pcm_path")) == NULL) {
+				US_JLOG_INFO("config", "Missing config value: audio.tc358743 OR audio.pcm_path");
+				goto error;
+			}
+			else {
+				if ((config->pcm_sampling_rate = _get_value(jcfg, "audio", "pcm_sampling_rate")) == NULL) {
+					config->pcm_sampling_rate = "44100";
+				}
+				US_JLOG_INFO("config", "PCM sample rate set to %sHz", config->pcm_sampling_rate);
+
+				if ((config->pcm_channels = _get_value(jcfg, "audio", "pcm_channels")) == NULL) {
+					config->pcm_channels = "1";
+				}
+				US_JLOG_INFO("config", "Number of PCM channels set to %s", config->pcm_channels);
+			}
 		}
 	}
 

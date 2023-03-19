@@ -181,7 +181,7 @@ static void *_audio_thread(UNUSED void *arg) {
 	US_THREAD_RENAME("us_audio");
 	atomic_store(&_g_audio_tid_created, true);
 	assert(_g_config->audio_dev_name != NULL);
-	assert(_g_config->tc358743_dev_path != NULL);
+	assert(_g_config->tc358743_dev_path != NULL || _g_config->pcm_path != NULL);
 
 	int once = 0;
 
@@ -194,39 +194,84 @@ static void *_audio_thread(UNUSED void *arg) {
 		us_tc358743_info_s info = {0};
 		us_audio_s *audio = NULL;
 
-		if (us_tc358743_read_info(_g_config->tc358743_dev_path, &info) < 0) {
-			goto close_audio;
-		}
-		if (!info.has_audio) {
-			US_ONCE({ US_JLOG_INFO("audio", "No audio presented from the host"); });
-			goto close_audio;
-		}
-		US_ONCE({ US_JLOG_INFO("audio", "Detected host audio"); });
-		if ((audio = us_audio_init(_g_config->audio_dev_name, info.audio_hz)) == NULL) {
-			goto close_audio;
-		}
-
-		once = 0;
-
-		while (!_STOP && _HAS_WATCHERS && _HAS_LISTENERS) {
-			if (
-				us_tc358743_read_info(_g_config->tc358743_dev_path, &info) < 0
-				|| !info.has_audio
-				|| audio->pcm_hz != info.audio_hz
-			) {
+		if(_g_config->pcm_path == NULL) {
+			if (us_tc358743_read_info(_g_config->tc358743_dev_path, &info) < 0) {
+				goto close_audio;
+			}
+			if (!info.has_audio) {
+				US_ONCE({ US_JLOG_INFO("audio", "No audio presented from the host"); });
+				goto close_audio;
+			}
+			US_ONCE({ US_JLOG_INFO("audio", "Detected host audio"); });
+			if ((audio = us_audio_init(_g_config->audio_dev_name, info.audio_hz, 2)) == NULL) {
 				goto close_audio;
 			}
 
-			size_t size = US_RTP_DATAGRAM_SIZE - US_RTP_HEADER_SIZE;
-			uint8_t data[size];
-			uint64_t pts;
-			const int result = us_audio_get_encoded(audio, data, &size, &pts);
-			if (result == 0) {
-				_LOCK_AUDIO;
-				us_rtpa_wrap(_g_rtpa, data, size, pts);
-				_UNLOCK_AUDIO;
-			} else if (result == -1) {
+			once = 0;
+
+			while (!_STOP && _HAS_WATCHERS && _HAS_LISTENERS) {
+				if (
+					us_tc358743_read_info(_g_config->tc358743_dev_path, &info) < 0
+					|| !info.has_audio
+					|| audio->pcm_hz != info.audio_hz
+				) {
+					goto close_audio;
+				}
+
+				size_t size = US_RTP_DATAGRAM_SIZE - US_RTP_HEADER_SIZE;
+				uint8_t data[size];
+				uint64_t pts;
+				const int result = us_audio_get_encoded(audio, data, &size, &pts);
+				if (result == 0) {
+					_LOCK_AUDIO;
+					us_rtpa_wrap(_g_rtpa, data, size, pts);
+					_UNLOCK_AUDIO;
+				} else if (result == -1) {
+					goto close_audio;
+				}
+			}
+		}
+		else {
+			int fd = -1;
+			int audio_hz = -1;
+			int audio_channels = -1;
+			if (( fd = open(_g_config->pcm_path, O_RDWR) < 0 )) {
+				US_ONCE({ US_JLOG_INFO("audio", "Invalid PCM Path."); });
 				goto close_audio;
+			}
+
+			if (_g_config->pcm_sampling_rate == NULL) {
+				US_ONCE({ US_JLOG_INFO("audio", "Invalid PCM sampling rate."); });
+				goto close_audio;
+			} else if ((audio_hz = atoi(_g_config->pcm_sampling_rate)) <= 0) {
+				US_ONCE({ US_JLOG_INFO("audio", "Invalid PCM sampling rate."); });
+				goto close_audio;
+			}
+
+			if (_g_config->pcm_channels == NULL) {
+				US_ONCE({ US_JLOG_INFO("audio", "Invalid number of PCM channels."); });
+				goto close_audio;
+			} else if ((audio_channels = atoi(_g_config->pcm_channels)) <= 0) {
+				US_ONCE({ US_JLOG_INFO("audio", "Invalid number of PCM channels (atoi)."); });
+				goto close_audio;
+			}
+
+			if ((audio = us_audio_init(_g_config->audio_dev_name, (unsigned int)audio_hz, (unsigned int)audio_channels)) == NULL) {
+				US_ONCE({ US_JLOG_INFO("audio", "Couldn't initialize PCM audio."); });
+				goto close_audio;
+			}
+			while (!_STOP && _HAS_WATCHERS && _HAS_LISTENERS) {
+				size_t size = US_RTP_DATAGRAM_SIZE - US_RTP_HEADER_SIZE;
+				uint8_t data[size];
+				uint64_t pts;
+				const int result = us_audio_get_encoded(audio, data, &size, &pts);
+				if (result == 0) {
+					_LOCK_AUDIO;
+					us_rtpa_wrap(_g_rtpa, data, size, pts);
+					_UNLOCK_AUDIO;
+				} else if (result == -1) {
+					goto close_audio;
+				}
 			}
 		}
 

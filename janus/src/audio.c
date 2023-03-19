@@ -68,7 +68,7 @@ bool us_audio_probe(const char *name) {
 	return true;
 }
 
-us_audio_s *us_audio_init(const char *name, unsigned pcm_hz) {
+us_audio_s *us_audio_init(const char *name, unsigned pcm_hz, unsigned pcm_channels) {
 	us_audio_s *audio;
 	US_CALLOC(audio, 1);
 	audio->pcm_hz = pcm_hz;
@@ -95,7 +95,7 @@ us_audio_s *us_audio_init(const char *name, unsigned pcm_hz) {
 
 		SET_PARAM("Can't initialize PCM params",	snd_pcm_hw_params_any);
 		SET_PARAM("Can't set PCM access type",		snd_pcm_hw_params_set_access, SND_PCM_ACCESS_RW_INTERLEAVED);
-		SET_PARAM("Can't set PCM channels numbre",	snd_pcm_hw_params_set_channels, 2);
+		SET_PARAM("Can't set PCM channels numbre",	snd_pcm_hw_params_set_channels, pcm_channels);
 		SET_PARAM("Can't set PCM sampling format",	snd_pcm_hw_params_set_format, SND_PCM_FORMAT_S16_LE);
 		SET_PARAM("Can't set PCM sampling rate",	snd_pcm_hw_params_set_rate_near, &audio->pcm_hz, 0);
 		if (audio->pcm_hz < _MIN_PCM_HZ || audio->pcm_hz > _MAX_PCM_HZ) {
@@ -111,7 +111,7 @@ us_audio_s *us_audio_init(const char *name, unsigned pcm_hz) {
 	}
 
 	if (audio->pcm_hz != _ENCODER_INPUT_HZ) {
-		audio->res = speex_resampler_init(2, audio->pcm_hz, _ENCODER_INPUT_HZ, SPEEX_RESAMPLER_QUALITY_DESKTOP, &err);
+		audio->res = speex_resampler_init(pcm_channels, audio->pcm_hz, _ENCODER_INPUT_HZ, SPEEX_RESAMPLER_QUALITY_DESKTOP, &err);
 		if (err < 0) {
 			audio->res = NULL;
 			_JLOG_PERROR_RES(err, "audio", "Can't create resampler");
@@ -121,7 +121,7 @@ us_audio_s *us_audio_init(const char *name, unsigned pcm_hz) {
 
 	{
 		// OPUS_APPLICATION_VOIP, OPUS_APPLICATION_RESTRICTED_LOWDELAY
-		audio->enc = opus_encoder_create(_ENCODER_INPUT_HZ, 2, OPUS_APPLICATION_AUDIO, &err);
+		audio->enc = opus_encoder_create(_ENCODER_INPUT_HZ, pcm_channels, OPUS_APPLICATION_AUDIO, &err);
 		assert(err == 0);
 		assert(!opus_encoder_ctl(audio->enc, OPUS_SET_BITRATE(48000)));
 		assert(!opus_encoder_ctl(audio->enc, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_FULLBAND)));

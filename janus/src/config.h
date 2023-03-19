@@ -39,6 +39,9 @@ typedef struct {
 
 	char	*audio_dev_name;
 	char	*tc358743_dev_path;
+	char	*pcm_path;
+	char	*pcm_sampling_rate;
+	char	*pcm_channels;
 } us_config_s;
 
 
