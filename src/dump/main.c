@@ -2,7 +2,7 @@
 #                                                                            #
 #    uStreamer - Lightweight and fast MJPEG-HTTP streamer.                   #
 #                                                                            #
-#    Copyright (C) 2018-2022  Maxim Devaev <mdevaev@gmail.com>               #
+#    Copyright (C) 2018-2023  Maxim Devaev <mdevaev@gmail.com>               #
 #                                                                            #
 #    This program is free software: you can redistribute it and/or modify    #
 #    it under the terms of the GNU General Public License as published by    #
@@ -319,7 +319,7 @@ static void _help(FILE *fp) {
 	SAY("\nuStreamer-dump - Dump uStreamer's memory sink to file");
 	SAY("═════════════════════════════════════════════════════");
 	SAY("Version: %s; license: GPLv3", US_VERSION);
-	SAY("Copyright (C) 2018-2022 Maxim Devaev <mdevaev@gmail.com>\n");
+	SAY("Copyright (C) 2018-2023 Maxim Devaev <mdevaev@gmail.com>\n");
 	SAY("Example:");
 	SAY("════════");
 	SAY("    ustreamer-dump --sink test --output - \\");

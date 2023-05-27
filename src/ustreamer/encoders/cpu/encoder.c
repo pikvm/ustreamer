@@ -7,7 +7,7 @@
 #    Copyright (C) 2005-2006  Laurent Pinchart & Michel Xhaard               #
 #    Copyright (C) 2006  Gabriel A. Devenyi                                  #
 #    Copyright (C) 2007  Tom Stöveken                                        #
-#    Copyright (C) 2018-2022  Maxim Devaev <mdevaev@gmail.com>               #
+#    Copyright (C) 2018-2023  Maxim Devaev <mdevaev@gmail.com>               #
 #                                                                            #
 #    This program is free software: you can redistribute it and/or modify    #
 #    it under the terms of the GNU General Public License as published by    #
