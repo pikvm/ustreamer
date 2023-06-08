@@ -198,10 +198,13 @@ void us_stream_loop(us_stream_s *stream) {
 					}
 				}
 
-				if (has_write) {
+				// Это условие было добавлено из параноидальных соображений, и мы ни разу не сталкивались
+				// с подобными ошибками, кроме случая с libcamerify, который генерит эвенты на запись.
+				// Судя по всему, игнорирование has_write не делает никому плохо.
+				/*if (has_write) {
 					US_LOG_ERROR("Got unexpected writing event, seems device was disconnected");
 					break;
-				}
+				}*/
 
 				if (has_error) {
 					US_LOG_INFO("Got V4L2 event");
