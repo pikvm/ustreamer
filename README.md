@@ -88,7 +88,7 @@ Without arguments, ```ustreamer``` will try to open ```/dev/video0``` with 640x4
 :exclamation: Please note that since µStreamer v2.0 cross-domain requests were disabled by default for [security reasons](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS). To enable the old behavior, use the option `--allow-origin=\*`.
 
 The recommended way of running µStreamer with [Auvidea B101](https://www.raspberrypi.org/forums/viewtopic.php?f=38&t=120702&start=400#p1339178) on Raspberry Pi:
-```bash
+```
 $ ./ustreamer \
     --format=uyvy \ # Device input format
     --encoder=m2m-image \ # Hardware encoding on V4L2 M2M driver
@@ -115,7 +115,7 @@ dtoverlay=tc358743
 
 Check size of CMA:
 
-```bash
+```
 $ dmesg | grep cma-reserved
 [    0.000000] Memory: 7700524K/8244224K available (11772K kernel code, 1278K rwdata, 4320K rodata, 4096K init, 1077K bss, 281556K reserved, 262144K cma-reserved)
 ```
@@ -131,14 +131,14 @@ Save changes and reboot.
 ## Launch
 Start container:
 
-```bash
+```
 $ docker run --device /dev/video0:/dev/video0 -e EDID=1 -p 8080:8080 pikvm/ustreamer:latest
 ```
 
 Then access the web interface at port 8080 (e.g. http://raspberrypi.local:8080).
 
 ## Custom config
-```bash
+```
 $ docker run --rm pikvm/ustreamer:latest \
     --format=uyvy \
     --workers=3 \
@@ -153,8 +153,15 @@ Add `-e EDID=1` to set HDMI EDID before starting ustreamer. Use together with `-
 -----
 # Raspberry Pi Camera Example
 
+Example usage for the Raspberry Pi v3 camera (required `libcamerify` which is located in `libcamera-tools` on Raspbian):
+```
+$ sudo modprobe bcm2835-v4l2
+$ libcamerify ./ustreamer --host :: -e m2m-image
+```
+
+
 Example usage for the Raspberry Pi v1 camera:
-```bash
+```
 $ sudo modprobe bcm2835-v4l2
 $ ./ustreamer --host :: -m jpeg --device-timeout=5 --buffers=3 -r 2592x1944
 ```
@@ -163,7 +170,7 @@ $ ./ustreamer --host :: -m jpeg --device-timeout=5 --buffers=3 -r 2592x1944
 
 :exclamation: If you get a poor framerate, it could be that the camera is switched to photo mode, which produces a low framerate (but a higher quality picture). This is because `bcm2835-v4l2` switches to photo mode at resolutions higher than `1280x720`. To work around this, pass the `max_video_width` and `max_video_height` module parameters like so:
 
-```bash
+```
 $ modprobe bcm2835-v4l2 max_video_width=2592 max_video_height=1944
 ```
 
