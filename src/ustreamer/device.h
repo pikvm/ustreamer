@@ -50,10 +50,10 @@
 
 
 #define US_VIDEO_MIN_WIDTH		((unsigned)160)
-#define US_VIDEO_MAX_WIDTH		((unsigned)10240)
+#define US_VIDEO_MAX_WIDTH		((unsigned)15360)
 
 #define US_VIDEO_MIN_HEIGHT		((unsigned)120)
-#define US_VIDEO_MAX_HEIGHT		((unsigned)4320)
+#define US_VIDEO_MAX_HEIGHT		((unsigned)8640)
 
 #define US_VIDEO_MAX_FPS		((unsigned)120)
 
