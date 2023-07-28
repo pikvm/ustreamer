@@ -20,7 +20,7 @@ They have been tested using the following setup.
 Below is an overview of the steps performed by `ssl-config.sh`
 1. Install snapd - certbot uses this for installation
 1. Install certbot
-1. Get a cert using certbot
+1. Get a free cert from Let's Encrypt using certbot
 1. Install nginx
 1. Configures nginx to proxy for µStreamer
 
@@ -31,8 +31,8 @@ Below is an overview of the steps performed by `ssl-config.sh`
     1. Use a subdomain, such as `webcam.domain.com`
 1. Port Forwarding
     1. If using a Wi-Fi router, create a port forwarding rule which passes traffic from port 80 to the Pi. This is needed for certbot to ensure your DNS entry reaches the Pi, even if your final port will be something else.
-    1. Create a second rule for your final setup. For example, forward traffic frome the router on port 5101 to the Pi's IP port 8080.
-1. Update the µStreamer-proxy file in this folder
+    1. Create a second rule for your final setup. For example, forward traffic from the router on port 5101 to the Pi's IP port 8080.
+1. Update the ustreamer-proxy file in this folder
     1. Replace `your.domain.com` with a fully qualified domain, it's three places in the proxy file.
     1. Modify the line `listen 5101 ssl` port if needed. This is the public port, not the port on which the µStreamer service is running
     1. Modify `proxy_pass http://127.0.0.1:8080;` with the working address of the internal µStreamer service.
@@ -40,5 +40,11 @@ Below is an overview of the steps performed by `ssl-config.sh`
     1. Stand buy, certbot asks some basic questions, such as email, domain, agree to terms, etc.
     1. `bash ssl-config.sh`
 1. Test your URL!
+
+## Down the Road
+Two important points to keep in mind for the future:
+1. Dynamic IP - Most routers do not have a static IP address on the WAN side. So, if you reboot your router or if your internet provider gives you a new IP, you'll have to update the DNS entry.
+    1. Many routers have some sort of dynamic DNS feature. This would automatically update the DNS entry for you. That functionality is outside the scope of this document.
+1. SSL Renewals - certbot automatically creates a task to renew the SSL cert before it expires. Assuming the Pi is running all the time, this shouldn't be an issue.
 
 ## Enjoy!
