@@ -92,4 +92,4 @@ void us_workers_pool_destroy(us_workers_pool_s *pool);
 us_worker_s *us_workers_pool_wait(us_workers_pool_s *pool);
 void us_workers_pool_assign(us_workers_pool_s *pool, us_worker_s *ready_wr/*, void *job*/);
 
-long double us_workers_pool_get_fluency_delay(us_workers_pool_s *pool, us_worker_s *ready_wr);
+long double us_workers_pool_get_fluency_delay(us_workers_pool_s *pool, const us_worker_s *ready_wr);

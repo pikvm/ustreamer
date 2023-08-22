@@ -71,7 +71,7 @@ static int _device_query_control(
 	us_device_s *dev, struct v4l2_queryctrl *query,
 	const char *name, unsigned cid, bool quiet);
 static void _device_set_control(
-	us_device_s *dev, struct v4l2_queryctrl *query,
+	us_device_s *dev, const struct v4l2_queryctrl *query,
 	const char *name, unsigned cid, int value, bool quiet);
 
 static const char *_format_to_string_nullable(unsigned format);
@@ -843,7 +843,7 @@ static int _device_query_control(
 }
 
 static void _device_set_control(
-	us_device_s *dev, struct v4l2_queryctrl *query,
+	us_device_s *dev, const struct v4l2_queryctrl *query,
 	const char *name, unsigned cid, int value, bool quiet) {
 
 	if (value < query->minimum || value > query->maximum || value % query->step != 0) {

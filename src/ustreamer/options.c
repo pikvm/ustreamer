@@ -233,7 +233,7 @@ static int _parse_resolution(const char *str, unsigned *width, unsigned *height,
 static int _check_instance_id(const char *str);
 
 static void _features(void);
-static void _help(FILE *fp, us_device_s *dev, us_encoder_s *enc, us_stream_s *stream, us_server_s *server);
+static void _help(FILE *fp, const us_device_s *dev, const us_encoder_s *enc, const us_stream_s *stream, const us_server_s *server);
 
 
 us_options_s *us_options_init(unsigned argc, char *argv[]) {
@@ -586,7 +586,7 @@ static void _features(void) {
 #	endif
 }
 
-static void _help(FILE *fp, us_device_s *dev, us_encoder_s *enc, us_stream_s *stream, us_server_s *server) {
+static void _help(FILE *fp, const us_device_s *dev, const us_encoder_s *enc, const us_stream_s *stream, const us_server_s *server) {
 #	define SAY(x_msg, ...) fprintf(fp, x_msg "\n", ##__VA_ARGS__)
 	SAY("\nuStreamer - Lightweight and fast MJPEG-HTTP streamer");
 	SAY("═══════════════════════════════════════════════════");

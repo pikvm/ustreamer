@@ -157,7 +157,7 @@ void us_workers_pool_assign(us_workers_pool_s *pool, us_worker_s *ready_wr/*, vo
 	US_MUTEX_UNLOCK(pool->free_workers_mutex);
 }
 
-long double us_workers_pool_get_fluency_delay(us_workers_pool_s *pool, us_worker_s *ready_wr) {
+long double us_workers_pool_get_fluency_delay(us_workers_pool_s *pool, const us_worker_s *ready_wr) {
 	const long double approx_job_time = pool->approx_job_time * 0.9 + ready_wr->last_job_time * 0.1;
 
 	US_LOG_VERBOSE("Correcting pool's %s approx_job_time: %.3Lf -> %.3Lf (last_job_time=%.3Lf)",

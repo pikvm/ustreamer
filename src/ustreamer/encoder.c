@@ -195,7 +195,7 @@ static void _worker_job_destroy(void *v_job) {
 static bool _worker_run_job(us_worker_s *wr) {
 	us_encoder_job_s *job = (us_encoder_job_s *)wr->job;
 	us_encoder_s *enc = job->enc; // Just for _ER()
-	us_frame_s *src = &job->hw->raw;
+	const us_frame_s *src = &job->hw->raw;
 	us_frame_s *dest = job->dest;
 
 	assert(_ER(type) != US_ENCODER_TYPE_UNKNOWN);
