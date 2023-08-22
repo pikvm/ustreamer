@@ -117,28 +117,18 @@ INLINE void us_get_now(clockid_t clk_id, time_t *sec, long *msec) {
 	}
 }
 
-#if defined(CLOCK_MONOTONIC_RAW)
-#	define _X_CLOCK_MONOTONIC CLOCK_MONOTONIC_RAW
-#elif defined(CLOCK_MONOTONIC_FAST)
-#	define _X_CLOCK_MONOTONIC CLOCK_MONOTONIC_FAST
-#else
-#	define _X_CLOCK_MONOTONIC CLOCK_MONOTONIC
-#endif
-
 INLINE long double us_get_now_monotonic(void) {
 	time_t sec;
 	long msec;
-	us_get_now(_X_CLOCK_MONOTONIC, &sec, &msec);
+	us_get_now(CLOCK_MONOTONIC, &sec, &msec);
 	return (long double)sec + ((long double)msec) / 1000;
 }
 
 INLINE uint64_t us_get_now_monotonic_u64(void) {
 	struct timespec ts;
-	assert(!clock_gettime(_X_CLOCK_MONOTONIC, &ts));
+	assert(!clock_gettime(CLOCK_MONOTONIC, &ts));
 	return (uint64_t)(ts.tv_nsec / 1000) + (uint64_t)ts.tv_sec * 1000000;
 }
-
-#undef _X_CLOCK_MONOTONIC
 
 INLINE uint64_t us_get_now_id(void) {
 	const uint64_t now = us_get_now_monotonic_u64();
