@@ -17,4 +17,4 @@ install:
 
 
 clean:
-	rm -rf build
+	rm -rf build ustreamer.egg-info

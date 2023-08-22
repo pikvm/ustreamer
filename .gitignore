@@ -4,6 +4,7 @@
 /pkg/arch/src/
 /src/build/
 /python/build/
+/python/ustreamer.egg-info/
 /janus/build/
 /ustreamer
 /ustreamer-dump
