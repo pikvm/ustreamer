@@ -328,7 +328,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 					return -1;
 				}
 				++skipped;
-				buf_got = false;
+				// buf_got = false;
 			}
 			memcpy(&buf, &new, sizeof(struct v4l2_buffer));
 			buf_got = true;
