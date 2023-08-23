@@ -112,9 +112,10 @@ void us_stream_loop(us_stream_s *stream) {
 				if (!ready_wr->job_failed) {
 					if (ready_wr->job_timely) {
 						_stream_expose_frame(stream, ready_job->dest, captured_fps);
-						US_LOG_PERF("##### Encoded frame exposed; worker=%s", ready_wr->name);
+						US_LOG_PERF("##### Encoded JPEG exposed; worker=%s, latency=%.3Lf",
+							ready_wr->name, us_get_now_monotonic() - ready_job->dest->grab_ts);
 					} else {
-						US_LOG_PERF("----- Encoded frame dropped; worker=%s", ready_wr->name);
+						US_LOG_PERF("----- Encoded JPEG dropped; worker=%s", ready_wr->name);
 					}
 				} else {
 					break;

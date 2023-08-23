@@ -310,16 +310,37 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 	*hw = NULL;
 
 	struct v4l2_buffer buf = {0};
-	buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	buf.memory = dev->io_method;
+	bool buf_got = false;
+	unsigned skipped = 0;
 
 	US_LOG_DEBUG("Grabbing device buffer ...");
-	if (_D_XIOCTL(VIDIOC_DQBUF, &buf) < 0) {
-		US_LOG_PERROR("Can't grab device buffer");
-		return -1;
-	}
 
-	US_LOG_DEBUG("Grabbed new frame: buffer=%u, bytesused=%u", buf.index, buf.bytesused);
+	do {
+		struct v4l2_buffer new = {0};
+		new.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		new.memory = dev->io_method;
+		const bool new_got = (_D_XIOCTL(VIDIOC_DQBUF, &new) >= 0);
+
+		if (new_got) {
+			if (buf_got) {
+				if (_D_XIOCTL(VIDIOC_QBUF, &buf) < 0) {
+					US_LOG_PERROR("Can't release device buffer=%u (skipped frame)", buf.index);
+					return -1;
+				}
+				++skipped;
+				buf_got = false;
+			}
+			memcpy(&buf, &new, sizeof(struct v4l2_buffer));
+			buf_got = true;
+		} else {
+			if (buf_got && errno == EAGAIN) {
+				break;
+			} else {
+				US_LOG_PERROR("Can't grab device buffer");
+				return -1;
+			}
+		}
+	} while (true);
 
 	if (buf.index >= _RUN(n_bufs)) {
 		US_LOG_ERROR("V4L2 error: grabbed invalid device buffer=%u, n_bufs=%u", buf.index, _RUN(n_bufs));
@@ -358,7 +379,9 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 	HW(raw.stride) = _RUN(stride);
 	HW(raw.online) = true;
 	memcpy(&HW(buf), &buf, sizeof(struct v4l2_buffer));
-	HW(raw.grab_ts) = us_get_now_monotonic();
+	HW(raw.grab_ts)= (long double)((buf.timestamp.tv_sec * (uint64_t)1000) + (buf.timestamp.tv_usec / 1000)) / 1000;
+	US_LOG_DEBUG("Grabbed new frame: buffer=%u, bytesused=%u, grab_ts=%.3Lf, latency=%.3Lf, skipped=%u",
+		buf.index, buf.bytesused, HW(raw.grab_ts), us_get_now_monotonic() - HW(raw.grab_ts), skipped);
 
 #	undef HW
 	*hw = &_RUN(hw_bufs[buf.index]);
