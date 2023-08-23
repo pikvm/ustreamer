@@ -98,7 +98,7 @@ INLINE int us_process_track_parent_death(void) {
 #ifdef WITH_SETPROCTITLE
 #	pragma GCC diagnostic ignored "-Wunused-parameter"
 #	pragma GCC diagnostic push
-INLINE void us_process_set_name_prefix(int argc, const char *argv[], const char *prefix) {
+INLINE void us_process_set_name_prefix(int argc, char *argv[], const char *prefix) { // cppcheck-suppress constParameter
 #	pragma GCC diagnostic pop
 
 	char *cmdline = NULL;
