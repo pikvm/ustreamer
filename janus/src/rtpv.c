@@ -71,13 +71,13 @@ char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
 
 #define _PRE 3 // Annex B prefix length
 
-void us_rtpv_wrap(us_rtpv_s *rtpv, const us_frame_s *frame) {
+void us_rtpv_wrap(us_rtpv_s *rtpv, const us_frame_s *frame, bool zero_playout_delay) {
 	// There is a complicated logic here but everything works as it should:
 	//   - https://github.com/pikvm/ustreamer/issues/115#issuecomment-893071775
 
 	assert(frame->format == V4L2_PIX_FMT_H264);
 
-	rtpv->rtp->zero_playout_delay = (frame->gop == 0);
+	rtpv->rtp->zero_playout_delay = zero_playout_delay;
 
 	const uint32_t pts = us_get_now_monotonic_u64() * 9 / 100; // PTS units are in 90 kHz
 	ssize_t last_offset = -_PRE;

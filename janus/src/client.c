@@ -116,7 +116,9 @@ static void *_common_thread(void *v_client, bool video) {
 					packet.extensions.max_delay = 0;
 				} else {
 					packet.extensions.min_delay = 0;
-					packet.extensions.max_delay = 1000;
+					// 10s - Chromium/WebRTC default
+					// 3s - Firefox default
+					packet.extensions.max_delay = 300; // == 3s, i.e. 10ms granularity
 				}*/
 
 				client->gw->relay_rtp(client->session, &packet);

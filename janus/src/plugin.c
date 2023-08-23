@@ -56,8 +56,8 @@
 #include "config.h"
 
 
-static us_config_s	*_g_config = NULL;
-const useconds_t	_g_watchers_polling = 100000;
+static us_config_s		*_g_config = NULL;
+static const useconds_t	_g_watchers_polling = 100000;
 
 static us_janus_client_s	*_g_clients = NULL;
 static janus_callbacks		*_g_gw = NULL;
@@ -107,7 +107,8 @@ static void *_video_rtp_thread(UNUSED void *arg) {
 		us_frame_s *frame;
 		if (us_queue_get(_g_video_queue, (void **)&frame, 0.1) == 0) {
 			_LOCK_VIDEO;
-			us_rtpv_wrap(_g_rtpv, frame);
+			const bool zero_playout_delay = (frame->gop == 0);
+			us_rtpv_wrap(_g_rtpv, frame, zero_playout_delay);
 			_UNLOCK_VIDEO;
 			us_frame_destroy(frame);
 		}
