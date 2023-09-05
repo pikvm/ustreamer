@@ -306,86 +306,150 @@ int us_device_select(us_device_s *dev, bool *has_read, bool *has_write, bool *ha
 	return retval;
 }
 
-int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
-	*hw = NULL;
-
-	struct v4l2_buffer buf = {0};
-	bool buf_got = false;
-	unsigned skipped = 0;
-
-	US_LOG_DEBUG("Grabbing device buffer ...");
-
-	do {
-		struct v4l2_buffer new = {0};
-		new.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-		new.memory = dev->io_method;
-		const bool new_got = (_D_XIOCTL(VIDIOC_DQBUF, &new) >= 0);
-
-		if (new_got) {
-			if (buf_got) {
-				if (_D_XIOCTL(VIDIOC_QBUF, &buf) < 0) {
-					US_LOG_PERROR("Can't release device buffer=%u (skipped frame)", buf.index);
-					return -1;
-				}
-				++skipped;
-				// buf_got = false;
-			}
-			memcpy(&buf, &new, sizeof(struct v4l2_buffer));
-			buf_got = true;
-		} else {
-			if (buf_got && errno == EAGAIN) {
-				break;
-			} else {
-				US_LOG_PERROR("Can't grab device buffer");
-				return -1;
-			}
-		}
-	} while (true);
-
-	if (buf.index >= _RUN(n_bufs)) {
-		US_LOG_ERROR("V4L2 error: grabbed invalid device buffer=%u, n_bufs=%u", buf.index, _RUN(n_bufs));
-		return -1;
-	}
-
+static bool _validate_frame(us_device_s *dev, uint8_t *data, size_t len) {
 	// Workaround for broken, corrupted frames:
 	// Under low light conditions corrupted frames may get captured.
 	// The good thing is such frames are quite small compared to the regular frames.
 	// For example a VGA (640x480) webcam frame is normally >= 8kByte large,
 	// corrupted frames are smaller.
-	if (buf.bytesused < dev->min_frame_size) {
-		US_LOG_DEBUG("Dropped too small frame, assuming it was broken: buffer=%u, bytesused=%u",
-			buf.index, buf.bytesused);
-		US_LOG_DEBUG("Releasing device buffer=%u (broken frame) ...", buf.index);
-		if (_D_XIOCTL(VIDIOC_QBUF, &buf) < 0) {
-			US_LOG_PERROR("Can't release device buffer=%u (broken frame)", buf.index);
-			return -1;
+
+	if (len < dev->min_frame_size) {
+		US_LOG_DEBUG("Dropped too small frame, assuming it was broken. size=%lu", len);
+		return false;
+	}
+
+	// Workaround for truncated JPEG frames:
+	// Some inexpensive CCTV-style USB webcams such as the ELP-USB100W03M send
+	// large amounts of these frames when using MJPEG streams. Check that the
+	// buffer ends with JPEG end of image marker (0xFFD9)
+	if (us_is_jpeg(dev->run->format)) {
+		const uint8_t *const end_ptr = data + len;
+		const uint8_t *const eoi_ptr = end_ptr - 2;
+
+		if (eoi_ptr < data) {
+			US_LOG_DEBUG("Discarding invalid frame, too small to be a valid JPEG, size=%lu", len);
+			return false;
 		}
-		return -2;
+
+		const uint16_t eoi_marker = (((uint16_t)(eoi_ptr[0]) << 8) | eoi_ptr[1]);
+		if (eoi_marker != 0xFFD9) {
+			US_LOG_DEBUG("Discarding truncated JPEG frame, eoi_marker=0x%04x size=%lu", eoi_marker, len);
+			return false;
+		}
 	}
 
-#	define HW(x_next) _RUN(hw_bufs)[buf.index].x_next
+	return true;
+}
 
-	if (HW(grabbed)) {
-		US_LOG_ERROR("V4L2 error: grabbed device buffer=%u is already used", buf.index);
-		return -1;
+#define _RELEASE_DEV_BUF(devbuf, why) \
+	if (_D_XIOCTL(VIDIOC_QBUF, &devbuf) < 0) { \
+		US_LOG_PERROR("Can't release device buffer=%u (" why ")", devbuf.index); \
+		goto error_fatal; \
 	}
-	HW(grabbed) = true;
 
-	HW(raw.dma_fd) = HW(dma_fd);
-	HW(raw.used) = buf.bytesused;
-	HW(raw.width) = _RUN(width);
-	HW(raw.height) = _RUN(height);
-	HW(raw.format) = _RUN(format);
-	HW(raw.stride) = _RUN(stride);
-	HW(raw.online) = true;
-	memcpy(&HW(buf), &buf, sizeof(struct v4l2_buffer));
-	HW(raw.grab_ts)= (long double)((buf.timestamp.tv_sec * (uint64_t)1000) + (buf.timestamp.tv_usec / 1000)) / 1000;
-	US_LOG_DEBUG("Grabbed new frame: buffer=%u, bytesused=%u, grab_ts=%.3Lf, latency=%.3Lf, skipped=%u",
-		buf.index, buf.bytesused, HW(raw.grab_ts), us_get_now_monotonic() - HW(raw.grab_ts), skipped);
+int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
+	// This attempts to grab the most recent *valid* frame from the device.
+	// It does this by grabbing all currently available frame buffers from the
+	// device, validating each one, and returning the most recent one that
+	// contains a valid frame. If no valid frames are available, it returns
+	// -2.
 
-#	undef HW
-	*hw = &_RUN(hw_bufs[buf.index]);
-	return buf.index;
+	US_LOG_DEBUG("Grabbing device buffer ...");
+
+	us_device_stats_s *stats = &(dev->run->stats);
+
+	struct v4l2_buffer captured_frame = {0};
+	bool has_captured_frame = false;
+	uint32_t skipped_frames = 0;
+
+	while(true) {
+		struct v4l2_buffer new_frame = {0};
+		new_frame.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		new_frame.memory = dev->io_method;
+
+		const bool has_new_frame = (_D_XIOCTL(VIDIOC_DQBUF, &new_frame) >= 0);
+
+		if(has_new_frame) {
+			stats->captured_frames++;
+
+			// Check to make sure that the buffer we grabbed is under our
+			// control.
+			if (new_frame.index >= dev->run->n_bufs) {
+				US_LOG_ERROR("V4L2 error: grabbed invalid device buffer=%u, n_bufs=%u", new_frame.index, _RUN(n_bufs));
+				goto error_fatal;
+			}
+
+			// Validate the frame.
+			if(_validate_frame(dev, dev->run->hw_bufs[new_frame.index].raw.data, new_frame.bytesused)) {
+				// if we grabbed a frame in a previous iteration of this loop,
+				// release its buffer since we no longer need it.
+				if (has_captured_frame) {
+					_RELEASE_DEV_BUF(captured_frame, "skipped frame");
+					skipped_frames++;
+					stats->skipped_frames++;
+				}
+
+				memcpy(&captured_frame, &new_frame, sizeof(struct v4l2_buffer));
+				has_captured_frame = true;
+			}
+
+			// Skip invalid frames, releasing their buffer so they can be used
+			// to grab a new frame.
+			else {
+				_RELEASE_DEV_BUF(new_frame, "invalid frame");
+				stats->invalid_frames++;
+
+				if(stats->invalid_frames % 100 == 0) {
+					US_LOG_INFO(
+						"Discarded %lu invalid frames out of %lu total captured (%.0f%%).",
+						stats->invalid_frames, stats->captured_frames,
+						((float)(stats->invalid_frames) / (float)stats->captured_frames) * 100.f);
+				}
+			}
+		}
+		// EAGAIN means the device has no new frames to give.
+		else if (errno == EAGAIN) {
+			// If we managed to grab a valid frame, we're good to go.
+			if (has_captured_frame) {
+				break;
+			// Otherwise, tell the caller we didn't get a valid frame from
+			// the device yet.
+			} else {
+				goto error_no_valid_frame;
+			}
+		}
+		else {
+			US_LOG_PERROR("Can't grab device buffer");
+			goto error_fatal;
+		}
+	}
+
+	stats->valid_frames++;
+
+	us_hw_buffer_s* dst = &(dev->run->hw_bufs[captured_frame.index]);
+
+	dst->grabbed = true;
+	dst->raw.dma_fd = dst->dma_fd;
+	dst->raw.used = captured_frame.bytesused;
+	dst->raw.width = dev->run->width;
+	dst->raw.height = dev->run->height;
+	dst->raw.format = dev->run->format;
+	dst->raw.stride = dev->run->stride;
+	dst->raw.online = true;
+	memcpy(&(dst->buf), &captured_frame, sizeof(struct v4l2_buffer));
+	dst->raw.grab_ts = (long double)((captured_frame.timestamp.tv_sec * (uint64_t)1000) + (captured_frame.timestamp.tv_usec / 1000)) / 1000;
+
+	US_LOG_DEBUG("Grabbed new frame: buffer=%u, size=%u, grab_ts=%.3Lf, latency=%.3Lf, skipped=%u",
+		captured_frame.index, captured_frame.bytesused, dst->raw.grab_ts, us_get_now_monotonic() - dst->raw.grab_ts, skipped_frames);
+
+	*hw = dst;
+	return captured_frame.index;
+
+error_fatal:
+	return -1;
+
+error_no_valid_frame:
+	return -2;
 }
 
 int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw) {
@@ -396,6 +460,7 @@ int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw) {
 		US_LOG_PERROR("Can't release device buffer=%u", index);
 		return -1;
 	}
+
 	hw->grabbed = false;
 	return 0;
 }

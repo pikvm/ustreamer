@@ -75,18 +75,26 @@ typedef struct {
 } us_hw_buffer_s;
 
 typedef struct {
-	int				fd;
-	unsigned		width;
-	unsigned		height;
-	unsigned		format;
-	unsigned		stride;
-	unsigned		hw_fps;
-	unsigned		jpeg_quality;
-	size_t			raw_size;
-	unsigned		n_bufs;
-	us_hw_buffer_s	*hw_bufs;
-	bool			capturing;
-	bool			persistent_timeout_reported;
+	uint64_t captured_frames;
+	uint64_t invalid_frames;
+	uint64_t skipped_frames;
+	uint64_t valid_frames;
+} us_device_stats_s;
+
+typedef struct {
+	int					fd;
+	unsigned			width;
+	unsigned			height;
+	unsigned			format;
+	unsigned			stride;
+	unsigned			hw_fps;
+	unsigned			jpeg_quality;
+	size_t				raw_size;
+	unsigned			n_bufs;
+	us_hw_buffer_s		*hw_bufs;
+	bool				capturing;
+	bool				persistent_timeout_reported;
+	us_device_stats_s	stats;
 } us_device_runtime_s;
 
 typedef enum {
