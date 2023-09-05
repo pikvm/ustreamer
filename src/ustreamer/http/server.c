@@ -453,13 +453,17 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 
 	_A_EVBUFFER_ADD_PRINTF(buf,
 		" \"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
-		" \"online\": %s, \"desired_fps\": %u, \"captured_fps\": %u},"
+		" \"online\": %s, \"desired_fps\": %u, \"captured_fps\": %u,"
+		" \"captured_frames\": %lu, \"invalid_frames\": %lu, \"skipped_frames\": %lu},"
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
 		(server->fake_width ? server->fake_width : _EX(frame->width)),
 		(server->fake_height ? server->fake_height : _EX(frame->height)),
 		us_bool_to_string(_EX(frame->online)),
 		_STREAM(dev->desired_fps),
 		_EX(captured_fps),
+		_STREAM(dev->run->stats.captured_frames),
+		_STREAM(dev->run->stats.invalid_frames),
+		_STREAM(dev->run->stats.skipped_frames),
 		_EX(queued_fps),
 		_RUN(stream_clients_count)
 	);
@@ -645,7 +649,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 
 	if (client->need_initial) {
 		_A_EVBUFFER_ADD_PRINTF(buf, "HTTP/1.0 200 OK" RN);
-		
+
 		if (client->server->allow_origin[0] != '\0') {
 			const char *const cors_headers = _http_get_header(client->request, "Access-Control-Request-Headers");
 			const char *const cors_method = _http_get_header(client->request, "Access-Control-Request-Method");
@@ -653,7 +657,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			_A_EVBUFFER_ADD_PRINTF(buf,
 				"Access-Control-Allow-Origin: %s" RN
 				"Access-Control-Allow-Credentials: true" RN,
-				client->server->allow_origin				
+				client->server->allow_origin
 			);
 			if (cors_headers != NULL) {
 				_A_EVBUFFER_ADD_PRINTF(buf, "Access-Control-Allow-Headers: %s" RN, cors_headers);
