@@ -320,8 +320,12 @@ static bool _validate_frame(us_device_s *dev, uint8_t *data, size_t len) {
 
 	// Workaround for truncated JPEG frames:
 	// Some inexpensive CCTV-style USB webcams such as the ELP-USB100W03M send
-	// large amounts of these frames when using MJPEG streams. Check that the
-	// buffer ends with JPEG end of image marker (0xFFD9)
+	// large amounts of these frames when using MJPEG streams. Checks that the
+	// buffer ends with either the JPEG end of image marker (0xFFD9), the last
+	// marker byte plus a padding byte (0xD900), or just padding bytes (0x0000)
+	// A more sophisticated method would scan for the end of image marker, but
+	// that takes precious CPU cycles and this should be good enough for most
+	// cases.
 	if (us_is_jpeg(dev->run->format)) {
 		const uint8_t *const end_ptr = data + len;
 		const uint8_t *const eoi_ptr = end_ptr - 2;
@@ -332,7 +336,7 @@ static bool _validate_frame(us_device_s *dev, uint8_t *data, size_t len) {
 		}
 
 		const uint16_t eoi_marker = (((uint16_t)(eoi_ptr[0]) << 8) | eoi_ptr[1]);
-		if (eoi_marker != 0xFFD9) {
+		if (eoi_marker != 0xFFD9 && eoi_marker != 0xD900 && eoi_marker != 0x0000) {
 			US_LOG_DEBUG("Discarding truncated JPEG frame, eoi_marker=0x%04x size=%lu", eoi_marker, len);
 			return false;
 		}
