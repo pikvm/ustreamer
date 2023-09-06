@@ -54,6 +54,7 @@ static const struct {
 };
 
 
+static bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf);
 static int _device_open_check_cap(us_device_s *dev);
 static int _device_open_dv_timings(us_device_s *dev);
 static int _device_apply_dv_timings(us_device_s *dev);
@@ -312,6 +313,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 	struct v4l2_buffer buf = {0};
 	bool buf_got = false;
 	unsigned skipped = 0;
+	bool broken = false;
 
 	US_LOG_DEBUG("Grabbing device buffer ...");
 
@@ -322,18 +324,50 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 		const bool new_got = (_D_XIOCTL(VIDIOC_DQBUF, &new) >= 0);
 
 		if (new_got) {
+			if (new.index >= _RUN(n_bufs)) {
+				US_LOG_ERROR("V4L2 error: grabbed invalid device buffer=%u, n_bufs=%u", new.index, _RUN(n_bufs));
+				return -1;
+			}
+
+#			define GRABBED(x_buf) _RUN(hw_bufs)[x_buf.index].grabbed
+
+			if (GRABBED(new)) {
+				US_LOG_ERROR("V4L2 error: grabbed device buffer=%u is already used", new.index);
+				return -1;
+			}
+			GRABBED(new) = true;
+
+			broken = !_device_is_buffer_valid(dev, &new);
+			if (broken) {
+				US_LOG_DEBUG("Releasing device buffer=%u (broken frame) ...", new.index);
+				if (_D_XIOCTL(VIDIOC_QBUF, &new) < 0) {
+					US_LOG_PERROR("Can't release device buffer=%u (broken frame)", new.index);
+					return -1;
+				}
+				GRABBED(new) = false;
+				continue;
+			}
+
 			if (buf_got) {
 				if (_D_XIOCTL(VIDIOC_QBUF, &buf) < 0) {
 					US_LOG_PERROR("Can't release device buffer=%u (skipped frame)", buf.index);
 					return -1;
 				}
+				GRABBED(buf) = false;
 				++skipped;
 				// buf_got = false;
 			}
+
+#			undef GRABBED
+
 			memcpy(&buf, &new, sizeof(struct v4l2_buffer));
 			buf_got = true;
+
 		} else {
 			if (buf_got && errno == EAGAIN) {
+				if (broken) {
+					return -2;
+				}
 				break;
 			} else {
 				US_LOG_PERROR("Can't grab device buffer");
@@ -342,35 +376,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 		}
 	} while (true);
 
-	if (buf.index >= _RUN(n_bufs)) {
-		US_LOG_ERROR("V4L2 error: grabbed invalid device buffer=%u, n_bufs=%u", buf.index, _RUN(n_bufs));
-		return -1;
-	}
-
-	// Workaround for broken, corrupted frames:
-	// Under low light conditions corrupted frames may get captured.
-	// The good thing is such frames are quite small compared to the regular frames.
-	// For example a VGA (640x480) webcam frame is normally >= 8kByte large,
-	// corrupted frames are smaller.
-	if (buf.bytesused < dev->min_frame_size) {
-		US_LOG_DEBUG("Dropped too small frame, assuming it was broken: buffer=%u, bytesused=%u",
-			buf.index, buf.bytesused);
-		US_LOG_DEBUG("Releasing device buffer=%u (broken frame) ...", buf.index);
-		if (_D_XIOCTL(VIDIOC_QBUF, &buf) < 0) {
-			US_LOG_PERROR("Can't release device buffer=%u (broken frame)", buf.index);
-			return -1;
-		}
-		return -2;
-	}
-
 #	define HW(x_next) _RUN(hw_bufs)[buf.index].x_next
-
-	if (HW(grabbed)) {
-		US_LOG_ERROR("V4L2 error: grabbed device buffer=%u is already used", buf.index);
-		return -1;
-	}
-	HW(grabbed) = true;
-
 	HW(raw.dma_fd) = HW(dma_fd);
 	HW(raw.used) = buf.bytesused;
 	HW(raw.width) = _RUN(width);
@@ -382,8 +388,8 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 	HW(raw.grab_ts)= (long double)((buf.timestamp.tv_sec * (uint64_t)1000) + (buf.timestamp.tv_usec / 1000)) / 1000;
 	US_LOG_DEBUG("Grabbed new frame: buffer=%u, bytesused=%u, grab_ts=%.3Lf, latency=%.3Lf, skipped=%u",
 		buf.index, buf.bytesused, HW(raw.grab_ts), us_get_now_monotonic() - HW(raw.grab_ts), skipped);
-
 #	undef HW
+
 	*hw = &_RUN(hw_bufs[buf.index]);
 	return buf.index;
 }
@@ -417,6 +423,20 @@ int us_device_consume_event(us_device_s *dev) {
 		US_LOG_PERROR("Got some V4L2 device event, but where is it? ");
 	}
 	return 0;
+}
+
+bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf) {
+	// Workaround for broken, corrupted frames:
+	// Under low light conditions corrupted frames may get captured.
+	// The good thing is such frames are quite small compared to the regular frames.
+	// For example a VGA (640x480) webcam frame is normally >= 8kByte large,
+	// corrupted frames are smaller.
+	if (buf->bytesused < dev->min_frame_size) {
+		US_LOG_DEBUG("Dropped too small frame, assuming it was broken: buffer=%u, bytesused=%u",
+			buf->index, buf->bytesused);
+		return false;
+	}
+	return true;
 }
 
 static int _device_open_check_cap(us_device_s *dev) {
