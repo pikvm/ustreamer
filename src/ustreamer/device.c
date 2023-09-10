@@ -54,7 +54,7 @@ static const struct {
 };
 
 
-static bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf);
+static bool _device_is_buffer_valid(us_device_s *dev, const uint8_t *data, const struct v4l2_buffer *v4l2_buf);
 static int _device_open_check_cap(us_device_s *dev);
 static int _device_open_dv_timings(us_device_s *dev);
 static int _device_apply_dv_timings(us_device_s *dev);
@@ -330,6 +330,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 			}
 
 #			define GRABBED(x_buf) _RUN(hw_bufs)[x_buf.index].grabbed
+#			define FRAME_DATA(x_buf) _RUN(hw_bufs)[x_buf.index].raw.data
 
 			if (GRABBED(new)) {
 				US_LOG_ERROR("V4L2 error: grabbed device buffer=%u is already used", new.index);
@@ -337,7 +338,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 			}
 			GRABBED(new) = true;
 
-			broken = !_device_is_buffer_valid(dev, &new);
+			broken = !_device_is_buffer_valid(dev, FRAME_DATA(new), &new);
 			if (broken) {
 				US_LOG_DEBUG("Releasing device buffer=%u (broken frame) ...", new.index);
 				if (_D_XIOCTL(VIDIOC_QBUF, &new) < 0) {
@@ -359,16 +360,20 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 			}
 
 #			undef GRABBED
+#			undef FRAME_DATA
 
 			memcpy(&buf, &new, sizeof(struct v4l2_buffer));
 			buf_got = true;
 
 		} else {
-			if (buf_got && errno == EAGAIN) {
-				if (broken) {
+			if(errno == EAGAIN) {
+				if(broken) {
 					return -2;
+				} else if(buf_got) {
+					break;
+				} else {
+					continue;
 				}
-				break;
 			} else {
 				US_LOG_PERROR("Can't grab device buffer");
 				return -1;
@@ -425,17 +430,42 @@ int us_device_consume_event(us_device_s *dev) {
 	return 0;
 }
 
-bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf) {
+bool _device_is_buffer_valid(us_device_s *dev, const uint8_t *data, const struct v4l2_buffer *v4l2_buf) {
 	// Workaround for broken, corrupted frames:
 	// Under low light conditions corrupted frames may get captured.
 	// The good thing is such frames are quite small compared to the regular frames.
 	// For example a VGA (640x480) webcam frame is normally >= 8kByte large,
 	// corrupted frames are smaller.
-	if (buf->bytesused < dev->min_frame_size) {
+	if (v4l2_buf->bytesused < dev->min_frame_size) {
 		US_LOG_DEBUG("Dropped too small frame, assuming it was broken: buffer=%u, bytesused=%u",
-			buf->index, buf->bytesused);
+			v4l2_buf->index, v4l2_buf->bytesused);
 		return false;
 	}
+
+	// Workaround for truncated JPEG frames:
+	// Some inexpensive CCTV-style USB webcams such as the ELP-USB100W03M send
+	// large amounts of these frames when using MJPEG streams. Checks that the
+	// buffer ends with either the JPEG end of image marker (0xFFD9), the last
+	// marker byte plus a padding byte (0xD900), or just padding bytes (0x0000)
+	// A more sophisticated method would scan for the end of image marker, but
+	// that takes precious CPU cycles and this should be good enough for most
+	// cases.
+	if (us_is_jpeg(dev->run->format)) {
+		const uint8_t *const end_ptr = data + v4l2_buf->bytesused;
+		const uint8_t *const eoi_ptr = end_ptr - 2;
+
+		if (eoi_ptr < data) {
+			US_LOG_DEBUG("Discarding invalid frame, too small to be a valid JPEG, bytesused=%u", v4l2_buf->bytesused);
+			return false;
+		}
+
+		const uint16_t eoi_marker = (((uint16_t)(eoi_ptr[0]) << 8) | eoi_ptr[1]);
+		if (eoi_marker != 0xFFD9 && eoi_marker != 0xD900 && eoi_marker != 0x0000) {
+			US_LOG_DEBUG("Discarding truncated JPEG frame, eoi_marker=0x%04x bytesused=%u", eoi_marker, v4l2_buf->bytesused);
+			return false;
+		}
+	}
+
 	return true;
 }
 
