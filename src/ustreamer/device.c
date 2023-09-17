@@ -366,18 +366,15 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 			buf_got = true;
 
 		} else {
-			if(errno == EAGAIN) {
-				if(broken) {
-					return -2;
-				} else if(buf_got) {
-					break;
-				} else {
-					continue;
+			if (errno == EAGAIN) {
+				if (buf_got) {
+					break; // Process any latest valid frame
+				} else if (broken) {
+					return -2; // If we have only broken frames on this capture session
 				}
-			} else {
-				US_LOG_PERROR("Can't grab device buffer");
-				return -1;
 			}
+			US_LOG_PERROR("Can't grab device buffer");
+			return -1;
 		}
 	} while (true);
 
