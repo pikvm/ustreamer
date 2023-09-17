@@ -54,7 +54,7 @@ static const struct {
 };
 
 
-static bool _device_is_buffer_valid(us_device_s *dev, const uint8_t *data, const struct v4l2_buffer *v4l2_buf);
+static bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf, const uint8_t *data);
 static int _device_open_check_cap(us_device_s *dev);
 static int _device_open_dv_timings(us_device_s *dev);
 static int _device_apply_dv_timings(us_device_s *dev);
@@ -338,7 +338,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 			}
 			GRABBED(new) = true;
 
-			broken = !_device_is_buffer_valid(dev, FRAME_DATA(new), &new);
+			broken = !_device_is_buffer_valid(dev, &new, FRAME_DATA(new));
 			if (broken) {
 				US_LOG_DEBUG("Releasing device buffer=%u (broken frame) ...", new.index);
 				if (_D_XIOCTL(VIDIOC_QBUF, &new) < 0) {
@@ -430,15 +430,15 @@ int us_device_consume_event(us_device_s *dev) {
 	return 0;
 }
 
-bool _device_is_buffer_valid(us_device_s *dev, const uint8_t *data, const struct v4l2_buffer *v4l2_buf) {
+bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf, const uint8_t *data) {
 	// Workaround for broken, corrupted frames:
 	// Under low light conditions corrupted frames may get captured.
 	// The good thing is such frames are quite small compared to the regular frames.
 	// For example a VGA (640x480) webcam frame is normally >= 8kByte large,
 	// corrupted frames are smaller.
-	if (v4l2_buf->bytesused < dev->min_frame_size) {
+	if (buf->bytesused < dev->min_frame_size) {
 		US_LOG_DEBUG("Dropped too small frame, assuming it was broken: buffer=%u, bytesused=%u",
-			v4l2_buf->index, v4l2_buf->bytesused);
+			buf->index, buf->bytesused);
 		return false;
 	}
 
@@ -451,17 +451,17 @@ bool _device_is_buffer_valid(us_device_s *dev, const uint8_t *data, const struct
 	// that takes precious CPU cycles and this should be good enough for most
 	// cases.
 	if (us_is_jpeg(dev->run->format)) {
-		const uint8_t *const end_ptr = data + v4l2_buf->bytesused;
-		const uint8_t *const eoi_ptr = end_ptr - 2;
-
-		if (eoi_ptr < data) {
-			US_LOG_DEBUG("Discarding invalid frame, too small to be a valid JPEG, bytesused=%u", v4l2_buf->bytesused);
+		if (buf->bytesused < 125) {
+			// https://stackoverflow.com/questions/2253404/what-is-the-smallest-valid-jpeg-file-size-in-bytes
+			US_LOG_DEBUG("Discarding invalid frame, too small to be a valid JPEG: bytesused=%u", buf->bytesused);
 			return false;
 		}
 
+		const uint8_t *const end_ptr = data + buf->bytesused;
+		const uint8_t *const eoi_ptr = end_ptr - 2;
 		const uint16_t eoi_marker = (((uint16_t)(eoi_ptr[0]) << 8) | eoi_ptr[1]);
 		if (eoi_marker != 0xFFD9 && eoi_marker != 0xD900 && eoi_marker != 0x0000) {
-			US_LOG_DEBUG("Discarding truncated JPEG frame, eoi_marker=0x%04x bytesused=%u", eoi_marker, v4l2_buf->bytesused);
+			US_LOG_DEBUG("Discarding truncated JPEG frame: eoi_marker=0x%04x, bytesused=%u", eoi_marker, buf->bytesused);
 			return false;
 		}
 	}
