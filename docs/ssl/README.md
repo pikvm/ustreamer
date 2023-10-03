@@ -17,7 +17,7 @@ They have been tested using the following setup.
 1. Domain registration from GoDaddy
 
 ## The Script
-Below is an overview of the steps performed by `ssl-config.sh`
+Below is an overview of the steps performed by `ssl-config.sh` (for Raspberry OS):
 1. Install snapd - certbot uses this for installation
 1. Install certbot
 1. Get a free cert from Let's Encrypt using certbot
