@@ -345,6 +345,9 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 			}
 			GRABBED(new) = true;
 
+			if (dev->capture_type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) 
+				new.bytesused = new.m.planes[0].bytesused;
+
 			broken = !_device_is_buffer_valid(dev, &new, FRAME_DATA(new));
 			if (broken) {
 				US_LOG_DEBUG("Releasing device buffer=%u (broken frame) ...", new.index);
@@ -370,8 +373,6 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 #			undef FRAME_DATA
 
 			memcpy(&buf, &new, sizeof(struct v4l2_buffer));
-			if (dev->capture_type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) 
-				buf.bytesused = buf.m.planes[0].bytesused;
 
 			buf_got = true;
 
