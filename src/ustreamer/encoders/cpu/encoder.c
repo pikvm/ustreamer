@@ -41,6 +41,7 @@ static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg, const 
 static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_rgb24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
+static void _jpeg_write_scanlines_bgr24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 
 static void _jpeg_init_destination(j_compress_ptr jpeg);
 static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
@@ -78,6 +79,7 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned q
 		WRITE_SCANLINES(V4L2_PIX_FMT_YUYV, _jpeg_write_scanlines_yuyv);
 		WRITE_SCANLINES(V4L2_PIX_FMT_UYVY, _jpeg_write_scanlines_uyvy);
 		WRITE_SCANLINES(V4L2_PIX_FMT_RGB565, _jpeg_write_scanlines_rgb565);
+		WRITE_SCANLINES(V4L2_PIX_FMT_BGR24, _jpeg_write_scanlines_bgr24);
 		WRITE_SCANLINES(V4L2_PIX_FMT_RGB24, _jpeg_write_scanlines_rgb24);
 		default: assert(0 && "Unsupported input format for CPU encoder");
 	}
@@ -215,6 +217,32 @@ static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, cons
 
 		JSAMPROW scanlines[1] = {line_buf};
 		jpeg_write_scanlines(jpeg, scanlines, 1);
+	}
+
+	free(line_buf);
+}
+
+static void _jpeg_write_scanlines_bgr24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
+	uint8_t *line_buf;
+	US_CALLOC(line_buf, frame->width * 3);
+
+	const unsigned padding = us_frame_get_padding(frame);
+	uint8_t *data = frame->data;
+
+	while (jpeg->next_scanline < frame->height) {
+		uint8_t *ptr = line_buf;
+
+		// swap B and R values
+		for (unsigned x = 0; x < frame->width * 3; x+=3) {
+			*(ptr++) = data[x+2];
+			*(ptr++) = data[x+1];
+			*(ptr++) = data[x];
+		}
+		
+		JSAMPROW scanlines[1] = {line_buf};
+		jpeg_write_scanlines(jpeg, scanlines, 1);
+
+		data += (frame->width * 3) + padding;
 	}
 
 	free(line_buf);
