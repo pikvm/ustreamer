@@ -349,7 +349,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 		new.type = dev->capture_type;
 		new.memory = dev->io_method;
 		if (dev->capture_type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-			new.length = 1;
+			new.length = VIDEO_MAX_PLANES;
 			new.m.planes = planes;
 		}
 		
