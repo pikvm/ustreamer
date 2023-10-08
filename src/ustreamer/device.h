@@ -61,7 +61,7 @@
 #define US_STANDARDS_STR		"PAL, NTSC, SECAM"
 
 #define US_FORMAT_UNKNOWN		-1
-#define US_FORMATS_STR			"YUYV, UYVY, RGB565, RGB24, MJPEG, JPEG"
+#define US_FORMATS_STR			"YUYV, UYVY, RGB565, RGB24, BGR24, MJPEG, JPEG"
 
 #define US_IO_METHOD_UNKNOWN	-1
 #define US_IO_METHODS_STR		"MMAP, USERPTR"
@@ -126,6 +126,7 @@ typedef struct {
 	unsigned			jpeg_quality;
 	v4l2_std_id			standard;
 	enum v4l2_memory	io_method;
+	enum v4l2_buf_type  capture_type;
 	bool				dv_timings;
 	unsigned			n_bufs;
 	unsigned			desired_fps;
