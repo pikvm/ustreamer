@@ -109,11 +109,6 @@ static void _jpeg_set_dest_frame(j_compress_ptr jpeg, us_frame_s *frame) {
 	frame->used = 0;
 }
 
-#define YUV_R(_y, _, _v)	(((_y) + (359 * (_v))) >> 8)
-#define YUV_G(_y, _u, _v)	(((_y) - (88 * (_u)) - (183 * (_v))) >> 8)
-#define YUV_B(_y, _u, _)	(((_y) + (454 * (_u))) >> 8)
-#define NORM_COMPONENT(_x)	(((_x) > 255) ? 255 : (((_x) < 0) ? 0 : (_x)))
-
 static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
 	uint8_t *line_buf;
 	US_CALLOC(line_buf, frame->width * 3);
@@ -179,11 +174,6 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const 
 
 	free(line_buf);
 }
-
-#undef NORM_COMPONENT
-#undef YUV_B
-#undef YUV_G
-#undef YUV_R
 
 static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
 	uint8_t *line_buf;
