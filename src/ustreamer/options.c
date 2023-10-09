@@ -696,7 +696,7 @@ static void _help(FILE *fp, const us_device_s *dev, const us_encoder_s *enc, con
 	ADD_SINK("RAW", "raw-")
 	ADD_SINK("H264", "h264-")
 	SAY("    --h264-bitrate <kbps>  ───────── H264 bitrate in Kbps. Default: %u.\n", stream->h264_bitrate);
-	SAY("    --h264-gop <N>  ──────────────── Intarval between keyframes. Default: %u.\n", stream->h264_gop);
+	SAY("    --h264-gop <N>  ──────────────── Interval between keyframes. Default: %u.\n", stream->h264_gop);
 	SAY("    --h264-m2m-device </dev/path>  ─ Path to V4L2 M2M encoder device. Default: auto select.\n");
 #	undef ADD_SINK
 #	ifdef WITH_GPIO
