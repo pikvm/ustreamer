@@ -75,18 +75,19 @@ typedef struct {
 } us_hw_buffer_s;
 
 typedef struct {
-	int				fd;
-	unsigned		width;
-	unsigned		height;
-	unsigned		format;
-	unsigned		stride;
-	unsigned		hw_fps;
-	unsigned		jpeg_quality;
-	size_t			raw_size;
-	unsigned		n_bufs;
-	us_hw_buffer_s	*hw_bufs;
-	bool			capturing;
-	bool			persistent_timeout_reported;
+	int					fd;
+	unsigned			width;
+	unsigned			height;
+	unsigned			format;
+	unsigned			stride;
+	unsigned			hw_fps;
+	unsigned			jpeg_quality;
+	size_t				raw_size;
+	unsigned			n_bufs;
+	us_hw_buffer_s		*hw_bufs;
+	enum v4l2_buf_type	capture_type;
+	bool				capturing;
+	bool				persistent_timeout_reported;
 } us_device_runtime_s;
 
 typedef enum {
@@ -126,16 +127,13 @@ typedef struct {
 	unsigned			jpeg_quality;
 	v4l2_std_id			standard;
 	enum v4l2_memory	io_method;
-	enum v4l2_buf_type  capture_type;
 	bool				dv_timings;
 	unsigned			n_bufs;
 	unsigned			desired_fps;
 	size_t				min_frame_size;
 	bool				persistent;
 	unsigned			timeout;
-
 	us_controls_s 		ctl;
-
 	us_device_runtime_s *run;
 } us_device_s;
 
