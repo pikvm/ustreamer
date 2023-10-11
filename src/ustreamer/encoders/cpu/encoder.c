@@ -39,6 +39,7 @@ static void _jpeg_set_dest_frame(j_compress_ptr jpeg, us_frame_s *frame);
 
 static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
+static void _jpeg_write_scanlines_grey(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_rgb24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_bgr24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
@@ -78,6 +79,7 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned q
 		// https://www.fourcc.org/yuv.php
 		WRITE_SCANLINES(V4L2_PIX_FMT_YUYV, _jpeg_write_scanlines_yuyv);
 		WRITE_SCANLINES(V4L2_PIX_FMT_UYVY, _jpeg_write_scanlines_uyvy);
+		WRITE_SCANLINES(V4L2_PIX_FMT_GREY, _jpeg_write_scanlines_grey);
 		WRITE_SCANLINES(V4L2_PIX_FMT_RGB565, _jpeg_write_scanlines_rgb565);
 		WRITE_SCANLINES(V4L2_PIX_FMT_RGB24, _jpeg_write_scanlines_rgb24);
 		WRITE_SCANLINES(V4L2_PIX_FMT_BGR24, _jpeg_write_scanlines_bgr24);
@@ -179,6 +181,35 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const 
 				z = 0;
 				data += 4;
 			}
+		}
+		data += padding;
+
+		JSAMPROW scanlines[1] = {line_buf};
+		jpeg_write_scanlines(jpeg, scanlines, 1);
+	}
+
+	free(line_buf);
+}
+
+static void _jpeg_write_scanlines_grey(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
+	uint8_t *line_buf;
+	US_CALLOC(line_buf, frame->width * 3);
+
+	const unsigned padding = us_frame_get_padding(frame);
+	const uint8_t *data = frame->data;
+	unsigned z = 0;
+
+	while (jpeg->next_scanline < frame->height) {
+		uint8_t *ptr = line_buf;
+
+		for (unsigned x = 0; x < frame->width; ++x) {
+			const int y = data[0];
+
+			*(ptr++) = y;
+			*(ptr++) = y;
+			*(ptr++) = y;
+
+			data += 1;
 		}
 		data += padding;
 

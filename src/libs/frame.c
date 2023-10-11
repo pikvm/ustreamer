@@ -72,6 +72,7 @@ bool us_frame_compare(const us_frame_s *a, const us_frame_s *b) {
 unsigned us_frame_get_padding(const us_frame_s *frame) {
 	unsigned bytes_per_pixel = 0;
 	switch (frame->format) {
+		case V4L2_PIX_FMT_GREY: bytes_per_pixel = 1; break;
 		case V4L2_PIX_FMT_YUYV:
 		case V4L2_PIX_FMT_UYVY:
 		case V4L2_PIX_FMT_RGB565: bytes_per_pixel = 2; break;
