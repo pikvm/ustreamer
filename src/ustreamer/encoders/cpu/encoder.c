@@ -26,6 +26,7 @@
 
 
 #include "encoder.h"
+#include <stdint.h>
 
 
 typedef struct {
@@ -64,7 +65,7 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned q
 	jpeg.image_width = src->width;
 	jpeg.image_height = src->height;
 	jpeg.input_components = 3;
-	jpeg.in_color_space = JCS_RGB;
+	jpeg.in_color_space = (src->format == V4L2_PIX_FMT_YUYV || src->format == V4L2_PIX_FMT_UYVY)? JCS_YCbCr: JCS_RGB;
 
 	jpeg_set_defaults(&jpeg);
 	jpeg_set_quality(&jpeg, quality, TRUE);
@@ -108,39 +109,29 @@ static void _jpeg_set_dest_frame(j_compress_ptr jpeg, us_frame_s *frame) {
 	frame->used = 0;
 }
 
-#define YUV_R(_y, _, _v)	(((_y) + (359 * (_v))) >> 8)
-#define YUV_G(_y, _u, _v)	(((_y) - (88 * (_u)) - (183 * (_v))) >> 8)
-#define YUV_B(_y, _u, _)	(((_y) + (454 * (_u))) >> 8)
-#define NORM_COMPONENT(_x)	(((_x) > 255) ? 255 : (((_x) < 0) ? 0 : (_x)))
-
 static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
 	uint8_t *line_buf;
 	US_CALLOC(line_buf, frame->width * 3);
 
 	const unsigned padding = us_frame_get_padding(frame);
 	const uint8_t *data = frame->data;
-	unsigned z = 0;
 
 	while (jpeg->next_scanline < frame->height) {
 		uint8_t *ptr = line_buf;
 
 		for (unsigned x = 0; x < frame->width; ++x) {
-			const int y = (!z ? data[0] << 8 : data[2] << 8);
-			const int u = data[1] - 128;
-			const int v = data[3] - 128;
+			// see also: https://www.kernel.org/doc/html/v4.8/media/uapi/v4l/pixfmt-yuyv.html
+			const bool is_odd_pixel = x & 1;
+			const uint8_t y = data[is_odd_pixel ? 2: 0];
+			const uint8_t u = data[1];
+			const uint8_t v = data[3];
 
-			const int r = YUV_R(y, u, v);
-			const int g = YUV_G(y, u, v);
-			const int b = YUV_B(y, u, v);
+			ptr[0] = y;
+			ptr[1] = u;
+			ptr[2] = v;
+			ptr += 3;
 
-			*(ptr++) = NORM_COMPONENT(r);
-			*(ptr++) = NORM_COMPONENT(g);
-			*(ptr++) = NORM_COMPONENT(b);
-
-			if (z++) {
-				z = 0;
-				data += 4;
-			}
+			data += is_odd_pixel? 4: 0;
 		}
 		data += padding;
 
@@ -157,28 +148,23 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const 
 
 	const unsigned padding = us_frame_get_padding(frame);
 	const uint8_t *data = frame->data;
-	unsigned z = 0;
 
 	while (jpeg->next_scanline < frame->height) {
 		uint8_t *ptr = line_buf;
 
 		for (unsigned x = 0; x < frame->width; ++x) {
-			const int y = (!z ? data[1] << 8 : data[3] << 8);
-			const int u = data[0] - 128;
-			const int v = data[2] - 128;
+			// see also: https://www.kernel.org/doc/html/v4.8/media/uapi/v4l/pixfmt-uyvy.html
+			const bool is_odd_pixel = x & 1;
+			const uint8_t y = data[is_odd_pixel ? 3: 1];
+			const uint8_t u = data[0];
+			const uint8_t v = data[2];
 
-			const int r = YUV_R(y, u, v);
-			const int g = YUV_G(y, u, v);
-			const int b = YUV_B(y, u, v);
+			ptr[0] = y;
+			ptr[1] = u;
+			ptr[2] = v;
+			ptr += 3;
 
-			*(ptr++) = NORM_COMPONENT(r);
-			*(ptr++) = NORM_COMPONENT(g);
-			*(ptr++) = NORM_COMPONENT(b);
-
-			if (z++) {
-				z = 0;
-				data += 4;
-			}
+			data += is_odd_pixel? 4: 0;
 		}
 		data += padding;
 
@@ -188,11 +174,6 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const 
 
 	free(line_buf);
 }
-
-#undef NORM_COMPONENT
-#undef YUV_B
-#undef YUV_G
-#undef YUV_R
 
 static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
 	uint8_t *line_buf;
@@ -207,9 +188,10 @@ static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, cons
 		for (unsigned x = 0; x < frame->width; ++x) {
 			const unsigned int two_byte = (data[1] << 8) + data[0];
 
-			*(ptr++) = data[1] & 248; // Red
-			*(ptr++) = (uint8_t)((two_byte & 2016) >> 3); // Green
-			*(ptr++) = (data[0] & 31) * 8; // Blue
+			ptr[0] = data[1] & 248; // Red
+			ptr[1] = (uint8_t)((two_byte & 2016) >> 3); // Green
+			ptr[2] = (data[0] & 31) * 8; // Blue
+			ptr += 3;
 
 			data += 2;
 		}
@@ -246,9 +228,10 @@ static void _jpeg_write_scanlines_bgr24(struct jpeg_compress_struct *jpeg, const
 
 		// swap B and R values
 		for (unsigned x = 0; x < frame->width * 3; x += 3) {
-			*(ptr++) = data[x + 2];
-			*(ptr++) = data[x + 1];
-			*(ptr++) = data[x];
+			ptr[0] = data[x + 2];
+			ptr[1] = data[x + 1];
+			ptr[2] = data[x];
+			ptr += 3;
 		}
 		
 		JSAMPROW scanlines[1] = {line_buf};
