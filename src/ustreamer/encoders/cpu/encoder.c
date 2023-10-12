@@ -26,7 +26,6 @@
 
 
 #include "encoder.h"
-#include <stdint.h>
 
 
 typedef struct {
@@ -65,7 +64,7 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned q
 	jpeg.image_width = src->width;
 	jpeg.image_height = src->height;
 	jpeg.input_components = 3;
-	jpeg.in_color_space = (src->format == V4L2_PIX_FMT_YUYV || src->format == V4L2_PIX_FMT_UYVY)? JCS_YCbCr: JCS_RGB;
+	jpeg.in_color_space = ((src->format == V4L2_PIX_FMT_YUYV || src->format == V4L2_PIX_FMT_UYVY) ? JCS_YCbCr : JCS_RGB);
 
 	jpeg_set_defaults(&jpeg);
 	jpeg_set_quality(&jpeg, quality, TRUE);
@@ -120,9 +119,9 @@ static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg, const 
 		uint8_t *ptr = line_buf;
 
 		for (unsigned x = 0; x < frame->width; ++x) {
-			// see also: https://www.kernel.org/doc/html/v4.8/media/uapi/v4l/pixfmt-yuyv.html
+			// See also: https://www.kernel.org/doc/html/v4.8/media/uapi/v4l/pixfmt-yuyv.html
 			const bool is_odd_pixel = x & 1;
-			const uint8_t y = data[is_odd_pixel ? 2: 0];
+			const uint8_t y = data[is_odd_pixel ? 2 : 0];
 			const uint8_t u = data[1];
 			const uint8_t v = data[3];
 
@@ -131,7 +130,7 @@ static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg, const 
 			ptr[2] = v;
 			ptr += 3;
 
-			data += is_odd_pixel? 4: 0;
+			data += (is_odd_pixel ? 4: 0);
 		}
 		data += padding;
 
@@ -153,9 +152,9 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const 
 		uint8_t *ptr = line_buf;
 
 		for (unsigned x = 0; x < frame->width; ++x) {
-			// see also: https://www.kernel.org/doc/html/v4.8/media/uapi/v4l/pixfmt-uyvy.html
+			// See also: https://www.kernel.org/doc/html/v4.8/media/uapi/v4l/pixfmt-uyvy.html
 			const bool is_odd_pixel = x & 1;
-			const uint8_t y = data[is_odd_pixel ? 3: 1];
+			const uint8_t y = data[is_odd_pixel ? 3 : 1];
 			const uint8_t u = data[0];
 			const uint8_t v = data[2];
 
@@ -164,7 +163,7 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const 
 			ptr[2] = v;
 			ptr += 3;
 
-			data += is_odd_pixel? 4: 0;
+			data += (is_odd_pixel ? 4 : 0);
 		}
 		data += padding;
 
