@@ -127,7 +127,6 @@ void us_stream_loop(us_stream_s *stream) {
 				unsigned slc = 0;
 				for (; slc < 10 && !atomic_load(&_RUN(stop)) && !us_stream_has_clients(stream); ++slc) {
 					usleep(100000);
-					++slc;
 				}
 				h264_force_key = (slc == 10);
 			}
