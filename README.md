@@ -159,6 +159,7 @@ $ sudo modprobe bcm2835-v4l2
 $ libcamerify ./ustreamer --host :: -e m2m-image
 ```
 
+For v2 camera you can use the same trick with `libcamerify` but enable legacy camera mode in `raspi-config`.
 
 Example usage for the Raspberry Pi v1 camera:
 ```
