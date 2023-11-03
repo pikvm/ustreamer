@@ -156,7 +156,7 @@ Add `-e EDID=1` to set HDMI EDID before starting ustreamer. Use together with `-
 Example usage for the Raspberry Pi v3 camera (required `libcamerify` which is located in `libcamera-tools` on Raspbian):
 ```
 $ sudo modprobe bcm2835-v4l2
-$ libcamerify ./ustreamer --host :: -e m2m-image
+$ libcamerify ./ustreamer --host :: --encoder=m2m-image
 ```
 
 For v2 camera you can use the same trick with `libcamerify` but enable legacy camera mode in `raspi-config`.
