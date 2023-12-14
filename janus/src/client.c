@@ -38,7 +38,7 @@ us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_sessio
 
 	atomic_init(&client->stop, false);
 
-	client->video_queue = us_queue_init(1024);
+	client->video_queue = us_queue_init(2048);
 	US_THREAD_CREATE(client->video_tid, _video_thread, client);
 
 	client->audio_queue = us_queue_init(64);
