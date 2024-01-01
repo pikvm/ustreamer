@@ -9,9 +9,6 @@ PY ?= python3
 CFLAGS ?= -O3
 LDFLAGS ?=
 
-RPI_VC_HEADERS ?= /opt/vc/include
-RPI_VC_LIBS ?= /opt/vc/lib
-
 export
 
 _LINTERS_IMAGE ?= ustreamer-linters
