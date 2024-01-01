@@ -22,6 +22,9 @@ define optbool
 $(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
 endef
 
+ifeq ($(V),)
+	ECHO = @
+endif
 
 # =====
 all:
@@ -36,18 +39,18 @@ endif
 
 apps:
 	$(MAKE) -C src
-	@ ln -sf src/ustreamer.bin ustreamer
-	@ ln -sf src/ustreamer-dump.bin ustreamer-dump
+	$(ECHO) ln -sf src/ustreamer.bin ustreamer
+	$(ECHO) ln -sf src/ustreamer-dump.bin ustreamer-dump
 
 
 python:
 	$(MAKE) -C python
-	@ ln -sf python/build/lib.*/*.so .
+	$(ECHO) ln -sf python/build/lib.*/*.so .
 
 
 janus:
 	$(MAKE) -C janus
-	@ ln -sf janus/*.so .
+	$(ECHO) ln -sf janus/*.so .
 
 
 install: all
