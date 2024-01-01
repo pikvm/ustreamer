@@ -42,7 +42,7 @@ endef
 
 ifneq ($(call optbool,$(WITH_GPIO)),)
 _USTR_LIBS += -lgpiod
-override _CFLAGS += -DWITH_GPIO
+override _CFLAGS += -DWITH_GPIO $(shell pkg-config --atleast-version=2 libgpiod 2> /dev/null && echo -DHAVE_GPIOD2)
 _USTR_SRCS += $(shell ls ustreamer/gpio/*.c)
 endif
 

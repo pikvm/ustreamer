@@ -39,7 +39,11 @@ typedef struct {
 	int					pin;
 	const char			*role;
 	char 				*consumer;
+#ifdef HAVE_GPIOD2
+	struct gpiod_line_request	*line;
+#else
 	struct gpiod_line	*line;
+#endif
 	bool				state;
 } us_gpio_output_s;
 

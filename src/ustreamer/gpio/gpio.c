@@ -80,6 +80,105 @@ void us_gpio_destroy(void) {
 	}
 }
 
+#ifdef HAVE_GPIOD2
+int us_gpio_inner_set(us_gpio_output_s *output, bool state) {
+	int retval = 0;
+
+	assert(us_g_gpio.chip != NULL);
+	assert(output->line != NULL);
+	assert(output->state != state); // Must be checked in macro for the performance
+	US_MUTEX_LOCK(us_g_gpio.mutex);
+
+	if (gpiod_line_request_set_value(output->line, output->pin, state ? GPIOD_LINE_VALUE_ACTIVE : GPIOD_LINE_VALUE_INACTIVE) < 0) {
+		US_LOG_PERROR("GPIO: Can't write value %d to line %s (will be disabled)", state ? GPIOD_LINE_VALUE_ACTIVE : GPIOD_LINE_VALUE_INACTIVE, output->consumer);
+		_gpio_output_destroy(output);
+		retval = -1;
+	}
+
+	US_MUTEX_UNLOCK(us_g_gpio.mutex);
+	return retval;
+}
+
+static void _gpio_output_init(us_gpio_output_s *output) {
+	struct gpiod_line_settings *line_settings = NULL;
+	struct gpiod_line_config *line_config = NULL;
+	struct gpiod_request_config *request_config = NULL;
+
+	assert(us_g_gpio.chip != NULL);
+	assert(output->line == NULL);
+
+	US_ASPRINTF(output->consumer, "%s::%s", us_g_gpio.consumer_prefix, output->role);
+
+	if (output->pin >= 0) {
+		line_settings = gpiod_line_settings_new();
+		if (line_settings == NULL) {
+			US_LOG_PERROR("GPIO: Can't allocate line settings for pin=%d", output->pin);
+			goto output_destroy;
+		}
+
+		if (gpiod_line_settings_set_direction(line_settings, GPIOD_LINE_DIRECTION_OUTPUT) < 0) {
+			US_LOG_PERROR("GPIO: Can't set direction for pin=%d", output->pin);
+			goto free_settings;
+
+		}
+
+		if (gpiod_line_settings_set_output_value(line_settings, GPIOD_LINE_VALUE_INACTIVE) < 0) {
+			US_LOG_PERROR("GPIO: Can't set initial line value for pin=%d", output->pin);
+			goto free_settings;
+		}
+
+		line_config = gpiod_line_config_new();
+		if (line_config == NULL) {
+			US_LOG_PERROR("GPIO: Can't allocate line config for pin=%d", output->pin);
+			goto free_settings;
+		}
+
+		if (gpiod_line_config_add_line_settings(line_config, (const unsigned int *) &output->pin, 1, line_settings) < 0) {
+			US_LOG_PERROR("GPIO: Can't set initial line value for pin=%d", output->pin);
+			goto free_settings;
+		}
+
+		if (output->consumer != NULL) {
+			request_config = gpiod_request_config_new();
+			if (request_config == NULL) {
+				US_LOG_PERROR("GPIO: Can't allocate request config for pin=%d", output->pin);
+				goto free_settings;
+			}
+
+			gpiod_request_config_set_consumer(request_config, output->consumer);
+		}
+
+		if ((output->line = gpiod_chip_request_lines(us_g_gpio.chip, request_config, line_config)) == NULL) {
+			US_LOG_PERROR("GPIO: Can't request pin=%d as %s", output->pin, output->consumer);
+			goto free_config;
+		}
+	}
+
+free_config:
+	if (request_config != NULL) {
+		gpiod_request_config_free(request_config);
+	}
+	gpiod_line_config_free(line_config);
+free_settings:
+	gpiod_line_settings_free(line_settings);
+output_destroy:
+	if (output->line == NULL) {
+		_gpio_output_destroy(output);
+	}
+}
+
+static void _gpio_output_destroy(us_gpio_output_s *output) {
+	if (output->line != NULL) {
+		gpiod_line_request_release(output->line);
+		output->line = NULL;
+	}
+	if (output->consumer != NULL) {
+		free(output->consumer);
+		output->consumer = NULL;
+	}
+	output->state = false;
+}
+#else
 int us_gpio_inner_set(us_gpio_output_s *output, bool state) {
 	int retval = 0;
 
@@ -127,3 +226,4 @@ static void _gpio_output_destroy(us_gpio_output_s *output) {
 	}
 	output->state = false;
 }
+#endif
