@@ -9,7 +9,7 @@ PY ?= python3
 # =====
 all:
 	$(info == PY_BUILD ustreamer-*.so)
-	@ $(PY) setup.py build
+	$(ECHO) $(PY) setup.py build
 
 
 install:

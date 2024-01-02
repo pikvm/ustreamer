@@ -31,13 +31,13 @@ endif
 # =====
 $(_PLUGIN): $(_SRCS:%.c=$(_BUILD)/%.o)
 	$(info == SO $@)
-	@ $(CC) $^ -o $@ $(_LDFLAGS)
+	$(ECHO) $(CC) $^ -o $@ $(_LDFLAGS)
 
 
 $(_BUILD)/%.o: %.c
 	$(info -- CC $<)
-	@ mkdir -p $(dir $@) || true
-	@ $(CC) $< -o $@ $(_CFLAGS)
+	$(ECHO) mkdir -p $(dir $@) || true
+	$(ECHO) $(CC) $< -o $@ $(_CFLAGS)
 
 
 

@@ -86,18 +86,18 @@ install-strip: install
 
 $(_USTR): $(_USTR_SRCS:%.c=$(_BUILD)/%.o)
 	$(info == LD $@)
-	@ $(CC) $^ -o $@ $(_LDFLAGS) $(_USTR_LIBS)
+	$(ECHO) $(CC) $^ -o $@ $(_LDFLAGS) $(_USTR_LIBS)
 
 
 $(_DUMP): $(_DUMP_SRCS:%.c=$(_BUILD)/%.o)
 	$(info == LD $@)
-	@ $(CC) $^ -o $@ $(_LDFLAGS) $(_DUMP_LIBS)
+	$(ECHO) $(CC) $^ -o $@ $(_LDFLAGS) $(_DUMP_LIBS)
 
 
 $(_BUILD)/%.o: %.c
 	$(info -- CC $<)
-	@ mkdir -p $(dir $@) || true
-	@ $(CC) $< -o $@ $(_CFLAGS)
+	$(ECHO) mkdir -p $(dir $@) || true
+	$(ECHO) $(CC) $< -o $@ $(_CFLAGS)
 
 
 clean:
