@@ -123,42 +123,31 @@ static void _gpio_output_init(us_gpio_output_s *output, struct gpiod_chip *chip)
 
 	if (output->pin >= 0) {
 #		ifdef HAVE_GPIOD2
-		struct gpiod_line_settings *line_settings = NULL;
-		struct gpiod_line_config *line_config = NULL;
-		struct gpiod_request_config *request_config = NULL;
-
+		struct gpiod_line_settings *line_settings;
 		assert(line_settings = gpiod_line_settings_new());
-		if (gpiod_line_settings_set_direction(line_settings, GPIOD_LINE_DIRECTION_OUTPUT) < 0) {
-			US_LOG_PERROR("GPIO: Can't set output direction for pin=%d as %s", output->pin, output->consumer);
-			goto done;
-		}
-		if (gpiod_line_settings_set_output_value(line_settings, false) < 0) {
-			US_LOG_PERROR("GPIO: Can't set default output value for pin=%d as %s", output->pin, output->consumer);
-			goto done;
-		}
+		assert(!gpiod_line_settings_set_direction(line_settings, GPIOD_LINE_DIRECTION_OUTPUT));
+		assert(!gpiod_line_settings_set_output_value(line_settings, false));
 
+		struct gpiod_line_config *line_config;
 		assert(line_config = gpiod_line_config_new());
 		const unsigned offset = output->pin;
-		if (gpiod_line_config_add_line_settings(line_config, &offset, 1, line_settings) < 0) {
-			US_LOG_PERROR("GPIO: Can't set line settings for pin=%d as %s", output->pin, output->consumer);
-			goto done;
-		}
+		assert(!gpiod_line_config_add_line_settings(line_config, &offset, 1, line_settings));
 
+		struct gpiod_request_config *request_config;
 		assert(request_config = gpiod_request_config_new());
 		gpiod_request_config_set_consumer(request_config, output->consumer);
 
 		if ((output->line = gpiod_chip_request_lines(chip, request_config, line_config)) == NULL) {
 			US_LOG_PERROR("GPIO: Can't request pin=%d as %s", output->pin, output->consumer);
-			goto done;
 		}
 
-		done:
-			US_DELETE(request_config, gpiod_request_config_free);
-			US_DELETE(line_config, gpiod_line_config_free);
-			US_DELETE(line_settings, gpiod_line_settings_free);
-			if (output->line == NULL) {
-				_gpio_output_destroy(output);
-			}
+		gpiod_request_config_free(request_config);
+		gpiod_line_config_free(line_config);
+		gpiod_line_settings_free(line_settings);
+
+		if (output->line == NULL) {
+			_gpio_output_destroy(output);
+		}
 
 #		else
 
