@@ -38,6 +38,7 @@ static const struct {
 	const unsigned format; // cppcheck-suppress unusedStructMember
 } _FORMATS[] = {
 	{"YUYV",	V4L2_PIX_FMT_YUYV},
+	{"YVYU",	V4L2_PIX_FMT_YVYU},
 	{"UYVY",	V4L2_PIX_FMT_UYVY},
 	{"RGB565",	V4L2_PIX_FMT_RGB565},
 	{"RGB24",	V4L2_PIX_FMT_RGB24},
