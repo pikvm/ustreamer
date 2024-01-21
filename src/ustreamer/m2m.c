@@ -441,7 +441,14 @@ static int _m2m_encoder_compress_raw(us_m2m_encoder_s *enc, const us_frame_s *sr
 	// Для не-DMA отправка буфера по факту являтся освобождением этого буфера
 	bool input_released = !_RUN(dma);
 
+	const long double deadline_ts = us_get_now_monotonic() + 1;
+
 	while (true) {
+		if (us_get_now_monotonic() > deadline_ts) {
+			_E_LOG_ERROR("The encoder wait is too long");
+			goto error;
+		}
+
 		struct pollfd enc_poll = {_RUN(fd), POLLIN, 0};
 
 		_E_LOG_DEBUG("Polling encoder ...");
