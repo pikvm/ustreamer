@@ -37,9 +37,7 @@ typedef struct {
 
 static void _jpeg_set_dest_frame(j_compress_ptr jpeg, us_frame_s *frame);
 
-static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
-static void _jpeg_write_scanlines_yvyu(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
-static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
+static void _jpeg_write_scanlines_yuv(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_rgb24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_bgr24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
@@ -72,21 +70,16 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned q
 
 	jpeg_start_compress(&jpeg, TRUE);
 
-#	define WRITE_SCANLINES(x_format, x_func) \
-		case x_format: { x_func(&jpeg, src); break; }
-
 	switch (src->format) {
 		// https://www.fourcc.org/yuv.php
-		WRITE_SCANLINES(V4L2_PIX_FMT_YUYV, _jpeg_write_scanlines_yuyv);
-		WRITE_SCANLINES(V4L2_PIX_FMT_YVYU, _jpeg_write_scanlines_yvyu);
-		WRITE_SCANLINES(V4L2_PIX_FMT_UYVY, _jpeg_write_scanlines_uyvy);
-		WRITE_SCANLINES(V4L2_PIX_FMT_RGB565, _jpeg_write_scanlines_rgb565);
-		WRITE_SCANLINES(V4L2_PIX_FMT_RGB24, _jpeg_write_scanlines_rgb24);
-		WRITE_SCANLINES(V4L2_PIX_FMT_BGR24, _jpeg_write_scanlines_bgr24);
-		default: assert(0 && "Unsupported input format for CPU encoder");
+		case V4L2_PIX_FMT_YUYV:
+		case V4L2_PIX_FMT_YVYU:
+		case V4L2_PIX_FMT_UYVY:		_jpeg_write_scanlines_yuv(&jpeg, src); break;
+		case V4L2_PIX_FMT_RGB565:	_jpeg_write_scanlines_rgb565(&jpeg, src); break;
+		case V4L2_PIX_FMT_RGB24:	_jpeg_write_scanlines_rgb24(&jpeg, src); break;
+		case V4L2_PIX_FMT_BGR24:	_jpeg_write_scanlines_bgr24(&jpeg, src); break;
+		default: assert(0 && "Unsupported input format for CPU encoder"); return;
 	}
-
-#	undef WRITE_SCANLINES
 
 	jpeg_finish_compress(&jpeg);
 	jpeg_destroy_compress(&jpeg);
@@ -110,73 +103,7 @@ static void _jpeg_set_dest_frame(j_compress_ptr jpeg, us_frame_s *frame) {
 	frame->used = 0;
 }
 
-static void _jpeg_write_scanlines_yuyv(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
-	uint8_t *line_buf;
-	US_CALLOC(line_buf, frame->width * 3);
-
-	const unsigned padding = us_frame_get_padding(frame);
-	const uint8_t *data = frame->data;
-
-	while (jpeg->next_scanline < frame->height) {
-		uint8_t *ptr = line_buf;
-
-		for (unsigned x = 0; x < frame->width; ++x) {
-			// See also: https://www.kernel.org/doc/html/v4.8/media/uapi/v4l/pixfmt-yuyv.html
-			const bool is_odd_pixel = x & 1;
-			const uint8_t y = data[is_odd_pixel ? 2 : 0];
-			const uint8_t u = data[1];
-			const uint8_t v = data[3];
-
-			ptr[0] = y;
-			ptr[1] = u;
-			ptr[2] = v;
-			ptr += 3;
-
-			data += (is_odd_pixel ? 4: 0);
-		}
-		data += padding;
-
-		JSAMPROW scanlines[1] = {line_buf};
-		jpeg_write_scanlines(jpeg, scanlines, 1);
-	}
-
-	free(line_buf);
-}
-
-static void _jpeg_write_scanlines_yvyu(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
-	uint8_t *line_buf;
-	US_CALLOC(line_buf, frame->width * 3);
-
-	const unsigned padding = us_frame_get_padding(frame);
-	const uint8_t *data = frame->data;
-
-	while (jpeg->next_scanline < frame->height) {
-		uint8_t *ptr = line_buf;
-
-		for (unsigned x = 0; x < frame->width; ++x) {
-			// See also: https://www.kernel.org/doc/html/v4.8/media/uapi/v4l/pixfmt-yuyv.html
-			const bool is_odd_pixel = x & 1;
-			const uint8_t y = data[is_odd_pixel ? 2 : 0];
-			const uint8_t u = data[3];
-			const uint8_t v = data[1];
-
-			ptr[0] = y;
-			ptr[1] = u;
-			ptr[2] = v;
-			ptr += 3;
-
-			data += (is_odd_pixel ? 4 : 0);
-		}
-		data += padding;
-
-		JSAMPROW scanlines[1] = {line_buf};
-		jpeg_write_scanlines(jpeg, scanlines, 1);
-	}
-
-	free(line_buf);
-}
-
-static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
+static void _jpeg_write_scanlines_yuv(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
 	uint8_t *line_buf;
 	US_CALLOC(line_buf, frame->width * 3);
 
@@ -189,9 +116,23 @@ static void _jpeg_write_scanlines_uyvy(struct jpeg_compress_struct *jpeg, const 
 		for (unsigned x = 0; x < frame->width; ++x) {
 			// See also: https://www.kernel.org/doc/html/v4.8/media/uapi/v4l/pixfmt-uyvy.html
 			const bool is_odd_pixel = x & 1;
-			const uint8_t y = data[is_odd_pixel ? 3 : 1];
-			const uint8_t u = data[0];
-			const uint8_t v = data[2];
+			uint8_t y, u, v;
+			if (frame->format == V4L2_PIX_FMT_YUYV) {
+				y = data[is_odd_pixel ? 2 : 0];
+				u = data[1];
+				v = data[3];
+			} else if (frame->format == V4L2_PIX_FMT_YVYU) {
+				y = data[is_odd_pixel ? 2 : 0];
+				u = data[3];
+				v = data[1];
+			} else if (frame->format == V4L2_PIX_FMT_UYVY) {
+				y = data[is_odd_pixel ? 3 : 1];
+				u = data[0];
+				v = data[2];
+			} else {
+				assert(0 && "Unsupported pixel format");
+				return; // Makes linter happy
+			}
 
 			ptr[0] = y;
 			ptr[1] = u;
