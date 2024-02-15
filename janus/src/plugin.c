@@ -99,7 +99,9 @@ static atomic_bool		_g_key_required = false;
 janus_plugin *create(void);
 
 
-static void *_video_rtp_thread(UNUSED void *arg) {
+static void *_video_rtp_thread(void *arg) {
+	(void)arg;
+
 	US_THREAD_RENAME("us_video_rtp");
 	atomic_store(&_g_video_rtp_tid_created, true);
 
@@ -116,7 +118,9 @@ static void *_video_rtp_thread(UNUSED void *arg) {
 	return NULL;
 }
 
-static void *_video_sink_thread(UNUSED void *arg) {
+static void *_video_sink_thread(void *arg) {
+	(void)arg;
+
 	US_THREAD_RENAME("us_video_sink");
 	atomic_store(&_g_video_sink_tid_created, true);
 
@@ -178,7 +182,9 @@ static void *_video_sink_thread(UNUSED void *arg) {
 	return NULL;
 }
 
-static void *_audio_thread(UNUSED void *arg) {
+static void *_audio_thread(void *arg) {
+	(void)arg;
+
 	US_THREAD_RENAME("us_audio");
 	atomic_store(&_g_audio_tid_created, true);
 	assert(_g_config->audio_dev_name != NULL);
@@ -344,7 +350,8 @@ static json_t *_plugin_query_session(janus_plugin_session *session) {
 	return info;
 }
 
-static void _set_transmit(janus_plugin_session *session, UNUSED const char *msg, bool transmit) {
+static void _set_transmit(janus_plugin_session *session, const char *msg, bool transmit) {
+	(void)msg;
 	_IF_DISABLED({ return; });
 	_LOCK_ALL;
 	bool found = false;
@@ -503,7 +510,9 @@ static struct janus_plugin_result *_plugin_handle_message(
 #	undef FREE_MSG_JSEP
 }
 
-static void _plugin_incoming_rtcp(UNUSED janus_plugin_session *handle, UNUSED janus_plugin_rtcp *packet) {
+static void _plugin_incoming_rtcp(janus_plugin_session *handle, janus_plugin_rtcp *packet) {
+	(void)handle;
+	(void)packet;
 	if (packet->video && janus_rtcp_has_pli(packet->buffer, packet->length)) {
 		// US_JLOG_INFO("main", "Got video PLI");
 		atomic_store(&_g_key_required, true);

@@ -52,14 +52,16 @@ static void _block_thread_signals(void) {
 	assert(!pthread_sigmask(SIG_BLOCK, &mask, NULL));
 }
 
-static void *_stream_loop_thread(UNUSED void *arg) {
+static void *_stream_loop_thread(void *arg) {
+	(void)arg;
 	US_THREAD_RENAME("stream");
 	_block_thread_signals();
 	us_stream_loop(_g_stream);
 	return NULL;
 }
 
-static void *_server_loop_thread(UNUSED void *arg) {
+static void *_server_loop_thread(void *arg) {
+	(void)arg;
 	US_THREAD_RENAME("http");
 	_block_thread_signals();
 	us_server_loop(_g_server);

@@ -747,7 +747,10 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 #	undef BOUNDARY
 }
 
-static void _http_callback_stream_error(UNUSED struct bufferevent *buf_event, UNUSED short what, void *v_client) {
+static void _http_callback_stream_error(struct bufferevent *buf_event, short what, void *v_client) {
+	(void)buf_event;
+	(void)what;
+
 	us_stream_client_s *const client = (us_stream_client_s *)v_client;
 	us_server_s *const server = client->server;
 
@@ -825,7 +828,10 @@ static void _http_queue_send_stream(us_server_s *server, bool stream_updated, bo
 	}
 }
 
-static void _http_request_watcher(UNUSED int fd, UNUSED short what, void *v_server) {
+static void _http_request_watcher(int fd, short what, void *v_server) {
+	(void)fd;
+	(void)what;
+
 	us_server_s *server = (us_server_s *)v_server;
 	const long double now = us_get_now_monotonic();
 
@@ -839,7 +845,10 @@ static void _http_request_watcher(UNUSED int fd, UNUSED short what, void *v_serv
 	}
 }
 
-static void _http_refresher(UNUSED int fd, UNUSED short what, void *v_server) {
+static void _http_refresher(int fd, short what, void *v_server) {
+	(void)fd;
+	(void)what;
+
 	us_server_s *server = (us_server_s *)v_server;
 	bool stream_updated = false;
 	bool frame_updated = false;

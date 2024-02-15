@@ -57,7 +57,6 @@
 #define RN "\r\n"
 
 #define INLINE inline __attribute__((always_inline))
-#define UNUSED __attribute__((unused))
 
 #define US_CALLOC(x_dest, x_nmemb)		assert(((x_dest) = calloc((x_nmemb), sizeof(*(x_dest)))) != NULL)
 #define US_REALLOC(x_dest, x_nmemb)		assert(((x_dest) = realloc((x_dest), (x_nmemb) * sizeof(*(x_dest)))) != NULL)
