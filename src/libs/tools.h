@@ -29,7 +29,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
-#include <locale.h>
 #include <errno.h>
 #include <math.h>
 #include <time.h>
@@ -177,15 +176,16 @@ INLINE int us_flock_timedwait_monotonic(int fd, long double timeout) {
 }
 
 INLINE char *us_errno_to_string(int error) {
-	locale_t locale = newlocale(LC_MESSAGES_MASK, "C", NULL);
-	char *buf;
-	if (locale) {
-		buf = us_strdup(strerror_l(error, locale));
-		freelocale(locale);
-	} else {
-		buf = us_strdup("!!! newlocale() error !!!");
+	char buf[2048];
+	const size_t max_len = sizeof(buf) - 1;
+#	if (_POSIX_C_SOURCE >= 200112L) && ! _GNU_SOURCE
+	if (strerror_r(error, buf, max_len) != 0) {
+		assert(snprintf(buf, max_len, "Errno = %d", error) > 0);
 	}
-	return buf;
+	return us_strdup(buf);
+#	else
+	return us_strdup(strerror_r(error, buf, max_len));
+#	endif
 }
 
 INLINE char *us_signum_to_string(int signum) {
