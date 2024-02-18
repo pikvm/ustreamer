@@ -62,7 +62,8 @@
 #define US_DELETE(x_dest, x_free)		{ if (x_dest) { x_free(x_dest); } }
 #define US_MEMSET_ZERO(x_obj)			memset(&(x_obj), 0, sizeof(x_obj))
 
-#define US_ASPRINTF(x_dest, x_fmt, ...) assert(asprintf(&(x_dest), (x_fmt), ##__VA_ARGS__) >= 0)
+#define US_SNPRINTF(x_dest, x_size, x_fmt, ...)	assert(snprintf((x_dest), (x_size), (x_fmt), ##__VA_ARGS__) > 0)
+#define US_ASPRINTF(x_dest, x_fmt, ...)			assert(asprintf(&(x_dest), (x_fmt), ##__VA_ARGS__) > 0)
 
 
 INLINE char *us_strdup(const char *str) {
@@ -180,7 +181,7 @@ INLINE char *us_errno_to_string(int error) {
 	const size_t max_len = sizeof(buf) - 1;
 #	if (_POSIX_C_SOURCE >= 200112L) && ! _GNU_SOURCE
 	if (strerror_r(error, buf, max_len) != 0) {
-		assert(snprintf(buf, max_len, "Errno = %d", error) > 0);
+		US_SNPRINTF(buf, max_len, "Errno = %d", error);
 	}
 	return us_strdup(buf);
 #	else

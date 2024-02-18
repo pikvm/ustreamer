@@ -502,12 +502,12 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	char header_buf[256];
 
 #	define ADD_TIME_HEADER(x_key, x_value) { \
-			snprintf(header_buf, 255, "%.06Lf", x_value); \
+			US_SNPRINTF(header_buf, 255, "%.06Lf", x_value); \
 			ADD_HEADER(x_key, header_buf); \
 		}
 
 #	define ADD_UNSIGNED_HEADER(x_key, x_value) { \
-			snprintf(header_buf, 255, "%u", x_value); \
+			US_SNPRINTF(header_buf, 255, "%u", x_value); \
 			ADD_HEADER(x_key, header_buf); \
 		}
 

@@ -120,7 +120,7 @@ us_workers_pool_s *us_encoder_workers_pool_init(us_encoder_s *enc, us_device_s *
 		for (; _ER(n_m2ms) < n_workers; ++_ER(n_m2ms)) {
 			// Начинаем с нуля и доинициализируем на следующих заходах при необходимости
 			char name[32];
-			snprintf(name, 32, "JPEG-%u", _ER(n_m2ms));
+			US_SNPRINTF(name, 31, "JPEG-%u", _ER(n_m2ms));
 			if (type == US_ENCODER_TYPE_M2M_VIDEO) {
 				_ER(m2ms[_ER(n_m2ms)]) = us_m2m_mjpeg_encoder_init(name, enc->m2m_path, quality);
 			} else {

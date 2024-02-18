@@ -33,7 +33,7 @@ char *us_find_static_file_path(const char *root_path, const char *request_path) 
 	}
 
 	US_CALLOC(path, strlen(root_path) + strlen(simplified_path) + 16); // + reserved for /index.html
-	sprintf(path, "%s/%s", root_path, simplified_path);
+	assert(sprintf(path, "%s/%s", root_path, simplified_path) > 0);
 
 	struct stat st;
 #	define LOAD_STAT { \

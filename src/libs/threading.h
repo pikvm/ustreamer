@@ -41,9 +41,9 @@
 
 
 #ifdef PTHREAD_MAX_NAMELEN_NP
-#	define US_MAX_THREAD_NAME ((size_t)(PTHREAD_MAX_NAMELEN_NP))
+#	define US_THREAD_NAME_SIZE ((size_t)(PTHREAD_MAX_NAMELEN_NP))
 #else
-#	define US_MAX_THREAD_NAME ((size_t)16)
+#	define US_THREAD_NAME_SIZE ((size_t)16)
 #endif
 
 #define US_THREAD_CREATE(x_tid, x_func, x_arg)	assert(!pthread_create(&(x_tid), NULL, (x_func), (x_arg)))
@@ -51,8 +51,8 @@
 
 #ifdef WITH_PTHREAD_NP
 #	define US_THREAD_RENAME(x_fmt, ...) { \
-			char m_new_tname_buf[US_MAX_THREAD_NAME] = {0}; \
-			assert(snprintf(m_new_tname_buf, US_MAX_THREAD_NAME, (x_fmt), ##__VA_ARGS__) > 0); \
+			char m_new_tname_buf[US_THREAD_NAME_SIZE] = {0}; \
+			US_SNPRINTF(m_new_tname_buf, (US_THREAD_NAME_SIZE - 1), (x_fmt), ##__VA_ARGS__); \
 			us_thread_set_name(m_new_tname_buf); \
 		}
 #else
@@ -89,12 +89,12 @@ INLINE void us_thread_get_name(char *name) { // Always required for logging
 #ifdef WITH_PTHREAD_NP
 	int retval = -1;
 #	if defined(__linux__) || defined (__NetBSD__)
-	retval = pthread_getname_np(pthread_self(), name, US_MAX_THREAD_NAME);
+	retval = pthread_getname_np(pthread_self(), name, US_THREAD_NAME_SIZE - 1);
 #	elif \
 		(defined(__FreeBSD__) && defined(__FreeBSD_version) && __FreeBSD_version >= 1103500) \
 		|| (defined(__OpenBSD__) && defined(OpenBSD) && OpenBSD >= 201905) \
 		|| defined(__DragonFly__)
-	pthread_get_name_np(pthread_self(), name, US_MAX_THREAD_NAME);
+	pthread_get_name_np(pthread_self(), name, US_THREAD_NAME_SIZE - 1);
 	if (name[0] != '\0') {
 		retval = 0;
 	}
@@ -118,7 +118,7 @@ INLINE void us_thread_get_name(char *name) { // Always required for logging
 		const pid_t tid = 0; // Makes cppcheck happy
 #	warning gettid() not implemented
 #endif
-		assert(snprintf(name, US_MAX_THREAD_NAME, "tid=%d", tid) > 0);
+		US_SNPRINTF(name, (US_THREAD_NAME_SIZE - 1), "tid=%d", tid);
 
 #ifdef WITH_PTHREAD_NP
 	}

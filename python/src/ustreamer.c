@@ -99,7 +99,7 @@ static int _MemsinkObject_init(_MemsinkObject *self, PyObject *args, PyObject *k
 
 static PyObject *_MemsinkObject_repr(_MemsinkObject *self) {
 	char repr[1024];
-	snprintf(repr, 1023, "<Memsink(%s)>", self->obj);
+	US_SNPRINTF(repr, 1023, "<Memsink(%s)>", self->obj);
 	return Py_BuildValue("s", repr);
 }
 

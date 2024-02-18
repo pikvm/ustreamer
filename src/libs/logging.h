@@ -91,7 +91,7 @@ extern pthread_mutex_t us_g_log_mutex;
 
 
 #define US_LOG_PRINTF_NOLOCK(x_label_color, x_label, x_msg_color, x_msg, ...) { \
-		char m_tname_buf[US_MAX_THREAD_NAME] = {0}; \
+		char m_tname_buf[US_THREAD_NAME_SIZE] = {0}; \
 		us_thread_get_name(m_tname_buf); \
 		if (us_g_log_colored) { \
 			fprintf(stderr, US_COLOR_GRAY "-- " x_label_color x_label US_COLOR_GRAY \

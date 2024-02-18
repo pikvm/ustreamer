@@ -31,7 +31,7 @@ char *us_bufferevent_format_reason(short what) {
 	char *const perror_str = us_errno_to_string(EVUTIL_SOCKET_ERROR());
 	bool first = true;
 
-	strcat(reason, perror_str);
+	strncat(reason, perror_str, 1023);
 	free(perror_str);
 	strcat(reason, " (");
 
