@@ -9,6 +9,7 @@ LDFLAGS ?=
 # =====
 _USTR = ustreamer.bin
 _DUMP = ustreamer-dump.bin
+_V4P = ustreamer-v4p.bin
 
 _CFLAGS = -MD -c -std=c17 -Wall -Wextra -D_GNU_SOURCE $(CFLAGS)
 _LDFLAGS = $(LDFLAGS)
@@ -32,7 +33,17 @@ _DUMP_SRCS = $(shell ls \
 	dump/*.c \
 )
 
+_V4P_LIBS = $(_COMMON_LIBS)
+_V4P_SRCS = $(shell ls \
+	libs/*.c \
+	v4p/*.c \
+)
+
 _BUILD = build
+
+
+_TARGETS = $(_USTR) $(_DUMP)
+_OBJS = $(_USTR_SRCS:%.c=$(_BUILD)/%.o) $(_DUMP_SRCS:%.c=$(_BUILD)/%.o)
 
 
 define optbool
@@ -69,19 +80,25 @@ override _CFLAGS += -DWITH_SETPROCTITLE
 endif
 
 
+WITH_V4P ?= 0
+ifneq ($(call optbool,$(WITH_V4P)),)
+override _TARGETS += $(_V4P)
+override _OBJS += $(_V4P_SRCS:%.c=$(_BUILD)/%.o)
+override _CFLAGS += $(shell pkg-config --cflags libdrm)
+_V4P_LDFLAGS = $(shell pkg-config --libs libdrm)
+endif
+
 # =====
-all: $(_USTR) $(_DUMP)
+all: $(_TARGETS)
 
 
 install: all
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
-	install -m755 $(_USTR) $(DESTDIR)$(PREFIX)/bin/$(subst .bin,,$(_USTR))
-	install -m755 $(_DUMP) $(DESTDIR)$(PREFIX)/bin/$(subst .bin,,$(_DUMP))
+	for i in $(_TARGETS); do install -m 755 $(DESTDIR)$(PREFIX)/bin/$(subst .bin,,$$i); done
 
 
 install-strip: install
-	strip $(DESTDIR)$(PREFIX)/bin/$(subst .bin,,$(_USTR))
-	strip $(DESTDIR)$(PREFIX)/bin/$(subst .bin,,$(_DUMP))
+	for i in $(_TARGETS); do strip $(DESTDIR)$(PREFIX)/bin/$(subst .bin,,$$i); done
 
 
 $(_USTR): $(_USTR_SRCS:%.c=$(_BUILD)/%.o)
@@ -94,6 +111,11 @@ $(_DUMP): $(_DUMP_SRCS:%.c=$(_BUILD)/%.o)
 	$(ECHO) $(CC) $^ -o $@ $(_LDFLAGS) $(_DUMP_LIBS)
 
 
+$(_V4P): $(_V4P_SRCS:%.c=$(_BUILD)/%.o)
+	$(info == LD $@)
+	$(ECHO) $(CC) $^ -o $@ $(_LDFLAGS) $(_V4P_LDFLAGS) $(_V4P_LIBS)
+
+
 $(_BUILD)/%.o: %.c
 	$(info -- CC $<)
 	$(ECHO) mkdir -p $(dir $@) || true
@@ -101,8 +123,7 @@ $(_BUILD)/%.o: %.c
 
 
 clean:
-	rm -rf $(_USTR) $(_DUMP) $(_BUILD)
+	rm -rf $(_USTR) $(_DUMP) $(_V4P) $(_BUILD)
 
 
-_OBJS = $(_USTR_SRCS:%.c=$(_BUILD)/%.o) $(_DUMP_SRCS:%.c=$(_BUILD)/%.o)
 -include $(_OBJS:%.o=%.d)

@@ -36,8 +36,7 @@ endif
 
 apps:
 	$(MAKE) -C src
-	$(ECHO) ln -sf src/ustreamer.bin ustreamer
-	$(ECHO) ln -sf src/ustreamer-dump.bin ustreamer-dump
+	$(ECHO) ln -sf src/*.bin .
 
 
 python:
@@ -119,7 +118,7 @@ clean-all: linters clean
 
 clean:
 	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.{xz,zst}
-	rm -f ustreamer ustreamer-dump *.so
+	rm -f *.bin *.so
 	$(MAKE) -C src clean
 	$(MAKE) -C python clean
 	$(MAKE) -C janus clean
