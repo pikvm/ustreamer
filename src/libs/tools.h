@@ -59,7 +59,8 @@
 
 #define US_CALLOC(x_dest, x_nmemb)		assert(((x_dest) = calloc((x_nmemb), sizeof(*(x_dest)))) != NULL)
 #define US_REALLOC(x_dest, x_nmemb)		assert(((x_dest) = realloc((x_dest), (x_nmemb) * sizeof(*(x_dest)))) != NULL)
-#define US_DELETE(x_dest, x_free)		{ if (x_dest) { x_free(x_dest); } }
+#define US_DELETE(x_dest, x_free)		{ if (x_dest) { x_free(x_dest); x_dest = NULL; } }
+#define US_CLOSE_FD(x_dest, x_close)	{ if (x_dest >= 0) { x_close(x_dest); x_dest = -1; } }
 #define US_MEMSET_ZERO(x_obj)			memset(&(x_obj), 0, sizeof(x_obj))
 
 #define US_SNPRINTF(x_dest, x_size, x_fmt, ...)	assert(snprintf((x_dest), (x_size), (x_fmt), ##__VA_ARGS__) > 0)

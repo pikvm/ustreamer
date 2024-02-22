@@ -25,18 +25,15 @@
 
 evutil_socket_t us_evhttp_bind_unix(struct evhttp *http, const char *path, bool rm, mode_t mode) {
 	struct sockaddr_un addr = {0};
+	const size_t max_sun_path = sizeof(addr.sun_path) - 1;
 
-#	define MAX_SUN_PATH (sizeof(addr.sun_path) - 1)
-
-	if (strlen(path) > MAX_SUN_PATH) {
-		US_LOG_ERROR("UNIX socket path is too long; max=%zu", MAX_SUN_PATH);
+	if (strlen(path) > max_sun_path) {
+		US_LOG_ERROR("UNIX socket path is too long; max=%zu", max_sun_path);
 		return -1;
 	}
 
-	strncpy(addr.sun_path, path, MAX_SUN_PATH);
+	strncpy(addr.sun_path, path, max_sun_path);
 	addr.sun_family = AF_UNIX;
-
-#	undef MAX_SUN_PATH
 
 	const evutil_socket_t fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	assert(fd >= 0);

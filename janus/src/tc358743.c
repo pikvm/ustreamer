@@ -44,8 +44,7 @@ int us_tc358743_read_info(const char *path, us_tc358743_info_s *info) {
 	}
 
 #	define READ_CID(x_cid, x_field) { \
-			struct v4l2_control m_ctl = {0}; \
-			m_ctl.id = x_cid; \
+			struct v4l2_control m_ctl = {.id = x_cid}; \
 			if (us_xioctl(fd, VIDIOC_G_CTRL, &m_ctl) < 0) { \
 				US_JLOG_PERROR("audio", "Can't get value of " #x_cid); \
 				close(fd); \
@@ -53,10 +52,8 @@ int us_tc358743_read_info(const char *path, us_tc358743_info_s *info) {
 			} \
 			info->x_field = m_ctl.value; \
 		}
-
 	READ_CID(TC358743_CID_AUDIO_PRESENT,		has_audio);
 	READ_CID(TC358743_CID_AUDIO_SAMPLING_RATE,	audio_hz);
-
 #	undef READ_CID
 
 	close(fd);

@@ -231,6 +231,8 @@ static int _dump_sink(
 	bool key_required,
 	_output_context_s *ctx) {
 
+	int retval = -1;
+
 	if (count == 0) {
 		count = -1;
 	}
@@ -300,18 +302,13 @@ static int _dump_sink(
 		}
 	}
 
-	int retval = 0;
-	goto ok;
+	retval = 0;
 
-	error:
-		retval = -1;
-
-	ok:
-		US_DELETE(sink, us_memsink_destroy);
-		us_frame_destroy(frame);
-
-		US_LOG_INFO("Bye-bye");
-		return retval;
+error:
+	US_DELETE(sink, us_memsink_destroy);
+	us_frame_destroy(frame);
+	US_LOG_INFO("Bye-bye");
+	return retval;
 }
 
 static void _help(FILE *fp) {

@@ -37,7 +37,7 @@ void us_rtpa_destroy(us_rtpa_s *rtpa) {
 }
 
 char *us_rtpa_make_sdp(us_rtpa_s *rtpa) {
-#	define PAYLOAD rtpa->rtp->payload
+	const unsigned pl = rtpa->rtp->payload;
 	char *sdp;
 	US_ASPRINTF(sdp,
 		"m=audio 1 RTP/SAVPF %u" RN
@@ -49,10 +49,9 @@ char *us_rtpa_make_sdp(us_rtpa_s *rtpa) {
 		"a=rtcp-fb:%u goog-remb" RN
 		"a=ssrc:%" PRIu32 " cname:ustreamer" RN
 		"a=sendonly" RN,
-		PAYLOAD, PAYLOAD, PAYLOAD, PAYLOAD, PAYLOAD, // PAYLOAD,
+		pl, pl, pl, pl, pl, // pl,
 		rtpa->rtp->ssrc
 	);
-#	undef PAYLOAD
 	return sdp;
 }
 

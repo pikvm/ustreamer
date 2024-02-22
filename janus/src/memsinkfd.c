@@ -66,8 +66,7 @@ us_frame_s *us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, uint64_t *
 		ok = false;
 	}
 	if (!ok) {
-		us_frame_destroy(frame);
-		frame = NULL;
+		US_DELETE(frame, us_frame_destroy);
 	}
 	return frame;
 }

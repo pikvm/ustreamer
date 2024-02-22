@@ -35,8 +35,8 @@
 #include "../libs/threading.h"
 #include "../libs/logging.h"
 #include "../libs/frame.h"
+#include "../libs/device.h"
 
-#include "device.h"
 #include "workers.h"
 #include "m2m.h"
 

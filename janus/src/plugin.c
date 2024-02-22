@@ -169,15 +169,11 @@ static void *_video_sink_thread(void *arg) {
 			}
 		}
 
-		close_memsink:
-			if (mem != NULL) {
-				US_JLOG_INFO("video", "Memsink closed");
-				us_memsink_shared_unmap(mem);
-			}
-			if (fd >= 0) {
-				close(fd);
-			}
-			sleep(1); // error_delay
+	close_memsink:
+		US_DELETE(mem, us_memsink_shared_unmap);
+		US_CLOSE_FD(fd, close);
+		US_JLOG_INFO("video", "Memsink closed");
+		sleep(1); // error_delay
 	}
 	return NULL;
 }
@@ -237,9 +233,9 @@ static void *_audio_thread(void *arg) {
 			}
 		}
 
-		close_audio:
-			US_DELETE(audio, us_audio_destroy);
-			sleep(1); // error_delay
+	close_audio:
+		US_DELETE(audio, us_audio_destroy);
+		sleep(1); // error_delay
 	}
 	return NULL;
 }
@@ -501,9 +497,9 @@ static struct janus_plugin_result *_plugin_handle_message(
 		PUSH_ERROR(405, "Not implemented");
 	}
 
-	ok_wait:
-		FREE_MSG_JSEP;
-		return janus_plugin_result_new(JANUS_PLUGIN_OK_WAIT, NULL, NULL);
+ok_wait:
+	FREE_MSG_JSEP;
+	return janus_plugin_result_new(JANUS_PLUGIN_OK_WAIT, NULL, NULL);
 
 #	undef PUSH_STATUS
 #	undef PUSH_ERROR

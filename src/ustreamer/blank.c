@@ -63,16 +63,16 @@ static us_frame_s *_init_external(const char *path) {
 		goto error;
 	}
 
-#	define CHUNK_SIZE ((size_t)(100 * 1024))
+	const size_t chunk_size = 100 * 1024;
 	while (true) {
-		if (blank->used + CHUNK_SIZE >= blank->allocated) {
-			us_frame_realloc_data(blank, blank->used + CHUNK_SIZE * 2);
+		if (blank->used + chunk_size >= blank->allocated) {
+			us_frame_realloc_data(blank, blank->used + chunk_size * 2);
 		}
 
-		const size_t readed = fread(blank->data + blank->used, 1, CHUNK_SIZE, fp);
+		const size_t readed = fread(blank->data + blank->used, 1, chunk_size, fp);
 		blank->used += readed;
 
-		if (readed < CHUNK_SIZE) {
+		if (readed < chunk_size) {
 			if (feof(fp)) {
 				break;
 			} else {
@@ -81,7 +81,6 @@ static us_frame_s *_init_external(const char *path) {
 			}
 		}
 	}
-#	undef CHUNK_SIZE
 
 	us_frame_s *const decoded = us_frame_init();
 	if (us_unjpeg(blank, decoded, false) < 0) {
@@ -94,12 +93,10 @@ static us_frame_s *_init_external(const char *path) {
 
 	goto ok;
 
-	error:
-		us_frame_destroy(blank);
-		blank = NULL;
+error:
+	US_DELETE(blank, us_frame_destroy);
 
-	ok:
-		US_DELETE(fp, fclose);
-
+ok:
+	US_DELETE(fp, fclose);
 	return blank;
 }

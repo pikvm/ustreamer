@@ -42,14 +42,12 @@ char *us_find_static_file_path(const char *root_path, const char *request_path) 
 				goto error; \
 			} \
 		}
-
 	LOAD_STAT;
 	if (S_ISDIR(st.st_mode)) {
 		US_LOG_VERBOSE("HTTP: Requested static path %s is a directory, trying %s/index.html", path, path);
 		strcat(path, "/index.html");
 		LOAD_STAT;
 	}
-
 #	undef LOAD_STAT
 
 	if (!S_ISREG(st.st_mode)) {
@@ -64,12 +62,10 @@ char *us_find_static_file_path(const char *root_path, const char *request_path) 
 
 	goto ok;
 
-	error:
-		US_DELETE(path, free);
-		path = NULL;
+error:
+	US_DELETE(path, free);
 
-	ok:
-		free(simplified_path);
-
+ok:
+	free(simplified_path);
 	return path;
 }

@@ -84,11 +84,6 @@ static const char *_standard_to_string(v4l2_std_id standard);
 static const char *_io_method_to_string_supported(enum v4l2_memory io_method);
 
 
-#define _RUN(x_next)	dev->run->x_next
-#define _D_XIOCTL(...)	us_xioctl(_RUN(fd), __VA_ARGS__)
-#define _D_IS_MPLANE	(_RUN(capture_type) == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-
-
 us_device_s *us_device_init(void) {
 	us_device_runtime_s *run;
 	US_CALLOC(run, 1);
@@ -143,11 +138,13 @@ int us_device_parse_io_method(const char *str) {
 }
 
 int us_device_open(us_device_s *dev) {
-	if ((_RUN(fd) = open(dev->path, O_RDWR|O_NONBLOCK)) < 0) {
+	us_device_runtime_s *const run = dev->run;
+
+	if ((run->fd = open(dev->path, O_RDWR|O_NONBLOCK)) < 0) {
 		US_LOG_PERROR("Can't open device");
 		goto error;
 	}
-	US_LOG_INFO("Device fd=%d opened", _RUN(fd));
+	US_LOG_INFO("Device fd=%d opened", run->fd);
 
 	if (_device_open_check_cap(dev) < 0) {
 		goto error;
@@ -168,117 +165,106 @@ int us_device_open(us_device_s *dev) {
 	}
 	_device_apply_controls(dev);
 
-	US_LOG_DEBUG("Device fd=%d initialized", _RUN(fd));
+	US_LOG_DEBUG("Device fd=%d initialized", run->fd);
 	return 0;
 
-	error:
-		us_device_close(dev);
-		return -1;
+error:
+	us_device_close(dev);
+	return -1;
 }
 
 void us_device_close(us_device_s *dev) {
-	_RUN(persistent_timeout_reported) = false;
+	us_device_runtime_s *const run = dev->run;
 
-	if (_RUN(hw_bufs) != NULL) {
+	run->persistent_timeout_reported = false;
+
+	if (run->hw_bufs != NULL) {
 		US_LOG_DEBUG("Releasing device buffers ...");
-		for (unsigned index = 0; index < _RUN(n_bufs); ++index) {
-#			define HW(x_next) _RUN(hw_bufs)[index].x_next
+		for (unsigned index = 0; index < run->n_bufs; ++index) {
+			us_hw_buffer_s *hw = &run->hw_bufs[index];
 
-			if (HW(dma_fd) >= 0) {
-				close(HW(dma_fd));
-				HW(dma_fd) = -1;
-			}
+			US_CLOSE_FD(hw->dma_fd, close);
 
 			if (dev->io_method == V4L2_MEMORY_MMAP) {
-				if (HW(raw.allocated) > 0 && HW(raw.data) != NULL) {
-					if (munmap(HW(raw.data), HW(raw.allocated)) < 0) {
+				if (hw->raw.allocated > 0 && hw->raw.data != NULL) {
+					if (munmap(hw->raw.data, hw->raw.allocated) < 0) {
 						US_LOG_PERROR("Can't unmap device buffer=%u", index);
 					}
 				}
 			} else { // V4L2_MEMORY_USERPTR
-				US_DELETE(HW(raw.data), free);
+				US_DELETE(hw->raw.data, free);
 			}
 
-			if (_D_IS_MPLANE) {
-				free(HW(buf.m.planes));
+			if (run->capture_mplane) {
+				free(hw->buf.m.planes);
 			}
-
-#			undef HW
 		}
-		_RUN(n_bufs) = 0;
-		free(_RUN(hw_bufs));
-		_RUN(hw_bufs) = NULL;
+		US_DELETE(run->hw_bufs, free);
+		run->n_bufs = 0;
 	}
 
-	if (_RUN(fd) >= 0) {
+	if (run->fd >= 0) {
 		US_LOG_DEBUG("Closing device ...");
-		if (close(_RUN(fd)) < 0) {
-			US_LOG_PERROR("Can't close device fd=%d", _RUN(fd));
+		if (close(run->fd) < 0) {
+			US_LOG_PERROR("Can't close device fd=%d", run->fd);
 		} else {
-			US_LOG_INFO("Device fd=%d closed", _RUN(fd));
+			US_LOG_INFO("Device fd=%d closed", run->fd);
 		}
-		_RUN(fd) = -1;
+		run->fd = -1;
 	}
 }
 
 int us_device_export_to_dma(us_device_s *dev) {
-#	define DMA_FD		_RUN(hw_bufs[index].dma_fd)
+	us_device_runtime_s *const run = dev->run;
 
-	for (unsigned index = 0; index < _RUN(n_bufs); ++index) {
-		struct v4l2_exportbuffer exp = {0};
-		exp.type = _RUN(capture_type);
-		exp.index = index;
-
+	for (unsigned index = 0; index < run->n_bufs; ++index) {
+		struct v4l2_exportbuffer exp = {
+			.type = run->capture_type,
+			.index = index,
+		};
 		US_LOG_DEBUG("Exporting device buffer=%u to DMA ...", index);
-		if (_D_XIOCTL(VIDIOC_EXPBUF, &exp) < 0) {
+		if (us_xioctl(run->fd, VIDIOC_EXPBUF, &exp) < 0) {
 			US_LOG_PERROR("Can't export device buffer=%u to DMA", index);
 			goto error;
 		}
-		DMA_FD = exp.fd;
+		run->hw_bufs[index].dma_fd = exp.fd;
 	}
-
 	return 0;
 
-	error:
-		for (unsigned index = 0; index < _RUN(n_bufs); ++index) {
-			if (DMA_FD >= 0) {
-				close(DMA_FD);
-				DMA_FD = -1;
-			}
-		}
-		return -1;
-
-#	undef DMA_FD
+error:
+	for (unsigned index = 0; index < run->n_bufs; ++index) {
+		US_CLOSE_FD(run->hw_bufs[index].dma_fd, close);
+	}
+	return -1;
 }
 
 int us_device_switch_capturing(us_device_s *dev, bool enable) {
-	if (enable != _RUN(capturing)) {
-		enum v4l2_buf_type type = _RUN(capture_type);
+	us_device_runtime_s *const run = dev->run;
+
+	if (enable != run->capturing) {
+		enum v4l2_buf_type type = run->capture_type;
 
 		US_LOG_DEBUG("%s device capturing ...", (enable ? "Starting" : "Stopping"));
-		if (_D_XIOCTL((enable ? VIDIOC_STREAMON : VIDIOC_STREAMOFF), &type) < 0) {
+		if (us_xioctl(run->fd, (enable ? VIDIOC_STREAMON : VIDIOC_STREAMOFF), &type) < 0) {
 			US_LOG_PERROR("Can't %s capturing", (enable ? "start" : "stop"));
 			if (enable) {
 				return -1;
 			}
 		}
-
-		_RUN(capturing) = enable;
+		run->capturing = enable;
 		US_LOG_INFO("Capturing %s", (enable ? "started" : "stopped"));
 	}
 	return 0;
 }
 
 int us_device_select(us_device_s *dev, bool *has_read, bool *has_write, bool *has_error) {
-	int retval;
+	us_device_runtime_s *const run = dev->run;
 
 #	define INIT_FD_SET(x_set) \
-		fd_set x_set; FD_ZERO(&x_set); FD_SET(_RUN(fd), &x_set);
-
+		fd_set x_set; FD_ZERO(&x_set); FD_SET(run->fd, &x_set);
 	INIT_FD_SET(read_fds);
 	INIT_FD_SET(write_fds);
 	INIT_FD_SET(error_fds);
-
 #	undef INIT_FD_SET
 
 	struct timeval timeout;
@@ -287,11 +273,11 @@ int us_device_select(us_device_s *dev, bool *has_read, bool *has_write, bool *ha
 
 	US_LOG_DEBUG("Calling select() on video device ...");
 
-	retval = select(_RUN(fd) + 1, &read_fds, &write_fds, &error_fds, &timeout);
+	int retval = select(run->fd + 1, &read_fds, &write_fds, &error_fds, &timeout);
 	if (retval > 0) {
-		*has_read = FD_ISSET(_RUN(fd), &read_fds);
-		*has_write = FD_ISSET(_RUN(fd), &write_fds);
-		*has_error = FD_ISSET(_RUN(fd), &error_fds);
+		*has_read = FD_ISSET(run->fd, &read_fds);
+		*has_write = FD_ISSET(run->fd, &write_fds);
+		*has_error = FD_ISSET(run->fd, &error_fds);
 	} else {
 		*has_read = false;
 		*has_write = false;
@@ -300,12 +286,12 @@ int us_device_select(us_device_s *dev, bool *has_read, bool *has_write, bool *ha
 	US_LOG_DEBUG("Device select() --> %d", retval);
 
 	if (retval > 0) {
-		_RUN(persistent_timeout_reported) = false;
+		run->persistent_timeout_reported = false;
 	} else if (retval == 0) {
 		if (dev->persistent) {
-			if (!_RUN(persistent_timeout_reported)) {
+			if (!run->persistent_timeout_reported) {
 				US_LOG_ERROR("Persistent device timeout (unplugged)");
-				_RUN(persistent_timeout_reported) = true;
+				run->persistent_timeout_reported = true;
 			}
 		} else {
 			// Если устройство не персистентное, то таймаут является ошибкой
@@ -316,11 +302,13 @@ int us_device_select(us_device_s *dev, bool *has_read, bool *has_write, bool *ha
 }
 
 int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
+	us_device_runtime_s *const run = dev->run;
+
 	*hw = NULL;
 
 	struct v4l2_buffer buf = {0};
 	struct v4l2_plane buf_planes[VIDEO_MAX_PLANES] = {0};
-	if (_D_IS_MPLANE) {
+	if (run->capture_mplane) {
 		// Just for _v4l2_buffer_copy(), buf.length is not needed here
 		buf.m.planes = buf_planes;
 	}
@@ -334,23 +322,23 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 	do {
 		struct v4l2_buffer new = {0};
 		struct v4l2_plane new_planes[VIDEO_MAX_PLANES] = {0};
-		new.type = _RUN(capture_type);
+		new.type = run->capture_type;
 		new.memory = dev->io_method;
-		if (_D_IS_MPLANE) {
+		if (run->capture_mplane) {
 			new.length = VIDEO_MAX_PLANES;
 			new.m.planes = new_planes;
 		}
 		
-		const bool new_got = (_D_XIOCTL(VIDIOC_DQBUF, &new) >= 0);
+		const bool new_got = (us_xioctl(run->fd, VIDIOC_DQBUF, &new) >= 0);
 
 		if (new_got) {
-			if (new.index >= _RUN(n_bufs)) {
-				US_LOG_ERROR("V4L2 error: grabbed invalid device buffer=%u, n_bufs=%u", new.index, _RUN(n_bufs));
+			if (new.index >= run->n_bufs) {
+				US_LOG_ERROR("V4L2 error: grabbed invalid device buffer=%u, n_bufs=%u", new.index, run->n_bufs);
 				return -1;
 			}
 
-#			define GRABBED(x_buf) _RUN(hw_bufs)[x_buf.index].grabbed
-#			define FRAME_DATA(x_buf) _RUN(hw_bufs)[x_buf.index].raw.data
+#			define GRABBED(x_buf) run->hw_bufs[x_buf.index].grabbed
+#			define FRAME_DATA(x_buf) run->hw_bufs[x_buf.index].raw.data
 
 			if (GRABBED(new)) {
 				US_LOG_ERROR("V4L2 error: grabbed device buffer=%u is already used", new.index);
@@ -358,14 +346,14 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 			}
 			GRABBED(new) = true;
 
-			if (_D_IS_MPLANE) {
+			if (run->capture_mplane) {
 				new.bytesused = new.m.planes[0].bytesused;
 			}
 
 			broken = !_device_is_buffer_valid(dev, &new, FRAME_DATA(new));
 			if (broken) {
 				US_LOG_DEBUG("Releasing device buffer=%u (broken frame) ...", new.index);
-				if (_D_XIOCTL(VIDIOC_QBUF, &new) < 0) {
+				if (us_xioctl(run->fd, VIDIOC_QBUF, &new) < 0) {
 					US_LOG_PERROR("Can't release device buffer=%u (broken frame)", new.index);
 					return -1;
 				}
@@ -374,7 +362,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 			}
 
 			if (buf_got) {
-				if (_D_XIOCTL(VIDIOC_QBUF, &buf) < 0) {
+				if (us_xioctl(run->fd, VIDIOC_QBUF, &buf) < 0) {
 					US_LOG_PERROR("Can't release device buffer=%u (skipped frame)", buf.index);
 					return -1;
 				}
@@ -402,29 +390,26 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 		}
 	} while (true);
 
-#	define HW(x_next) _RUN(hw_bufs)[buf.index].x_next
-	HW(raw.dma_fd) = HW(dma_fd);
-	HW(raw.used) = buf.bytesused;
-	HW(raw.width) = _RUN(width);
-	HW(raw.height) = _RUN(height);
-	HW(raw.format) = _RUN(format);
-	HW(raw.stride) = _RUN(stride);
-	HW(raw.online) = true;
-	_v4l2_buffer_copy(&buf, &HW(buf));
-	HW(raw.grab_ts) = (long double)((buf.timestamp.tv_sec * (uint64_t)1000) + (buf.timestamp.tv_usec / 1000)) / 1000;
-	US_LOG_DEBUG("Grabbed new frame: buffer=%u, bytesused=%u, grab_ts=%.3Lf, latency=%.3Lf, skipped=%u",
-		buf.index, buf.bytesused, HW(raw.grab_ts), us_get_now_monotonic() - HW(raw.grab_ts), skipped);
-#	undef HW
+	*hw = &run->hw_bufs[buf.index];
+	(*hw)->raw.dma_fd = (*hw)->dma_fd;
+	(*hw)->raw.used = buf.bytesused;
+	(*hw)->raw.width = run->width;
+	(*hw)->raw.height = run->height;
+	(*hw)->raw.format = run->format;
+	(*hw)->raw.stride = run->stride;
+	(*hw)->raw.online = true;
+	_v4l2_buffer_copy(&buf, &(*hw)->buf);
+	(*hw)->raw.grab_ts = (long double)((buf.timestamp.tv_sec * (uint64_t)1000) + (buf.timestamp.tv_usec / 1000)) / 1000;
 
-	*hw = &_RUN(hw_bufs[buf.index]);
+	US_LOG_DEBUG("Grabbed new frame: buffer=%u, bytesused=%u, grab_ts=%.3Lf, latency=%.3Lf, skipped=%u",
+		buf.index, buf.bytesused, (*hw)->raw.grab_ts, us_get_now_monotonic() - (*hw)->raw.grab_ts, skipped);
 	return buf.index;
 }
 
 int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw) {
 	const unsigned index = hw->buf.index;
 	US_LOG_DEBUG("Releasing device buffer=%u ...", index);
-
-	if (_D_XIOCTL(VIDIOC_QBUF, &hw->buf) < 0) {
+	if (us_xioctl(dev->run->fd, VIDIOC_QBUF, &hw->buf) < 0) {
 		US_LOG_PERROR("Can't release device buffer=%u", index);
 		return -1;
 	}
@@ -434,9 +419,8 @@ int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw) {
 
 int us_device_consume_event(us_device_s *dev) {
 	struct v4l2_event event;
-
 	US_LOG_DEBUG("Consuming V4L2 event ...");
-	if (_D_XIOCTL(VIDIOC_DQEVENT, &event) == 0) {
+	if (us_xioctl(dev->run->fd, VIDIOC_DQEVENT, &event) == 0) {
 		switch (event.type) {
 			case V4L2_EVENT_SOURCE_CHANGE:
 				US_LOG_INFO("Got V4L2_EVENT_SOURCE_CHANGE: source changed");
@@ -501,19 +485,22 @@ bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf, co
 }
 
 static int _device_open_check_cap(us_device_s *dev) {
-	struct v4l2_capability cap = {0};
+	us_device_runtime_s *const run = dev->run;
 
+	struct v4l2_capability cap = {0};
 	US_LOG_DEBUG("Querying device capabilities ...");
-	if (_D_XIOCTL(VIDIOC_QUERYCAP, &cap) < 0) {
+	if (us_xioctl(run->fd, VIDIOC_QUERYCAP, &cap) < 0) {
 		US_LOG_PERROR("Can't query device capabilities");
 		return -1;
 	}
 
 	if (cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) {
-		_RUN(capture_type) = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		run->capture_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		run->capture_mplane = false;
 		US_LOG_INFO("Using capture type: single-planar");
 	} else if (cap.capabilities & V4L2_CAP_VIDEO_CAPTURE_MPLANE) {
-		_RUN(capture_type) = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+		run->capture_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+		run->capture_mplane = true;
 		US_LOG_INFO("Using capture type: multi-planar");
 	} else {
 		US_LOG_ERROR("Video capture is not supported by device");
@@ -525,10 +512,10 @@ static int _device_open_check_cap(us_device_s *dev) {
 		return -1;
 	}
 
-	if (!_D_IS_MPLANE) {
+	if (!run->capture_mplane) {
 		int input = dev->input; // Needs a pointer to int for ioctl()
 		US_LOG_INFO("Using input channel: %d", input);
-		if (_D_XIOCTL(VIDIOC_S_INPUT, &input) < 0) {
+		if (us_xioctl(run->fd, VIDIOC_S_INPUT, &input) < 0) {
 			US_LOG_ERROR("Can't set input channel");
 			return -1;
 		}
@@ -536,7 +523,7 @@ static int _device_open_check_cap(us_device_s *dev) {
 
 	if (dev->standard != V4L2_STD_UNKNOWN) {
 		US_LOG_INFO("Using TV standard: %s", _standard_to_string(dev->standard));
-		if (_D_XIOCTL(VIDIOC_S_STD, &dev->standard) < 0) {
+		if (us_xioctl(run->fd, VIDIOC_S_STD, &dev->standard) < 0) {
 			US_LOG_ERROR("Can't set video standard");
 			return -1;
 		}
@@ -555,11 +542,9 @@ static int _device_open_dv_timings(us_device_s *dev) {
 			return -1;
 		}
 
-		struct v4l2_event_subscription sub = {0};
-		sub.type = V4L2_EVENT_SOURCE_CHANGE;
-
+		struct v4l2_event_subscription sub = {.type = V4L2_EVENT_SOURCE_CHANGE};
 		US_LOG_DEBUG("Subscribing to DV-timings events ...")
-		if (_D_XIOCTL(VIDIOC_SUBSCRIBE_EVENT, &sub) < 0) {
+		if (us_xioctl(dev->run->fd, VIDIOC_SUBSCRIBE_EVENT, &sub) < 0) {
 			US_LOG_PERROR("Can't subscribe to DV-timings events");
 			return -1;
 		}
@@ -568,10 +553,12 @@ static int _device_open_dv_timings(us_device_s *dev) {
 }
 
 static int _device_apply_dv_timings(us_device_s *dev) {
+	us_device_runtime_s *const run = dev->run; // cppcheck-suppress constVariablePointer
+
 	struct v4l2_dv_timings dv = {0};
 
 	US_LOG_DEBUG("Calling us_xioctl(VIDIOC_QUERY_DV_TIMINGS) ...");
-	if (_D_XIOCTL(VIDIOC_QUERY_DV_TIMINGS, &dv) == 0) {
+	if (us_xioctl(run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv) == 0) {
 		if (dv.type == V4L2_DV_BT_656_1120) {
 			// See v4l2_print_dv_timings() in the kernel
 			const unsigned htot = V4L2_DV_BT_FRAME_WIDTH(&dv.bt);
@@ -587,7 +574,7 @@ static int _device_apply_dv_timings(us_device_s *dev) {
 		}
 
 		US_LOG_DEBUG("Calling us_xioctl(VIDIOC_S_DV_TIMINGS) ...");
-		if (_D_XIOCTL(VIDIOC_S_DV_TIMINGS, &dv) < 0) {
+		if (us_xioctl(run->fd, VIDIOC_S_DV_TIMINGS, &dv) < 0) {
 			US_LOG_PERROR("Failed to set DV-timings");
 			return -1;
 		}
@@ -598,9 +585,9 @@ static int _device_apply_dv_timings(us_device_s *dev) {
 
 	} else {
 		US_LOG_DEBUG("Calling us_xioctl(VIDIOC_QUERYSTD) ...");
-		if (_D_XIOCTL(VIDIOC_QUERYSTD, &dev->standard) == 0) {
+		if (us_xioctl(run->fd, VIDIOC_QUERYSTD, &dev->standard) == 0) {
 			US_LOG_INFO("Applying the new VIDIOC_S_STD: %s ...", _standard_to_string(dev->standard));
-			if (_D_XIOCTL(VIDIOC_S_STD, &dev->standard) < 0) {
+			if (us_xioctl(run->fd, VIDIOC_S_STD, &dev->standard) < 0) {
 				US_LOG_PERROR("Can't set video standard");
 				return -1;
 			}
@@ -609,21 +596,23 @@ static int _device_apply_dv_timings(us_device_s *dev) {
 	return 0;
 }
 
-static int _device_open_format(us_device_s *dev, bool first) { // FIXME
-	const unsigned stride = us_align_size(_RUN(width), 32) << 1;
+static int _device_open_format(us_device_s *dev, bool first) {
+	us_device_runtime_s *const run = dev->run;
+
+	const unsigned stride = us_align_size(run->width, 32) << 1;
 
 	struct v4l2_format fmt = {0};
-	fmt.type = _RUN(capture_type);
-	if (_D_IS_MPLANE) {
-		fmt.fmt.pix_mp.width = _RUN(width);
-		fmt.fmt.pix_mp.height = _RUN(height);
+	fmt.type = run->capture_type;
+	if (run->capture_mplane) {
+		fmt.fmt.pix_mp.width = run->width;
+		fmt.fmt.pix_mp.height = run->height;
 		fmt.fmt.pix_mp.pixelformat = dev->format;
 		fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
 		fmt.fmt.pix_mp.flags = 0;
 		fmt.fmt.pix_mp.num_planes = 1;
 	} else {
-		fmt.fmt.pix.width = _RUN(width);
-		fmt.fmt.pix.height = _RUN(height);
+		fmt.fmt.pix.width = run->width;
+		fmt.fmt.pix.height = run->height;
 		fmt.fmt.pix.pixelformat = dev->format;
 		fmt.fmt.pix.field = V4L2_FIELD_ANY;
 		fmt.fmt.pix.bytesperline = stride;
@@ -631,24 +620,24 @@ static int _device_open_format(us_device_s *dev, bool first) { // FIXME
 
 	// Set format
 	US_LOG_DEBUG("Probing device format=%s, stride=%u, resolution=%ux%u ...",
-		_format_to_string_supported(dev->format), stride, _RUN(width), _RUN(height));
-	if (_D_XIOCTL(VIDIOC_S_FMT, &fmt) < 0) {
+		_format_to_string_supported(dev->format), stride, run->width, run->height);
+	if (us_xioctl(run->fd, VIDIOC_S_FMT, &fmt) < 0) {
 		US_LOG_PERROR("Can't set device format");
 		return -1;
 	}
 
-	if (fmt.type != _RUN(capture_type)) {
+	if (fmt.type != run->capture_type) {
 		US_LOG_ERROR("Capture format mismatch, please report to the developer");
 		return -1;
 	}
 
-#	define FMT(x_next)	(_D_IS_MPLANE ? fmt.fmt.pix_mp.x_next : fmt.fmt.pix.x_next)
-#	define FMTS(x_next)	(_D_IS_MPLANE ? fmt.fmt.pix_mp.plane_fmt[0].x_next : fmt.fmt.pix.x_next)
+#	define FMT(x_next)	(run->capture_mplane ? fmt.fmt.pix_mp.x_next : fmt.fmt.pix.x_next)
+#	define FMTS(x_next)	(run->capture_mplane ? fmt.fmt.pix_mp.plane_fmt[0].x_next : fmt.fmt.pix.x_next)
 
 	// Check resolution
 	bool retry = false;
-	if (FMT(width) != _RUN(width) || FMT(height) != _RUN(height)) {
-		US_LOG_ERROR("Requested resolution=%ux%u is unavailable", _RUN(width), _RUN(height));
+	if (FMT(width) != run->width || FMT(height) != run->height) {
+		US_LOG_ERROR("Requested resolution=%ux%u is unavailable", run->width, run->height);
 		retry = true;
 	}
 	if (_device_apply_resolution(dev, FMT(width), FMT(height)) < 0) {
@@ -657,7 +646,7 @@ static int _device_open_format(us_device_s *dev, bool first) { // FIXME
 	if (first && retry) {
 		return _device_open_format(dev, false);
 	}
-	US_LOG_INFO("Using resolution: %ux%u", _RUN(width), _RUN(height));
+	US_LOG_INFO("Using resolution: %ux%u", run->width, run->height);
 
 	// Check format
 	if (FMT(pixelformat) != dev->format) {
@@ -676,12 +665,12 @@ static int _device_open_format(us_device_s *dev, bool first) { // FIXME
 		}
 	}
 
-	_RUN(format) = FMT(pixelformat);
-	US_LOG_INFO("Using format: %s", _format_to_string_supported(_RUN(format)));
+	run->format = FMT(pixelformat);
+	US_LOG_INFO("Using format: %s", _format_to_string_supported(run->format));
 
 
-	_RUN(stride) = FMTS(bytesperline);
-	_RUN(raw_size) = FMTS(sizeimage); // Only for userptr
+	run->stride = FMTS(bytesperline);
+	run->raw_size = FMTS(sizeimage); // Only for userptr
 
 #	undef FMTS
 #	undef FMT
@@ -690,13 +679,13 @@ static int _device_open_format(us_device_s *dev, bool first) { // FIXME
 }
 
 static void _device_open_hw_fps(us_device_s *dev) {
-	_RUN(hw_fps) = 0;
+	us_device_runtime_s *const run = dev->run;
 
-	struct v4l2_streamparm setfps = {0};
-	setfps.type = _RUN(capture_type);
+	run->hw_fps = 0;
 
+	struct v4l2_streamparm setfps = {.type = run->capture_type};
 	US_LOG_DEBUG("Querying HW FPS ...");
-	if (_D_XIOCTL(VIDIOC_G_PARM, &setfps) < 0) {
+	if (us_xioctl(run->fd, VIDIOC_G_PARM, &setfps) < 0) {
 		if (errno == ENOTTY) { // Quiet message for TC358743
 			US_LOG_INFO("Querying HW FPS changing is not supported");
 		} else {
@@ -713,11 +702,11 @@ static void _device_open_hw_fps(us_device_s *dev) {
 #	define SETFPS_TPF(x_next) setfps.parm.capture.timeperframe.x_next
 
 	US_MEMSET_ZERO(setfps);
-	setfps.type = _RUN(capture_type);
+	setfps.type = run->capture_type;
 	SETFPS_TPF(numerator) = 1;
 	SETFPS_TPF(denominator) = (dev->desired_fps == 0 ? 255 : dev->desired_fps);
 
-	if (_D_XIOCTL(VIDIOC_S_PARM, &setfps) < 0) {
+	if (us_xioctl(run->fd, VIDIOC_S_PARM, &setfps) < 0) {
 		US_LOG_PERROR("Can't set HW FPS");
 		return;
 	}
@@ -732,35 +721,33 @@ static void _device_open_hw_fps(us_device_s *dev) {
 		return;
 	}
 
-	_RUN(hw_fps) = SETFPS_TPF(denominator);
-	if (dev->desired_fps != _RUN(hw_fps)) {
-		US_LOG_INFO("Using HW FPS: %u -> %u (coerced)", dev->desired_fps, _RUN(hw_fps));
+	run->hw_fps = SETFPS_TPF(denominator);
+	if (dev->desired_fps != run->hw_fps) {
+		US_LOG_INFO("Using HW FPS: %u -> %u (coerced)", dev->desired_fps, run->hw_fps);
 	} else {
-		US_LOG_INFO("Using HW FPS: %u", _RUN(hw_fps));
+		US_LOG_INFO("Using HW FPS: %u", run->hw_fps);
 	}
 
 #	undef SETFPS_TPF
 }
 
 static void _device_open_jpeg_quality(us_device_s *dev) {
+	us_device_runtime_s *const run = dev->run;
 	unsigned quality = 0;
-
-	if (us_is_jpeg(_RUN(format))) {
+	if (us_is_jpeg(run->format)) {
 		struct v4l2_jpegcompression comp = {0};
-
-		if (_D_XIOCTL(VIDIOC_G_JPEGCOMP, &comp) < 0) {
+		if (us_xioctl(run->fd, VIDIOC_G_JPEGCOMP, &comp) < 0) {
 			US_LOG_ERROR("Device doesn't support setting of HW encoding quality parameters");
 		} else {
 			comp.quality = dev->jpeg_quality;
-			if (_D_XIOCTL(VIDIOC_S_JPEGCOMP, &comp) < 0) {
+			if (us_xioctl(run->fd, VIDIOC_S_JPEGCOMP, &comp) < 0) {
 				US_LOG_ERROR("Can't change MJPEG quality for JPEG source with HW pass-through encoder");
 			} else {
 				quality = dev->jpeg_quality;
 			}
 		}
 	}
-
-	_RUN(jpeg_quality) = quality;
+	run->jpeg_quality = quality;
 }
 
 static int _device_open_io_method(us_device_s *dev) {
@@ -774,13 +761,15 @@ static int _device_open_io_method(us_device_s *dev) {
 }
 
 static int _device_open_io_method_mmap(us_device_s *dev) {
-	struct v4l2_requestbuffers req = {0};
-	req.count = dev->n_bufs;
-	req.type = _RUN(capture_type);
-	req.memory = V4L2_MEMORY_MMAP;
+	us_device_runtime_s *const run = dev->run;
 
+	struct v4l2_requestbuffers req = {
+		.count = dev->n_bufs,
+		.type = run->capture_type,
+		.memory = V4L2_MEMORY_MMAP,
+	};
 	US_LOG_DEBUG("Requesting %u device buffers for MMAP ...", req.count);
-	if (_D_XIOCTL(VIDIOC_REQBUFS, &req) < 0) {
+	if (us_xioctl(run->fd, VIDIOC_REQBUFS, &req) < 0) {
 		US_LOG_PERROR("Device '%s' doesn't support MMAP method", dev->path);
 		return -1;
 	}
@@ -794,64 +783,60 @@ static int _device_open_io_method_mmap(us_device_s *dev) {
 
 	US_LOG_DEBUG("Allocating device buffers ...");
 
-	US_CALLOC(_RUN(hw_bufs), req.count);
-	for (_RUN(n_bufs) = 0; _RUN(n_bufs) < req.count; ++_RUN(n_bufs)) {
+	US_CALLOC(run->hw_bufs, req.count);
+
+	for (run->n_bufs = 0; run->n_bufs < req.count; ++run->n_bufs) {
 		struct v4l2_buffer buf = {0};
 		struct v4l2_plane planes[VIDEO_MAX_PLANES] = {0};
-		buf.type = _RUN(capture_type);
+		buf.type = run->capture_type;
 		buf.memory = V4L2_MEMORY_MMAP;
-		buf.index = _RUN(n_bufs);
-		if (_D_IS_MPLANE) {
+		buf.index = run->n_bufs;
+		if (run->capture_mplane) {
 			buf.m.planes = planes;
 			buf.length = VIDEO_MAX_PLANES;
 		}
 
-		US_LOG_DEBUG("Calling us_xioctl(VIDIOC_QUERYBUF) for device buffer=%u ...", _RUN(n_bufs));
-		if (_D_XIOCTL(VIDIOC_QUERYBUF, &buf) < 0) {
+		US_LOG_DEBUG("Calling us_xioctl(VIDIOC_QUERYBUF) for device buffer=%u ...", run->n_bufs);
+		if (us_xioctl(run->fd, VIDIOC_QUERYBUF, &buf) < 0) {
 			US_LOG_PERROR("Can't VIDIOC_QUERYBUF");
 			return -1;
 		}
 
-#		define HW(x_next) _RUN(hw_bufs)[_RUN(n_bufs)].x_next
+		us_hw_buffer_s *hw = &run->hw_bufs[run->n_bufs];
+		const size_t buf_size = (run->capture_mplane ? buf.m.planes[0].length : buf.length);
+		const off_t buf_offset = (run->capture_mplane ? buf.m.planes[0].m.mem_offset : buf.m.offset);
 
-		HW(dma_fd) = -1;
-
-		const size_t buf_size = (_D_IS_MPLANE ? buf.m.planes[0].length : buf.length);
-		const off_t buf_offset = (_D_IS_MPLANE ? buf.m.planes[0].m.mem_offset : buf.m.offset);
-
-		US_LOG_DEBUG("Mapping device buffer=%u ...", _RUN(n_bufs));
-		if ((HW(raw.data) = mmap(
-			NULL,
-			buf_size,
-			PROT_READ | PROT_WRITE,
-			MAP_SHARED,
-			_RUN(fd),
-			buf_offset
+		US_LOG_DEBUG("Mapping device buffer=%u ...", run->n_bufs);
+		if ((hw->raw.data = mmap(
+			NULL, buf_size,
+			PROT_READ | PROT_WRITE, MAP_SHARED,
+			run->fd, buf_offset
 		)) == MAP_FAILED) {
-			US_LOG_PERROR("Can't map device buffer=%u", _RUN(n_bufs));
+			US_LOG_PERROR("Can't map device buffer=%u", run->n_bufs);
 			return -1;
 		}
-		assert(HW(raw.data) != NULL);
+		assert(hw->raw.data != NULL);
+		hw->raw.allocated = buf_size;
 
-		HW(raw.allocated) = buf_size;
-
-		if (_D_IS_MPLANE) {
-			US_CALLOC(HW(buf.m.planes), VIDEO_MAX_PLANES);
+		if (run->capture_mplane) {
+			US_CALLOC(hw->buf.m.planes, VIDEO_MAX_PLANES);
 		}
 
-#		undef HW
+		hw->dma_fd = -1;
 	}
 	return 0;
 }
 
 static int _device_open_io_method_userptr(us_device_s *dev) {
-	struct v4l2_requestbuffers req = {0};
-	req.count = dev->n_bufs;
-	req.type = _RUN(capture_type);
-	req.memory = V4L2_MEMORY_USERPTR;
+	us_device_runtime_s *const run = dev->run;
 
+	struct v4l2_requestbuffers req = {
+		.count = dev->n_bufs,
+		.type = run->capture_type,
+		.memory = V4L2_MEMORY_USERPTR,
+	};
 	US_LOG_DEBUG("Requesting %u device buffers for USERPTR ...", req.count);
-	if (_D_XIOCTL(VIDIOC_REQBUFS, &req) < 0) {
+	if (us_xioctl(run->fd, VIDIOC_REQBUFS, &req) < 0) {
 		US_LOG_PERROR("Device '%s' doesn't support USERPTR method", dev->path);
 		return -1;
 	}
@@ -865,32 +850,33 @@ static int _device_open_io_method_userptr(us_device_s *dev) {
 
 	US_LOG_DEBUG("Allocating device buffers ...");
 
-	US_CALLOC(_RUN(hw_bufs), req.count);
+	US_CALLOC(run->hw_bufs, req.count);
 
 	const unsigned page_size = getpagesize();
-	const unsigned buf_size = us_align_size(_RUN(raw_size), page_size);
+	const unsigned buf_size = us_align_size(run->raw_size, page_size);
 
-	for (_RUN(n_bufs) = 0; _RUN(n_bufs) < req.count; ++_RUN(n_bufs)) {
-#       define HW(x_next) _RUN(hw_bufs)[_RUN(n_bufs)].x_next
-		assert((HW(raw.data) = aligned_alloc(page_size, buf_size)) != NULL);
-		memset(HW(raw.data), 0, buf_size);
-		HW(raw.allocated) = buf_size;
-		if (_D_IS_MPLANE) {
-			US_CALLOC(HW(buf.m.planes), VIDEO_MAX_PLANES);
+	for (run->n_bufs = 0; run->n_bufs < req.count; ++run->n_bufs) {
+		us_hw_buffer_s *hw = &run->hw_bufs[run->n_bufs];
+		assert((hw->raw.data = aligned_alloc(page_size, buf_size)) != NULL);
+		memset(hw->raw.data, 0, buf_size);
+		hw->raw.allocated = buf_size;
+		if (run->capture_mplane) {
+			US_CALLOC(hw->buf.m.planes, VIDEO_MAX_PLANES);
 		}
-#		undef HW
 	}
 	return 0;
 }
 
 static int _device_open_queue_buffers(us_device_s *dev) {
-	for (unsigned index = 0; index < _RUN(n_bufs); ++index) {
+	us_device_runtime_s *const run = dev->run;
+
+	for (unsigned index = 0; index < run->n_bufs; ++index) {
 		struct v4l2_buffer buf = {0};
 		struct v4l2_plane planes[VIDEO_MAX_PLANES] = {0};
-		buf.type = _RUN(capture_type);
+		buf.type = run->capture_type;
 		buf.memory = dev->io_method;
 		buf.index = index;
-		if (_D_IS_MPLANE) {
+		if (run->capture_mplane) {
 			buf.m.planes = planes;
 			buf.length = 1;
 		}
@@ -898,12 +884,12 @@ static int _device_open_queue_buffers(us_device_s *dev) {
 		if (dev->io_method == V4L2_MEMORY_USERPTR) {
 			// I am not sure, may be this is incorrect for mplane device, 
 			// but i don't have one which supports V4L2_MEMORY_USERPTR
-			buf.m.userptr = (unsigned long)_RUN(hw_bufs)[index].raw.data;
-			buf.length = _RUN(hw_bufs)[index].raw.allocated;
+			buf.m.userptr = (unsigned long)run->hw_bufs[index].raw.data;
+			buf.length = run->hw_bufs[index].raw.allocated;
 		}
 
 		US_LOG_DEBUG("Calling us_xioctl(VIDIOC_QBUF) for buffer=%u ...", index);
-		if (_D_XIOCTL(VIDIOC_QBUF, &buf) < 0) {
+		if (us_xioctl(run->fd, VIDIOC_QBUF, &buf) < 0) {
 			US_LOG_PERROR("Can't VIDIOC_QBUF");
 			return -1;
 		}
@@ -922,8 +908,8 @@ static int _device_apply_resolution(us_device_s *dev, unsigned width, unsigned h
 			width, height, US_VIDEO_MAX_WIDTH, US_VIDEO_MAX_HEIGHT);
 		return -1;
 	}
-	_RUN(width) = width;
-	_RUN(height) = height;
+	dev->run->width = width;
+	dev->run->height = height;
 	return 0;
 }
 
@@ -991,7 +977,7 @@ static int _device_query_control(
 	US_MEMSET_ZERO(*query);
 	query->id = cid;
 
-	if (_D_XIOCTL(VIDIOC_QUERYCTRL, query) < 0 || query->flags & V4L2_CTRL_FLAG_DISABLED) {
+	if (us_xioctl(dev->run->fd, VIDIOC_QUERYCTRL, query) < 0 || query->flags & V4L2_CTRL_FLAG_DISABLED) {
 		if (!quiet) {
 			US_LOG_ERROR("Changing control %s is unsupported", name);
 		}
@@ -1012,11 +998,11 @@ static void _device_set_control(
 		return;
 	}
 
-	struct v4l2_control ctl = {0};
-	ctl.id = cid;
-	ctl.value = value;
-
-	if (_D_XIOCTL(VIDIOC_S_CTRL, &ctl) < 0) {
+	struct v4l2_control ctl = {
+		.id = cid,
+		.value = value,
+	};
+	if (us_xioctl(dev->run->fd, VIDIOC_S_CTRL, &ctl) < 0) {
 		if (!quiet) {
 			US_LOG_PERROR("Can't set control %s", name);
 		}

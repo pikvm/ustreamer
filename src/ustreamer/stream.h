@@ -37,9 +37,9 @@
 #include "../libs/logging.h"
 #include "../libs/frame.h"
 #include "../libs/memsink.h"
+#include "../libs/device.h"
 
 #include "blank.h"
-#include "device.h"
 #include "encoder.h"
 #include "workers.h"
 #include "h264.h"

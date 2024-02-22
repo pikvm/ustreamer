@@ -45,9 +45,9 @@ void us_rtpv_destroy(us_rtpv_s *rtpv) {
 }
 
 char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
-#	define PAYLOAD rtpv->rtp->payload
 	// https://tools.ietf.org/html/rfc6184
 	// https://github.com/meetecho/janus-gateway/issues/2443
+	const unsigned pl = rtpv->rtp->payload;
 	char *sdp;
 	US_ASPRINTF(sdp,
 		"m=video 1 RTP/SAVPF %u" RN
@@ -61,12 +61,11 @@ char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
 		"a=ssrc:%" PRIu32 " cname:ustreamer" RN
 		"a=extmap:1 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay" RN
 		"a=sendonly" RN,
-		PAYLOAD, PAYLOAD, PAYLOAD, PAYLOAD,
-		PAYLOAD, PAYLOAD, PAYLOAD,
+		pl, pl, pl, pl,
+		pl, pl, pl,
 		rtpv->rtp->ssrc
 	);
 	return sdp;
-#	undef PAYLOAD
 }
 
 #define _PRE 3 // Annex B prefix length
@@ -110,14 +109,13 @@ void us_rtpv_wrap(us_rtpv_s *rtpv, const us_frame_s *frame, bool zero_playout_de
 }
 
 void _rtpv_process_nalu(us_rtpv_s *rtpv, const uint8_t *data, size_t size, uint32_t pts, bool marked) {
-#	define DG rtpv->rtp->datagram
-
 	const unsigned ref_idc = (data[0] >> 5) & 3;
 	const unsigned type = data[0] & 0x1F;
+	uint8_t *dg = rtpv->rtp->datagram;
 
 	if (size + US_RTP_HEADER_SIZE <= US_RTP_DATAGRAM_SIZE) {
 		us_rtp_write_header(rtpv->rtp, pts, marked);
-		memcpy(DG + US_RTP_HEADER_SIZE, data, size);
+		memcpy(dg + US_RTP_HEADER_SIZE, data, size);
 		rtpv->rtp->used = size + US_RTP_HEADER_SIZE;
 		rtpv->callback(rtpv->rtp);
 		return;
@@ -138,7 +136,7 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const uint8_t *data, size_t size, uint3
 
 		us_rtp_write_header(rtpv->rtp, pts, (marked && last));
 
-		DG[US_RTP_HEADER_SIZE] = 28 | (ref_idc << 5);
+		dg[US_RTP_HEADER_SIZE] = 28 | (ref_idc << 5);
 
 		uint8_t fu = type;
 		if (first) {
@@ -147,9 +145,9 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const uint8_t *data, size_t size, uint3
 		if (last) {
 			fu |= 0x40;
 		}
-		DG[US_RTP_HEADER_SIZE + 1] = fu;
+		dg[US_RTP_HEADER_SIZE + 1] = fu;
 
-		memcpy(DG + fu_overhead, src, frag_size);
+		memcpy(dg + fu_overhead, src, frag_size);
 		rtpv->rtp->used = fu_overhead + frag_size;
 		rtpv->callback(rtpv->rtp);
 
@@ -157,8 +155,6 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const uint8_t *data, size_t size, uint3
 		remaining -= frag_size;
 		first = false;
 	}
-
-#	undef DG
 }
 
 static ssize_t _find_annexb(const uint8_t *data, size_t size) {

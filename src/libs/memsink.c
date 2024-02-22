@@ -58,12 +58,11 @@ us_memsink_s *us_memsink_init(
 		US_LOG_PERROR("%s-sink: Can't mmap shared memory", name);
 		goto error;
 	}
-
 	return sink;
 
-	error:
-		us_memsink_destroy(sink);
-		return NULL;
+error:
+	us_memsink_destroy(sink);
+	return NULL;
 }
 
 void us_memsink_destroy(us_memsink_s *sink) {
@@ -176,6 +175,7 @@ int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *const key
 	}
 
 	int retval = -2; // Not updated
+
 	if (sink->mem->magic == US_MEMSINK_MAGIC) {
 		if (sink->mem->version != US_MEMSINK_VERSION) {
 			US_LOG_ERROR("%s-sink: Protocol version mismatch: sink=%u, required=%u",
@@ -196,10 +196,10 @@ int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *const key
 		}
 	}
 
-	done:
-		if (flock(sink->fd, LOCK_UN) < 0) {
-			US_LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
-			return -1;
-		}
-		return retval;
+done:
+	if (flock(sink->fd, LOCK_UN) < 0) {
+		US_LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
+		retval = -1;
+	}
+	return retval;
 }

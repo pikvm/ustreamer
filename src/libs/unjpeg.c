@@ -77,9 +77,9 @@ int us_unjpeg(const us_frame_s *src, us_frame_s *dest, bool decode) {
 		jpeg_finish_decompress(&jpeg);
 	}
 
-	done:
-		jpeg_destroy_decompress(&jpeg);
-		return retval;
+done:
+	jpeg_destroy_decompress(&jpeg);
+	return retval;
 }
 
 static void _jpeg_error_handler(j_common_ptr jpeg) {

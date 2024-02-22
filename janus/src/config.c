@@ -59,13 +59,14 @@ us_config_s *us_config_init(const char *config_dir_path) {
 	}
 
 	goto ok;
-	error:
-		us_config_destroy(config);
-		config = NULL;
-	ok:
-		US_DELETE(jcfg, janus_config_destroy);
-		free(config_file_path);
-		return config;
+
+error:
+	US_DELETE(config, us_config_destroy);
+
+ok:
+	US_DELETE(jcfg, janus_config_destroy);
+	free(config_file_path);
+	return config;
 }
 
 void us_config_destroy(us_config_s *config) {

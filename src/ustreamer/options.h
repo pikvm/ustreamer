@@ -38,8 +38,8 @@
 #include "../libs/frame.h"
 #include "../libs/memsink.h"
 #include "../libs/options.h"
+#include "../libs/device.h"
 
-#include "device.h"
 #include "encoder.h"
 #include "blank.h"
 #include "stream.h"

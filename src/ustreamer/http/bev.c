@@ -34,7 +34,6 @@ char *us_bufferevent_format_reason(short what) {
 	strncat(reason, perror_str, 1023);
 	free(perror_str);
 	strcat(reason, " (");
-
 #	define FILL_REASON(x_bev, x_name) { \
 			if (what & x_bev) { \
 				if (first) { \
@@ -51,7 +50,6 @@ char *us_bufferevent_format_reason(short what) {
 	FILL_REASON(BEV_EVENT_ERROR, "error");
 	FILL_REASON(BEV_EVENT_TIMEOUT, "timeout");
 	FILL_REASON(BEV_EVENT_EOF, "eof"); // cppcheck-suppress unreadVariable
-
 #	undef FILL_REASON
 
 	strcat(reason, ")");

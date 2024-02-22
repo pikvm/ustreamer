@@ -29,9 +29,9 @@
 #include "../libs/tools.h"
 #include "../libs/threading.h"
 #include "../libs/logging.h"
+#include "../libs/device.h"
 
 #include "options.h"
-#include "device.h"
 #include "encoder.h"
 #include "stream.h"
 #include "http/server.h"

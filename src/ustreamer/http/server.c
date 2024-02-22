@@ -51,10 +51,8 @@ static char *_http_get_client_hostport(struct evhttp_request *request);
 #define _A_EVBUFFER_ADD(x_buf, x_data, x_size)		assert(!evbuffer_add(x_buf, x_data, x_size))
 #define _A_EVBUFFER_ADD_PRINTF(x_buf, x_fmt, ...)	assert(evbuffer_add_printf(x_buf, x_fmt, ##__VA_ARGS__) >= 0)
 
-#define _RUN(x_next)	server->run->x_next
-#define _STREAM(x_next)	_RUN(stream->x_next)
-#define _VID(x_next)	_STREAM(run->video->x_next)
-#define _EX(x_next)		_RUN(exposed->x_next)
+#define _VID(x_next)	server->run->stream->run->video->x_next
+#define _EX(x_next)		server->run->exposed->x_next
 
 
 us_server_s *us_server_init(us_stream_s *stream) {
@@ -64,6 +62,7 @@ us_server_s *us_server_init(us_stream_s *stream) {
 
 	us_server_runtime_s *run;
 	US_CALLOC(run, 1);
+	run->ext_fd = -1;
 	run->stream = stream;
 	run->exposed = exposed;
 
@@ -88,78 +87,81 @@ us_server_s *us_server_init(us_stream_s *stream) {
 }
 
 void us_server_destroy(us_server_s *server) {
-	if (_RUN(refresher) != NULL) {
-		event_del(_RUN(refresher));
-		event_free(_RUN(refresher));
+	us_server_runtime_s *const run = server->run;
+
+	if (run->refresher != NULL) {
+		event_del(run->refresher);
+		event_free(run->refresher);
 	}
 
-	if (_RUN(request_watcher) != NULL) {
-		event_del(_RUN(request_watcher));
-		event_free(_RUN(request_watcher));
+	if (run->request_watcher != NULL) {
+		event_del(run->request_watcher);
+		event_free(run->request_watcher);
 	}
 
-	evhttp_free(_RUN(http));
-	if (_RUN(ext_fd) >= 0) {
-		close(_RUN(ext_fd));
-	}
-	event_base_free(_RUN(base));
+	evhttp_free(run->http);
+	US_CLOSE_FD(run->ext_fd, close);
+	event_base_free(run->base);
 
 #	if LIBEVENT_VERSION_NUMBER >= 0x02010100
 	libevent_global_shutdown();
 #	endif
 
-	US_LIST_ITERATE(_RUN(stream_clients), client, {
+	US_LIST_ITERATE(run->stream_clients, client, { // cppcheck-suppress constStatement
 		free(client->key);
 		free(client->hostport);
 		free(client);
 	});
 
-	US_DELETE(_RUN(auth_token), free);
+	US_DELETE(run->auth_token, free);
 
-	us_frame_destroy(_EX(frame));
-	free(_RUN(exposed));
+	us_frame_destroy(run->exposed->frame);
+	free(run->exposed);
 	free(server->run);
 	free(server);
 }
 
 int us_server_listen(us_server_s *server) {
+	us_server_runtime_s *const run = server->run;
+	us_stream_s *const stream = run->stream;
+
 	{
 		if (server->static_path[0] != '\0') {
 			US_LOG_INFO("Enabling HTTP file server: %s", server->static_path);
-			evhttp_set_gencb(_RUN(http), _http_callback_static, (void *)server);
+			evhttp_set_gencb(run->http, _http_callback_static, (void *)server);
 		} else {
-			assert(!evhttp_set_cb(_RUN(http), "/", _http_callback_root, (void *)server));
-			assert(!evhttp_set_cb(_RUN(http), "/favicon.ico", _http_callback_favicon, (void *)server));
+			assert(!evhttp_set_cb(run->http, "/", _http_callback_root, (void *)server));
+			assert(!evhttp_set_cb(run->http, "/favicon.ico", _http_callback_favicon, (void *)server));
 		}
-		assert(!evhttp_set_cb(_RUN(http), "/state", _http_callback_state, (void *)server));
-		assert(!evhttp_set_cb(_RUN(http), "/snapshot", _http_callback_snapshot, (void *)server));
-		assert(!evhttp_set_cb(_RUN(http), "/stream", _http_callback_stream, (void *)server));
+		assert(!evhttp_set_cb(run->http, "/state", _http_callback_state, (void *)server));
+		assert(!evhttp_set_cb(run->http, "/snapshot", _http_callback_snapshot, (void *)server));
+		assert(!evhttp_set_cb(run->http, "/stream", _http_callback_stream, (void *)server));
 	}
 
-	us_frame_copy(_STREAM(blank), _EX(frame));
+	us_frame_copy(stream->blank, _EX(frame));
 	_EX(notify_last_width) = _EX(frame->width);
 	_EX(notify_last_height) = _EX(frame->height);
 
 	if (server->exit_on_no_clients > 0) {
-		_RUN(last_request_ts) = us_get_now_monotonic();
+		run->last_request_ts = us_get_now_monotonic();
 		struct timeval interval = {0};
 		interval.tv_usec = 100000;
-		assert((_RUN(request_watcher) = event_new(_RUN(base), -1, EV_PERSIST, _http_request_watcher, server)) != NULL);
-		assert(!event_add(_RUN(request_watcher), &interval));
+		assert((run->request_watcher = event_new(run->base, -1, EV_PERSIST, _http_request_watcher, server)) != NULL);
+		assert(!event_add(run->request_watcher, &interval));
 	}
 
 	{
 		struct timeval interval = {0};
-		if (_STREAM(dev->desired_fps) > 0) {
-			interval.tv_usec = 1000000 / (_STREAM(dev->desired_fps) * 2);
+		if (stream->dev->desired_fps > 0) {
+			interval.tv_usec = 1000000 / (stream->dev->desired_fps * 2);
 		} else {
 			interval.tv_usec = 16000; // ~60fps
 		}
-		assert((_RUN(refresher) = event_new(_RUN(base), -1, EV_PERSIST, _http_refresher, server)) != NULL);
-		assert(!event_add(_RUN(refresher), &interval));
+		assert((run->refresher = event_new(run->base, -1, EV_PERSIST, _http_refresher, server)) != NULL);
+		assert(!event_add(run->refresher, &interval));
 	}
 
-	evhttp_set_timeout(_RUN(http), server->timeout);
+	evhttp_set_timeout(run->http, server->timeout);
 
 	if (server->user[0] != '\0') {
 		char *encoded_token = NULL;
@@ -169,7 +171,7 @@ int us_server_listen(us_server_s *server) {
 		us_base64_encode((uint8_t *)raw_token, strlen(raw_token), &encoded_token, NULL);
 		free(raw_token);
 
-		US_ASPRINTF(_RUN(auth_token), "Basic %s", encoded_token);
+		US_ASPRINTF(run->auth_token, "Basic %s", encoded_token);
 		free(encoded_token);
 
 		US_LOG_INFO("Using HTTP basic auth");
@@ -177,8 +179,8 @@ int us_server_listen(us_server_s *server) {
 
 	if (server->unix_path[0] != '\0') {
 		US_LOG_DEBUG("Binding HTTP to UNIX socket '%s' ...", server->unix_path);
-		if ((_RUN(ext_fd) = us_evhttp_bind_unix(
-			_RUN(http),
+		if ((run->ext_fd = us_evhttp_bind_unix(
+			run->http,
 			server->unix_path,
 			server->unix_rm,
 			server->unix_mode)) < 0
@@ -190,7 +192,7 @@ int us_server_listen(us_server_s *server) {
 #	ifdef WITH_SYSTEMD
 	} else if (server->systemd) {
 		US_LOG_DEBUG("Binding HTTP to systemd socket ...");
-		if ((_RUN(ext_fd) = us_evhttp_bind_systemd(_RUN(http))) < 0) {
+		if ((run->ext_fd = us_evhttp_bind_systemd(run->http)) < 0) {
 			return -1;
 		}
 		US_LOG_INFO("Listening systemd socket ...");
@@ -198,7 +200,7 @@ int us_server_listen(us_server_s *server) {
 
 	} else {
 		US_LOG_DEBUG("Binding HTTP to [%s]:%u ...", server->host, server->port);
-		if (evhttp_bind_socket(_RUN(http), server->host, server->port) < 0) {
+		if (evhttp_bind_socket(run->http, server->host, server->port) < 0) {
 			US_LOG_PERROR("Can't bind HTTP on [%s]:%u", server->host, server->port)
 			return -1;
 		}
@@ -210,18 +212,20 @@ int us_server_listen(us_server_s *server) {
 
 void us_server_loop(us_server_s *server) {
 	US_LOG_INFO("Starting HTTP eventloop ...");
-	event_base_dispatch(_RUN(base));
+	event_base_dispatch(server->run->base);
 	US_LOG_INFO("HTTP eventloop stopped");
 }
 
 void us_server_loop_break(us_server_s *server) {
-	event_base_loopbreak(_RUN(base));
+	event_base_loopbreak(server->run->base);
 }
 
 #define ADD_HEADER(x_key, x_value) assert(!evhttp_add_header(evhttp_request_get_output_headers(request), x_key, x_value))
 
 static int _http_preprocess_request(struct evhttp_request *request, us_server_s *server) {
-	_RUN(last_request_ts) = us_get_now_monotonic();
+	us_server_runtime_s *const run = server->run;
+
+	run->last_request_ts = us_get_now_monotonic();
 
 	if (server->allow_origin[0] != '\0') {
 		const char *const cors_headers = _http_get_header(request, "Access-Control-Request-Headers");
@@ -242,10 +246,10 @@ static int _http_preprocess_request(struct evhttp_request *request, us_server_s 
 		return -1;
 	}
 
-	if (_RUN(auth_token) != NULL) {
+	if (run->auth_token != NULL) {
 		const char *const token = _http_get_header(request, "Authorization");
 
-		if (token == NULL || strcmp(token, _RUN(auth_token)) != 0) {
+		if (token == NULL || strcmp(token, run->auth_token) != 0) {
 			ADD_HEADER("WWW-Authenticate", "Basic realm=\"Restricted area\"");
 			evhttp_send_reply(request, 401, "Unauthorized", NULL);
 			return -1;
@@ -269,24 +273,22 @@ static int _http_preprocess_request(struct evhttp_request *request, us_server_s 
 static int _http_check_run_compat_action(struct evhttp_request *request, void *v_server) {
 	// MJPG-Streamer compatibility layer
 
-	struct evkeyvalq params;
-	int error = 0;
+	int retval = -1;
 
+	struct evkeyvalq params;
 	evhttp_parse_query(evhttp_request_get_uri(request), &params);
 	const char *const action = evhttp_find_header(&params, "action");
 
 	if (action && !strcmp(action, "snapshot")) {
 		_http_callback_snapshot(request, v_server);
-		goto ok;
+		retval = 0;
 	} else if (action && !strcmp(action, "stream")) {
 		_http_callback_stream(request, v_server);
-		goto ok;
+		retval = 0;
 	}
 
-	error = -1;
-	ok:
-		evhttp_clear_headers(&params);
-		return error;
+	evhttp_clear_headers(&params);
+	return retval;
 }
 
 #define COMPAT_REQUEST { \
@@ -338,14 +340,12 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 
 	{
 		const char *uri_path;
-
 		if ((uri = evhttp_uri_parse(evhttp_request_get_uri(request))) == NULL) {
 			goto bad_request;
 		}
 		if ((uri_path = (char *)evhttp_uri_get_path(uri)) == NULL) {
 			uri_path = "/";
 		}
-
 		if ((decoded_path = evhttp_uridecode(uri_path, 0, NULL)) == NULL) {
 			goto bad_request;
 		}
@@ -383,34 +383,34 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 		goto cleanup;
 	}
 
-	bad_request:
-		evhttp_send_error(request, HTTP_BADREQUEST, NULL);
-		goto cleanup;
+bad_request:
+	evhttp_send_error(request, HTTP_BADREQUEST, NULL);
+	goto cleanup;
 
-	not_found:
-		evhttp_send_error(request, HTTP_NOTFOUND, NULL);
-		goto cleanup;
+not_found:
+	evhttp_send_error(request, HTTP_NOTFOUND, NULL);
+	goto cleanup;
 
-	cleanup:
-		if (fd >= 0) {
-			close(fd);
-		}
-		US_DELETE(static_path, free);
-		US_DELETE(buf, evbuffer_free);
-		US_DELETE(decoded_path, free);
-		US_DELETE(uri, evhttp_uri_free);
+cleanup:
+	US_CLOSE_FD(fd, close); // cppcheck-suppress unreadVariable
+	US_DELETE(static_path, free);
+	US_DELETE(buf, evbuffer_free);
+	US_DELETE(decoded_path, free);
+	US_DELETE(uri, evhttp_uri_free);
 }
 
 #undef COMPAT_REQUEST
 
 static void _http_callback_state(struct evhttp_request *request, void *v_server) {
 	us_server_s *const server = (us_server_s *)v_server;
+	us_server_runtime_s *const run = server->run;
+	us_stream_s *const stream = run->stream;
 
 	PREPROCESS_REQUEST;
 
 	us_encoder_type_e enc_type;
 	unsigned enc_quality;
-	us_encoder_get_runtime_params(_STREAM(enc), &enc_type, &enc_quality);
+	us_encoder_get_runtime_params(stream->enc, &enc_type, &enc_quality);
 
 	struct evbuffer *buf;
 	_A_EVBUFFER_NEW(buf);
@@ -424,28 +424,28 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		enc_quality
 	);
 
-	if (_STREAM(run->h264) != NULL) {
+	if (stream->run->h264 != NULL) {
 		_A_EVBUFFER_ADD_PRINTF(buf,
 			" \"h264\": {\"bitrate\": %u, \"gop\": %u, \"online\": %s},",
-			_STREAM(h264_bitrate),
-			_STREAM(h264_gop),
-			us_bool_to_string(atomic_load(&_STREAM(run->h264->online)))
+			stream->h264_bitrate,
+			stream->h264_gop,
+			us_bool_to_string(atomic_load(&stream->run->h264->online))
 		);
 	}
 
-	if (_STREAM(sink) != NULL || _STREAM(h264_sink) != NULL) {
+	if (stream->sink != NULL || stream->h264_sink != NULL) {
 		_A_EVBUFFER_ADD_PRINTF(buf, " \"sinks\": {");
-		if (_STREAM(sink) != NULL) {
+		if (stream->sink != NULL) {
 			_A_EVBUFFER_ADD_PRINTF(buf,
 				"\"jpeg\": {\"has_clients\": %s}",
-				us_bool_to_string(atomic_load(&_STREAM(sink->has_clients)))
+				us_bool_to_string(atomic_load(&stream->sink->has_clients))
 			);
 		}
-		if (_STREAM(h264_sink) != NULL) {
+		if (stream->h264_sink != NULL) {
 			_A_EVBUFFER_ADD_PRINTF(buf,
 				"%s\"h264\": {\"has_clients\": %s}",
-				(_STREAM(sink) ? ", " : ""),
-				us_bool_to_string(atomic_load(&_STREAM(h264_sink->has_clients)))
+				(stream->sink ? ", " : ""),
+				us_bool_to_string(atomic_load(&stream->h264_sink->has_clients))
 			);
 		}
 		_A_EVBUFFER_ADD_PRINTF(buf, "},");
@@ -458,13 +458,13 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		(server->fake_width ? server->fake_width : _EX(frame->width)),
 		(server->fake_height ? server->fake_height : _EX(frame->height)),
 		us_bool_to_string(_EX(frame->online)),
-		_STREAM(dev->desired_fps),
+		stream->dev->desired_fps,
 		_EX(captured_fps),
 		_EX(queued_fps),
-		_RUN(stream_clients_count)
+		run->stream_clients_count
 	);
 
-	US_LIST_ITERATE(_RUN(stream_clients), client, {
+	US_LIST_ITERATE(run->stream_clients, client, { // cppcheck-suppress constStatement
 		_A_EVBUFFER_ADD_PRINTF(buf,
 			"\"%" PRIx64 "\": {\"fps\": %u, \"extra_headers\": %s, \"advance_headers\": %s,"
 			" \"dual_final_frames\": %s, \"zero_data\": %s, \"key\": \"%s\"}%s",
@@ -544,6 +544,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 	// https://github.com/libevent/libevent/blob/29cc8386a2f7911eaa9336692a2c5544d8b4734f/http.c#L1458
 
 	us_server_s *const server = (us_server_s *)v_server;
+	us_server_runtime_s *const run = server->run;
 
 	PREPROCESS_REQUEST;
 
@@ -570,9 +571,9 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		client->hostport = _http_get_client_hostport(request);
 		client->id = us_get_now_id();
 
-		US_LIST_APPEND_C(_RUN(stream_clients), client, _RUN(stream_clients_count));
+		US_LIST_APPEND_C(run->stream_clients, client, run->stream_clients_count);
 
-		if (_RUN(stream_clients_count) == 1) {
+		if (run->stream_clients_count == 1) {
 			atomic_store(&_VID(has_clients), true);
 #			ifdef WITH_GPIO
 			us_gpio_set_has_http_clients(true);
@@ -580,10 +581,10 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		}
 
 		US_LOG_INFO("HTTP: NEW client (now=%u): %s, id=%" PRIx64,
-			_RUN(stream_clients_count), client->hostport, client->id);
+			run->stream_clients_count, client->hostport, client->id);
 
 		struct bufferevent *const buf_event = evhttp_connection_get_bufferevent(conn);
-		if (server->tcp_nodelay && !_RUN(ext_fd)) {
+		if (server->tcp_nodelay && run->ext_fd >= 0) {
 			US_LOG_DEBUG("HTTP: Setting up TCP_NODELAY to the client %s ...", client->hostport);
 			const evutil_socket_t fd = bufferevent_getfd(buf_event);
 			assert(fd >= 0);
@@ -602,8 +603,6 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 #undef PREPROCESS_REQUEST
 
 static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_client) {
-#	define BOUNDARY "boundarydonotcross"
-
 	us_stream_client_s *const client = (us_stream_client_s *)v_client;
 	us_server_s *const server = client->server;
 
@@ -638,6 +637,8 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	//
 	// Кроме того, advance_headers форсит отключение заголовков X-UStreamer-*
 	// по тем же причинам, по которым у нас нет Content-Length.
+
+#	define BOUNDARY "boundarydonotcross"
 
 #	define ADD_ADVANCE_HEADERS \
 		_A_EVBUFFER_ADD_PRINTF(buf, \
@@ -753,10 +754,11 @@ static void _http_callback_stream_error(struct bufferevent *buf_event, short wha
 
 	us_stream_client_s *const client = (us_stream_client_s *)v_client;
 	us_server_s *const server = client->server;
+	us_server_runtime_s *const run = server->run;
 
-	US_LIST_REMOVE_C(_RUN(stream_clients), client, _RUN(stream_clients_count));
+	US_LIST_REMOVE_C(run->stream_clients, client, run->stream_clients_count);
 
-	if (_RUN(stream_clients_count) == 0) {
+	if (run->stream_clients_count == 0) {
 		atomic_store(&_VID(has_clients), false);
 #		ifdef WITH_GPIO
 		us_gpio_set_has_http_clients(false);
@@ -765,10 +767,10 @@ static void _http_callback_stream_error(struct bufferevent *buf_event, short wha
 
 	char *const reason = us_bufferevent_format_reason(what);
 	US_LOG_INFO("HTTP: DEL client (now=%u): %s, id=%" PRIx64 ", %s",
-		_RUN(stream_clients_count), client->hostport, client->id, reason);
+		run->stream_clients_count, client->hostport, client->id, reason);
 	free(reason);
 
-	struct evhttp_connection *const conn = evhttp_request_get_connection(client->request);
+	struct evhttp_connection *conn = evhttp_request_get_connection(client->request);
 	US_DELETE(conn, evhttp_connection_free);
 
 	free(client->key);
@@ -777,10 +779,12 @@ static void _http_callback_stream_error(struct bufferevent *buf_event, short wha
 }
 
 static void _http_queue_send_stream(us_server_s *server, bool stream_updated, bool frame_updated) {
+	us_server_runtime_s *const run = server->run;
+
 	bool has_clients = false;
 	bool queued = false;
 
-	US_LIST_ITERATE(_RUN(stream_clients), client, {
+	US_LIST_ITERATE(run->stream_clients, client, { // cppcheck-suppress constStatement
 		struct evhttp_connection *const conn = evhttp_request_get_connection(client->request);
 		if (conn != NULL) {
 			// Фикс для бага WebKit. При включенной опции дропа одинаковых фреймов,
@@ -832,16 +836,17 @@ static void _http_request_watcher(int fd, short what, void *v_server) {
 	(void)fd;
 	(void)what;
 
-	us_server_s *server = (us_server_s *)v_server;
+	us_server_s *const server = (us_server_s *)v_server;
+	us_server_runtime_s *const run = server->run;
 	const long double now = us_get_now_monotonic();
 
-	if (us_stream_has_clients(_RUN(stream))) {
-		_RUN(last_request_ts) = now;
-	} else if (_RUN(last_request_ts) + server->exit_on_no_clients < now) {
+	if (us_stream_has_clients(run->stream)) {
+		run->last_request_ts = now;
+	} else if (run->last_request_ts + server->exit_on_no_clients < now) {
 		US_LOG_INFO("HTTP: No requests or HTTP/sink clients found in last %u seconds, exiting ...",
 			server->exit_on_no_clients);
 		us_process_suicide();
-		_RUN(last_request_ts) = now;
+		run->last_request_ts = now;
 	}
 }
 
@@ -923,10 +928,11 @@ static bool _expose_new_frame(us_server_s *server) {
 		 _EX(frame->online), _EX(expose_end_ts) - _EX(expose_begin_ts));
 
 	updated = true;
-	not_updated:
-		atomic_store(&_VID(updated), false);
-		US_MUTEX_UNLOCK(_VID(mutex));
-		return updated;
+
+not_updated:
+	atomic_store(&_VID(updated), false);
+	US_MUTEX_UNLOCK(_VID(mutex));
+	return updated;
 }
 
 static const char *_http_get_header(struct evhttp_request *request, const char *key) {

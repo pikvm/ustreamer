@@ -125,7 +125,7 @@ typedef struct {
 
 	struct event		*refresher;
 	us_stream_s			*stream;
-	us_exposed_s			*exposed;
+	us_exposed_s		*exposed;
 
 	us_stream_client_s	*stream_clients;
 	unsigned			stream_clients_count;

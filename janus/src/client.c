@@ -99,16 +99,16 @@ static void *_common_thread(void *v_client, bool video) {
 				atomic_load(&client->transmit)
 				&& (video || atomic_load(&client->transmit_audio))
 			) {
-				janus_plugin_rtp packet = {0};
-				packet.video = rtp->video;
-				packet.buffer = (char *)rtp->datagram;
-				packet.length = rtp->used;
-#				if JANUS_PLUGIN_API_VERSION >= 100
-				// The uStreamer Janus plugin places video in stream index 0 and audio
-				// (if available) in stream index 1.
-				packet.mindex = (rtp->video ? 0 : 1);
-#				endif
-
+				janus_plugin_rtp packet = {
+					.video = rtp->video,
+					.buffer = (char *)rtp->datagram,
+					.length = rtp->used,
+#					if JANUS_PLUGIN_API_VERSION >= 100
+					// The uStreamer Janus plugin places video in stream index 0 and audio
+					// (if available) in stream index 1.
+					.mindex = (rtp->video ? 0 : 1),
+#					endif
+				};
 				janus_plugin_rtp_extensions_reset(&packet.extensions);
 				/*if (rtp->zero_playout_delay) {
 					// https://github.com/pikvm/pikvm/issues/784

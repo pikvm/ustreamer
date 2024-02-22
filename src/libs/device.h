@@ -41,12 +41,12 @@
 #include <linux/videodev2.h>
 #include <linux/v4l2-controls.h>
 
-#include "../libs/tools.h"
-#include "../libs/array.h"
-#include "../libs/logging.h"
-#include "../libs/threading.h"
-#include "../libs/frame.h"
-#include "../libs/xioctl.h"
+#include "tools.h"
+#include "array.h"
+#include "logging.h"
+#include "threading.h"
+#include "frame.h"
+#include "xioctl.h"
 
 
 #define US_VIDEO_MIN_WIDTH		((unsigned)160)
@@ -86,6 +86,7 @@ typedef struct {
 	unsigned			n_bufs;
 	us_hw_buffer_s		*hw_bufs;
 	enum v4l2_buf_type	capture_type;
+	bool				capture_mplane;
 	bool				capturing;
 	bool				persistent_timeout_reported;
 } us_device_runtime_s;
