@@ -68,7 +68,7 @@ static int _device_open_io_method(us_device_s *dev);
 static int _device_open_io_method_mmap(us_device_s *dev);
 static int _device_open_io_method_userptr(us_device_s *dev);
 static int _device_open_queue_buffers(us_device_s *dev);
-static int _device_apply_resolution(us_device_s *dev, unsigned width, unsigned height);
+static int _device_apply_resolution(us_device_s *dev, unsigned width, unsigned height, float hz);
 
 static void _device_apply_controls(us_device_s *dev);
 static int _device_query_control(
@@ -534,7 +534,7 @@ static int _device_open_check_cap(us_device_s *dev) {
 }
 
 static int _device_open_dv_timings(us_device_s *dev) {
-	_device_apply_resolution(dev, dev->width, dev->height);
+	_device_apply_resolution(dev, dev->width, dev->height, dev->run->hz);
 	if (dev->dv_timings) {
 		US_LOG_DEBUG("Using DV-timings");
 
@@ -559,13 +559,15 @@ static int _device_apply_dv_timings(us_device_s *dev) {
 
 	US_LOG_DEBUG("Calling us_xioctl(VIDIOC_QUERY_DV_TIMINGS) ...");
 	if (us_xioctl(run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv) == 0) {
+		float hz = 0;
 		if (dv.type == V4L2_DV_BT_656_1120) {
 			// See v4l2_print_dv_timings() in the kernel
 			const unsigned htot = V4L2_DV_BT_FRAME_WIDTH(&dv.bt);
 			const unsigned vtot = V4L2_DV_BT_FRAME_HEIGHT(&dv.bt) / (dv.bt.interlaced ? 2 : 1);
 			const unsigned fps = ((htot * vtot) > 0 ? ((100 * (uint64_t)dv.bt.pixelclock)) / (htot * vtot) : 0);
-			US_LOG_INFO("Got new DV-timings: %ux%u%s%u.%02u, pixclk=%llu, vsync=%u, hsync=%u",
-				dv.bt.width, dv.bt.height, (dv.bt.interlaced ? "i" : "p"), fps / 100, fps % 100,
+			hz = (fps / 100) + (fps % 100) / 100.0;
+			US_LOG_INFO("Got new DV-timings: %ux%u%s%.02f, pixclk=%llu, vsync=%u, hsync=%u",
+				dv.bt.width, dv.bt.height, (dv.bt.interlaced ? "i" : "p"), hz,
 				(unsigned long long)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync); // See #11 about %llu
 		} else {
 			US_LOG_INFO("Got new DV-timings: %ux%u, pixclk=%llu, vsync=%u, hsync=%u",
@@ -579,7 +581,7 @@ static int _device_apply_dv_timings(us_device_s *dev) {
 			return -1;
 		}
 
-		if (_device_apply_resolution(dev, dv.bt.width, dv.bt.height) < 0) {
+		if (_device_apply_resolution(dev, dv.bt.width, dv.bt.height, hz) < 0) {
 			return -1;
 		}
 
@@ -640,7 +642,7 @@ static int _device_open_format(us_device_s *dev, bool first) {
 		US_LOG_ERROR("Requested resolution=%ux%u is unavailable", run->width, run->height);
 		retry = true;
 	}
-	if (_device_apply_resolution(dev, FMT(width), FMT(height)) < 0) {
+	if (_device_apply_resolution(dev, FMT(width), FMT(height), run->hz) < 0) {
 		return -1;
 	}
 	if (first && retry) {
@@ -897,7 +899,7 @@ static int _device_open_queue_buffers(us_device_s *dev) {
 	return 0;
 }
 
-static int _device_apply_resolution(us_device_s *dev, unsigned width, unsigned height) {
+static int _device_apply_resolution(us_device_s *dev, unsigned width, unsigned height, float hz) {
 	// Тут VIDEO_MIN_* не используются из-за странностей минимального разрешения при отсутствии сигнала
 	// у некоторых устройств, например TC358743
 	if (
@@ -910,6 +912,7 @@ static int _device_apply_resolution(us_device_s *dev, unsigned width, unsigned h
 	}
 	dev->run->width = width;
 	dev->run->height = height;
+	dev->run->hz = hz;
 	return 0;
 }
 

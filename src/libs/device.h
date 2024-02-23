@@ -80,6 +80,7 @@ typedef struct {
 	unsigned			height;
 	unsigned			format;
 	unsigned			stride;
+	float				hz;
 	unsigned			hw_fps;
 	unsigned			jpeg_quality;
 	size_t				raw_size;
