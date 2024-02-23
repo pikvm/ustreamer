@@ -65,7 +65,7 @@ typedef struct {
 
 bool us_audio_probe(const char *name);
 
-us_audio_s *us_audio_init(const char *name, unsigned pcm_hz);
+us_audio_s *us_audio_init(const char *name, unsigned pcm_hz, unsigned pcm_channels);
 void us_audio_destroy(us_audio_s *audio);
 
 int us_audio_get_encoded(us_audio_s *audio, uint8_t *data, size_t *size, uint64_t *pts);
