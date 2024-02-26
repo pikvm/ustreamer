@@ -26,7 +26,7 @@
 
 
 #define US_VERSION_MAJOR 5
-#define US_VERSION_MINOR 51
+#define US_VERSION_MINOR 52
 
 #define US_MAKE_VERSION2(_major, _minor) #_major "." #_minor
 #define US_MAKE_VERSION1(_major, _minor) US_MAKE_VERSION2(_major, _minor)
