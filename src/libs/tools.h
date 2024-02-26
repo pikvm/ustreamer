@@ -66,6 +66,18 @@
 #define US_SNPRINTF(x_dest, x_size, x_fmt, ...)	assert(snprintf((x_dest), (x_size), (x_fmt), ##__VA_ARGS__) > 0)
 #define US_ASPRINTF(x_dest, x_fmt, ...)			assert(asprintf(&(x_dest), (x_fmt), ##__VA_ARGS__) > 0)
 
+#define US_MIN(x_a, x_b) ({ \
+		__typeof__(x_a) m_a = (x_a); \
+		__typeof__(x_b) m_b = (x_b); \
+		(m_a < m_b ? m_a : m_b); \
+	})
+
+#define US_MAX(x_a, x_b) ({ \
+		__typeof__(x_a) m_a = (x_a); \
+		__typeof__(x_b) m_b = (x_b); \
+		(m_a > m_b ? m_a : m_b); \
+	})
+
 
 INLINE char *us_strdup(const char *str) {
 	char *const new = strdup(str);
@@ -79,14 +91,6 @@ INLINE const char *us_bool_to_string(bool flag) {
 
 INLINE size_t us_align_size(size_t size, size_t to) {
 	return ((size + (to - 1)) & ~(to - 1));
-}
-
-INLINE unsigned us_min_u(unsigned a, unsigned b) {
-	return (a < b ? a : b);
-}
-
-INLINE unsigned us_max_u(unsigned a, unsigned b) {
-	return (a > b ? a : b);
 }
 
 INLINE long long us_floor_ms(long double now) {
@@ -145,7 +149,7 @@ INLINE long double us_get_now_real(void) {
 INLINE unsigned us_get_cores_available(void) {
 	long cores_sysconf = sysconf(_SC_NPROCESSORS_ONLN);
 	cores_sysconf = (cores_sysconf < 0 ? 0 : cores_sysconf);
-	return us_max_u(us_min_u(cores_sysconf, 4), 1);
+	return US_MAX(US_MIN(cores_sysconf, 4), 1);
 }
 
 INLINE void us_ld_to_timespec(long double ld, struct timespec *ts) {

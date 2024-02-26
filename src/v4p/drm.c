@@ -210,7 +210,7 @@ static int _drm_expose_raw(us_drm_s *drm, const us_frame_s *frame) {
 	if (frame == NULL) {
 		memset(buf->data, 0, buf->allocated);
 	} else {
-		memcpy(buf->data, frame->data, us_min_u(frame->used, buf->allocated));
+		memcpy(buf->data, frame->data, US_MIN(frame->used, buf->allocated));
 	}
 
 	const int retval = drmModePageFlip(

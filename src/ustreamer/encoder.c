@@ -96,7 +96,7 @@ us_workers_pool_s *us_encoder_workers_pool_init(us_encoder_s *enc, us_device_s *
 
 	us_encoder_type_e type = (_ER(cpu_forced) ? US_ENCODER_TYPE_CPU : enc->type);
 	unsigned quality = dev->jpeg_quality;
-	unsigned n_workers = us_min_u(enc->n_workers, DR(n_bufs));
+	unsigned n_workers = US_MIN(enc->n_workers, DR(n_bufs));
 	bool cpu_forced = false;
 
 	if (us_is_jpeg(DR(format)) && type != US_ENCODER_TYPE_HW) {

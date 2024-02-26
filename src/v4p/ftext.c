@@ -85,7 +85,7 @@ void us_ftext_draw(us_ftext_s *ft, const char *text, uint width, uint height) {
 	uint block_width = 0;
 	uint block_height = 0;
 	while ((line = strtok_r((block_height == 0 ? str : NULL), "\n", &rest)) != NULL) {
-		block_width = us_max_u(strlen(line) * 8, block_width);
+		block_width = US_MAX(strlen(line) * 8, block_width);
 		block_height += 8;
 	}
 	if (block_width == 0 || block_height == 0) {
@@ -139,7 +139,7 @@ void _ftext_draw_line(
 				break;
 			}
 
-			const u8 ch = us_min_u(line[ch_x / 8 / scale_x], sizeof(US_FTEXT_FONT) / 8 - 1);
+			const u8 ch = US_MIN((u8)line[ch_x / 8 / scale_x], sizeof(US_FTEXT_FONT) / 8 - 1);
 			const uint ch_byte = (ch_y / scale_y) % 8;
 			const uint ch_bit = (ch_x / scale_x) % 8;
 			const bool pix_on = !!(US_FTEXT_FONT[ch][ch_byte] & (1 << ch_bit));
