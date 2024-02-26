@@ -94,7 +94,7 @@ all: $(_TARGETS)
 
 install: all
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
-	for i in $(_TARGETS); do install -m 755 $(DESTDIR)$(PREFIX)/bin/$(subst .bin,,$$i); done
+	for i in $(_TARGETS); do install -m755 $$i $(DESTDIR)$(PREFIX)/bin/$(subst .bin,,$$i); done
 
 
 install-strip: install
