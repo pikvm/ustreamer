@@ -85,7 +85,7 @@ typedef struct {
 } us_drm_s;
 
 
-us_drm_s *us_drm_init(const char *path, const char *port);
+us_drm_s *us_drm_init(void);
 void us_drm_destroy(us_drm_s *drm);
 
 int us_drm_wait_for_vsync(us_drm_s *drm);

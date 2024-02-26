@@ -61,7 +61,7 @@ static float _get_refresh_rate(const drmModeModeInfo *mode);
 #define _D_LOG_DEBUG(x_msg, ...)	US_LOG_DEBUG("DRM: " x_msg, ##__VA_ARGS__)
 
 
-us_drm_s *us_drm_init(const char *path, const char *port) {
+us_drm_s *us_drm_init(void) {
 	us_drm_runtime_s *run;
 	US_CALLOC(run, 1);
 	run->fd = -1;
@@ -72,8 +72,8 @@ us_drm_s *us_drm_init(const char *path, const char *port) {
 
 	us_drm_s *drm;
 	US_CALLOC(drm, 1);
-	drm->path = us_strdup(path);
-	drm->port = us_strdup(port);
+	drm->path = "/dev/dri/card0";
+	drm->port = "HDMI-A-1";
 	drm->n_bufs = 4;
 	drm->timeout = 5;
 	drm->run = run;
@@ -84,8 +84,6 @@ void us_drm_destroy(us_drm_s *drm) {
 	_drm_cleanup(drm);
 	us_ftext_destroy(drm->run->ft);
 	US_DELETE(drm->run, free);
-	US_DELETE(drm->port, free);
-	US_DELETE(drm->path, free);
 	US_DELETE(drm, free); // cppcheck-suppress uselessAssignmentPtrArg
 }
 

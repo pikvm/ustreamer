@@ -179,8 +179,8 @@ static void _install_signal_handlers(void) {
 }
 
 static void _main_loop(void) {
-	us_drm_s *drm = us_drm_init("/dev/dri/card0", "HDMI-A-2");
-	drm->n_bufs = 4;
+	us_drm_s *drm = us_drm_init();
+	drm->port = "HDMI-A-2";
 
 	us_device_s *dev = us_device_init();
 	dev->path = "/dev/kvmd-video";
