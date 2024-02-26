@@ -61,25 +61,25 @@ typedef struct {
 	drmModeModeInfo	mode;
 	u32				conn_id;
 	us_drm_buffer_s	*bufs;
-	unsigned		n_bufs;
+	uint			n_bufs;
 	drmModeCrtc		*saved_crtc;
-	unsigned		next_n_buf;
+	uint			next_n_buf;
 	bool			has_vsync;
 
 	us_ftext_s		*ft;
 
-	unsigned		p_width;
-	unsigned		p_height;
+	uint			p_width;
+	uint			p_height;
 	float			p_hz;
 
 	us_drm_state_e	state;
 } us_drm_runtime_s;
 
 typedef struct {
-	char		*path;
-	char		*port;
-	unsigned	n_bufs;
-	unsigned	timeout;
+	char	*path;
+	char	*port;
+	uint	n_bufs;
+	uint	timeout;
 
 	us_drm_runtime_s *run;
 } us_drm_s;
