@@ -22,6 +22,31 @@
 
 #include "device.h"
 
+#include <stdlib.h>
+#include <stddef.h>
+#include <string.h>
+#include <strings.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <assert.h>
+
+#include <sys/select.h>
+#include <sys/mman.h>
+#include <sys/time.h>
+
+#include <pthread.h>
+#include <linux/videodev2.h>
+#include <linux/v4l2-controls.h>
+
+#include "types.h"
+#include "tools.h"
+#include "array.h"
+#include "logging.h"
+#include "threading.h"
+#include "frame.h"
+#include "xioctl.h"
+
 
 static const struct {
 	const char *name;
@@ -35,7 +60,7 @@ static const struct {
 
 static const struct {
 	const char *name; // cppcheck-suppress unusedStructMember
-	const unsigned format; // cppcheck-suppress unusedStructMember
+	const uint format; // cppcheck-suppress unusedStructMember
 } _FORMATS[] = {
 	{"YUYV",	V4L2_PIX_FMT_YUYV},
 	{"YVYU",	V4L2_PIX_FMT_YVYU},
@@ -57,7 +82,7 @@ static const struct {
 
 
 static void _v4l2_buffer_copy(const struct v4l2_buffer *src, struct v4l2_buffer *dest);
-static bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf, const uint8_t *data);
+static bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf, const u8 *data);
 static int _device_open_check_cap(us_device_s *dev);
 static int _device_open_dv_timings(us_device_s *dev);
 static int _device_apply_dv_timings(us_device_s *dev);
@@ -68,18 +93,18 @@ static int _device_open_io_method(us_device_s *dev);
 static int _device_open_io_method_mmap(us_device_s *dev);
 static int _device_open_io_method_userptr(us_device_s *dev);
 static int _device_open_queue_buffers(us_device_s *dev);
-static int _device_apply_resolution(us_device_s *dev, unsigned width, unsigned height, float hz);
+static int _device_apply_resolution(us_device_s *dev, uint width, uint height, float hz);
 
 static void _device_apply_controls(us_device_s *dev);
 static int _device_query_control(
 	us_device_s *dev, struct v4l2_queryctrl *query,
-	const char *name, unsigned cid, bool quiet);
+	const char *name, uint cid, bool quiet);
 static void _device_set_control(
 	us_device_s *dev, const struct v4l2_queryctrl *query,
-	const char *name, unsigned cid, int value, bool quiet);
+	const char *name, uint cid, int value, bool quiet);
 
-static const char *_format_to_string_nullable(unsigned format);
-static const char *_format_to_string_supported(unsigned format);
+static const char *_format_to_string_nullable(uint format);
+static const char *_format_to_string_supported(uint format);
 static const char *_standard_to_string(v4l2_std_id standard);
 static const char *_io_method_to_string_supported(enum v4l2_memory io_method);
 
@@ -187,7 +212,7 @@ void us_device_close(us_device_s *dev) {
 
 	if (run->hw_bufs != NULL) {
 		_D_LOG_DEBUG("Releasing device buffers ...");
-		for (unsigned index = 0; index < run->n_bufs; ++index) {
+		for (uint index = 0; index < run->n_bufs; ++index) {
 			us_hw_buffer_s *hw = &run->hw_bufs[index];
 
 			US_CLOSE_FD(hw->dma_fd, close);
@@ -224,7 +249,7 @@ void us_device_close(us_device_s *dev) {
 int us_device_export_to_dma(us_device_s *dev) {
 	us_device_runtime_s *const run = dev->run;
 
-	for (unsigned index = 0; index < run->n_bufs; ++index) {
+	for (uint index = 0; index < run->n_bufs; ++index) {
 		struct v4l2_exportbuffer exp = {
 			.type = run->capture_type,
 			.index = index,
@@ -239,7 +264,7 @@ int us_device_export_to_dma(us_device_s *dev) {
 	return 0;
 
 error:
-	for (unsigned index = 0; index < run->n_bufs; ++index) {
+	for (uint index = 0; index < run->n_bufs; ++index) {
 		US_CLOSE_FD(run->hw_bufs[index].dma_fd, close);
 	}
 	return -1;
@@ -321,7 +346,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 	}
 
 	bool buf_got = false;
-	unsigned skipped = 0;
+	uint skipped = 0;
 	bool broken = false;
 
 	_D_LOG_DEBUG("Grabbing device buffer ...");
@@ -406,7 +431,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 	(*hw)->raw.stride = run->stride;
 	(*hw)->raw.online = true;
 	_v4l2_buffer_copy(&buf, &(*hw)->buf);
-	(*hw)->raw.grab_ts = (long double)((buf.timestamp.tv_sec * (uint64_t)1000) + (buf.timestamp.tv_usec / 1000)) / 1000;
+	(*hw)->raw.grab_ts = (ldf)((buf.timestamp.tv_sec * (u64)1000) + (buf.timestamp.tv_usec / 1000)) / 1000;
 
 	_D_LOG_DEBUG("Grabbed new frame: buffer=%u, bytesused=%u, grab_ts=%.3Lf, latency=%.3Lf, skipped=%u",
 		buf.index, buf.bytesused, (*hw)->raw.grab_ts, us_get_now_monotonic() - (*hw)->raw.grab_ts, skipped);
@@ -414,7 +439,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 }
 
 int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw) {
-	const unsigned index = hw->buf.index;
+	const uint index = hw->buf.index;
 	_D_LOG_DEBUG("Releasing device buffer=%u ...", index);
 	if (us_xioctl(dev->run->fd, VIDIOC_QBUF, &hw->buf) < 0) {
 		_D_LOG_PERROR("Can't release device buffer=%u", index);
@@ -452,7 +477,7 @@ static void _v4l2_buffer_copy(const struct v4l2_buffer *src, struct v4l2_buffer 
 	}
 }
 
-bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf, const uint8_t *data) {
+bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf, const u8 *data) {
 	// Workaround for broken, corrupted frames:
 	// Under low light conditions corrupted frames may get captured.
 	// The good thing is such frames are quite small compared to the regular frames.
@@ -479,9 +504,9 @@ bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf, co
 			return false;
 		}
 
-		const uint8_t *const end_ptr = data + buf->bytesused;
-		const uint8_t *const eoi_ptr = end_ptr - 2;
-		const uint16_t eoi_marker = (((uint16_t)(eoi_ptr[0]) << 8) | eoi_ptr[1]);
+		const u8 *const end_ptr = data + buf->bytesused;
+		const u8 *const eoi_ptr = end_ptr - 2;
+		const u16 eoi_marker = (((u16)(eoi_ptr[0]) << 8) | eoi_ptr[1]);
 		if (eoi_marker != 0xFFD9 && eoi_marker != 0xD900 && eoi_marker != 0x0000) {
 			_D_LOG_DEBUG("Discarding truncated JPEG frame: eoi_marker=0x%04x, bytesused=%u", eoi_marker, buf->bytesused);
 			return false;
@@ -569,17 +594,17 @@ static int _device_apply_dv_timings(us_device_s *dev) {
 		float hz = 0;
 		if (dv.type == V4L2_DV_BT_656_1120) {
 			// See v4l2_print_dv_timings() in the kernel
-			const unsigned htot = V4L2_DV_BT_FRAME_WIDTH(&dv.bt);
-			const unsigned vtot = V4L2_DV_BT_FRAME_HEIGHT(&dv.bt) / (dv.bt.interlaced ? 2 : 1);
-			const unsigned fps = ((htot * vtot) > 0 ? ((100 * (uint64_t)dv.bt.pixelclock)) / (htot * vtot) : 0);
+			const uint htot = V4L2_DV_BT_FRAME_WIDTH(&dv.bt);
+			const uint vtot = V4L2_DV_BT_FRAME_HEIGHT(&dv.bt) / (dv.bt.interlaced ? 2 : 1);
+			const uint fps = ((htot * vtot) > 0 ? ((100 * (u64)dv.bt.pixelclock)) / (htot * vtot) : 0);
 			hz = (fps / 100) + (fps % 100) / 100.0;
 			_D_LOG_INFO("Got new DV-timings: %ux%u%s%.02f, pixclk=%llu, vsync=%u, hsync=%u",
 				dv.bt.width, dv.bt.height, (dv.bt.interlaced ? "i" : "p"), hz,
-				(unsigned long long)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync); // See #11 about %llu
+				(ull)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync); // See #11 about %llu
 		} else {
 			_D_LOG_INFO("Got new DV-timings: %ux%u, pixclk=%llu, vsync=%u, hsync=%u",
 				dv.bt.width, dv.bt.height,
-				(unsigned long long)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync);
+				(ull)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync);
 		}
 
 		_D_LOG_DEBUG("Calling us_xioctl(VIDIOC_S_DV_TIMINGS) ...");
@@ -608,7 +633,7 @@ static int _device_apply_dv_timings(us_device_s *dev) {
 static int _device_open_format(us_device_s *dev, bool first) {
 	us_device_runtime_s *const run = dev->run;
 
-	const unsigned stride = us_align_size(run->width, 32) << 1;
+	const uint stride = us_align_size(run->width, 32) << 1;
 
 	struct v4l2_format fmt = {0};
 	fmt.type = run->capture_type;
@@ -742,7 +767,7 @@ static void _device_open_hw_fps(us_device_s *dev) {
 
 static void _device_open_jpeg_quality(us_device_s *dev) {
 	us_device_runtime_s *const run = dev->run;
-	unsigned quality = 0;
+	uint quality = 0;
 	if (us_is_jpeg(run->format)) {
 		struct v4l2_jpegcompression comp = {0};
 		if (us_xioctl(run->fd, VIDIOC_G_JPEGCOMP, &comp) < 0) {
@@ -812,7 +837,7 @@ static int _device_open_io_method_mmap(us_device_s *dev) {
 		}
 
 		us_hw_buffer_s *hw = &run->hw_bufs[run->n_bufs];
-		const size_t buf_size = (run->capture_mplane ? buf.m.planes[0].length : buf.length);
+		const uz buf_size = (run->capture_mplane ? buf.m.planes[0].length : buf.length);
 		const off_t buf_offset = (run->capture_mplane ? buf.m.planes[0].m.mem_offset : buf.m.offset);
 
 		_D_LOG_DEBUG("Mapping device buffer=%u ...", run->n_bufs);
@@ -861,8 +886,8 @@ static int _device_open_io_method_userptr(us_device_s *dev) {
 
 	US_CALLOC(run->hw_bufs, req.count);
 
-	const unsigned page_size = getpagesize();
-	const unsigned buf_size = us_align_size(run->raw_size, page_size);
+	const uint page_size = getpagesize();
+	const uint buf_size = us_align_size(run->raw_size, page_size);
 
 	for (run->n_bufs = 0; run->n_bufs < req.count; ++run->n_bufs) {
 		us_hw_buffer_s *hw = &run->hw_bufs[run->n_bufs];
@@ -879,7 +904,7 @@ static int _device_open_io_method_userptr(us_device_s *dev) {
 static int _device_open_queue_buffers(us_device_s *dev) {
 	us_device_runtime_s *const run = dev->run;
 
-	for (unsigned index = 0; index < run->n_bufs; ++index) {
+	for (uint index = 0; index < run->n_bufs; ++index) {
 		struct v4l2_buffer buf = {0};
 		struct v4l2_plane planes[VIDEO_MAX_PLANES] = {0};
 		buf.type = run->capture_type;
@@ -906,7 +931,7 @@ static int _device_open_queue_buffers(us_device_s *dev) {
 	return 0;
 }
 
-static int _device_apply_resolution(us_device_s *dev, unsigned width, unsigned height, float hz) {
+static int _device_apply_resolution(us_device_s *dev, uint width, uint height, float hz) {
 	// Тут VIDEO_MIN_* не используются из-за странностей минимального разрешения при отсутствии сигнала
 	// у некоторых устройств, например TC358743
 	if (
@@ -981,7 +1006,7 @@ static void _device_apply_controls(us_device_s *dev) {
 
 static int _device_query_control(
 	us_device_s *dev, struct v4l2_queryctrl *query,
-	const char *name, unsigned cid, bool quiet) {
+	const char *name, uint cid, bool quiet) {
 
 	// cppcheck-suppress redundantPointerOp
 	US_MEMSET_ZERO(*query);
@@ -998,7 +1023,7 @@ static int _device_query_control(
 
 static void _device_set_control(
 	us_device_s *dev, const struct v4l2_queryctrl *query,
-	const char *name, unsigned cid, int value, bool quiet) {
+	const char *name, uint cid, int value, bool quiet) {
 
 	if (value < query->minimum || value > query->maximum || value % query->step != 0) {
 		if (!quiet) {
@@ -1021,7 +1046,7 @@ static void _device_set_control(
 	}
 }
 
-static const char *_format_to_string_nullable(unsigned format) {
+static const char *_format_to_string_nullable(uint format) {
 	US_ARRAY_ITERATE(_FORMATS, 0, item, {
 		if (item->format == format) {
 			return item->name;
@@ -1030,7 +1055,7 @@ static const char *_format_to_string_nullable(unsigned format) {
 	return NULL;
 }
 
-static const char *_format_to_string_supported(unsigned format) {
+static const char *_format_to_string_supported(uint format) {
 	const char *const format_str = _format_to_string_nullable(format);
 	return (format_str == NULL ? "unsupported" : format_str);
 }

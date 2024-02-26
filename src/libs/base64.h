@@ -22,13 +22,7 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-
-#include <sys/types.h>
-
-#include "tools.h"
+#include "types.h"
 
 
-void us_base64_encode(const uint8_t *data, size_t size, char **encoded, size_t *allocated);
+void us_base64_encode(const u8 *data, uz size, char **encoded, uz *allocated);

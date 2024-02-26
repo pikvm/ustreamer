@@ -22,40 +22,19 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
-#include <strings.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <assert.h>
-
-#include <sys/select.h>
-#include <sys/mman.h>
-#include <sys/time.h>
-
-#include <pthread.h>
 #include <linux/videodev2.h>
-#include <linux/v4l2-controls.h>
 
-#include "tools.h"
-#include "array.h"
-#include "logging.h"
-#include "threading.h"
+#include "types.h"
 #include "frame.h"
-#include "xioctl.h"
 
 
-#define US_VIDEO_MIN_WIDTH		((unsigned)160)
-#define US_VIDEO_MAX_WIDTH		((unsigned)15360)
+#define US_VIDEO_MIN_WIDTH		((uint)160)
+#define US_VIDEO_MAX_WIDTH		((uint)15360)
 
-#define US_VIDEO_MIN_HEIGHT		((unsigned)120)
-#define US_VIDEO_MAX_HEIGHT		((unsigned)8640)
+#define US_VIDEO_MIN_HEIGHT		((uint)120)
+#define US_VIDEO_MAX_HEIGHT		((uint)8640)
 
-#define US_VIDEO_MAX_FPS		((unsigned)120)
+#define US_VIDEO_MAX_FPS		((uint)120)
 
 #define US_STANDARD_UNKNOWN		V4L2_STD_UNKNOWN
 #define US_STANDARDS_STR		"PAL, NTSC, SECAM"
@@ -76,15 +55,15 @@ typedef struct {
 
 typedef struct {
 	int					fd;
-	unsigned			width;
-	unsigned			height;
-	unsigned			format;
-	unsigned			stride;
+	uint				width;
+	uint				height;
+	uint				format;
+	uint				stride;
 	float				hz;
-	unsigned			hw_fps;
-	unsigned			jpeg_quality;
-	size_t				raw_size;
-	unsigned			n_bufs;
+	uint				hw_fps;
+	uint				jpeg_quality;
+	uz					raw_size;
+	uint				n_bufs;
 	us_hw_buffer_s		*hw_bufs;
 	enum v4l2_buf_type	capture_type;
 	bool				capture_mplane;
@@ -122,19 +101,19 @@ typedef struct {
 
 typedef struct {
 	char				*path;
-	unsigned			input;
-	unsigned			width;
-	unsigned			height;
-	unsigned			format;
-	unsigned			jpeg_quality;
+	uint				input;
+	uint				width;
+	uint				height;
+	uint				format;
+	uint				jpeg_quality;
 	v4l2_std_id			standard;
 	enum v4l2_memory	io_method;
 	bool				dv_timings;
-	unsigned			n_bufs;
-	unsigned			desired_fps;
-	size_t				min_frame_size;
+	uint				n_bufs;
+	uint				desired_fps;
+	uz					min_frame_size;
 	bool				persistent;
-	unsigned			timeout;
+	uint				timeout;
 	us_controls_s 		ctl;
 	us_device_runtime_s *run;
 } us_device_s;

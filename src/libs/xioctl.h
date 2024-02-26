@@ -26,11 +26,13 @@
 
 #include <sys/ioctl.h>
 
+#include "types.h"
+
 
 #ifndef US_CFG_XIOCTL_RETRIES
 #	define US_CFG_XIOCTL_RETRIES 4
 #endif
-#define _XIOCTL_RETRIES ((unsigned)(US_CFG_XIOCTL_RETRIES))
+#define _XIOCTL_RETRIES ((uint)(US_CFG_XIOCTL_RETRIES))
 
 
 INLINE int us_xioctl(int fd, int request, void *arg) {

@@ -22,6 +22,16 @@
 
 #include "frame.h"
 
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+
+#include <linux/videodev2.h>
+
+#include "types.h"
+#include "tools.h"
+
 
 us_frame_s *us_frame_init(void) {
 	us_frame_s *frame;
@@ -36,21 +46,21 @@ void us_frame_destroy(us_frame_s *frame) {
 	free(frame);
 }
 
-void us_frame_realloc_data(us_frame_s *frame, size_t size) {
+void us_frame_realloc_data(us_frame_s *frame, uz size) {
 	if (frame->allocated < size) {
 		US_REALLOC(frame->data, size);
 		frame->allocated = size;
 	}
 }
 
-void us_frame_set_data(us_frame_s *frame, const uint8_t *data, size_t size) {
+void us_frame_set_data(us_frame_s *frame, const u8 *data, uz size) {
 	us_frame_realloc_data(frame, size);
 	memcpy(frame->data, data, size);
 	frame->used = size;
 }
 
-void us_frame_append_data(us_frame_s *frame, const uint8_t *data, size_t size) {
-	const size_t new_used = frame->used + size;
+void us_frame_append_data(us_frame_s *frame, const u8 *data, uz size) {
+	const uz new_used = frame->used + size;
 	us_frame_realloc_data(frame, new_used);
 	memcpy(frame->data + frame->used, data, size);
 	frame->used = new_used;
@@ -69,8 +79,8 @@ bool us_frame_compare(const us_frame_s *a, const us_frame_s *b) {
 	);
 }
 
-unsigned us_frame_get_padding(const us_frame_s *frame) {
-	unsigned bytes_per_pixel = 0;
+uint us_frame_get_padding(const us_frame_s *frame) {
+	uint bytes_per_pixel = 0;
 	switch (frame->format) {
 		case V4L2_PIX_FMT_YUYV:
 		case V4L2_PIX_FMT_YVYU:
@@ -89,13 +99,13 @@ unsigned us_frame_get_padding(const us_frame_s *frame) {
 	return 0;
 }
 
-const char *us_fourcc_to_string(unsigned format, char *buf, size_t size) {
+const char *us_fourcc_to_string(uint format, char *buf, uz size) {
 	assert(size >= 8);
 	buf[0] = format & 0x7F;
 	buf[1] = (format >> 8) & 0x7F;
 	buf[2] = (format >> 16) & 0x7F;
 	buf[3] = (format >> 24) & 0x7F;
-	if (format & ((unsigned)1 << 31)) {
+	if (format & ((uint)1 << 31)) {
 		buf[4] = '-';
 		buf[5] = 'B';
 		buf[6] = 'E';

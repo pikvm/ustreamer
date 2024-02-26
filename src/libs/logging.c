@@ -22,6 +22,10 @@
 
 #include "logging.h"
 
+#include <stdbool.h>
+
+#include <pthread.h>
+
 
 enum us_log_level_t us_g_log_level;
 

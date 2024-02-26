@@ -22,12 +22,9 @@
 
 #pragma once
 
-#include <string.h>
-#include <ctype.h>
 #include <getopt.h>
-#include <assert.h>
 
-#include <sys/types.h>
+#include "types.h"
 
 
-void us_build_short_options(const struct option opts[], char *short_opts, size_t size);
+void us_build_short_options(const struct option opts[], char *short_opts, uz size);

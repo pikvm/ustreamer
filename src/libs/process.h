@@ -25,8 +25,6 @@
 #include <signal.h>
 #include <unistd.h>
 
-#include <sys/types.h>
-
 
 #if defined(__linux__)
 #	define HAS_PDEATHSIG
@@ -58,6 +56,7 @@
 #		include <sys/procctl.h>
 #	endif
 #endif
+#include "types.h"
 #ifdef WITH_SETPROCTITLE
 #	include "tools.h"
 #endif
@@ -102,14 +101,14 @@ INLINE void us_process_set_name_prefix(int argc, char *argv[], const char *prefi
 #	pragma GCC diagnostic pop
 
 	char *cmdline = NULL;
-	size_t allocated = 2048;
-	size_t used = 0;
+	uz allocated = 2048;
+	uz used = 0;
 
 	US_REALLOC(cmdline, allocated);
 	cmdline[0] = '\0';
 
 	for (int index = 0; index < argc; ++index) {
-		size_t arg_len = strlen(argv[index]);
+		uz arg_len = strlen(argv[index]);
 		if (used + arg_len + 16 >= allocated) {
 			allocated += arg_len + 2048;
 			US_REALLOC(cmdline, allocated); // cppcheck-suppress memleakOnRealloc // False-positive (ok with assert)

@@ -22,47 +22,37 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <stdbool.h>
 #include <stdatomic.h>
-#include <string.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <assert.h>
 
-#include <sys/types.h>
-#include <sys/file.h>
 #include <sys/stat.h>
-#include <sys/mman.h>
 
-#include "tools.h"
-#include "logging.h"
+#include "types.h"
 #include "frame.h"
 #include "memsinksh.h"
 
 
 typedef struct {
-	const char			*name;
-	const char			*obj;
-	bool				server;
-	bool				rm;
-	unsigned			client_ttl; // Only for server
-	unsigned			timeout;
+	const char	*name;
+	const char	*obj;
+	bool		server;
+	bool		rm;
+	uint		client_ttl; // Only for server
+	uint		timeout;
 
 	int					fd;
 	us_memsink_shared_s	*mem;
-	uint64_t			last_id;
+	u64					last_id;
 	atomic_bool			has_clients; // Only for server
 } us_memsink_s;
 
 
 us_memsink_s *us_memsink_init(
 	const char *name, const char *obj, bool server,
-	mode_t mode, bool rm, unsigned client_ttl, unsigned timeout);
+	mode_t mode, bool rm, uint client_ttl, uint timeout);
 
 void us_memsink_destroy(us_memsink_s *sink);
 
 bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame);
-int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *const key_requested);
+int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key_requested);
 
-int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *const key_requested, bool key_required);
+int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_requested, bool key_required);

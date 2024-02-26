@@ -22,15 +22,7 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <inttypes.h>
-
-#include <sys/types.h>
-
-#include "uslibs/tools.h"
-#include "uslibs/threading.h"
+#include "uslibs/types.h"
 
 #include "rtp.h"
 
@@ -45,4 +37,4 @@ us_rtpa_s *us_rtpa_init(us_rtp_callback_f callback);
 void us_rtpa_destroy(us_rtpa_s *rtpa);
 
 char *us_rtpa_make_sdp(us_rtpa_s *rtpa);
-void us_rtpa_wrap(us_rtpa_s *rtpa, const uint8_t *data, size_t size, uint32_t pts);
+void us_rtpa_wrap(us_rtpa_s *rtpa, const u8 *data, uz size, u32 pts);

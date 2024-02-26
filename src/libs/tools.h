@@ -23,9 +23,7 @@
 #pragma once
 
 #include <stdio.h>
-#include <stdint.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
@@ -34,7 +32,6 @@
 #include <time.h>
 #include <assert.h>
 
-#include <sys/types.h>
 #include <sys/file.h>
 
 #if defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 32
@@ -42,6 +39,8 @@
 #else
 #	include <signal.h>
 #endif
+
+#include "types.h"
 
 
 #ifdef NDEBUG
@@ -89,15 +88,15 @@ INLINE const char *us_bool_to_string(bool flag) {
 	return (flag ? "true" : "false");
 }
 
-INLINE size_t us_align_size(size_t size, size_t to) {
+INLINE uz us_align_size(uz size, uz to) {
 	return ((size + (to - 1)) & ~(to - 1));
 }
 
-INLINE long long us_floor_ms(long double now) {
-	return (long long)now - (now < (long long)now); // floor()
+INLINE sll us_floor_ms(ldf now) {
+	return (sll)now - (now < (sll)now); // floor()
 }
 
-INLINE uint32_t us_triple_u32(uint32_t x) {
+INLINE u32 us_triple_u32(u32 x) {
 	// https://nullprogram.com/blog/2018/07/31/
 	x ^= x >> 17;
 	x *= UINT32_C(0xED5AD4BB);
@@ -121,38 +120,38 @@ INLINE void us_get_now(clockid_t clk_id, time_t *sec, long *msec) {
 	}
 }
 
-INLINE long double us_get_now_monotonic(void) {
+INLINE ldf us_get_now_monotonic(void) {
 	time_t sec;
 	long msec;
 	us_get_now(CLOCK_MONOTONIC, &sec, &msec);
-	return (long double)sec + ((long double)msec) / 1000;
+	return (ldf)sec + ((ldf)msec) / 1000;
 }
 
-INLINE uint64_t us_get_now_monotonic_u64(void) {
+INLINE u64 us_get_now_monotonic_u64(void) {
 	struct timespec ts;
 	assert(!clock_gettime(CLOCK_MONOTONIC, &ts));
-	return (uint64_t)(ts.tv_nsec / 1000) + (uint64_t)ts.tv_sec * 1000000;
+	return (u64)(ts.tv_nsec / 1000) + (u64)ts.tv_sec * 1000000;
 }
 
-INLINE uint64_t us_get_now_id(void) {
-	const uint64_t now = us_get_now_monotonic_u64();
-	return (uint64_t)us_triple_u32(now) | ((uint64_t)us_triple_u32(now + 12345) << 32);
+INLINE u64 us_get_now_id(void) {
+	const u64 now = us_get_now_monotonic_u64();
+	return (u64)us_triple_u32(now) | ((u64)us_triple_u32(now + 12345) << 32);
 }
 
-INLINE long double us_get_now_real(void) {
+INLINE ldf us_get_now_real(void) {
 	time_t sec;
 	long msec;
 	us_get_now(CLOCK_REALTIME, &sec, &msec);
-	return (long double)sec + ((long double)msec) / 1000;
+	return (ldf)sec + ((ldf)msec) / 1000;
 }
 
-INLINE unsigned us_get_cores_available(void) {
+INLINE uint us_get_cores_available(void) {
 	long cores_sysconf = sysconf(_SC_NPROCESSORS_ONLN);
 	cores_sysconf = (cores_sysconf < 0 ? 0 : cores_sysconf);
 	return US_MAX(US_MIN(cores_sysconf, 4), 1);
 }
 
-INLINE void us_ld_to_timespec(long double ld, struct timespec *ts) {
+INLINE void us_ld_to_timespec(ldf ld, struct timespec *ts) {
 	ts->tv_sec = (long)ld;
 	ts->tv_nsec = (ld - ts->tv_sec) * 1000000000L;
 	if (ts->tv_nsec > 999999999L) {
@@ -161,12 +160,12 @@ INLINE void us_ld_to_timespec(long double ld, struct timespec *ts) {
 	}
 }
 
-INLINE long double us_timespec_to_ld(const struct timespec *ts) {
-	return ts->tv_sec + ((long double)ts->tv_nsec) / 1000000000;
+INLINE ldf us_timespec_to_ld(const struct timespec *ts) {
+	return ts->tv_sec + ((ldf)ts->tv_nsec) / 1000000000;
 }
 
-INLINE int us_flock_timedwait_monotonic(int fd, long double timeout) {
-	const long double deadline_ts = us_get_now_monotonic() + timeout;
+INLINE int us_flock_timedwait_monotonic(int fd, ldf timeout) {
+	const ldf deadline_ts = us_get_now_monotonic() + timeout;
 	int retval = -1;
 
 	while (true) {
@@ -183,7 +182,7 @@ INLINE int us_flock_timedwait_monotonic(int fd, long double timeout) {
 
 INLINE char *us_errno_to_string(int error) {
 	char buf[2048];
-	const size_t max_len = sizeof(buf) - 1;
+	const uz max_len = sizeof(buf) - 1;
 #	if (_POSIX_C_SOURCE >= 200112L) && ! _GNU_SOURCE
 	if (strerror_r(error, buf, max_len) != 0) {
 		US_SNPRINTF(buf, max_len, "Errno = %d", error);

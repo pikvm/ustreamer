@@ -22,19 +22,14 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <stdbool.h>
 #include <stdatomic.h>
-#include <string.h>
 
 #include <pthread.h>
 #include <janus/plugins/plugin.h>
 
-#include "uslibs/tools.h"
-#include "uslibs/threading.h"
+#include "uslibs/types.h"
 #include "uslibs/list.h"
 
-#include "logging.h"
 #include "queue.h"
 #include "rtp.h"
 

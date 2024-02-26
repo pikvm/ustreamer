@@ -22,45 +22,43 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <stdbool.h>
-
-#include <sys/types.h>
 #include <sys/mman.h>
 
+#include "types.h"
 
-#define US_MEMSINK_MAGIC	((uint64_t)0xCAFEBABECAFEBABE)
-#define US_MEMSINK_VERSION	((uint32_t)4)
+
+#define US_MEMSINK_MAGIC	((u64)0xCAFEBABECAFEBABE)
+#define US_MEMSINK_VERSION	((u32)4)
 
 #ifndef US_CFG_MEMSINK_MAX_DATA
 #	define US_CFG_MEMSINK_MAX_DATA 33554432
 #endif
-#define US_MEMSINK_MAX_DATA ((size_t)(US_CFG_MEMSINK_MAX_DATA))
+#define US_MEMSINK_MAX_DATA ((uz)(US_CFG_MEMSINK_MAX_DATA))
 
 
 typedef struct {
-	uint64_t	magic;
-	uint32_t	version;
+	u64		magic;
+	u32		version;
 
-	uint64_t	id;
+	u64		id;
 
-	size_t		used;
-	unsigned	width;
-	unsigned	height;
-	unsigned	format;
-	unsigned	stride;
-	bool		online;
-	bool		key;
-	unsigned	gop;
+	uz		used;
+	uint	width;
+	uint	height;
+	uint	format;
+	uint	stride;
+	bool	online;
+	bool	key;
+	uint	gop;
 
-	long double	grab_ts;
-	long double	encode_begin_ts;
-	long double	encode_end_ts;
+	ldf		grab_ts;
+	ldf		encode_begin_ts;
+	ldf		encode_end_ts;
 
-	long double	last_client_ts;
-	bool		key_requested;
+	ldf		last_client_ts;
+	bool	key_requested;
 
-	uint8_t		data[US_MEMSINK_MAX_DATA];
+	u8		data[US_MEMSINK_MAX_DATA];
 } us_memsink_shared_s;
 
 

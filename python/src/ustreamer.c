@@ -13,6 +13,7 @@
 
 #include <Python.h>
 
+#include "uslibs/types.h"
 #include "uslibs/tools.h"
 #include "uslibs/frame.h"
 #include "uslibs/memsinksh.h"
@@ -29,8 +30,8 @@ typedef struct {
 	int					fd;
 	us_memsink_shared_s	*mem;
 
-	uint64_t		frame_id;
-	long double		frame_ts;
+	u64				frame_id;
+	ldf				frame_ts;
 	us_frame_s		*frame;
 } _MemsinkObject;
 
@@ -106,7 +107,7 @@ static PyObject *_MemsinkObject_exit(_MemsinkObject *self, PyObject *Py_UNUSED(i
 }
 
 static int _wait_frame(_MemsinkObject *self) {
-	const long double deadline_ts = us_get_now_monotonic() + self->wait_timeout;
+	const ldf deadline_ts = us_get_now_monotonic() + self->wait_timeout;
 
 #	define RETURN_OS_ERROR { \
 			Py_BLOCK_THREADS \
@@ -114,12 +115,12 @@ static int _wait_frame(_MemsinkObject *self) {
 			return -1; \
 		}
 
-	long double now;
+	ldf now_ts;
 	do {
 		Py_BEGIN_ALLOW_THREADS
 
 		const int retval = us_flock_timedwait_monotonic(self->fd, self->lock_timeout);
-		now = us_get_now_monotonic();
+		now_ts = us_get_now_monotonic();
 
 		if (retval < 0 && errno != EWOULDBLOCK) {
 			RETURN_OS_ERROR;
@@ -130,7 +131,7 @@ static int _wait_frame(_MemsinkObject *self) {
 				if (self->drop_same_frames > 0) {
 					if (
 						US_FRAME_COMPARE_META_USED_NOTS(self->mem, self->frame)
-						&& (self->frame_ts + self->drop_same_frames > now)
+						&& (self->frame_ts + self->drop_same_frames > now_ts)
 						&& !memcmp(self->frame->data, mem->data, mem->used)
 					) {
 						self->frame_id = mem->id;
@@ -155,7 +156,7 @@ static int _wait_frame(_MemsinkObject *self) {
 		if (PyErr_CheckSignals() < 0) {
 			return -1;
 		}
-	} while (now < deadline_ts);
+	} while (now_ts < deadline_ts);
 
 	return -2;
 #	undef RETURN_OS_ERROR

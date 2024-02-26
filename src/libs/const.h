@@ -22,6 +22,9 @@
 
 #pragma once
 
+#include "types.h"
+
+
 #define US_VERSION_MAJOR 5
 #define US_VERSION_MINOR 51
 
@@ -29,4 +32,4 @@
 #define US_MAKE_VERSION1(_major, _minor) US_MAKE_VERSION2(_major, _minor)
 #define US_VERSION US_MAKE_VERSION1(US_VERSION_MAJOR, US_VERSION_MINOR)
 
-#define US_VERSION_U ((unsigned)(US_VERSION_MAJOR * 1000 + US_VERSION_MINOR))
+#define US_VERSION_U ((uint)(US_VERSION_MAJOR * 1000 + US_VERSION_MINOR))

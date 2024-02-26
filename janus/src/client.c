@@ -22,6 +22,22 @@
 
 #include "client.h"
 
+#include <stdlib.h>
+#include <stdatomic.h>
+#include <string.h>
+
+#include <pthread.h>
+#include <janus/plugins/plugin.h>
+
+#include "uslibs/types.h"
+#include "uslibs/tools.h"
+#include "uslibs/threading.h"
+#include "uslibs/list.h"
+
+#include "logging.h"
+#include "queue.h"
+#include "rtp.h"
+
 
 static void *_video_thread(void *v_client);
 static void *_audio_thread(void *v_client);

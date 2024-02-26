@@ -23,7 +23,6 @@
 #pragma once
 
 #include <stdio.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -33,6 +32,7 @@
 
 #include <pthread.h>
 
+#include "types.h"
 #include "tools.h"
 #include "threading.h"
 

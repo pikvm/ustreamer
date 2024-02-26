@@ -25,10 +25,20 @@
 
 #include "rtpv.h"
 
+#include <stdlib.h>
+#include <inttypes.h>
+#include <assert.h>
 
-void _rtpv_process_nalu(us_rtpv_s *rtpv, const uint8_t *data, size_t size, uint32_t pts, bool marked);
+#include <linux/videodev2.h>
 
-static ssize_t _find_annexb(const uint8_t *data, size_t size);
+#include "uslibs/types.h"
+#include "uslibs/tools.h"
+#include "uslibs/frame.h"
+
+
+void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool marked);
+
+static sz _find_annexb(const u8 *data, uz size);
 
 
 us_rtpv_s *us_rtpv_init(us_rtp_callback_f callback) {
@@ -47,7 +57,7 @@ void us_rtpv_destroy(us_rtpv_s *rtpv) {
 char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
 	// https://tools.ietf.org/html/rfc6184
 	// https://github.com/meetecho/janus-gateway/issues/2443
-	const unsigned pl = rtpv->rtp->payload;
+	const uint pl = rtpv->rtp->payload;
 	char *sdp;
 	US_ASPRINTF(sdp,
 		"m=video 1 RTP/SAVPF %u" RN
@@ -78,20 +88,20 @@ void us_rtpv_wrap(us_rtpv_s *rtpv, const us_frame_s *frame, bool zero_playout_de
 
 	rtpv->rtp->zero_playout_delay = zero_playout_delay;
 
-	const uint32_t pts = us_get_now_monotonic_u64() * 9 / 100; // PTS units are in 90 kHz
-	ssize_t last_offset = -_PRE;
+	const u32 pts = us_get_now_monotonic_u64() * 9 / 100; // PTS units are in 90 kHz
+	sz last_offset = -_PRE;
 
 	while (true) { // Find and iterate by nalus
-		const size_t next_start = last_offset + _PRE;
-		ssize_t offset = _find_annexb(frame->data + next_start, frame->used - next_start);
+		const uz next_start = last_offset + _PRE;
+		sz offset = _find_annexb(frame->data + next_start, frame->used - next_start);
 		if (offset < 0) {
 			break;
 		}
 		offset += next_start;
 
 		if (last_offset >= 0) {
-			const uint8_t *const data = frame->data + last_offset + _PRE;
-			size_t size = offset - last_offset - _PRE;
+			const u8 *const data = frame->data + last_offset + _PRE;
+			uz size = offset - last_offset - _PRE;
 			if (data[size - 1] == 0) { // Check for extra 00
 				--size;
 			}
@@ -102,16 +112,16 @@ void us_rtpv_wrap(us_rtpv_s *rtpv, const us_frame_s *frame, bool zero_playout_de
 	}
 
 	if (last_offset >= 0) {
-		const uint8_t *const data = frame->data + last_offset + _PRE;
-		size_t size = frame->used - last_offset - _PRE;
+		const u8 *const data = frame->data + last_offset + _PRE;
+		uz size = frame->used - last_offset - _PRE;
 		_rtpv_process_nalu(rtpv, data, size, pts, true);
 	}
 }
 
-void _rtpv_process_nalu(us_rtpv_s *rtpv, const uint8_t *data, size_t size, uint32_t pts, bool marked) {
-	const unsigned ref_idc = (data[0] >> 5) & 3;
-	const unsigned type = data[0] & 0x1F;
-	uint8_t *dg = rtpv->rtp->datagram;
+void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool marked) {
+	const uint ref_idc = (data[0] >> 5) & 3;
+	const uint type = data[0] & 0x1F;
+	u8 *dg = rtpv->rtp->datagram;
 
 	if (size + US_RTP_HEADER_SIZE <= US_RTP_DATAGRAM_SIZE) {
 		us_rtp_write_header(rtpv->rtp, pts, marked);
@@ -121,14 +131,14 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const uint8_t *data, size_t size, uint3
 		return;
 	}
 
-	const size_t fu_overhead = US_RTP_HEADER_SIZE + 2; // FU-A overhead
+	const uz fu_overhead = US_RTP_HEADER_SIZE + 2; // FU-A overhead
 
-	const uint8_t *src = data + 1;
-	ssize_t remaining = size - 1;
+	const u8 *src = data + 1;
+	sz remaining = size - 1;
 
 	bool first = true;
 	while (remaining > 0) {
-		ssize_t frag_size = US_RTP_DATAGRAM_SIZE - fu_overhead;
+		sz frag_size = US_RTP_DATAGRAM_SIZE - fu_overhead;
 		const bool last = (remaining <= frag_size);
 		if (last) {
 			frag_size = remaining;
@@ -138,7 +148,7 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const uint8_t *data, size_t size, uint3
 
 		dg[US_RTP_HEADER_SIZE] = 28 | (ref_idc << 5);
 
-		uint8_t fu = type;
+		u8 fu = type;
 		if (first) {
 			fu |= 0x80;
 		}
@@ -157,10 +167,10 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const uint8_t *data, size_t size, uint3
 	}
 }
 
-static ssize_t _find_annexb(const uint8_t *data, size_t size) {
+static sz _find_annexb(const u8 *data, uz size) {
 	// Parses buffer for 00 00 01 start codes
 	if (size >= _PRE) {
-		for (size_t index = 0; index <= size - _PRE; ++index) {
+		for (uz index = 0; index <= size - _PRE; ++index) {
 			if (data[index] == 0 && data[index + 1] == 0 && data[index + 2] == 1) {
 				return index;
 			}

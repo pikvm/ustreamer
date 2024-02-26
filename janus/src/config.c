@@ -22,6 +22,17 @@
 
 #include "config.h"
 
+#include <stdlib.h>
+#include <string.h>
+
+#include <janus/config.h>
+#include <janus/plugins/plugin.h>
+
+#include "uslibs/tools.h"
+
+#include "const.h"
+#include "logging.h"
+
 
 static char *_get_value(janus_config *jcfg, const char *section, const char *option);
 // static bool _get_bool(janus_config *jcfg, const char *section, const char *option, bool def);

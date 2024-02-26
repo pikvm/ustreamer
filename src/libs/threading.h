@@ -26,7 +26,6 @@
 #include <unistd.h>
 #include <assert.h>
 
-#include <sys/types.h>
 #include <sys/syscall.h>
 
 #include <pthread.h>
@@ -37,13 +36,14 @@
 #	endif
 #endif
 
+#include "types.h"
 #include "tools.h"
 
 
 #ifdef PTHREAD_MAX_NAMELEN_NP
-#	define US_THREAD_NAME_SIZE ((size_t)(PTHREAD_MAX_NAMELEN_NP))
+#	define US_THREAD_NAME_SIZE ((uz)(PTHREAD_MAX_NAMELEN_NP))
 #else
-#	define US_THREAD_NAME_SIZE ((size_t)16)
+#	define US_THREAD_NAME_SIZE ((uz)16)
 #endif
 
 #define US_THREAD_CREATE(x_tid, x_func, x_arg)	assert(!pthread_create(&(x_tid), NULL, (x_func), (x_arg)))

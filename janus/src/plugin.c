@@ -20,8 +20,6 @@
 *****************************************************************************/
 
 
-#include <stdint.h>
-#include <stdbool.h>
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <inttypes.h>
@@ -37,6 +35,7 @@
 #include <janus/plugins/plugin.h>
 #include <janus/rtcp.h>
 
+#include "uslibs/types.h"
 #include "uslibs/const.h"
 #include "uslibs/tools.h"
 #include "uslibs/threading.h"
@@ -124,7 +123,7 @@ static void *_video_sink_thread(void *arg) {
 	US_THREAD_RENAME("us_video_sink");
 	atomic_store(&_g_video_sink_tid_created, true);
 
-	uint64_t frame_id = 0;
+	u64 frame_id = 0;
 	int once = 0;
 
 	while (!_STOP) {
@@ -220,9 +219,9 @@ static void *_audio_thread(void *arg) {
 				goto close_audio;
 			}
 
-			size_t size = US_RTP_DATAGRAM_SIZE - US_RTP_HEADER_SIZE;
-			uint8_t data[size];
-			uint64_t pts;
+			uz size = US_RTP_DATAGRAM_SIZE - US_RTP_HEADER_SIZE;
+			u8 data[size];
+			u64 pts;
 			const int result = us_audio_get_encoded(audio, data, &size, &pts);
 			if (result == 0) {
 				_LOCK_AUDIO;

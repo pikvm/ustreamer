@@ -22,6 +22,12 @@
 
 #include "rtpa.h"
 
+#include <stdlib.h>
+#include <inttypes.h>
+
+#include "uslibs/types.h"
+#include "uslibs/tools.h"
+
 
 us_rtpa_s *us_rtpa_init(us_rtp_callback_f callback) {
 	us_rtpa_s *rtpa;
@@ -37,7 +43,7 @@ void us_rtpa_destroy(us_rtpa_s *rtpa) {
 }
 
 char *us_rtpa_make_sdp(us_rtpa_s *rtpa) {
-	const unsigned pl = rtpa->rtp->payload;
+	const uint pl = rtpa->rtp->payload;
 	char *sdp;
 	US_ASPRINTF(sdp,
 		"m=audio 1 RTP/SAVPF %u" RN
@@ -55,7 +61,7 @@ char *us_rtpa_make_sdp(us_rtpa_s *rtpa) {
 	return sdp;
 }
 
-void us_rtpa_wrap(us_rtpa_s *rtpa, const uint8_t *data, size_t size, uint32_t pts) {
+void us_rtpa_wrap(us_rtpa_s *rtpa, const u8 *data, uz size, u32 pts) {
     if (size + US_RTP_HEADER_SIZE <= US_RTP_DATAGRAM_SIZE) {
         us_rtp_write_header(rtpa->rtp, pts, false);
         memcpy(rtpa->rtp->datagram + US_RTP_HEADER_SIZE, data, size);

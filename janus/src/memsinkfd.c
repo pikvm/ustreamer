@@ -22,13 +22,24 @@
 
 #include "memsinkfd.h"
 
+#include <unistd.h>
 
-int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s* mem, uint64_t last_id) {
-	const long double deadline_ts = us_get_now_monotonic() + 1; // wait_timeout
-	long double now;
+#include <linux/videodev2.h>
+
+#include "uslibs/types.h"
+#include "uslibs/tools.h"
+#include "uslibs/frame.h"
+#include "uslibs/memsinksh.h"
+
+#include "logging.h"
+
+
+int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s* mem, u64 last_id) {
+	const ldf deadline_ts = us_get_now_monotonic() + 1; // wait_timeout
+	ldf now_ts;
 	do {
 		const int result = us_flock_timedwait_monotonic(fd, 1); // lock_timeout
-		now = us_get_now_monotonic();
+		now_ts = us_get_now_monotonic();
 		if (result < 0 && errno != EWOULDBLOCK) {
 			US_JLOG_PERROR("video", "Can't lock memsink");
 			return -1;
@@ -42,11 +53,11 @@ int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s* mem, uint64_t last_id)
 			}
 		}
 		usleep(1000); // lock_polling
-	} while (now < deadline_ts);
+	} while (now_ts < deadline_ts);
 	return -2;
 }
 
-us_frame_s *us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, uint64_t *frame_id, bool key_required) {
+us_frame_s *us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, u64 *frame_id, bool key_required) {
 	us_frame_s *frame = us_frame_init();
 	us_frame_set_data(frame, mem->data, mem->used);
 	US_FRAME_COPY_META(mem, frame);

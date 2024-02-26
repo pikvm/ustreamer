@@ -22,8 +22,18 @@
 
 #include "queue.h"
 
+#include <errno.h>
+#include <time.h>
+#include <assert.h>
 
-us_queue_s *us_queue_init(unsigned capacity) {
+#include <pthread.h>
+
+#include "uslibs/types.h"
+#include "uslibs/tools.h"
+#include "uslibs/threading.h"
+
+
+us_queue_s *us_queue_init(uint capacity) {
 	us_queue_s *queue;
 	US_CALLOC(queue, 1);
 	US_CALLOC(queue->items, capacity);
@@ -61,7 +71,7 @@ void us_queue_destroy(us_queue_s *queue) {
 		} \
 	}
 
-int us_queue_put(us_queue_s *queue, void *item, long double timeout) {
+int us_queue_put(us_queue_s *queue, void *item, ldf timeout) {
 	US_MUTEX_LOCK(queue->mutex);
 	if (timeout == 0) {
 		if (queue->size == queue->capacity) {
@@ -80,7 +90,7 @@ int us_queue_put(us_queue_s *queue, void *item, long double timeout) {
 	return 0;
 }
 
-int us_queue_get(us_queue_s *queue, void **item, long double timeout) {
+int us_queue_get(us_queue_s *queue, void **item, ldf timeout) {
 	US_MUTEX_LOCK(queue->mutex);
 	_WAIT_OR_UNLOCK(queue->size == 0, queue->empty_cond);
 	*item = queue->items[queue->out];
@@ -96,7 +106,7 @@ int us_queue_get(us_queue_s *queue, void **item, long double timeout) {
 
 int us_queue_get_free(us_queue_s *queue) {
 	US_MUTEX_LOCK(queue->mutex);
-	const unsigned size = queue->size;
+	const uint size = queue->size;
 	US_MUTEX_UNLOCK(queue->mutex);
 	return queue->capacity - size;
 }

@@ -22,10 +22,26 @@
 
 #include "memsink.h"
 
+#include <stdatomic.h>
+#include <string.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <assert.h>
+
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+
+#include "types.h"
+#include "tools.h"
+#include "logging.h"
+#include "frame.h"
+#include "memsinksh.h"
+
 
 us_memsink_s *us_memsink_init(
 	const char *name, const char *obj, bool server,
-	mode_t mode, bool rm, unsigned client_ttl, unsigned timeout) {
+	mode_t mode, bool rm, uint client_ttl, uint timeout) {
 
 	us_memsink_s *sink;
 	US_CALLOC(sink, 1);
@@ -116,7 +132,7 @@ bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame) {
 	return (has_clients || !US_FRAME_COMPARE_META_USED_NOTS(sink->mem, frame));;
 }
 
-int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *const key_requested) {
+int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key_requested) {
 	assert(sink->server);
 
 	const long double now = us_get_now_monotonic();
@@ -163,7 +179,7 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *con
 	return 0;
 }
 
-int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *const key_requested, bool key_required) { // cppcheck-suppress unusedFunction
+int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_requested, bool key_required) { // cppcheck-suppress unusedFunction
 	assert(!sink->server); // Client only
 
 	if (us_flock_timedwait_monotonic(sink->fd, sink->timeout) < 0) {

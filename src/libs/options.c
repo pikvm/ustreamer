@@ -22,10 +22,17 @@
 
 #include "options.h"
 
+#include <string.h>
+#include <ctype.h>
+#include <getopt.h>
+#include <assert.h>
 
-void us_build_short_options(const struct option opts[], char *short_opts, size_t size) {
+#include "types.h"
+
+
+void us_build_short_options(const struct option opts[], char *short_opts, uz size) {
 	memset(short_opts, 0, size);
-    for (unsigned short_index = 0, opt_index = 0; opts[opt_index].name != NULL; ++opt_index) {
+    for (uint short_index = 0, opt_index = 0; opts[opt_index].name != NULL; ++opt_index) {
 		assert(short_index < size - 3);
         if (isalpha(opts[opt_index].val)) {
             short_opts[short_index] = opts[opt_index].val;

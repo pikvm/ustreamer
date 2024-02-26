@@ -22,6 +22,13 @@
 
 #include "base64.h"
 
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+
+#include "types.h"
+#include "tools.h"
+
 
 static const char _ENCODING_TABLE[] = {
 	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
@@ -34,11 +41,11 @@ static const char _ENCODING_TABLE[] = {
 	'4', '5', '6', '7', '8', '9', '+', '/',
 };
 
-static const unsigned _MOD_TABLE[] = {0, 2, 1};
+static const uint _MOD_TABLE[] = {0, 2, 1};
 
 
-void us_base64_encode(const uint8_t *data, size_t size, char **encoded, size_t *allocated) {
-	const size_t encoded_size = 4 * ((size + 2) / 3) + 1; // +1 for '\0'
+void us_base64_encode(const u8 *data, uz size, char **encoded, uz *allocated) {
+	const uz encoded_size = 4 * ((size + 2) / 3) + 1; // +1 for '\0'
 
 	if (*encoded == NULL || (allocated && *allocated < encoded_size)) {
 		US_REALLOC(*encoded, encoded_size);
@@ -47,14 +54,14 @@ void us_base64_encode(const uint8_t *data, size_t size, char **encoded, size_t *
 		}
 	}
 
-	for (unsigned data_index = 0, encoded_index = 0; data_index < size;) {
-#		define OCTET(_name) unsigned _name = (data_index < size ? (uint8_t)data[data_index++] : 0)
+	for (uint data_index = 0, encoded_index = 0; data_index < size;) {
+#		define OCTET(_name) uint _name = (data_index < size ? (u8)data[data_index++] : 0)
 		OCTET(octet_a);
 		OCTET(octet_b);
 		OCTET(octet_c);
 #		undef OCTET
 
-		const unsigned triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
+		const uint triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
 
 #		define ENCODE(_offset) (*encoded)[encoded_index++] = _ENCODING_TABLE[(triple >> _offset * 6) & 0x3F]
 		ENCODE(3);
@@ -64,7 +71,7 @@ void us_base64_encode(const uint8_t *data, size_t size, char **encoded, size_t *
 #		undef ENCODE
 	}
 
-	for (unsigned index = 0; index < _MOD_TABLE[size % 3]; index++) {
+	for (uint index = 0; index < _MOD_TABLE[size % 3]; index++) {
 		(*encoded)[encoded_size - 2 - index] = '=';
 	}
 

@@ -22,24 +22,12 @@
 
 #pragma once
 
-#include <unistd.h>
-#include <fcntl.h>
-#include <stdbool.h>
-
-#include <sys/types.h>
-
-#include <linux/videodev2.h>
-#include <linux/v4l2-controls.h>
-
-#include "uslibs/tools.h"
-#include "uslibs/xioctl.h"
-
-#include "logging.h"
+#include "uslibs/types.h"
 
 
 typedef struct {
-	bool		has_audio;
-	unsigned	audio_hz;
+	bool	has_audio;
+	uint	audio_hz;
 } us_tc358743_info_s;
 
 

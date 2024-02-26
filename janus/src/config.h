@@ -22,17 +22,6 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <string.h>
-
-#include <janus/config.h>
-#include <janus/plugins/plugin.h>
-
-#include "uslibs/tools.h"
-
-#include "const.h"
-#include "logging.h"
-
 
 typedef struct {
 	char	*video_sink_name;

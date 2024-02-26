@@ -22,13 +22,7 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-
-#include <sys/types.h>
-
-#include "uslibs/tools.h"
+#include "uslibs/types.h"
 
 
 // https://stackoverflow.com/questions/47635545/why-webrtc-chose-rtp-max-packet-size-to-1200-bytes
@@ -37,21 +31,21 @@
 
 
 typedef struct {
-	unsigned	payload;
-	bool		video;
-	uint32_t	ssrc;
+	uint	payload;
+	bool	video;
+	u32		ssrc;
 
-	uint16_t	seq;
-	uint8_t		datagram[US_RTP_DATAGRAM_SIZE];
-	size_t		used;
-	bool		zero_playout_delay;
+	u16		seq;
+	u8		datagram[US_RTP_DATAGRAM_SIZE];
+	uz		used;
+	bool	zero_playout_delay;
 } us_rtp_s;
 
 typedef void (*us_rtp_callback_f)(const us_rtp_s *rtp);
 
 
-us_rtp_s *us_rtp_init(unsigned payload, bool video);
+us_rtp_s *us_rtp_init(uint payload, bool video);
 us_rtp_s *us_rtp_dup(const us_rtp_s *rtp);
 void us_rtp_destroy(us_rtp_s *rtp);
 
-void us_rtp_write_header(us_rtp_s *rtp, uint32_t pts, bool marked);
+void us_rtp_write_header(us_rtp_s *rtp, u32 pts, bool marked);

@@ -22,18 +22,10 @@
 
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <unistd.h>
-
-#include <linux/videodev2.h>
-
-#include "uslibs/tools.h"
+#include "uslibs/types.h"
 #include "uslibs/frame.h"
 #include "uslibs/memsinksh.h"
 
-#include "logging.h"
 
-
-int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s* mem, uint64_t last_id);
-us_frame_s *us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, uint64_t *frame_id, bool key_required);
+int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s* mem, u64 last_id);
+us_frame_s *us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, u64 *frame_id, bool key_required);

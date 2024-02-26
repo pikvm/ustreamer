@@ -22,24 +22,20 @@
 
 #pragma once
 
-#include <errno.h>
-#include <time.h>
-#include <assert.h>
-
 #include <pthread.h>
 
+#include "uslibs/types.h"
 #include "uslibs/tools.h"
-#include "uslibs/threading.h"
 
 
 // Based on https://github.com/seifzadeh/c-pthread-queue/blob/master/queue.h
 
 typedef struct {
 	void			**items;
-	unsigned		size;
-	unsigned		capacity;
-	unsigned		in;
-	unsigned		out;
+	uint			size;
+	uint			capacity;
+	uint			in;
+	uint			out;
 
 	pthread_mutex_t	mutex;
 	pthread_cond_t	full_cond;
@@ -60,9 +56,9 @@ typedef struct {
 	}
 
 
-us_queue_s *us_queue_init(unsigned capacity);
+us_queue_s *us_queue_init(uint capacity);
 void us_queue_destroy(us_queue_s *queue);
 
-int us_queue_put(us_queue_s *queue, void *item, long double timeout);
-int us_queue_get(us_queue_s *queue, void **item, long double timeout);
+int us_queue_put(us_queue_s *queue, void *item, ldf timeout);
+int us_queue_get(us_queue_s *queue, void **item, ldf timeout);
 int us_queue_get_free(us_queue_s *queue);

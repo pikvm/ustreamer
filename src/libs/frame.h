@@ -22,39 +22,33 @@
 
 #pragma once
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-
 #include <linux/videodev2.h>
 
+#include "types.h"
 #include "tools.h"
 
 
 typedef struct {
-	uint8_t		*data;
-	size_t		used;
-	size_t		allocated;
-	int			dma_fd;
+	u8		*data;
+	uz		used;
+	uz		allocated;
+	int		dma_fd;
 
-	unsigned	width;
-	unsigned	height;
-	unsigned	format;
-	unsigned	stride;
+	uint	width;
+	uint	height;
+	uint	format;
+	uint	stride;
 	// Stride is a bytesperline in V4L2
 	// https://www.kernel.org/doc/html/v4.14/media/uapi/v4l/pixfmt-v4l2.html
 	// https://medium.com/@oleg.shipitko/what-does-stride-mean-in-image-processing-bba158a72bcd
 
-	bool		online;
-	bool		key;
-	unsigned	gop;
+	bool	online;
+	bool	key;
+	uint	gop;
 
-	long double	grab_ts;
-	long double	encode_begin_ts;
-	long double	encode_end_ts;
+	ldf		grab_ts;
+	ldf		encode_begin_ts;
+	ldf		encode_end_ts;
 } us_frame_s;
 
 
@@ -87,7 +81,7 @@ static inline void us_frame_copy_meta(const us_frame_s *src, us_frame_s *dest) {
 	)
 
 
-static inline void us_frame_encoding_begin(const us_frame_s *src, us_frame_s *dest, unsigned format) {
+static inline void us_frame_encoding_begin(const us_frame_s *src, us_frame_s *dest, uint format) {
 	assert(src->used > 0);
 	us_frame_copy_meta(src, dest);
 	dest->encode_begin_ts = us_get_now_monotonic();
@@ -105,17 +99,17 @@ static inline void us_frame_encoding_end(us_frame_s *dest) {
 us_frame_s *us_frame_init(void);
 void us_frame_destroy(us_frame_s *frame);
 
-void us_frame_realloc_data(us_frame_s *frame, size_t size);
-void us_frame_set_data(us_frame_s *frame, const uint8_t *data, size_t size);
-void us_frame_append_data(us_frame_s *frame, const uint8_t *data, size_t size);
+void us_frame_realloc_data(us_frame_s *frame, uz size);
+void us_frame_set_data(us_frame_s *frame, const u8 *data, uz size);
+void us_frame_append_data(us_frame_s *frame, const u8 *data, uz size);
 
 void us_frame_copy(const us_frame_s *src, us_frame_s *dest);
 bool us_frame_compare(const us_frame_s *a, const us_frame_s *b);
 
-unsigned us_frame_get_padding(const us_frame_s *frame);
+uint us_frame_get_padding(const us_frame_s *frame);
 
-const char *us_fourcc_to_string(unsigned format, char *buf, size_t size);
+const char *us_fourcc_to_string(uint format, char *buf, uz size);
 
-static inline bool us_is_jpeg(unsigned format) {
+static inline bool us_is_jpeg(uint format) {
 	return (format == V4L2_PIX_FMT_JPEG || format == V4L2_PIX_FMT_MJPEG);
 }

@@ -22,6 +22,17 @@
 
 #include "unjpeg.h"
 
+#include <stdio.h>
+#include <setjmp.h>
+#include <assert.h>
+
+#include <jpeglib.h>
+#include <linux/videodev2.h>
+
+#include "types.h"
+#include "logging.h"
+#include "frame.h"
+
 
 typedef struct {
 	struct jpeg_error_mgr	mgr; // Default manager

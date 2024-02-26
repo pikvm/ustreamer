@@ -22,6 +22,18 @@
 
 #include "tc358743.h"
 
+#include <unistd.h>
+#include <fcntl.h>
+
+#include <linux/videodev2.h>
+#include <linux/v4l2-controls.h>
+
+#include "uslibs/types.h"
+#include "uslibs/tools.h"
+#include "uslibs/xioctl.h"
+
+#include "logging.h"
+
 
 #ifndef V4L2_CID_USER_TC358743_BASE
 #	define V4L2_CID_USER_TC358743_BASE (V4L2_CID_USER_BASE + 0x1080)

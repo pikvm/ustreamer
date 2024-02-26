@@ -27,6 +27,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <strings.h>
+#include <ctype.h>
 #include <limits.h>
 #include <getopt.h>
 #include <errno.h>
