@@ -228,7 +228,7 @@ static void _drm_cleanup(us_drm_s *drm) {
 			run->saved_crtc->crtc_id, run->saved_crtc->buffer_id,
 			run->saved_crtc->x, run->saved_crtc->y,
 			&run->conn_id, 1, &run->saved_crtc->mode
-		) < 0) {
+		) < 0 && errno != ENOENT) {
 			_D_LOG_PERROR("Can't restore CRTC");
 		}
 		drmModeFreeCrtc(run->saved_crtc);
