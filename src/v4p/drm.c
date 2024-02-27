@@ -27,6 +27,8 @@
 #include <fcntl.h>
 
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
 
 #include <xf86drm.h>
 #include <xf86drmMode.h>
@@ -44,7 +46,7 @@
 static void _drm_vsync_callback(int fd, uint n_frame, uint sec, uint usec, void *v_run);
 static int _drm_expose_raw(us_drm_s *drm, const us_frame_s *frame);
 static void _drm_cleanup(us_drm_s *drm);
-static void _drm_ensure(us_drm_s *drm, const us_frame_s *frame, float hz);
+static int _drm_ensure(us_drm_s *drm, const us_frame_s *frame, float hz);
 static int _drm_init_video(us_drm_s *drm);
 static int _drm_init_buffers(us_drm_s *drm);
 static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz);
@@ -65,6 +67,7 @@ us_drm_s *us_drm_init(void) {
 	us_drm_runtime_s *run;
 	US_CALLOC(run, 1);
 	run->fd = -1;
+	run->status_fd = -1;
 	run->conn_type = -1;
 	run->conn_type_id = -1;
 	run->ft = us_ftext_init();
@@ -90,8 +93,7 @@ void us_drm_destroy(us_drm_s *drm) {
 int us_drm_wait_for_vsync(us_drm_s *drm) {
 	us_drm_runtime_s *const run = drm->run;
 
-	_drm_ensure(drm, NULL, 0);
-	if (run->state != US_DRM_STATE_OK) {
+	if (_drm_ensure(drm, NULL, 0) < 0) {
 		return -1;
 	}
 	if (run->has_vsync) {
@@ -133,8 +135,7 @@ error:
 int us_drm_expose(us_drm_s *drm, us_drm_expose_e ex, const us_frame_s *frame, float hz) {
 	us_drm_runtime_s *const run = drm->run;
 
-	_drm_ensure(drm, frame, hz);
-	if (run->state != US_DRM_STATE_OK) {
+	if (_drm_ensure(drm, frame, hz) < 0) {
 		return -1;
 	}
 
@@ -258,45 +259,53 @@ static void _drm_cleanup(us_drm_s *drm) {
 		run->n_bufs = 0;
 	}
 
-	if (run->fd >= 0) {
-		if (close(run->fd) < 0) {
-			_D_LOG_PERROR("Can't close device");
-		}
-		run->fd = -1;
-	}
+	US_CLOSE_FD(run->status_fd, close);
+	US_CLOSE_FD(run->fd, close);
 
 	run->crtc_id = 0;
 	run->next_n_buf = 0;
 	run->has_vsync = false;
-
-	if (run->state == US_DRM_STATE_OK) {
-		_D_LOG_INFO("Stopped");
-		run->state = US_DRM_STATE_CLOSED;
-	}
+	run->state = US_DRM_STATE_CLOSED;
 }
 
-static void _drm_ensure(us_drm_s *drm, const us_frame_s *frame, float hz) {
+static int _drm_ensure(us_drm_s *drm, const us_frame_s *frame, float hz) {
 	us_drm_runtime_s *const run = drm->run;
+
+	if (run->status_fd >= 0) {
+		char status_ch;
+		if (read(run->status_fd, &status_ch, 1) != 1) {
+			_D_LOG_PERROR("Can't read connector status");
+			goto error;
+		}
+		if (lseek(run->status_fd, 0, SEEK_SET) != 0) {
+			_D_LOG_PERROR("Can't rewind connector status");
+			goto error;
+		}
+		if (status_ch == 'd') {
+			goto error_unplugged;
+		}
+	}
 
 	if (frame == NULL) {
 		if (run->state == US_DRM_STATE_OK) {
-			return;
+			return 0;
 		}
 	} else {
 		if (
 			run->p_width == frame->width
 			&& run->p_height == frame->height
 			&& run->p_hz == hz
-			&& run->state <= US_DRM_STATE_RETRY
+			&& run->state <= US_DRM_STATE_CLOSED
 		) {
-			return;
+			return (run->state == US_DRM_STATE_OK ? 0 : -1);
 		}
 	}
 
+	_D_LOG_INFO("Configuring DRM device ...");
+	const us_drm_state_e saved_state = run->state;
 	_drm_cleanup(drm);
-
-	if (run->state <= US_DRM_STATE_RETRY) {
-		_D_LOG_INFO("Configuring DRM device ...");
+	if (saved_state > US_DRM_STATE_CLOSED) {
+		run->state = saved_state;
 	}
 
 	if (frame == NULL) {
@@ -311,6 +320,21 @@ static void _drm_ensure(us_drm_s *drm, const us_frame_s *frame, float hz) {
 	if ((run->fd = open(drm->path, O_RDWR|O_CLOEXEC|O_NONBLOCK)) < 0) {
 		_D_LOG_PERROR("Can't open DRM device");
 		goto error;
+	}
+
+	{
+		struct stat st;
+		if (stat(drm->path, &st) < 0) {
+			_D_LOG_PERROR("Can't stat() DRM device");
+			goto error;
+		}
+		const uint mi = minor(st.st_rdev);
+		char status_path[1024];
+		US_SNPRINTF(status_path, 1023, "/sys/class/drm/card%u-%s/status", mi, drm->port);
+		if ((run->status_fd = open(status_path, O_RDONLY)) < 0) {
+			_D_LOG_PERROR("Can't open DRM device status file: %s", status_path);	
+			goto error;
+		}
 	}
 
 #	define CHECK_CAP(x_cap) { \
@@ -333,11 +357,7 @@ static void _drm_ensure(us_drm_s *drm, const us_frame_s *frame, float hz) {
 	}
 
 	if (run->crtc_id == 0) {
-		if (run->state != US_DRM_STATE_NO_DISPLAY) {
-			_D_LOG_INFO("Using %s mode: Display unplugged", drm->port);
-			run->state = US_DRM_STATE_NO_DISPLAY;
-		}
-		goto error;
+		goto error_unplugged;
 	} else {
 		const float mode_hz = _get_refresh_rate(&run->mode);
 		if (frame == NULL) {
@@ -359,13 +379,20 @@ static void _drm_ensure(us_drm_s *drm, const us_frame_s *frame, float hz) {
 
 	_D_LOG_INFO("Showing ...");
 	run->state = US_DRM_STATE_OK;
-	return;
+	return 0;
 
-error:
-	if (run->state == US_DRM_STATE_CLOSED) {
-		_D_LOG_ERROR("Device destroyed due an error (prepare)");
+error_unplugged:
+	if (run->state != US_DRM_STATE_NO_DISPLAY) {
+		_D_LOG_INFO("Display %s unplugged", drm->port);
 	}
 	_drm_cleanup(drm);
+	run->state = US_DRM_STATE_NO_DISPLAY;
+	return -1;
+
+error:
+	_drm_cleanup(drm);
+	_D_LOG_ERROR("Device destroyed due an error (ensure)");
+	return -1;
 }
 
 static int _drm_init_video(us_drm_s *drm) {
@@ -574,22 +601,26 @@ static const char *_connector_type_to_string(u32 type) {
 	switch (type) {
 #		define CASE_NAME(x_suffix, x_name) \
 			case DRM_MODE_CONNECTOR_##x_suffix: return x_name;
-		CASE_NAME(VGA, "VGA");
-		CASE_NAME(DVII, "DVI-I");
-		CASE_NAME(DVID, "DVI-D");
-		CASE_NAME(DVIA, "DVI-A");
-		CASE_NAME(Composite, "Composite");
-		CASE_NAME(SVIDEO, "SVIDEO");
-		CASE_NAME(LVDS, "LVDS");
-		CASE_NAME(Component, "Component");
-		CASE_NAME(9PinDIN, "DIN");
-		CASE_NAME(DisplayPort, "DP");
-		CASE_NAME(HDMIA, "HDMI-A");
-		CASE_NAME(HDMIB, "HDMI-B");
-		CASE_NAME(TV, "TV");
-		CASE_NAME(eDP, "eDP");
-		CASE_NAME(VIRTUAL, "Virtual");
-		CASE_NAME(DSI, "DSI");
+		CASE_NAME(VGA,			"VGA");
+		CASE_NAME(DVII,			"DVI-I");
+		CASE_NAME(DVID,			"DVI-D");
+		CASE_NAME(DVIA,			"DVI-A");
+		CASE_NAME(Composite,	"Composite");
+		CASE_NAME(SVIDEO,		"SVIDEO");
+		CASE_NAME(LVDS,			"LVDS");
+		CASE_NAME(Component,	"Component");
+		CASE_NAME(9PinDIN,		"DIN");
+		CASE_NAME(DisplayPort,	"DP");
+		CASE_NAME(HDMIA,		"HDMI-A");
+		CASE_NAME(HDMIB,		"HDMI-B");
+		CASE_NAME(TV,			"TV");
+		CASE_NAME(eDP,			"eDP");
+		CASE_NAME(VIRTUAL,		"Virtual");
+		CASE_NAME(DSI,			"DSI");
+		CASE_NAME(DPI,			"DPI");
+		CASE_NAME(WRITEBACK,	"Writeback");
+		CASE_NAME(SPI,			"SPI");
+		CASE_NAME(USB,			"USB");
 		case DRM_MODE_CONNECTOR_Unknown: break;
 #		undef CASE_NAME
 	}

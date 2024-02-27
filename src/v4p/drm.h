@@ -40,7 +40,6 @@ typedef enum {
 typedef enum {
 	US_DRM_STATE_OK = 0,
 	US_DRM_STATE_CLOSED,
-	US_DRM_STATE_RETRY, // Not used directly
 	US_DRM_STATE_NO_DISPLAY,
 } us_drm_state_e;
 
@@ -55,6 +54,7 @@ typedef struct {
 
 typedef struct {
 	int				fd;
+	int				status_fd;
 	int				conn_type;
 	int				conn_type_id;
 	u32				crtc_id;
