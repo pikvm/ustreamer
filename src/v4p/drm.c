@@ -261,6 +261,9 @@ static void _drm_cleanup(us_drm_s *drm) {
 	run->crtc_id = 0;
 	run->next_n_buf = 0;
 	run->has_vsync = false;
+	if (run->state == US_DRM_STATE_OK) {
+		_D_LOG_INFO("Stopped");
+	}
 	run->state = US_DRM_STATE_CLOSED;
 }
 
@@ -351,7 +354,7 @@ error:
 
 unplugged:
 	if (run->state != US_DRM_STATE_NO_DISPLAY) {
-		_D_LOG_INFO("Display %s unplugged", drm->port);
+		_D_LOG_INFO("Display %s is not plugged", drm->port);
 	}
 	_drm_cleanup(drm);
 	run->state = US_DRM_STATE_NO_DISPLAY;
