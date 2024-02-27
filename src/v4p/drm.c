@@ -47,9 +47,10 @@ static void _drm_vsync_callback(int fd, uint n_frame, uint sec, uint usec, void 
 static int _drm_expose_raw(us_drm_s *drm, const us_frame_s *frame);
 static void _drm_cleanup(us_drm_s *drm);
 static int _drm_ensure(us_drm_s *drm, const us_frame_s *frame, float hz);
-static int _drm_init_video(us_drm_s *drm);
-static int _drm_init_buffers(us_drm_s *drm);
+static int _drm_check_status(us_drm_s *drm);
 static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz);
+static int _drm_init_buffers(us_drm_s *drm);
+static int _drm_start_video(us_drm_s *drm);
 
 static u32 _find_crtc(int fd, drmModeRes *res, drmModeConnector *conn, u32 *taken_crtcs);
 static const char *_connector_type_to_string(u32 type);
@@ -68,8 +69,6 @@ us_drm_s *us_drm_init(void) {
 	US_CALLOC(run, 1);
 	run->fd = -1;
 	run->status_fd = -1;
-	run->conn_type = -1;
-	run->conn_type_id = -1;
 	run->ft = us_ftext_init();
 	run->state = US_DRM_STATE_CLOSED;
 
@@ -204,21 +203,18 @@ static int _drm_expose_raw(us_drm_s *drm, const us_frame_s *frame) {
 	_D_LOG_DEBUG("Exposing%s framebuffer n_buf=%u, vsync=%d ...",
 		(frame == NULL ? " EMPTY" : ""), run->next_n_buf, run->has_vsync);
 
-	run->has_vsync = false;
-
 	if (frame == NULL) {
 		memset(buf->data, 0, buf->allocated);
 	} else {
 		memcpy(buf->data, frame->data, US_MIN(frame->used, buf->allocated));
 	}
 
+	run->has_vsync = false;
 	const int retval = drmModePageFlip(
-			run->fd, run->crtc_id, buf->id,
-			DRM_MODE_PAGE_FLIP_EVENT | DRM_MODE_PAGE_FLIP_ASYNC,
-			run);
-	if (retval == 0) {
-		run->next_n_buf = (run->next_n_buf + 1) % run->n_bufs;
-	}
+		run->fd, run->crtc_id, buf->id,
+		DRM_MODE_PAGE_FLIP_EVENT | DRM_MODE_PAGE_FLIP_ASYNC,
+		run);
+	run->next_n_buf = (run->next_n_buf + 1) % run->n_bufs;
 	return retval;
 }
 
@@ -271,70 +267,39 @@ static void _drm_cleanup(us_drm_s *drm) {
 static int _drm_ensure(us_drm_s *drm, const us_frame_s *frame, float hz) {
 	us_drm_runtime_s *const run = drm->run;
 
-	if (run->status_fd >= 0) {
-		char status_ch;
-		if (read(run->status_fd, &status_ch, 1) != 1) {
-			_D_LOG_PERROR("Can't read connector status");
-			goto error;
-		}
-		if (lseek(run->status_fd, 0, SEEK_SET) != 0) {
-			_D_LOG_PERROR("Can't rewind connector status");
-			goto error;
-		}
-		if (status_ch == 'd') {
-			goto error_unplugged;
-		}
+	switch (_drm_check_status(drm)) {
+		case 0: break;
+		case -2: goto unplugged;
+		default: goto error;
 	}
 
-	if (frame == NULL) {
-		if (run->state == US_DRM_STATE_OK) {
-			return 0;
-		}
-	} else {
-		if (
-			run->p_width == frame->width
-			&& run->p_height == frame->height
-			&& run->p_hz == hz
-			&& run->state <= US_DRM_STATE_CLOSED
-		) {
-			return (run->state == US_DRM_STATE_OK ? 0 : -1);
-		}
+	if (frame == NULL && run->state == US_DRM_STATE_OK) {
+		return 0;
+	} else if (
+		frame != NULL
+		&& run->p_width == frame->width
+		&& run->p_height == frame->height
+		&& run->p_hz == hz
+		&& run->state <= US_DRM_STATE_CLOSED
+	) {
+		return (run->state == US_DRM_STATE_OK ? 0 : -1);
 	}
 
-	_D_LOG_INFO("Configuring DRM device ...");
 	const us_drm_state_e saved_state = run->state;
 	_drm_cleanup(drm);
 	if (saved_state > US_DRM_STATE_CLOSED) {
 		run->state = saved_state;
 	}
 
-	if (frame == NULL) {
-		run->p_width = 0; // Find the native resolution
-		run->p_height = 0;
-	} else {
-		run->p_width = frame->width;
-		run->p_height = frame->height;
-	}
+	run->p_width = (frame != NULL ? frame->width : 0); // 0 for find the native resolution
+	run->p_height = (frame != NULL ? frame->height : 0);
 	run->p_hz = hz;
 
-	if ((run->fd = open(drm->path, O_RDWR|O_CLOEXEC|O_NONBLOCK)) < 0) {
+	_D_LOG_INFO("Configuring DRM device ...");
+
+	if ((run->fd = open(drm->path, O_RDWR | O_CLOEXEC | O_NONBLOCK)) < 0) {
 		_D_LOG_PERROR("Can't open DRM device");
 		goto error;
-	}
-
-	{
-		struct stat st;
-		if (stat(drm->path, &st) < 0) {
-			_D_LOG_PERROR("Can't stat() DRM device");
-			goto error;
-		}
-		const uint mi = minor(st.st_rdev);
-		char status_path[1024];
-		US_SNPRINTF(status_path, 1023, "/sys/class/drm/card%u-%s/status", mi, drm->port);
-		if ((run->status_fd = open(status_path, O_RDONLY)) < 0) {
-			_D_LOG_PERROR("Can't open DRM device status file: %s", status_path);	
-			goto error;
-		}
 	}
 
 #	define CHECK_CAP(x_cap) { \
@@ -352,28 +317,26 @@ static int _drm_ensure(us_drm_s *drm, const us_frame_s *frame, float hz) {
 	// CHECK_CAP(DRM_CAP_PRIME);
 #	undef CHECK_CAP
 
-	if (_drm_find_sink(drm, run->p_width, run->p_height, run->p_hz) < 0) {
-		goto error;
+	switch (_drm_find_sink(drm, run->p_width, run->p_height, run->p_hz)) {
+		case 0: break;
+		case -2: goto unplugged;
+		default: goto error;
 	}
 
-	if (run->crtc_id == 0) {
-		goto error_unplugged;
-	} else {
-		const float mode_hz = _get_refresh_rate(&run->mode);
-		if (frame == NULL) {
-			run->p_width = run->mode.hdisplay;
-			run->p_height = run->mode.vdisplay;
-			run->p_hz = mode_hz;
-		}
-		_D_LOG_INFO("Using %s mode: %ux%up%.02f",
-			drm->port, run->mode.hdisplay, run->mode.vdisplay, mode_hz);
+	const float mode_hz = _get_refresh_rate(&run->mode);
+	if (frame == NULL) {
+		run->p_width = run->mode.hdisplay;
+		run->p_height = run->mode.vdisplay;
+		run->p_hz = mode_hz;
 	}
+	_D_LOG_INFO("Using %s mode: %ux%up%.02f",
+		drm->port, run->mode.hdisplay, run->mode.vdisplay, mode_hz);
 
 	if (_drm_init_buffers(drm) < 0) {
 		goto error;
 	}
 
-	if (_drm_init_video(drm) < 0) {
+	if (_drm_start_video(drm) < 0) {
 		goto error;
 	}
 
@@ -381,33 +344,151 @@ static int _drm_ensure(us_drm_s *drm, const us_frame_s *frame, float hz) {
 	run->state = US_DRM_STATE_OK;
 	return 0;
 
-error_unplugged:
+error:
+	_drm_cleanup(drm);
+	_D_LOG_ERROR("Device destroyed due an error (ensure)");
+	return -1;
+
+unplugged:
 	if (run->state != US_DRM_STATE_NO_DISPLAY) {
 		_D_LOG_INFO("Display %s unplugged", drm->port);
 	}
 	_drm_cleanup(drm);
 	run->state = US_DRM_STATE_NO_DISPLAY;
-	return -1;
+	return -2;
+}
+
+static int _drm_check_status(us_drm_s *drm) {
+	us_drm_runtime_s *run = drm->run;
+
+	if (run->status_fd < 0) {
+		struct stat st;
+		if (stat(drm->path, &st) < 0) {
+			_D_LOG_PERROR("Can't stat() DRM device");
+			goto error;
+		}
+		const uint mi = minor(st.st_rdev);
+
+		char path[128];
+		US_SNPRINTF(path, 127, "/sys/class/drm/card%u-%s/status", mi, drm->port);
+		if ((run->status_fd = open(path, O_RDONLY | O_CLOEXEC)) < 0) {
+			_D_LOG_PERROR("Can't open DRM device status file: %s", path);
+			goto error;
+		}
+	}
+
+	char status_ch;
+	if (read(run->status_fd, &status_ch, 1) != 1) {
+		_D_LOG_PERROR("Can't read connector status");
+		goto error;
+	}
+	if (lseek(run->status_fd, 0, SEEK_SET) != 0) {
+		_D_LOG_PERROR("Can't rewind connector status");
+		goto error;
+	}
+	return (status_ch == 'd' ? -2 : 0);
 
 error:
-	_drm_cleanup(drm);
-	_D_LOG_ERROR("Device destroyed due an error (ensure)");
+	US_CLOSE_FD(run->status_fd, close);
 	return -1;
 }
 
-static int _drm_init_video(us_drm_s *drm) {
+static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz) {
 	us_drm_runtime_s *const run = drm->run;
-	run->saved_crtc = drmModeGetCrtc(run->fd, run->crtc_id);
-	_D_LOG_DEBUG("Setting up CRTC ...");
-	if (drmModeSetCrtc(run->fd, run->crtc_id, run->bufs[0].id, 0, 0, &run->conn_id, 1, &run->mode) < 0) {
-		_D_LOG_PERROR("Can't set CRTC");
-		return -1;
+
+	run->crtc_id = 0;
+
+	_D_LOG_DEBUG("Trying to find the appropriate sink ...");
+
+	drmModeRes *res = drmModeGetResources(run->fd);
+	if (res == NULL) {
+		_D_LOG_PERROR("Can't get resources info");
+		goto done;
 	}
-	if (_drm_expose_raw(drm, NULL) < 0) {
-		_D_LOG_PERROR("Can't flip the first page");
-		return -1;
+	if (res->count_connectors <= 0) {
+		_D_LOG_ERROR("Can't find any connectors");
+		goto done;
 	}
-	return 0;
+
+	for (int ci = 0; ci < res->count_connectors; ++ci) {
+		drmModeConnector *conn = drmModeGetConnector(run->fd, res->connectors[ci]);
+		if (conn == NULL) {
+			_D_LOG_PERROR("Can't get connector index=%d", ci);
+			goto done;
+		}
+
+		char port[32];
+		US_SNPRINTF(port, 31, "%s-%u",
+			_connector_type_to_string(conn->connector_type),
+			conn->connector_type_id);
+		if (strcmp(port, drm->port) != 0) {
+			drmModeFreeConnector(conn);
+			continue;
+		}
+		_D_LOG_DEBUG("Found connector for port %s: conn_type=%d, conn_type_id=%d",
+			drm->port, conn->connector_type, conn->connector_type_id);
+
+		if (conn->connection != DRM_MODE_CONNECTED) {
+			_D_LOG_DEBUG("Display is not connected");
+			drmModeFreeConnector(conn);
+			goto done;
+		}
+
+		drmModeModeInfo *best = NULL;
+		drmModeModeInfo *closest = NULL;
+		drmModeModeInfo *pref = NULL;
+		for (int mi = 0; mi < conn->count_modes; ++mi) {
+			drmModeModeInfo *const mode = &conn->modes[mi];
+			if (mode->flags & DRM_MODE_FLAG_INTERLACE) {
+				continue; // Paranoia for size and discard interlaced
+			}
+			const float mode_hz = _get_refresh_rate(mode);
+			if (mode->hdisplay == width && mode->vdisplay == height) {
+				best = mode; // Any mode with exact resolution
+				if (hz > 0 && mode_hz == hz) {
+					break; // Exact mode with same freq
+				}
+			}
+			if (mode->hdisplay == width && mode->vdisplay < height) {
+				if (closest == NULL || _get_refresh_rate(closest) != hz) {
+					closest = mode; // Something like 1920x1080p60 for 1920x1200p60 source
+				}
+			}
+			if (pref == NULL && (mode->type & DRM_MODE_TYPE_PREFERRED)) {
+				pref = mode; // Preferred mode if nothing is found
+			}
+		}
+		if (best == NULL) { best = closest; }
+		if (best == NULL) { best = pref; }
+		if (best == NULL) { best = (conn->count_modes > 0 ? &conn->modes[0] : NULL); }
+		if (best == NULL) {
+			_D_LOG_ERROR("Can't find any appropriate resolutions");
+			drmModeFreeConnector(conn);
+			goto unplugged;
+		}
+		assert(best->hdisplay > 0);
+		assert(best->vdisplay > 0);
+
+		u32 taken_crtcs = 0; // Unused here
+		if ((run->crtc_id = _find_crtc(run->fd, res, conn, &taken_crtcs)) == 0) {
+			_D_LOG_ERROR("Can't find CRTC");
+			drmModeFreeConnector(conn);
+			goto done;
+		}
+		run->conn_id = conn->connector_id;
+		memcpy(&run->mode, best, sizeof(drmModeModeInfo));
+
+		drmModeFreeConnector(conn);
+		break;
+	}
+
+done:
+	drmModeFreeResources(res);
+	return (run->crtc_id > 0 ? 0 : -1);
+
+unplugged:
+	drmModeFreeResources(res);
+	return -2;
 }
 
 static int _drm_init_buffers(us_drm_s *drm) {
@@ -459,119 +540,25 @@ static int _drm_init_buffers(us_drm_s *drm) {
 			_D_LOG_PERROR("Can't map buffer=%u", n_buf);
 			return -1;
 		}
+		memset(buf->data, 0, create.size);
 		buf->allocated = create.size;
 	}
 	return 0;
 }
 
-static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz) {
+static int _drm_start_video(us_drm_s *drm) {
 	us_drm_runtime_s *const run = drm->run;
-
-	int retval = -1;
-
-	run->crtc_id = 0;
-
-	_D_LOG_DEBUG("Trying to find the appropriate sink ...");
-
-	drmModeRes *res = drmModeGetResources(run->fd);
-	if (res == NULL) {
-		_D_LOG_PERROR("Can't get resources info");
-		goto error;
+	run->saved_crtc = drmModeGetCrtc(run->fd, run->crtc_id);
+	_D_LOG_DEBUG("Setting up CRTC ...");
+	if (drmModeSetCrtc(run->fd, run->crtc_id, run->bufs[0].id, 0, 0, &run->conn_id, 1, &run->mode) < 0) {
+		_D_LOG_PERROR("Can't set CRTC");
+		return -1;
 	}
-	_D_LOG_DEBUG("Found %u connectors", res->count_connectors);
-
-	for (int ci = 0; ci < res->count_connectors; ++ci) {
-		drmModeConnector *conn = drmModeGetConnector(run->fd, res->connectors[ci]);
-		if (conn == NULL) {
-			_D_LOG_PERROR("Can't get connector index=%d", ci);
-			goto error;
-		}
-
-		if (run->conn_type < 0) {
-			char port[32];
-			US_SNPRINTF(port, 31, "%s-%u",
-				_connector_type_to_string(conn->connector_type),
-				conn->connector_type_id);
-			if (!strcmp(port, drm->port)) {
-				run->conn_type = conn->connector_type;
-				run->conn_type_id = conn->connector_type_id;
-			}
-		}
-		if (
-			(int)conn->connector_type != run->conn_type
-			|| (int)conn->connector_type_id != run->conn_type_id
-		) {
-			drmModeFreeConnector(conn);
-			continue;
-		}
-		_D_LOG_DEBUG("Found requested connector for port %s: conn_type=%d, conn_type_id=%d",
-			drm->port, run->conn_type, run->conn_type_id);
-
-		if (conn->connection != DRM_MODE_CONNECTED) {
-			_D_LOG_DEBUG("Display is not connected");
-			drmModeFreeConnector(conn);
-			break;
-		}
-
-		drmModeModeInfo *best = NULL;// (conn->count_modes > 0 ? &conn->modes[0] : NULL);
-		drmModeModeInfo *closest = NULL;
-		drmModeModeInfo *pref = NULL;
-		for (int mi = 0; mi < conn->count_modes; ++mi) {
-			drmModeModeInfo *const mode = &conn->modes[mi];
-			if (mode->flags & DRM_MODE_FLAG_INTERLACE) {
-				continue; // Paranoia for size and discard interlaced
-			}
-			const float mode_hz = _get_refresh_rate(mode);
-			if (mode->hdisplay == width && mode->vdisplay == height) {
-				best = mode; // Any mode with exact resolution
-				if (hz > 0 && mode_hz == hz) {
-					break; // Exact mode with same freq
-				}
-			}
-			if (mode->hdisplay == width && mode->vdisplay < height) {
-				if (closest == NULL || _get_refresh_rate(closest) != hz) {
-					closest = mode; // Something like 1920x1080p60 for 1920x1200p60 source
-				}
-			}
-			if (pref == NULL && (mode->type & DRM_MODE_TYPE_PREFERRED)) {
-				pref = mode; // Preferred mode if nothing is found
-			}
-		}
-		if (best == NULL) {
-			best = closest;
-		}
-		if (best == NULL) {
-			best = pref;
-		}
-		if (best == NULL) {
-			best = (conn->count_modes > 0 ? &conn->modes[0] : NULL);
-		}
-		if (best == NULL) {
-			_D_LOG_ERROR("Can't find any resolutions");
-			drmModeFreeConnector(conn);
-			break;
-		}
-		assert(best->hdisplay > 0);
-		assert(best->vdisplay > 0);
-
-		u32 taken_crtcs = 0; // Unused here
-		if ((run->crtc_id = _find_crtc(run->fd, res, conn, &taken_crtcs)) == 0) {
-			_D_LOG_ERROR("Can't find CRTC");
-			drmModeFreeConnector(conn);
-			goto error;
-		}
-		memcpy(&run->mode, best, sizeof(drmModeModeInfo));
-		run->conn_id = conn->connector_id;
-
-		drmModeFreeConnector(conn);
-		break;
+	if (_drm_expose_raw(drm, NULL) < 0) {
+		_D_LOG_PERROR("Can't flip the first page");
+		return -1;
 	}
-
-	retval = 0;
-
-error:
-	drmModeFreeResources(res);
-	return retval;
+	return 0;
 }
 
 static u32 _find_crtc(int fd, drmModeRes *res, drmModeConnector *conn, u32 *taken_crtcs) {

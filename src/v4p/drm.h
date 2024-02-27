@@ -53,13 +53,12 @@ typedef struct {
 } us_drm_buffer_s;
 
 typedef struct {
-	int				fd;
 	int				status_fd;
-	int				conn_type;
-	int				conn_type_id;
+
+	int				fd;
 	u32				crtc_id;
-	drmModeModeInfo	mode;
 	u32				conn_id;
+	drmModeModeInfo	mode;
 	us_drm_buffer_s	*bufs;
 	uint			n_bufs;
 	drmModeCrtc		*saved_crtc;
