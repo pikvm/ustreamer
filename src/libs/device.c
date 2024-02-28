@@ -289,15 +289,18 @@ int us_device_switch_capturing(us_device_s *dev, bool enable) {
 	return 0;
 }
 
-int us_device_select(us_device_s *dev, bool *has_read, bool *has_write, bool *has_error) {
+int us_device_select(us_device_s *dev, bool *has_read, bool *has_error) {
 	us_device_runtime_s *const run = dev->run;
 
 #	define INIT_FD_SET(x_set) \
 		fd_set x_set; FD_ZERO(&x_set); FD_SET(run->fd, &x_set);
 	INIT_FD_SET(read_fds);
-	INIT_FD_SET(write_fds);
 	INIT_FD_SET(error_fds);
 #	undef INIT_FD_SET
+
+	// Раньше мы проверяли и has_write, но потом выяснилось, что libcamerify зачем-то
+	// генерирует эвенты на запись, вероятно ошибочно. Судя по всему, игнорирование
+	// has_write не делает никому плохо.
 
 	struct timeval timeout;
 	timeout.tv_sec = dev->timeout;
@@ -305,14 +308,12 @@ int us_device_select(us_device_s *dev, bool *has_read, bool *has_write, bool *ha
 
 	_D_LOG_DEBUG("Calling select() on video device ...");
 
-	int retval = select(run->fd + 1, &read_fds, &write_fds, &error_fds, &timeout);
+	int retval = select(run->fd + 1, &read_fds, NULL, &error_fds, &timeout);
 	if (retval > 0) {
 		*has_read = FD_ISSET(run->fd, &read_fds);
-		*has_write = FD_ISSET(run->fd, &write_fds);
 		*has_error = FD_ISSET(run->fd, &error_fds);
 	} else {
 		*has_read = false;
-		*has_write = false;
 		*has_error = false;
 	}
 	_D_LOG_DEBUG("Device select() --> %d", retval);

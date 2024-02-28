@@ -211,9 +211,6 @@ static void _main_loop(void) {
 
 		while (!atomic_load(&_g_stop)) {
 			if (atomic_load(&_g_ustreamer_online)) {
-				if (us_drm_wait_for_vsync(drm) == 0) {
-					us_drm_expose(drm, US_DRM_EXPOSE_BUSY, NULL, 0);
-				}
 				goto close;
 			}
 
@@ -223,9 +220,8 @@ static void _main_loop(void) {
 			}
 
 			bool has_read;
-			bool has_write;
 			bool has_error;
-			const int selected = us_device_select(dev, &has_read, &has_write, &has_error);
+			const int selected = us_device_select(dev, &has_read, &has_error);
 
 			if (selected < 0) {
 				if (errno != EINTR) {

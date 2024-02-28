@@ -131,7 +131,7 @@ void us_device_close(us_device_s *dev);
 
 int us_device_export_to_dma(us_device_s *dev);
 int us_device_switch_capturing(us_device_s *dev, bool enable);
-int us_device_select(us_device_s *dev, bool *has_read, bool *has_write, bool *has_error);
+int us_device_select(us_device_s *dev, bool *has_read, bool *has_error);
 int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw);
 int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw);
 int us_device_consume_event(us_device_s *dev);
