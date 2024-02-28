@@ -24,7 +24,6 @@
 
 
 static us_workers_pool_s *_stream_init_loop(us_stream_s *stream);
-static us_workers_pool_s *_stream_init_one(us_stream_s *stream);
 static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigned captured_fps);
 
 
@@ -226,52 +225,37 @@ bool us_stream_has_clients(us_stream_s *stream) {
 }
 
 static us_workers_pool_s *_stream_init_loop(us_stream_s *stream) {
-
-	us_workers_pool_s *pool = NULL;
-	int access_error = 0;
-
-	US_LOG_DEBUG("%s: stream->run->stop=%d", __FUNCTION__, atomic_load(&_RUN(stop)));
-
+	int access_errno = 0;
 	while (!atomic_load(&_RUN(stop))) {
 		_stream_expose_frame(stream, NULL, 0);
 
 		if (access(stream->dev->path, R_OK|W_OK) < 0) {
-			if (access_error != errno) {
+			if (access_errno != errno) {
 				US_SEP_INFO('=');
 				US_LOG_PERROR("Can't access device");
 				US_LOG_INFO("Waiting for the device access ...");
-				access_error = errno;
+				access_errno = errno;
 			}
-			sleep(stream->error_delay);
-			continue;
-		} else {
-			US_SEP_INFO('=');
-			access_error = 0;
+			goto sleep_and_retry;
 		}
 
-		if ((pool = _stream_init_one(stream)) == NULL) {
-			US_LOG_INFO("Sleeping %u seconds before new stream init ...", stream->error_delay);
-			sleep(stream->error_delay);
-		} else {
-			break;
-		}
-	}
-	return pool;
-}
+		US_SEP_INFO('=');
+		access_errno = 0;
 
-static us_workers_pool_s *_stream_init_one(us_stream_s *stream) {
-	stream->dev->dma_export = (
-		stream->enc->type == US_ENCODER_TYPE_M2M_VIDEO
-		|| stream->enc->type == US_ENCODER_TYPE_M2M_IMAGE
-		|| (_RUN(h264) && !us_is_jpeg(stream->dev->run->format))
-	);
-	if (us_device_open(stream->dev) < 0) {
-		goto error;
+		stream->dev->dma_export = (
+			stream->enc->type == US_ENCODER_TYPE_M2M_VIDEO
+			|| stream->enc->type == US_ENCODER_TYPE_M2M_IMAGE
+			|| (_RUN(h264) && !us_is_jpeg(stream->dev->run->format))
+		);
+		if (us_device_open(stream->dev) == 0) {
+			return us_encoder_workers_pool_init(stream->enc, stream->dev);
+		}
+		US_LOG_INFO("Sleeping %u seconds before new stream init ...", stream->error_delay);
+
+	sleep_and_retry:
+		sleep(stream->error_delay);
 	}
-	return us_encoder_workers_pool_init(stream->enc, stream->dev);
-	error:
-		us_device_close(stream->dev);
-		return NULL;
+	return NULL;
 }
 
 static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigned captured_fps) {
