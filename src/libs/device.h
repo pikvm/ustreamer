@@ -65,9 +65,10 @@ typedef struct {
 	uz					raw_size;
 	uint				n_bufs;
 	us_hw_buffer_s		*hw_bufs;
+	bool				dma;
 	enum v4l2_buf_type	capture_type;
 	bool				capture_mplane;
-	bool				capturing;
+	bool				streamon;
 	bool				persistent_timeout_reported;
 } us_device_runtime_s;
 
@@ -110,6 +111,8 @@ typedef struct {
 	enum v4l2_memory	io_method;
 	bool				dv_timings;
 	uint				n_bufs;
+	bool				dma_export;
+	bool				dma_required;
 	uint				desired_fps;
 	uz					min_frame_size;
 	bool				persistent;
@@ -129,8 +132,6 @@ int us_device_parse_io_method(const char *str);
 int us_device_open(us_device_s *dev);
 void us_device_close(us_device_s *dev);
 
-int us_device_export_to_dma(us_device_s *dev);
-int us_device_switch_capturing(us_device_s *dev, bool enable);
 int us_device_select(us_device_s *dev, bool *has_read, bool *has_error);
 int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw);
 int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw);

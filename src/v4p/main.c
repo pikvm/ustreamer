@@ -194,7 +194,7 @@ static void _main_loop(void) {
 			if (us_drm_wait_for_vsync(drm) == 0) {
 				us_drm_expose(drm, US_DRM_EXPOSE_BUSY, NULL, 0);
 			}
-			if (dev->run->capturing) {
+			if (dev->run->fd >= 0) {
 				goto close;
 			} else {
 				_slowdown();
@@ -203,9 +203,6 @@ static void _main_loop(void) {
 		}
 
 		if (us_device_open(dev) < 0) {
-			goto close;
-		}
-		if (us_device_switch_capturing(dev, true) < 0) {
 			goto close;
 		}
 
@@ -235,32 +232,28 @@ static void _main_loop(void) {
 				}
 			} else {
 				if (has_read) {
-					US_LOG_DEBUG("Frame is ready");
 					us_hw_buffer_s *hw;
 					const int buf_index = us_device_grab_buffer(dev, &hw);
 					if (buf_index >= 0) {
-						if (us_drm_expose(drm, US_DRM_EXPOSE_FRAME, &hw->raw, dev->run->hz) < 0) {
-							_slowdown();
-							continue;
-						}
+						const int exposed = us_drm_expose(drm, US_DRM_EXPOSE_FRAME, &hw->raw, dev->run->hz);
 						if (us_device_release_buffer(dev, hw) < 0) {
 							goto close;
+						}
+						if (exposed < 0) {
+							_slowdown();
+							continue;
 						}
 					} else if (buf_index == -2) {
 						goto close;
 					}
 				}
-				if (has_error) {
-					US_LOG_INFO("Got V4L2 event");
-					if (us_device_consume_event(dev) < 0) {
-						goto close;
-					}
+				if (has_error && us_device_consume_event(dev) < 0) {
+					goto close;
 				}
 			}
 		}
 
 	close:
-		us_device_switch_capturing(dev, false);
 		us_device_close(dev);
 		_slowdown();
 	}

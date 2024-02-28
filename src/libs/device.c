@@ -93,6 +93,7 @@ static int _device_open_io_method(us_device_s *dev);
 static int _device_open_io_method_mmap(us_device_s *dev);
 static int _device_open_io_method_userptr(us_device_s *dev);
 static int _device_open_queue_buffers(us_device_s *dev);
+static int _device_open_export_to_dma(us_device_s *dev);
 static int _device_apply_resolution(us_device_s *dev, uint width, uint height, float hz);
 
 static void _device_apply_controls(us_device_s *dev);
@@ -176,8 +177,6 @@ int us_device_open(us_device_s *dev) {
 		_D_LOG_PERROR("Can't open device");
 		goto error;
 	}
-	_D_LOG_INFO("Device fd=%d opened", run->fd);
-
 	if (_device_open_check_cap(dev) < 0) {
 		goto error;
 	}
@@ -195,9 +194,21 @@ int us_device_open(us_device_s *dev) {
 	if (_device_open_queue_buffers(dev) < 0) {
 		goto error;
 	}
+	if (dev->dma_export) {
+		run->dma = !_device_open_export_to_dma(dev);
+		if (!run->dma && dev->dma_required) {
+			goto error;
+		}
+	}
 	_device_apply_controls(dev);
 
-	_D_LOG_DEBUG("Device fd=%d initialized", run->fd);
+	enum v4l2_buf_type type = run->capture_type;
+	if (us_xioctl(run->fd, VIDIOC_STREAMON, &type) < 0) {
+		_D_LOG_PERROR("Can't start capturing");
+		goto error;
+	}
+	run->streamon = true;
+	_D_LOG_INFO("Capturing started");
 	return 0;
 
 error:
@@ -208,7 +219,14 @@ error:
 void us_device_close(us_device_s *dev) {
 	us_device_runtime_s *const run = dev->run;
 
-	run->persistent_timeout_reported = false;
+	if (run->streamon) {
+		enum v4l2_buf_type type = run->capture_type;
+		if (us_xioctl(run->fd, VIDIOC_STREAMOFF, &type) < 0) {
+			_D_LOG_PERROR("Can't stop capturing");
+		}
+		run->streamon = false;
+		_D_LOG_INFO("Capturing stopped");
+	}
 
 	if (run->hw_bufs != NULL) {
 		_D_LOG_DEBUG("Releasing device buffers ...");
@@ -235,58 +253,8 @@ void us_device_close(us_device_s *dev) {
 		run->n_bufs = 0;
 	}
 
-	if (run->fd >= 0) {
-		_D_LOG_DEBUG("Closing device ...");
-		if (close(run->fd) < 0) {
-			_D_LOG_PERROR("Can't close device fd=%d", run->fd);
-		} else {
-			_D_LOG_INFO("Device fd=%d closed", run->fd);
-		}
-		run->fd = -1;
-	}
-}
-
-int us_device_export_to_dma(us_device_s *dev) {
-	us_device_runtime_s *const run = dev->run;
-
-	for (uint index = 0; index < run->n_bufs; ++index) {
-		struct v4l2_exportbuffer exp = {
-			.type = run->capture_type,
-			.index = index,
-		};
-		_D_LOG_DEBUG("Exporting device buffer=%u to DMA ...", index);
-		if (us_xioctl(run->fd, VIDIOC_EXPBUF, &exp) < 0) {
-			_D_LOG_PERROR("Can't export device buffer=%u to DMA", index);
-			goto error;
-		}
-		run->hw_bufs[index].dma_fd = exp.fd;
-	}
-	return 0;
-
-error:
-	for (uint index = 0; index < run->n_bufs; ++index) {
-		US_CLOSE_FD(run->hw_bufs[index].dma_fd, close);
-	}
-	return -1;
-}
-
-int us_device_switch_capturing(us_device_s *dev, bool enable) {
-	us_device_runtime_s *const run = dev->run;
-
-	if (enable != run->capturing) {
-		enum v4l2_buf_type type = run->capture_type;
-
-		_D_LOG_DEBUG("%s device capturing ...", (enable ? "Starting" : "Stopping"));
-		if (us_xioctl(run->fd, (enable ? VIDIOC_STREAMON : VIDIOC_STREAMOFF), &type) < 0) {
-			_D_LOG_PERROR("Can't %s capturing", (enable ? "start" : "stop"));
-			if (enable) {
-				return -1;
-			}
-		}
-		run->capturing = enable;
-		_D_LOG_INFO("Capturing %s", (enable ? "started" : "stopped"));
-	}
-	return 0;
+	US_CLOSE_FD(run->fd, close);
+	run->persistent_timeout_reported = false;
 }
 
 int us_device_select(us_device_s *dev, bool *has_read, bool *has_error) {
@@ -316,7 +284,7 @@ int us_device_select(us_device_s *dev, bool *has_read, bool *has_error) {
 		*has_read = false;
 		*has_error = false;
 	}
-	_D_LOG_DEBUG("Device select() --> %d", retval);
+	_D_LOG_DEBUG("Device select() --> %d; has_read=%d, has_error=%d", retval, *has_read, *has_error);
 
 	if (retval > 0) {
 		run->persistent_timeout_reported = false;
@@ -452,7 +420,7 @@ int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw) {
 
 int us_device_consume_event(us_device_s *dev) {
 	struct v4l2_event event;
-	_D_LOG_DEBUG("Consuming V4L2 event ...");
+	_D_LOG_INFO("Consuming V4L2 event ...");
 	if (us_xioctl(dev->run->fd, VIDIOC_DQEVENT, &event) == 0) {
 		switch (event.type) {
 			case V4L2_EVENT_SOURCE_CHANGE:
@@ -930,6 +898,30 @@ static int _device_open_queue_buffers(us_device_s *dev) {
 		}
 	}
 	return 0;
+}
+
+static int _device_open_export_to_dma(us_device_s *dev) {
+	us_device_runtime_s *const run = dev->run;
+
+	for (uint index = 0; index < run->n_bufs; ++index) {
+		struct v4l2_exportbuffer exp = {
+			.type = run->capture_type,
+			.index = index,
+		};
+		_D_LOG_DEBUG("Exporting device buffer=%u to DMA ...", index);
+		if (us_xioctl(run->fd, VIDIOC_EXPBUF, &exp) < 0) {
+			_D_LOG_PERROR("Can't export device buffer=%u to DMA", index);
+			goto error;
+		}
+		run->hw_bufs[index].dma_fd = exp.fd;
+	}
+	return 0;
+
+error:
+	for (uint index = 0; index < run->n_bufs; ++index) {
+		US_CLOSE_FD(run->hw_bufs[index].dma_fd, close);
+	}
+	return -1;
 }
 
 static int _device_apply_resolution(us_device_s *dev, uint width, uint height, float hz) {

@@ -150,8 +150,6 @@ void us_stream_loop(us_stream_s *stream) {
 #				endif
 			} else {
 				if (has_read) {
-					US_LOG_DEBUG("Frame is ready");
-
 #					ifdef WITH_GPIO
 					us_gpio_set_stream_online(true);
 #					endif
@@ -197,17 +195,13 @@ void us_stream_loop(us_stream_s *stream) {
 					}
 				}
 
-				if (has_error) {
-					US_LOG_INFO("Got V4L2 event");
-					if (us_device_consume_event(stream->dev) < 0) {
-						break;
-					}
+				if (has_error && us_device_consume_event(stream->dev) < 0) {
+					break;
 				}
 			}
 		}
 
 		us_workers_pool_destroy(pool);
-		us_device_switch_capturing(stream->dev, false);
 		us_device_close(stream->dev);
 
 #		ifdef WITH_GPIO
@@ -266,17 +260,12 @@ static us_workers_pool_s *_stream_init_loop(us_stream_s *stream) {
 }
 
 static us_workers_pool_s *_stream_init_one(us_stream_s *stream) {
-	if (us_device_open(stream->dev) < 0) {
-		goto error;
-	}
-	if (
+	stream->dev->dma_export = (
 		stream->enc->type == US_ENCODER_TYPE_M2M_VIDEO
 		|| stream->enc->type == US_ENCODER_TYPE_M2M_IMAGE
 		|| (_RUN(h264) && !us_is_jpeg(stream->dev->run->format))
-	) {
-		us_device_export_to_dma(stream->dev);
-	}
-	if (us_device_switch_capturing(stream->dev, true) < 0) {
+	);
+	if (us_device_open(stream->dev) < 0) {
 		goto error;
 	}
 	return us_encoder_workers_pool_init(stream->enc, stream->dev);
