@@ -243,7 +243,7 @@ static void _main_loop(void) {
 							_slowdown();
 							continue;
 						}
-					} else if (buf_index == -2) {
+					} else if (buf_index != -2) { // -2 for broken frame
 						goto close;
 					}
 				}
