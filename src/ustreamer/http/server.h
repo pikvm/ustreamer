@@ -124,7 +124,6 @@ typedef struct {
 	long double			last_request_ts;
 
 	struct event		*refresher;
-	us_stream_s			*stream;
 	us_server_exposed_s	*exposed;
 
 	us_stream_client_s	*stream_clients;
@@ -158,6 +157,8 @@ typedef struct us_server_sx {
 
 	bool		notify_parent;
 	unsigned	exit_on_no_clients;
+
+	us_stream_s			*stream;
 
 	us_server_runtime_s *run;
 } us_server_s;

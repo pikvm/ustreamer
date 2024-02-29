@@ -41,7 +41,7 @@ static void _http_request_watcher(int fd, short event, void *v_server);
 static void _http_refresher(int fd, short event, void *v_server);
 static void _http_queue_send_stream(us_server_s *server, bool stream_updated, bool frame_updated);
 
-static bool _expose_new_frame(us_server_s *server);
+static bool _expose_frame(us_server_s *server, us_frame_s *frame);
 
 static const char *_http_get_header(struct evhttp_request *request, const char *key);
 static char *_http_get_client_hostport(struct evhttp_request *request);
@@ -50,8 +50,6 @@ static char *_http_get_client_hostport(struct evhttp_request *request);
 #define _A_EVBUFFER_NEW(x_buf)						assert((x_buf = evbuffer_new()) != NULL)
 #define _A_EVBUFFER_ADD(x_buf, x_data, x_size)		assert(!evbuffer_add(x_buf, x_data, x_size))
 #define _A_EVBUFFER_ADD_PRINTF(x_buf, x_fmt, ...)	assert(evbuffer_add_printf(x_buf, x_fmt, ##__VA_ARGS__) >= 0)
-
-#define _VID(x_next)	server->run->stream->run->video->x_next
 
 
 us_server_s *us_server_init(us_stream_s *stream) {
@@ -62,7 +60,6 @@ us_server_s *us_server_init(us_stream_s *stream) {
 	us_server_runtime_s *run;
 	US_CALLOC(run, 1);
 	run->ext_fd = -1;
-	run->stream = stream;
 	run->exposed = exposed;
 
 	us_server_s *server;
@@ -76,6 +73,7 @@ us_server_s *us_server_init(us_stream_s *stream) {
 	server->allow_origin = "";
 	server->instance_id = "";
 	server->timeout = 10;
+	server->stream = stream;
 	server->run = run;
 
 	assert(!evthread_use_pthreads());
@@ -123,7 +121,7 @@ void us_server_destroy(us_server_s *server) {
 int us_server_listen(us_server_s *server) {
 	us_server_runtime_s *const run = server->run;
 	us_server_exposed_s *const ex = run->exposed;
-	us_stream_s *const stream = run->stream;
+	us_stream_s *const stream = server->stream;
 
 	{
 		if (server->static_path[0] != '\0') {
@@ -405,7 +403,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 	us_server_s *const server = (us_server_s *)v_server;
 	us_server_runtime_s *const run = server->run;
 	us_server_exposed_s *const ex = run->exposed;
-	us_stream_s *const stream = run->stream;
+	us_stream_s *const stream = server->stream;
 
 	PREPROCESS_REQUEST;
 
@@ -460,7 +458,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		(server->fake_height ? server->fake_height : ex->frame->height),
 		us_bool_to_string(ex->frame->online),
 		stream->dev->desired_fps,
-		ex->captured_fps,
+		atomic_load(&stream->run->captured_fps),
 		ex->queued_fps,
 		run->stream_clients_count
 	);
@@ -576,7 +574,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		US_LIST_APPEND_C(run->stream_clients, client, run->stream_clients_count);
 
 		if (run->stream_clients_count == 1) {
-			atomic_store(&_VID(has_clients), true);
+			atomic_store(&server->stream->run->http_has_clients, true);
 #			ifdef WITH_GPIO
 			us_gpio_set_has_http_clients(true);
 #			endif
@@ -762,7 +760,7 @@ static void _http_callback_stream_error(struct bufferevent *buf_event, short wha
 	US_LIST_REMOVE_C(run->stream_clients, client, run->stream_clients_count);
 
 	if (run->stream_clients_count == 0) {
-		atomic_store(&_VID(has_clients), false);
+		atomic_store(&server->stream->run->http_has_clients, false);
 #		ifdef WITH_GPIO
 		us_gpio_set_has_http_clients(false);
 #		endif
@@ -844,7 +842,7 @@ static void _http_request_watcher(int fd, short what, void *v_server) {
 	us_server_runtime_s *const run = server->run;
 	const long double now = us_get_now_monotonic();
 
-	if (us_stream_has_clients(run->stream)) {
+	if (us_stream_has_clients(server->stream)) {
 		run->last_request_ts = now;
 	} else if (run->last_request_ts + server->exit_on_no_clients < now) {
 		US_LOG_INFO("HTTP: No requests or HTTP/sink clients found in last %u seconds, exiting ...",
@@ -860,12 +858,17 @@ static void _http_refresher(int fd, short what, void *v_server) {
 
 	us_server_s *server = (us_server_s *)v_server;
 	us_server_exposed_s *ex = server->run->exposed;
+	us_ring_s *const ring = server->stream->run->http_jpeg_ring;
+
 	bool stream_updated = false;
 	bool frame_updated = false;
 
-	if (atomic_load(&_VID(updated))) {
-		frame_updated = _expose_new_frame(server);
+	const int ri = us_ring_consumer_acquire(ring, 0);
+	if (ri >= 0) {
+		us_frame_s *const frame = ring->items[ri];
+		frame_updated = _expose_frame(server, frame);
 		stream_updated = true;
+		us_ring_consumer_release(ring, ri);
 	} else if (ex->expose_end_ts + 1 < us_get_now_monotonic()) {
 		US_LOG_DEBUG("HTTP: Repeating exposed ...");
 		ex->expose_begin_ts = us_get_now_monotonic();
@@ -893,31 +896,25 @@ static void _http_refresher(int fd, short what, void *v_server) {
 	}
 }
 
-static bool _expose_new_frame(us_server_s *server) {
+static bool _expose_frame(us_server_s *server, us_frame_s *frame) {
 	us_server_exposed_s *const ex = server->run->exposed;
 
-	bool updated = false;
-
-	US_MUTEX_LOCK(_VID(mutex));
-
-	US_LOG_DEBUG("HTTP: Updating exposed frame (online=%d) ...", _VID(frame->online));
-
-	ex->captured_fps = _VID(captured_fps);
+	US_LOG_DEBUG("HTTP: Updating exposed frame (online=%d) ...", frame->online);
 	ex->expose_begin_ts = us_get_now_monotonic();
 
-	if (server->drop_same_frames && _VID(frame->online)) {
+	if (server->drop_same_frames && frame->online) {
 		bool need_drop = false;
 		bool maybe_same = false;
 		if (
 			(need_drop = (ex->dropped < server->drop_same_frames))
-			&& (maybe_same = us_frame_compare(ex->frame, _VID(frame)))
+			&& (maybe_same = us_frame_compare(ex->frame, frame))
 		) {
 			ex->expose_cmp_ts = us_get_now_monotonic();
 			ex->expose_end_ts = ex->expose_cmp_ts;
 			US_LOG_VERBOSE("HTTP: Dropped same frame number %u; cmp_time=%.06Lf",
 				ex->dropped, (ex->expose_cmp_ts - ex->expose_begin_ts));
 			ex->dropped += 1;
-			goto not_updated;
+			return false; // Not updated
 		} else {
 			ex->expose_cmp_ts = us_get_now_monotonic();
 			US_LOG_VERBOSE("HTTP: Passed same frame check (need_drop=%d, maybe_same=%d); cmp_time=%.06Lf",
@@ -925,7 +922,12 @@ static bool _expose_new_frame(us_server_s *server) {
 		}
 	}
 
-	us_frame_copy(_VID(frame), ex->frame);
+	if (frame->used == 0) {
+		// Фрейм нулевой длины означает, что мы просто должны повторить то что уже есть.
+		US_FRAME_COPY_META(frame, ex->frame);
+	} else {
+		us_frame_copy(frame, ex->frame);
+	}
 
 	ex->dropped = 0;
 	ex->expose_cmp_ts = ex->expose_begin_ts;
@@ -933,13 +935,7 @@ static bool _expose_new_frame(us_server_s *server) {
 
 	US_LOG_VERBOSE("HTTP: Exposed frame: online=%d, exp_time=%.06Lf",
 		 ex->frame->online, (ex->expose_end_ts - ex->expose_begin_ts));
-
-	updated = true;
-
-not_updated:
-	atomic_store(&_VID(updated), false);
-	US_MUTEX_UNLOCK(_VID(mutex));
-	return updated;
+	return true; // Updated
 }
 
 static const char *_http_get_header(struct evhttp_request *request, const char *key) {

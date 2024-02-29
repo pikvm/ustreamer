@@ -24,7 +24,7 @@
 
 
 static us_workers_pool_s *_stream_init_loop(us_stream_s *stream);
-static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigned captured_fps);
+static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame);
 
 
 #define _RUN(x_next) stream->run->x_next
@@ -46,15 +46,10 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigne
 us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 	us_stream_runtime_s *run;
 	US_CALLOC(run, 1);
+	US_RING_INIT_WITH_ITEMS(run->http_jpeg_ring, 4, us_frame_init);
+	atomic_init(&run->http_has_clients, false);
+	atomic_init(&run->captured_fps, 0);
 	atomic_init(&run->stop, false);
-
-	us_video_s *video;
-	US_CALLOC(video, 1);
-	video->frame = us_frame_init();
-	atomic_init(&video->updated, false);
-	US_MUTEX_INIT(video->mutex);
-	atomic_init(&video->has_clients, false);
-	run->video = video;
 
 	us_stream_s *stream;
 	US_CALLOC(stream, 1);
@@ -69,9 +64,7 @@ us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 }
 
 void us_stream_destroy(us_stream_s *stream) {
-	US_MUTEX_DESTROY(_RUN(video->mutex));
-	us_frame_destroy(_RUN(video->frame));
-	free(_RUN(video));
+	US_RING_DELETE_WITH_ITEMS(stream->run->http_jpeg_ring, us_frame_destroy);
 	free(stream->run);
 	free(stream);
 }
@@ -89,7 +82,6 @@ void us_stream_loop(us_stream_s *stream) {
 	for (us_workers_pool_s *pool; (pool = _stream_init_loop(stream)) != NULL;) {
 		long double grab_after = 0;
 		unsigned fluency_passed = 0;
-		unsigned captured_fps = 0;
 		unsigned captured_fps_accum = 0;
 		long long captured_fps_second = 0;
 
@@ -110,7 +102,7 @@ void us_stream_loop(us_stream_s *stream) {
 
 				if (!ready_wr->job_failed) {
 					if (ready_wr->job_timely) {
-						_stream_expose_frame(stream, ready_job->dest, captured_fps);
+						_stream_expose_frame(stream, ready_job->dest);
 						US_LOG_PERF("##### Encoded JPEG exposed; worker=%s, latency=%.3Lf",
 							ready_wr->name, us_get_now_monotonic() - ready_job->dest->grab_ts);
 					} else {
@@ -171,10 +163,10 @@ void us_stream_loop(us_stream_s *stream) {
 							fluency_passed = 0;
 
 							if (now_second != captured_fps_second) {
-								captured_fps = captured_fps_accum;
+								US_LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps_accum);
+								atomic_store(&stream->run->captured_fps, captured_fps_accum);
 								captured_fps_accum = 0;
 								captured_fps_second = now_second;
-								US_LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps);
 							}
 							captured_fps_accum += 1;
 
@@ -217,7 +209,7 @@ void us_stream_loop_break(us_stream_s *stream) {
 
 bool us_stream_has_clients(us_stream_s *stream) {
 	return (
-		atomic_load(&_RUN(video->has_clients))
+		atomic_load(&_RUN(http_has_clients))
 		// has_clients синков НЕ обновляются в реальном времени
 		|| (stream->sink != NULL && atomic_load(&stream->sink->has_clients))
 		|| (_RUN(h264) != NULL && /*_RUN(h264->sink) == NULL ||*/ atomic_load(&_RUN(h264->sink->has_clients)))
@@ -227,7 +219,8 @@ bool us_stream_has_clients(us_stream_s *stream) {
 static us_workers_pool_s *_stream_init_loop(us_stream_s *stream) {
 	int access_errno = 0;
 	while (!atomic_load(&_RUN(stop))) {
-		_stream_expose_frame(stream, NULL, 0);
+		atomic_store(&stream->run->captured_fps, 0);
+		_stream_expose_frame(stream, NULL);
 
 		if (access(stream->dev->path, R_OK|W_OK) < 0) {
 			if (access_errno != errno) {
@@ -258,12 +251,10 @@ static us_workers_pool_s *_stream_init_loop(us_stream_s *stream) {
 	return NULL;
 }
 
-static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigned captured_fps) {
-#	define VID(x_next) _RUN(video->x_next)
+static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame) {
+	us_stream_runtime_s *const run = stream->run;
 
 	us_frame_s *new = NULL;
-
-	US_MUTEX_LOCK(VID(mutex));
 
 	if (frame != NULL) {
 		new = frame;
@@ -271,11 +262,7 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigne
 		US_LOG_DEBUG("Exposed ALIVE video frame");
 
 	} else {
-		if (VID(frame->used == 0)) {
-			new = stream->blank; // Инициализация
-			_RUN(last_as_blank_ts) = 0;
-
-		} else if (VID(frame->online)) { // Если переходим из online в offline
+		if (run->last_online) { // Если переходим из online в offline
 			if (stream->last_as_blank < 0) { // Если last_as_blank выключен, просто покажем старую картинку
 				new = stream->blank;
 				US_LOG_INFO("Changed video frame to BLANK");
@@ -285,7 +272,6 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigne
 			} else {  // last_as_blank == 0 - показываем последний фрейм вечно
 				US_LOG_INFO("Freezed last ALIVE video frame forever");
 			}
-
 		} else if (stream->last_as_blank < 0) {
 			new = stream->blank;
 			// US_LOG_INFO("Changed video frame to BLANK");
@@ -297,27 +283,37 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame, unsigne
 			&& _RUN(last_as_blank_ts) < us_get_now_monotonic()
 		) {
 			new = stream->blank;
-			_RUN(last_as_blank_ts) = 0; // // Останавливаем таймер
+			_RUN(last_as_blank_ts) = 0; // Останавливаем таймер
 			US_LOG_INFO("Changed last ALIVE video frame to BLANK");
 		}
 	}
 
-	if (new != NULL) {
-		us_frame_copy(new, VID(frame));
+	int ri = -1;
+	while (
+		!atomic_load(&_RUN(stop))
+		&& ((ri = us_ring_producer_acquire(run->http_jpeg_ring, 0)) < 0)
+	) {
+		US_LOG_ERROR("Can't push JPEG to HTTP ring (no free slots)");
 	}
-	VID(frame->online) = (frame != NULL);
-	VID(captured_fps) = captured_fps;
-	atomic_store(&VID(updated), true);
+	if (ri < 0) {
+		return;
+	}
 
-	US_MUTEX_UNLOCK(VID(mutex));
+	us_frame_s *const dest = run->http_jpeg_ring->items[ri];
+	if (new == NULL) {
+		dest->used = 0;
+		dest->online = false;
+	} else {
+		us_frame_copy(new, dest);
+		dest->online = true;
+	}
+	run->last_online = (frame != NULL);
+	us_ring_producer_release(run->http_jpeg_ring, ri);
 
-	new = (frame ? frame : stream->blank);
-	_SINK_PUT(sink, new);
+	_SINK_PUT(sink, (frame != NULL ? frame : stream->blank));
 
 	if (frame == NULL) {
 		_SINK_PUT(raw_sink, stream->blank);
 		_H264_PUT(stream->blank, false);
 	}
-
-#	undef VID
 }

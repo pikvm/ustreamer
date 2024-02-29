@@ -35,6 +35,7 @@
 #include "../libs/tools.h"
 #include "../libs/threading.h"
 #include "../libs/logging.h"
+#include "../libs/ring.h"
 #include "../libs/frame.h"
 #include "../libs/memsink.h"
 #include "../libs/device.h"
@@ -49,16 +50,11 @@
 
 
 typedef struct {
-	us_frame_s		*frame;
-	unsigned		captured_fps;
-	atomic_bool		updated;
-	pthread_mutex_t	mutex;
+	us_ring_s		*http_jpeg_ring;
+	atomic_bool		http_has_clients;
+	atomic_uint		captured_fps;
 
-	atomic_bool		has_clients; // For slowdown
-} us_video_s;
-
-typedef struct {
-	us_video_s		*video;
+	bool			last_online;
 	long double		last_as_blank_ts;
 
 	us_h264_stream_s	*h264;
