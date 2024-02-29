@@ -30,6 +30,8 @@
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 
+#include <linux/videodev2.h>
+
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <drm_fourcc.h>

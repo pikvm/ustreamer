@@ -74,7 +74,7 @@ void us_frame_copy(const us_frame_s *src, us_frame_s *dest) {
 bool us_frame_compare(const us_frame_s *a, const us_frame_s *b) {
 	return (
 		a->allocated && b->allocated
-		&& US_FRAME_COMPARE_META_USED_NOTS(a, b)
+		&& US_FRAME_COMPARE_GEOMETRY(a, b)
 		&& !memcmp(a->data, b->data, b->used)
 	);
 }
@@ -97,6 +97,10 @@ uint us_frame_get_padding(const us_frame_s *frame) {
 		return (frame->stride - frame->width * bytes_per_pixel);
 	}
 	return 0;
+}
+
+bool us_is_jpeg(uint format) {
+	return (format == V4L2_PIX_FMT_JPEG || format == V4L2_PIX_FMT_MJPEG);
 }
 
 const char *us_fourcc_to_string(uint format, char *buf, uz size) {

@@ -130,7 +130,7 @@ static int _wait_frame(_MemsinkObject *self) {
 			if (mem->magic == US_MEMSINK_MAGIC && mem->version == US_MEMSINK_VERSION && mem->id != self->frame_id) {
 				if (self->drop_same_frames > 0) {
 					if (
-						US_FRAME_COMPARE_META_USED_NOTS(self->mem, self->frame)
+						US_FRAME_COMPARE_GEOMETRY(self->mem, self->frame)
 						&& (self->frame_ts + self->drop_same_frames > now_ts)
 						&& !memcmp(self->frame->data, mem->data, mem->used)
 					) {

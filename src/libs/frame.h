@@ -22,8 +22,6 @@
 
 #pragma once
 
-#include <linux/videodev2.h>
-
 #include "types.h"
 #include "tools.h"
 
@@ -41,7 +39,6 @@ typedef struct {
 	// Stride is a bytesperline in V4L2
 	// https://www.kernel.org/doc/html/v4.14/media/uapi/v4l/pixfmt-v4l2.html
 	// https://medium.com/@oleg.shipitko/what-does-stride-mean-in-image-processing-bba158a72bcd
-
 	bool	online;
 	bool	key;
 	uint	gop;
@@ -65,11 +62,8 @@ typedef struct {
 		x_dest->encode_end_ts = x_src->encode_end_ts; \
 	}
 
-static inline void us_frame_copy_meta(const us_frame_s *src, us_frame_s *dest) {
-	US_FRAME_COPY_META(src, dest);
-}
-
-#define US_FRAME_COMPARE_META_USED_NOTS(x_a, x_b) ( \
+#define US_FRAME_COMPARE_GEOMETRY(x_a, x_b) ( \
+		/* Compare the used size and significant meta (no timings) */ \
 		x_a->used == x_b->used \
 		&& x_a->width == x_b->width \
 		&& x_a->height == x_b->height \
@@ -83,7 +77,7 @@ static inline void us_frame_copy_meta(const us_frame_s *src, us_frame_s *dest) {
 
 static inline void us_frame_encoding_begin(const us_frame_s *src, us_frame_s *dest, uint format) {
 	assert(src->used > 0);
-	us_frame_copy_meta(src, dest);
+	US_FRAME_COPY_META(src, dest);
 	dest->encode_begin_ts = us_get_now_monotonic();
 	dest->format = format;
 	dest->stride = 0;
@@ -108,8 +102,5 @@ bool us_frame_compare(const us_frame_s *a, const us_frame_s *b);
 
 uint us_frame_get_padding(const us_frame_s *frame);
 
+bool us_is_jpeg(uint format);
 const char *us_fourcc_to_string(uint format, char *buf, uz size);
-
-static inline bool us_is_jpeg(uint format) {
-	return (format == V4L2_PIX_FMT_JPEG || format == V4L2_PIX_FMT_MJPEG);
-}
