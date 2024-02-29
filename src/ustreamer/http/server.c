@@ -136,7 +136,7 @@ int us_server_listen(us_server_s *server) {
 		assert(!evhttp_set_cb(run->http, "/stream", _http_callback_stream, (void *)server));
 	}
 
-	us_frame_copy(stream->blank, ex->frame);
+	us_frame_copy(stream->run->blank->jpeg, ex->frame);
 	ex->notify_last_width = ex->frame->width;
 	ex->notify_last_height = ex->frame->height;
 

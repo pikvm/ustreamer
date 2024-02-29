@@ -22,81 +22,31 @@
 
 #include "blank.h"
 
+#include "../libs/types.h"
+#include "../libs/tools.h"
+#include "../libs/frame.h"
+#include "../libs/frametext.h"
 
-static us_frame_s *_init_internal(void);
-static us_frame_s *_init_external(const char *path);
+#include "encoders/cpu/encoder.h"
 
 
-us_frame_s *us_blank_frame_init(const char *path) {
-	us_frame_s *blank = NULL;
-
-	if (path && path[0] != '\0') {
-		blank = _init_external(path);
-	}
-
-	if (blank != NULL) {
-		US_LOG_INFO("Using external blank placeholder: %s", path);
-	} else {
-		blank = _init_internal();
-		US_LOG_INFO("Using internal blank placeholder");
-	}
+us_blank_s *us_blank_init(void) {
+	us_blank_s *blank;
+	US_CALLOC(blank, 1);
+	blank->ft = us_frametext_init();
+	blank->raw = blank->ft->frame;
+	blank->jpeg = us_frame_init();
+	us_blank_draw(blank, "< NO SIGNAL >", 640, 480);
 	return blank;
 }
 
-static us_frame_s *_init_internal(void) {
-	us_frame_s *const blank = us_frame_init();
-	us_frame_set_data(blank, US_BLANK_JPEG_DATA, US_BLANK_JPEG_DATA_SIZE);
-	blank->width = US_BLANK_JPEG_WIDTH;
-	blank->height = US_BLANK_JPEG_HEIGHT;
-	blank->format = V4L2_PIX_FMT_JPEG;
-	return blank;
+void us_blank_draw(us_blank_s *blank, const char *text, uint width, uint height) {
+	us_frametext_draw(blank->ft, text, width, height);
+	us_cpu_encoder_compress(blank->raw, blank->jpeg, 95);
 }
 
-static us_frame_s *_init_external(const char *path) {
-	FILE *fp = NULL;
-
-	us_frame_s *blank = us_frame_init();
-	blank->format = V4L2_PIX_FMT_JPEG;
-
-	if ((fp = fopen(path, "rb")) == NULL) {
-		US_LOG_PERROR("Can't open blank placeholder '%s'", path);
-		goto error;
-	}
-
-	const size_t chunk_size = 100 * 1024;
-	while (true) {
-		if (blank->used + chunk_size >= blank->allocated) {
-			us_frame_realloc_data(blank, blank->used + chunk_size * 2);
-		}
-
-		const size_t readed = fread(blank->data + blank->used, 1, chunk_size, fp);
-		blank->used += readed;
-
-		if (readed < chunk_size) {
-			if (feof(fp)) {
-				break;
-			} else {
-				US_LOG_PERROR("Can't read blank placeholder");
-				goto error;
-			}
-		}
-	}
-
-	us_frame_s *const decoded = us_frame_init();
-	if (us_unjpeg(blank, decoded, false) < 0) {
-		us_frame_destroy(decoded);
-		goto error;
-	}
-	blank->width = decoded->width;
-	blank->height = decoded->height;
-	us_frame_destroy(decoded);
-
-	goto ok;
-
-error:
-	US_DELETE(blank, us_frame_destroy);
-
-ok:
-	US_DELETE(fp, fclose);
-	return blank;
+void us_blank_destroy(us_blank_s *blank) {
+	us_frame_destroy(blank->jpeg);
+	us_frametext_destroy(blank->ft);
+	free(blank);
 }

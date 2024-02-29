@@ -53,6 +53,9 @@ void us_frametext_destroy(us_frametext_s *ft) {
 }
 
 void us_frametext_draw(us_frametext_s *ft, const char *text, uint width, uint height) {
+	assert(width > 0);
+	assert(height > 0);
+
 	us_frame_s *const frame = ft->frame;
 
 	if (
@@ -143,11 +146,11 @@ void _frametext_draw_line(
 			const uint ch_bit = (ch_x / scale_x) % 8;
 			const bool pix_on = !!(US_FRAMETEXT_FONT[ch][ch_byte] & (1 << ch_bit));
 
-			u8 *const b = &frame->data[offset]; // XXX: Big endian for Raspberry
-			u8 *const g = b + 1;
-			u8 *const r = g + 1;
+			u8 *const r = &frame->data[offset];
+			u8 *const g = r + 1;
+			u8 *const b = r + 2;
 
-			*r = pix_on * 0x51;
+			*r = pix_on * 0x65; // RGB/BGR-friendly
 			*g = pix_on * 0x65;
 			*b = pix_on * 0x65;
 		}

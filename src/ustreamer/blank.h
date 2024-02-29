@@ -22,17 +22,19 @@
 
 #pragma once
 
-#include <stdio.h>
-#include <stdbool.h>
-
-#include <linux/videodev2.h>
-
-#include "../libs/tools.h"
-#include "../libs/logging.h"
+#include "../libs/types.h"
 #include "../libs/frame.h"
-#include "../libs/unjpeg.h"
-
-#include "data/blank_jpeg.h"
+#include "../libs/frametext.h"
 
 
-us_frame_s *us_blank_frame_init(const char *path);
+typedef struct {
+	us_frametext_s	*ft;
+	us_frame_s		*raw;
+	us_frame_s		*jpeg;
+} us_blank_s;
+
+
+us_blank_s *us_blank_init(void);
+void us_blank_destroy(us_blank_s *blank);
+
+void us_blank_draw(us_blank_s *blank, const char *text, uint width, uint height);

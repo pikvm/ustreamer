@@ -254,8 +254,6 @@ void us_options_destroy(us_options_s *options) {
 	US_DELETE(options->raw_sink, us_memsink_destroy);
 	US_DELETE(options->h264_sink, us_memsink_destroy);
 
-	US_DELETE(options->blank, us_frame_destroy);
-
 	for (unsigned index = 0; index < options->argc; ++index) {
 		free(options->argv_copy[index]);
 	}
@@ -332,8 +330,6 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 			break; \
 		}
 
-	char *blank_path = NULL;
-
 #	define ADD_SINK(x_prefix) \
 		char *x_prefix##_name = NULL; \
 		mode_t x_prefix##_mode = 0660; \
@@ -372,7 +368,7 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 			case _O_QUALITY:			OPT_NUMBER("--quality", dev->jpeg_quality, 1, 100, 0);
 			case _O_ENCODER:			OPT_PARSE("encoder type", enc->type, us_encoder_parse_type, US_ENCODER_TYPE_UNKNOWN, ENCODER_TYPES_STR);
 			case _O_GLITCHED_RESOLUTIONS: break; // Deprecated
-			case _O_BLANK:				OPT_SET(blank_path, optarg);
+			case _O_BLANK:				break; // Deprecated
 			case _O_LAST_AS_BLANK:		OPT_NUMBER("--last-as-blank", stream->last_as_blank, 0, 86400, 0);
 			case _O_SLOWDOWN:			OPT_SET(stream->slowdown, true);
 			case _O_DEVICE_TIMEOUT:		OPT_NUMBER("--device-timeout", dev->timeout, 1, 60, 0);
@@ -484,9 +480,6 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 	}
 
 	US_LOG_INFO("Starting PiKVM uStreamer %s ...", US_VERSION);
-
-	options->blank = us_blank_frame_init(blank_path);
-	stream->blank = options->blank;
 
 #	define ADD_SINK(x_label, x_prefix) { \
 			if (x_prefix##_name && x_prefix##_name[0] != '\0') { \
@@ -629,12 +622,12 @@ static void _help(FILE *fp, const us_device_s *dev, const us_encoder_s *enc, con
 	SAY("                                             * M2M-IMAGE  ── GPU-accelerated JPEG encoding using V4L2 M2M image interface;");
 	SAY("                                             * NOOP  ─────── Don't compress MJPEG stream (do nothing).\n");
 	SAY("    -g|--glitched-resolutions <WxH,...>  ─ It doesn't do anything. Still here for compatibility.\n");
-	SAY("    -k|--blank <path>  ─────────────────── Path to JPEG file that will be shown when the device is disconnected");
+	SAY("    -k|--blank <path>  ─────────────────── It doesn't do anything. Still here for compatibility..\n");
 	SAY("                                           during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.\n");
 	SAY("    -K|--last-as-blank <sec>  ──────────── Show the last frame received from the camera after it was disconnected,");
 	SAY("                                           but no more than specified time (or endlessly if 0 is specified).");
-	SAY("                                           If the device has not yet been online, display 'NO SIGNAL' or the image");
-	SAY("                                           specified by option --blank. Default: disabled.");
+	SAY("                                           If the device has not yet been online, display some error text.");
+	SAY("                                           Default: disabled.");
 	SAY("                                           Note: currently this option has no effect on memory sinks.\n");
 	SAY("    -l|--slowdown  ─────────────────────── Slowdown capturing to 1 FPS or less when no stream or sink clients");
 	SAY("                                           are connected. Useful to reduce CPU consumption. Default: disabled.\n");

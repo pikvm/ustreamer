@@ -50,6 +50,7 @@ us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 	atomic_init(&run->http_has_clients, false);
 	atomic_init(&run->captured_fps, 0);
 	atomic_init(&run->stop, false);
+	run->blank = us_blank_init();
 
 	us_stream_s *stream;
 	US_CALLOC(stream, 1);
@@ -64,14 +65,13 @@ us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 }
 
 void us_stream_destroy(us_stream_s *stream) {
+	us_blank_destroy(stream->run->blank);
 	US_RING_DELETE_WITH_ITEMS(stream->run->http_jpeg_ring, us_frame_destroy);
 	free(stream->run);
 	free(stream);
 }
 
 void us_stream_loop(us_stream_s *stream) {
-	assert(stream->blank != NULL);
-
 	US_LOG_INFO("Using V4L2 device: %s", stream->dev->path);
 	US_LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
 
@@ -253,6 +253,7 @@ static us_workers_pool_s *_stream_init_loop(us_stream_s *stream) {
 
 static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame) {
 	us_stream_runtime_s *const run = stream->run;
+	us_blank_s *const blank = run->blank;
 
 	us_frame_s *new = NULL;
 
@@ -262,9 +263,17 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame) {
 		US_LOG_DEBUG("Exposed ALIVE video frame");
 
 	} else {
+		unsigned width = stream->dev->run->width;
+		unsigned height = stream->dev->run->height;
+		if (width == 0 || height == 0) {
+			width = stream->dev->width;
+			height = stream->dev->height;
+		}
+		us_blank_draw(blank, "< NO SIGNAL >", width, height);
+
 		if (run->last_online) { // Если переходим из online в offline
 			if (stream->last_as_blank < 0) { // Если last_as_blank выключен, просто покажем старую картинку
-				new = stream->blank;
+				new = blank->jpeg;
 				US_LOG_INFO("Changed video frame to BLANK");
 			} else if (stream->last_as_blank > 0) { // // Если нужен таймер - запустим
 				_RUN(last_as_blank_ts) = us_get_now_monotonic() + stream->last_as_blank;
@@ -273,7 +282,7 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame) {
 				US_LOG_INFO("Freezed last ALIVE video frame forever");
 			}
 		} else if (stream->last_as_blank < 0) {
-			new = stream->blank;
+			new = blank->jpeg;
 			// US_LOG_INFO("Changed video frame to BLANK");
 		}
 
@@ -282,7 +291,7 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame) {
 			&& _RUN(last_as_blank_ts) != 0
 			&& _RUN(last_as_blank_ts) < us_get_now_monotonic()
 		) {
-			new = stream->blank;
+			new = blank->jpeg;
 			_RUN(last_as_blank_ts) = 0; // Останавливаем таймер
 			US_LOG_INFO("Changed last ALIVE video frame to BLANK");
 		}
@@ -310,10 +319,10 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame) {
 	run->last_online = (frame != NULL);
 	us_ring_producer_release(run->http_jpeg_ring, ri);
 
-	_SINK_PUT(sink, (frame != NULL ? frame : stream->blank));
+	_SINK_PUT(sink, (frame != NULL ? frame : blank->jpeg));
 
 	if (frame == NULL) {
-		_SINK_PUT(raw_sink, stream->blank);
-		_H264_PUT(stream->blank, false);
+		_SINK_PUT(raw_sink, blank->raw);
+		_H264_PUT(blank->raw, false);
 	}
 }

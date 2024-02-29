@@ -59,6 +59,8 @@ typedef struct {
 
 	us_h264_stream_s	*h264;
 
+	us_blank_s		*blank;
+
 	atomic_bool		stop;
 } us_stream_runtime_s;
 
@@ -66,7 +68,6 @@ typedef struct {
 	us_device_s		*dev;
 	us_encoder_s	*enc;
 
-	us_frame_s		*blank;
 	int				last_as_blank;
 	bool			slowdown;
 	unsigned		error_delay;

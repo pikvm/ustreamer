@@ -42,7 +42,6 @@
 #include "../libs/device.h"
 
 #include "encoder.h"
-#include "blank.h"
 #include "stream.h"
 #include "http/server.h"
 #ifdef WITH_GPIO
@@ -54,7 +53,6 @@ typedef struct {
 	unsigned		argc;
 	char			**argv;
 	char			**argv_copy;
-	us_frame_s		*blank;
 	us_memsink_s	*sink;
 	us_memsink_s	*raw_sink;
 	us_memsink_s	*h264_sink;
