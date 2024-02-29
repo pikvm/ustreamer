@@ -44,7 +44,8 @@ static sz _find_annexb(const u8 *data, uz size);
 us_rtpv_s *us_rtpv_init(us_rtp_callback_f callback) {
 	us_rtpv_s *rtpv;
 	US_CALLOC(rtpv, 1);
-	rtpv->rtp = us_rtp_init(96, true);
+	rtpv->rtp = us_rtp_init();
+	us_rtp_assign(rtpv->rtp, 96, true);
 	rtpv->callback = callback;
 	return rtpv;
 }

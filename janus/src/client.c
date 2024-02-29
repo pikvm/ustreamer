@@ -33,7 +33,7 @@
 #include "uslibs/tools.h"
 #include "uslibs/threading.h"
 #include "uslibs/list.h"
-#include "uslibs/queue.h"
+#include "uslibs/ring.h"
 
 #include "logging.h"
 #include "rtp.h"
@@ -54,10 +54,10 @@ us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_sessio
 
 	atomic_init(&client->stop, false);
 
-	client->video_queue = us_queue_init(2048);
+	US_RING_INIT_WITH_ITEMS(client->video_ring, 2048, us_rtp_init);
 	US_THREAD_CREATE(client->video_tid, _video_thread, client);
 
-	client->audio_queue = us_queue_init(64);
+	US_RING_INIT_WITH_ITEMS(client->audio_ring, 64, us_rtp_init);
 	US_THREAD_CREATE(client->audio_tid, _audio_thread, client);
 
 	return client;
@@ -65,14 +65,12 @@ us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_sessio
 
 void us_janus_client_destroy(us_janus_client_s *client) {
 	atomic_store(&client->stop, true);
-	us_queue_put(client->video_queue, NULL, 0);
-	us_queue_put(client->audio_queue, NULL, 0);
 
 	US_THREAD_JOIN(client->video_tid);
-	US_QUEUE_DELETE_WITH_ITEMS(client->video_queue, us_rtp_destroy);
+	US_RING_DELETE_WITH_ITEMS(client->video_ring, us_rtp_destroy);
 
 	US_THREAD_JOIN(client->audio_tid);
-	US_QUEUE_DELETE_WITH_ITEMS(client->audio_queue, us_rtp_destroy);
+	US_RING_DELETE_WITH_ITEMS(client->audio_ring, us_rtp_destroy);
 
 	free(client);
 }
@@ -82,12 +80,15 @@ void us_janus_client_send(us_janus_client_s *client, const us_rtp_s *rtp) {
 		atomic_load(&client->transmit)
 		&& (rtp->video || atomic_load(&client->transmit_audio))
 	) {
-		us_rtp_s *const new = us_rtp_dup(rtp);
-		if (us_queue_put((new->video ? client->video_queue : client->audio_queue), new, 0) != 0) {
-			US_JLOG_ERROR("client", "Session %p %s queue is full",
-				client->session, (new->video ? "video" : "audio"));
-			us_rtp_destroy(new);
+		us_ring_s *const ring = (rtp->video ? client->video_ring : client->audio_ring);
+		const int ri = us_ring_producer_acquire(ring, 0);
+		if (ri < 0) {
+			US_JLOG_ERROR("client", "Session %p %s ring is full",
+				client->session, (rtp->video ? "video" : "audio"));
+			return;
 		}
+		memcpy(ring->items[ri], rtp, sizeof(us_rtp_s));
+		us_ring_producer_release(ring, ri);
 	}
 }
 
@@ -101,45 +102,45 @@ static void *_audio_thread(void *v_client) {
 
 static void *_common_thread(void *v_client, bool video) {
 	us_janus_client_s *const client = (us_janus_client_s *)v_client;
-	us_queue_s *const queue = (video ? client->video_queue : client->audio_queue);
-	assert(queue != NULL); // Audio may be NULL
+	us_ring_s *const ring = (video ? client->video_ring : client->audio_ring);
+	assert(ring != NULL); // Audio may be NULL
 
 	while (!atomic_load(&client->stop)) {
-		us_rtp_s *rtp;
-		if (!us_queue_get(queue, (void **)&rtp, 0.1)) {
-			if (rtp == NULL) {
-				break;
-			}
+		const int ri = us_ring_consumer_acquire(ring, 0.1);
+		if (ri < 0) {
+			continue;
+		}
+		us_rtp_s rtp;
+		memcpy(&rtp, ring->items[ri], sizeof(us_rtp_s));
+		us_ring_consumer_release(ring, ri);
 
-			if (
-				atomic_load(&client->transmit)
-				&& (video || atomic_load(&client->transmit_audio))
-			) {
-				janus_plugin_rtp packet = {
-					.video = rtp->video,
-					.buffer = (char *)rtp->datagram,
-					.length = rtp->used,
-#					if JANUS_PLUGIN_API_VERSION >= 100
-					// The uStreamer Janus plugin places video in stream index 0 and audio
-					// (if available) in stream index 1.
-					.mindex = (rtp->video ? 0 : 1),
-#					endif
-				};
-				janus_plugin_rtp_extensions_reset(&packet.extensions);
-				/*if (rtp->zero_playout_delay) {
-					// https://github.com/pikvm/pikvm/issues/784
-					packet.extensions.min_delay = 0;
-					packet.extensions.max_delay = 0;
-				} else {
-					packet.extensions.min_delay = 0;
-					// 10s - Chromium/WebRTC default
-					// 3s - Firefox default
-					packet.extensions.max_delay = 300; // == 3s, i.e. 10ms granularity
-				}*/
+		if (
+			atomic_load(&client->transmit)
+			&& (video || atomic_load(&client->transmit_audio))
+		) {
+			janus_plugin_rtp packet = {
+				.video = rtp.video,
+				.buffer = (char*)rtp.datagram,
+				.length = rtp.used,
+#				if JANUS_PLUGIN_API_VERSION >= 100
+				// The uStreamer Janus plugin places video in stream index 0 and audio
+				// (if available) in stream index 1.
+				.mindex = (rtp.video ? 0 : 1),
+#				endif
+			};
+			janus_plugin_rtp_extensions_reset(&packet.extensions);
+			/*if (rtp->zero_playout_delay) {
+				// https://github.com/pikvm/pikvm/issues/784
+				packet.extensions.min_delay = 0;
+				packet.extensions.max_delay = 0;
+			} else {
+				packet.extensions.min_delay = 0;
+				// 10s - Chromium/WebRTC default
+				// 3s - Firefox default
+				packet.extensions.max_delay = 300; // == 3s, i.e. 10ms granularity
+			}*/
 
-				client->gw->relay_rtp(client->session, &packet);
-			}
-			us_rtp_destroy(rtp);
+			client->gw->relay_rtp(client->session, &packet);
 		}
 	}
 	return NULL;

@@ -31,24 +31,20 @@
 #include "uslibs/tools.h"
 
 
-us_rtp_s *us_rtp_init(uint payload, bool video) {
+us_rtp_s *us_rtp_init(void) {
 	us_rtp_s *rtp;
 	US_CALLOC(rtp, 1);
-	rtp->payload = payload;
-	rtp->video = video;
-	rtp->ssrc = us_triple_u32(us_get_now_monotonic_u64());
 	return rtp;
-}
-
-us_rtp_s *us_rtp_dup(const us_rtp_s *rtp) {
-	us_rtp_s *new;
-	US_CALLOC(new, 1);
-	memcpy(new, rtp, sizeof(us_rtp_s));
-	return new;
 }
 
 void us_rtp_destroy(us_rtp_s *rtp) {
 	free(rtp);
+}
+
+void us_rtp_assign(us_rtp_s *rtp, uint payload, bool video) {
+	rtp->payload = payload;
+	rtp->video = video;
+	rtp->ssrc = us_triple_u32(us_get_now_monotonic_u64());
 }
 
 void us_rtp_write_header(us_rtp_s *rtp, u32 pts, bool marked) {

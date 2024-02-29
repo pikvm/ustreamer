@@ -29,7 +29,7 @@
 
 #include "uslibs/types.h"
 #include "uslibs/list.h"
-#include "uslibs/queue.h"
+#include "uslibs/ring.h"
 
 #include "rtp.h"
 
@@ -44,8 +44,8 @@ typedef struct us_janus_client_sx {
 	pthread_t				audio_tid;
 	atomic_bool				stop;
 
-	us_queue_s				*video_queue;
-	us_queue_s				*audio_queue;
+	us_ring_s				*video_ring;
+	us_ring_s				*audio_ring;
 
     US_LIST_STRUCT(struct us_janus_client_sx);
 } us_janus_client_s;

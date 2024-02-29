@@ -44,8 +44,8 @@ typedef struct {
 typedef void (*us_rtp_callback_f)(const us_rtp_s *rtp);
 
 
-us_rtp_s *us_rtp_init(uint payload, bool video);
-us_rtp_s *us_rtp_dup(const us_rtp_s *rtp);
+us_rtp_s *us_rtp_init(void);
 void us_rtp_destroy(us_rtp_s *rtp);
 
+void us_rtp_assign(us_rtp_s *rtp, uint payload, bool video);
 void us_rtp_write_header(us_rtp_s *rtp, u32 pts, bool marked);
