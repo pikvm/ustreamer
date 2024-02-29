@@ -23,17 +23,17 @@
 #pragma once
 
 
-#include "../libs/types.h"
-#include "../libs/frame.h"
+#include "types.h"
+#include "frame.h"
 
 
 typedef struct {
 	char		*text;
 	us_frame_s	*frame;
-} us_ftext_s;
+} us_frametext_s;
 
 
-us_ftext_s *us_ftext_init(void);
-void us_ftext_destroy(us_ftext_s *ft);
+us_frametext_s *us_frametext_init(void);
+void us_frametext_destroy(us_frametext_s *ft);
 
-void us_ftext_draw(us_ftext_s *ft, const char *text, uint width, uint height);
+void us_frametext_draw(us_frametext_s *ft, const char *text, uint width, uint height);

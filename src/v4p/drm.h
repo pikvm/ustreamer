@@ -27,8 +27,7 @@
 
 #include "../libs/types.h"
 #include "../libs/frame.h"
-
-#include "ftext.h"
+#include "../libs/frametext.h"
 
 
 typedef enum {
@@ -65,7 +64,7 @@ typedef struct {
 	uint			next_n_buf;
 	bool			has_vsync;
 
-	us_ftext_s		*ft;
+	us_frametext_s	*ft;
 
 	uint			p_width;
 	uint			p_height;

@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include "../libs/types.h"
+#include "types.h"
 
 
-extern const u8 US_FTEXT_FONT[128][8];
+extern const u8 US_FRAMETEXT_FONT[128][8];

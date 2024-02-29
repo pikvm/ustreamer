@@ -39,8 +39,7 @@
 #include "../libs/tools.h"
 #include "../libs/logging.h"
 #include "../libs/frame.h"
-
-#include "ftext.h"
+#include "../libs/frametext.h"
 
 
 static void _drm_vsync_callback(int fd, uint n_frame, uint sec, uint usec, void *v_run);
@@ -69,7 +68,7 @@ us_drm_s *us_drm_init(void) {
 	US_CALLOC(run, 1);
 	run->fd = -1;
 	run->status_fd = -1;
-	run->ft = us_ftext_init();
+	run->ft = us_frametext_init();
 	run->state = US_DRM_STATE_CLOSED;
 
 	us_drm_s *drm;
@@ -84,7 +83,7 @@ us_drm_s *us_drm_init(void) {
 
 void us_drm_destroy(us_drm_s *drm) {
 	_drm_cleanup(drm);
-	us_ftext_destroy(drm->run->ft);
+	us_frametext_destroy(drm->run->ft);
 	US_DELETE(drm->run, free);
 	US_DELETE(drm, free); // cppcheck-suppress uselessAssignmentPtrArg
 }
@@ -142,7 +141,7 @@ int us_drm_expose(us_drm_s *drm, us_drm_expose_e ex, const us_frame_s *frame, fl
 	bool msg_drawn = false;
 
 #	define DRAW_MSG(x_msg) { \
-			us_ftext_draw(run->ft, (x_msg), mode->hdisplay, mode->vdisplay); \
+			us_frametext_draw(run->ft, (x_msg), mode->hdisplay, mode->vdisplay); \
 			frame = run->ft->frame; \
 			msg_drawn = true; \
 		}

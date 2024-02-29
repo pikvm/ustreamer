@@ -20,7 +20,7 @@
 *****************************************************************************/
 
 
-#include "ftext.h"
+#include "frametext.h"
 
 #include <string.h>
 
@@ -28,32 +28,31 @@
 
 #include <linux/videodev2.h>
 
-#include "../libs/tools.h"
-#include "../libs/frame.h"
+#include "tools.h"
+#include "frame.h"
+#include "frametext_font.h"
 
-#include "ftext_font.h"
 
-
-static void _ftext_draw_line(
-	us_ftext_s *ft, const char *line,
+static void _frametext_draw_line(
+	us_frametext_s *ft, const char *line,
 	uint scale_x, uint scale_y,
 	uint start_x, uint start_y);
 
 
-us_ftext_s *us_ftext_init(void) {
-	us_ftext_s *ft;
+us_frametext_s *us_frametext_init(void) {
+	us_frametext_s *ft;
 	US_CALLOC(ft, 1);
 	ft->frame = us_frame_init();
 	return ft;
 }
 
-void us_ftext_destroy(us_ftext_s *ft) {
+void us_frametext_destroy(us_frametext_s *ft) {
 	us_frame_destroy(ft->frame);
 	US_DELETE(ft->text, free);
 	free(ft);
 }
 
-void us_ftext_draw(us_ftext_s *ft, const char *text, uint width, uint height) {
+void us_frametext_draw(us_frametext_s *ft, const char *text, uint width, uint height) {
 	us_frame_s *const frame = ft->frame;
 
 	if (
@@ -110,7 +109,7 @@ void us_ftext_draw(us_ftext_s *ft, const char *text, uint width, uint height) {
 		const uint start_x = (frame->width >= line_width
 			? ((frame->width - line_width) / 2)
 			: 0);
-		_ftext_draw_line(ft, line, scale_x, scale_y, start_x, start_y + n_line * 8 * scale_y);
+		_frametext_draw_line(ft, line, scale_x, scale_y, start_x, start_y + n_line * 8 * scale_y);
 		++n_line;
 	}
 
@@ -118,8 +117,8 @@ empty:
 	free(str);
 }
 
-void _ftext_draw_line(
-	us_ftext_s *ft, const char *line,
+void _frametext_draw_line(
+	us_frametext_s *ft, const char *line,
 	uint scale_x, uint scale_y,
 	uint start_x, uint start_y) {
 
@@ -139,10 +138,10 @@ void _ftext_draw_line(
 				break;
 			}
 
-			const u8 ch = US_MIN((u8)line[ch_x / 8 / scale_x], sizeof(US_FTEXT_FONT) / 8 - 1);
+			const u8 ch = US_MIN((u8)line[ch_x / 8 / scale_x], sizeof(US_FRAMETEXT_FONT) / 8 - 1);
 			const uint ch_byte = (ch_y / scale_y) % 8;
 			const uint ch_bit = (ch_x / scale_x) % 8;
-			const bool pix_on = !!(US_FTEXT_FONT[ch][ch_byte] & (1 << ch_bit));
+			const bool pix_on = !!(US_FRAMETEXT_FONT[ch][ch_byte] & (1 << ch_bit));
 
 			u8 *const b = &frame->data[offset]; // XXX: Big endian for Raspberry
 			u8 *const g = b + 1;

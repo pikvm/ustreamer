@@ -20,10 +20,12 @@
 *****************************************************************************/
 
 
-#include "ftext_font.h"
+#include "frametext_font.h"
+
+#include "types.h"
 
 
-const u8 US_FTEXT_FONT[128][8] = {
+const u8 US_FRAMETEXT_FONT[128][8] = {
 	// https://github.com/dhepper/font8x8/blob/master/font8x8_basic.h
 	{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // U+0000 (nul)
 	{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // U+0001
