@@ -111,7 +111,7 @@ typedef struct {
 	bool			notify_last_online;
 	unsigned		notify_last_width;
 	unsigned		notify_last_height;
-} us_exposed_s;
+} us_server_exposed_s;
 
 typedef struct {
 	struct event_base	*base;
@@ -125,7 +125,7 @@ typedef struct {
 
 	struct event		*refresher;
 	us_stream_s			*stream;
-	us_exposed_s		*exposed;
+	us_server_exposed_s	*exposed;
 
 	us_stream_client_s	*stream_clients;
 	unsigned			stream_clients_count;
