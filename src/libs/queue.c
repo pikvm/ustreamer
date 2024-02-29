@@ -28,9 +28,9 @@
 
 #include <pthread.h>
 
-#include "uslibs/types.h"
-#include "uslibs/tools.h"
-#include "uslibs/threading.h"
+#include "types.h"
+#include "tools.h"
+#include "threading.h"
 
 
 us_queue_s *us_queue_init(uint capacity) {

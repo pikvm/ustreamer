@@ -40,11 +40,11 @@
 #include "uslibs/tools.h"
 #include "uslibs/threading.h"
 #include "uslibs/list.h"
+#include "uslibs/queue.h"
 #include "uslibs/memsinksh.h"
 
 #include "const.h"
 #include "logging.h"
-#include "queue.h"
 #include "client.h"
 #include "audio.h"
 #include "tc358743.h"

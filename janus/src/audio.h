@@ -37,10 +37,10 @@
 
 #include "uslibs/tools.h"
 #include "uslibs/array.h"
+#include "uslibs/queue.h"
 #include "uslibs/threading.h"
 
 #include "logging.h"
-#include "queue.h"
 
 
 typedef struct {

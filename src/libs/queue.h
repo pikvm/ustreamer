@@ -24,8 +24,8 @@
 
 #include <pthread.h>
 
-#include "uslibs/types.h"
-#include "uslibs/tools.h"
+#include "types.h"
+#include "tools.h"
 
 
 // Based on https://github.com/seifzadeh/c-pthread-queue/blob/master/queue.h

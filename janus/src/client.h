@@ -29,8 +29,8 @@
 
 #include "uslibs/types.h"
 #include "uslibs/list.h"
+#include "uslibs/queue.h"
 
-#include "queue.h"
 #include "rtp.h"
 
 

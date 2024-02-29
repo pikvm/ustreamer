@@ -33,9 +33,9 @@
 #include "uslibs/tools.h"
 #include "uslibs/threading.h"
 #include "uslibs/list.h"
+#include "uslibs/queue.h"
 
 #include "logging.h"
-#include "queue.h"
 #include "rtp.h"
 
 
