@@ -40,7 +40,7 @@
 #include "uslibs/tools.h"
 #include "uslibs/threading.h"
 #include "uslibs/list.h"
-#include "uslibs/queue.h"
+#include "uslibs/ring.h"
 #include "uslibs/memsinksh.h"
 
 #include "const.h"
@@ -60,7 +60,7 @@ static const useconds_t	_g_watchers_polling = 100000;
 
 static us_janus_client_s	*_g_clients = NULL;
 static janus_callbacks		*_g_gw = NULL;
-static us_queue_s			*_g_video_queue = NULL;
+static us_ring_s			*_g_video_ring = NULL;
 static us_rtpv_s			*_g_rtpv = NULL;
 static us_rtpa_s			*_g_rtpa = NULL;
 
@@ -105,13 +105,14 @@ static void *_video_rtp_thread(void *arg) {
 	atomic_store(&_g_video_rtp_tid_created, true);
 
 	while (!_STOP) {
-		us_frame_s *frame;
-		if (us_queue_get(_g_video_queue, (void **)&frame, 0.1) == 0) {
+		const int ri = us_ring_consumer_acquire(_g_video_ring, 0.1);
+		if (ri >= 0) {
+			us_frame_s *frame = _g_video_ring->items[ri];
 			_LOCK_VIDEO;
 			const bool zero_playout_delay = (frame->gop == 0);
 			us_rtpv_wrap(_g_rtpv, frame, zero_playout_delay);
 			_UNLOCK_VIDEO;
-			us_frame_destroy(frame);
+			us_ring_consumer_release(_g_video_ring, ri);
 		}
 	}
 	return NULL;
@@ -123,6 +124,7 @@ static void *_video_sink_thread(void *arg) {
 	US_THREAD_RENAME("us_video_sink");
 	atomic_store(&_g_video_sink_tid_created, true);
 
+	us_frame_s *drop = us_frame_init();
 	u64 frame_id = 0;
 	int once = 0;
 
@@ -150,20 +152,29 @@ static void *_video_sink_thread(void *arg) {
 
 		US_JLOG_INFO("video", "Memsink opened; reading frames ...");
 		while (!_STOP && _HAS_WATCHERS) {
-			const int result = us_memsink_fd_wait_frame(fd, mem, frame_id);
-			if (result == 0) {
-				us_frame_s *const frame = us_memsink_fd_get_frame(fd, mem, &frame_id, atomic_load(&_g_key_required));
-				if (frame == NULL) {
+			const int waited = us_memsink_fd_wait_frame(fd, mem, frame_id);
+			if (waited == 0) {
+				const int ri = us_ring_producer_acquire(_g_video_ring, 0);
+				us_frame_s *frame;
+				if (ri >= 0) {
+					frame = _g_video_ring->items[ri];
+				} else {
+					US_ONCE({ US_JLOG_PERROR("video", "Video ring is full"); });
+					frame = drop;
+				}
+
+				const int got = us_memsink_fd_get_frame(fd, mem, frame, &frame_id, atomic_load(&_g_key_required));
+				if (ri >= 0) {
+					us_ring_producer_release(_g_video_ring, ri);
+				}
+				if (got < 0) {
 					goto close_memsink;
 				}
-				if (frame->key) {
+
+				if (ri >= 0 && frame->key) {
 					atomic_store(&_g_key_required, false);
 				}
-				if (us_queue_put(_g_video_queue, frame, 0) != 0) {
-					US_ONCE({ US_JLOG_PERROR("video", "Video queue is full"); });
-					us_frame_destroy(frame);
-				}
-			} else if (result == -1) {
+			} else if (waited != -2) {
 				goto close_memsink;
 			}
 		}
@@ -174,6 +185,7 @@ static void *_video_sink_thread(void *arg) {
 		US_JLOG_INFO("video", "Memsink closed");
 		sleep(1); // error_delay
 	}
+	us_frame_destroy(drop);
 	return NULL;
 }
 
@@ -258,7 +270,7 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	}
 	_g_gw = gw;
 
-	_g_video_queue = us_queue_init(1024);
+	US_RING_INIT_WITH_ITEMS(_g_video_ring, 64, us_frame_init);
 	_g_rtpv = us_rtpv_init(_relay_rtp_clients);
 	if (_g_config->audio_dev_name != NULL && us_audio_probe(_g_config->audio_dev_name)) {
 		_g_rtpa = us_rtpa_init(_relay_rtp_clients);
@@ -286,7 +298,7 @@ static void _plugin_destroy(void) {
 		us_janus_client_destroy(client);
 	});
 
-	US_QUEUE_DELETE_WITH_ITEMS(_g_video_queue, us_frame_destroy);
+	US_RING_DELETE_WITH_ITEMS(_g_video_ring, us_frame_destroy);
 
 	US_DELETE(_g_rtpa, us_rtpa_destroy);
 	US_DELETE(_g_rtpv, us_rtpv_destroy);

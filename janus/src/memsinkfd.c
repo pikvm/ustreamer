@@ -34,7 +34,7 @@
 #include "logging.h"
 
 
-int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s* mem, u64 last_id) {
+int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s *mem, u64 last_id) {
 	const ldf deadline_ts = us_get_now_monotonic() + 1; // wait_timeout
 	ldf now_ts;
 	do {
@@ -57,8 +57,7 @@ int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s* mem, u64 last_id) {
 	return -2;
 }
 
-us_frame_s *us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, u64 *frame_id, bool key_required) {
-	us_frame_s *frame = us_frame_init();
+int us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, us_frame_s *frame, u64 *frame_id, bool key_required) {
 	us_frame_set_data(frame, mem->data, mem->used);
 	US_FRAME_COPY_META(mem, frame);
 	*frame_id = mem->id;
@@ -67,17 +66,14 @@ us_frame_s *us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, u64 *frame
 		mem->key_requested = true;
 	}
 
-	bool ok = true;
+	bool retval = 0;
 	if (frame->format != V4L2_PIX_FMT_H264) {
 		US_JLOG_ERROR("video", "Got non-H264 frame from memsink");
-		ok = false;
+		retval = -1;
 	}
 	if (flock(fd, LOCK_UN) < 0) {
 		US_JLOG_PERROR("video", "Can't unlock memsink");
-		ok = false;
+		retval = -1;
 	}
-	if (!ok) {
-		US_DELETE(frame, us_frame_destroy);
-	}
-	return frame;
+	return retval;
 }

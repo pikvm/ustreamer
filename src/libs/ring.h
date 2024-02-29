@@ -22,10 +22,42 @@
 
 #pragma once
 
-#include "uslibs/types.h"
-#include "uslibs/frame.h"
-#include "uslibs/memsinksh.h"
+
+#include "types.h"
+#include "queue.h"
 
 
-int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s *mem, u64 last_id);
-int us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, us_frame_s *frame, u64 *frame_id, bool key_required);
+typedef struct {
+	uz			capacity;
+	void		**items;
+	uint		*places;
+	us_queue_s	*producer;
+	us_queue_s	*consumer;
+} us_ring_s;
+
+
+#define US_RING_INIT_WITH_ITEMS(x_ring, x_capacity, x_init_item) { \
+		(x_ring) = us_ring_init(x_capacity); \
+		for (uz m_index = 0; m_index < (x_ring)->capacity; ++m_index) { \
+			(x_ring)->items[m_index] = x_init_item(); \
+		} \
+	}
+
+#define US_RING_DELETE_WITH_ITEMS(x_ring, x_destroy_item) { \
+		if (x_ring) { \
+			for (uz m_index = 0; m_index < (x_ring)->capacity; ++m_index) { \
+				x_destroy_item((x_ring)->items[m_index]); \
+			} \
+			us_ring_destroy(x_ring); \
+		} \
+	}
+
+
+us_ring_s *us_ring_init(uint capacity);
+void us_ring_destroy(us_ring_s *ring);
+
+int us_ring_producer_acquire(us_ring_s *ring, ldf timeout);
+void us_ring_producer_release(us_ring_s *ring, uint index);
+
+int us_ring_consumer_acquire(us_ring_s *ring, ldf timeout);
+void us_ring_consumer_release(us_ring_s *ring, uint index);
