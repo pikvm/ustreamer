@@ -41,7 +41,7 @@ static void _http_request_watcher(int fd, short event, void *v_server);
 static void _http_refresher(int fd, short event, void *v_server);
 static void _http_queue_send_stream(us_server_s *server, bool stream_updated, bool frame_updated);
 
-static bool _expose_frame(us_server_s *server, us_frame_s *frame);
+static bool _expose_frame(us_server_s *server, const us_frame_s *frame);
 
 static const char *_http_get_header(struct evhttp_request *request, const char *key);
 static char *_http_get_client_hostport(struct evhttp_request *request);
@@ -865,7 +865,7 @@ static void _http_refresher(int fd, short what, void *v_server) {
 
 	const int ri = us_ring_consumer_acquire(ring, 0);
 	if (ri >= 0) {
-		us_frame_s *const frame = ring->items[ri];
+		const us_frame_s *const frame = ring->items[ri];
 		frame_updated = _expose_frame(server, frame);
 		stream_updated = true;
 		us_ring_consumer_release(ring, ri);
@@ -896,7 +896,7 @@ static void _http_refresher(int fd, short what, void *v_server) {
 	}
 }
 
-static bool _expose_frame(us_server_s *server, us_frame_s *frame) {
+static bool _expose_frame(us_server_s *server, const us_frame_s *frame) {
 	us_server_exposed_s *const ex = server->run->exposed;
 
 	US_LOG_DEBUG("HTTP: Updating exposed frame (online=%d) ...", frame->online);

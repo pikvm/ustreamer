@@ -68,12 +68,12 @@ int us_unjpeg(const us_frame_s *src, us_frame_s *dest, bool decode) {
 
 	jpeg_start_decompress(&jpeg);
 
-	US_FRAME_COPY_META(src, dest);
-	dest->format = V4L2_PIX_FMT_RGB24;
-	dest->width = jpeg.output_width;
-	dest->height = jpeg.output_height;
-	dest->stride = jpeg.output_width * jpeg.output_components; // Row stride
-	dest->used = 0;
+	US_FRAME_COPY_META(src, dest); // cppcheck-suppress redundantAssignment
+	dest->format = V4L2_PIX_FMT_RGB24; // cppcheck-suppress redundantAssignment
+	dest->width = jpeg.output_width; // cppcheck-suppress redundantAssignment
+	dest->height = jpeg.output_height; // cppcheck-suppress redundantAssignment
+	dest->stride = jpeg.output_width * jpeg.output_components; // cppcheck-suppress redundantAssignment
+	dest->used = 0; // cppcheck-suppress redundantAssignment
 
 	if (decode) {
 		JSAMPARRAY scanlines;
