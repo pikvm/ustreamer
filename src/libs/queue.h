@@ -61,4 +61,4 @@ void us_queue_destroy(us_queue_s *queue);
 
 int us_queue_put(us_queue_s *queue, void *item, ldf timeout);
 int us_queue_get(us_queue_s *queue, void **item, ldf timeout);
-int us_queue_get_free(us_queue_s *queue);
+// int us_queue_get_free(us_queue_s *queue);
