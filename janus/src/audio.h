@@ -37,7 +37,7 @@
 
 #include "uslibs/tools.h"
 #include "uslibs/array.h"
-#include "uslibs/queue.h"
+#include "uslibs/ring.h"
 #include "uslibs/threading.h"
 
 #include "logging.h"
@@ -52,8 +52,8 @@ typedef struct {
 	SpeexResamplerState	*res;
 	OpusEncoder			*enc;
 
-	us_queue_s			*pcm_queue;
-	us_queue_s			*enc_queue;
+	us_ring_s			*pcm_ring;
+	us_ring_s			*enc_ring;
 	uint32_t			pts;
 
 	pthread_t			pcm_tid;
