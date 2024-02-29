@@ -38,7 +38,7 @@ typedef struct {
 
 static void _MemsinkObject_destroy_internals(_MemsinkObject *self) {
 	US_DELETE(self->mem, us_memsink_shared_unmap);
-	US_CLOSE_FD(self->fd, close);
+	US_CLOSE_FD(self->fd);
 	US_DELETE(self->frame, us_frame_destroy);
 }
 
@@ -285,7 +285,7 @@ static PyModuleDef _Module = {
 	.m_size = -1,
 };
 
-PyMODINIT_FUNC PyInit_ustreamer(void) { // cppcheck-suppress unusedFunction
+PyMODINIT_FUNC PyInit_ustreamer(void) {
 	PyObject *module = PyModule_Create(&_Module);
 	if (module == NULL) {
 		return NULL;

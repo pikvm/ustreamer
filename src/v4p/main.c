@@ -278,7 +278,7 @@ static void *_follower_thread(void *v_unix_follow) {
 
 		const bool online = !connect(fd, (struct sockaddr *)&addr, sizeof(addr));
 		atomic_store(&_g_ustreamer_online, online);
-		US_CLOSE_FD(fd, close); // cppcheck-suppress unreadVariable
+		US_CLOSE_FD(fd); // cppcheck-suppress unreadVariable
 
 		usleep(200 * 1000);
 	}

@@ -100,7 +100,7 @@ void us_server_destroy(us_server_s *server) {
 	}
 
 	evhttp_free(run->http);
-	US_CLOSE_FD(run->ext_fd, close);
+	US_CLOSE_FD(run->ext_fd);
 	event_base_free(run->base);
 
 #	if LIBEVENT_VERSION_NUMBER >= 0x02010100
@@ -392,7 +392,7 @@ not_found:
 	goto cleanup;
 
 cleanup:
-	US_CLOSE_FD(fd, close); // cppcheck-suppress unreadVariable
+	US_CLOSE_FD(fd); // cppcheck-suppress unreadVariable
 	US_DELETE(static_path, free);
 	US_DELETE(buf, evbuffer_free);
 	US_DELETE(decoded_path, free);

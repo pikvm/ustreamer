@@ -234,7 +234,7 @@ void us_device_close(us_device_s *dev) {
 		for (uint index = 0; index < run->n_bufs; ++index) {
 			us_hw_buffer_s *hw = &run->hw_bufs[index];
 
-			US_CLOSE_FD(hw->dma_fd, close);
+			US_CLOSE_FD(hw->dma_fd);
 
 			if (dev->io_method == V4L2_MEMORY_MMAP) {
 				if (hw->raw.allocated > 0 && hw->raw.data != NULL) {
@@ -254,7 +254,7 @@ void us_device_close(us_device_s *dev) {
 		run->n_bufs = 0;
 	}
 
-	US_CLOSE_FD(run->fd, close);
+	US_CLOSE_FD(run->fd);
 	run->persistent_timeout_reported = false;
 }
 
@@ -920,7 +920,7 @@ static int _device_open_export_to_dma(us_device_s *dev) {
 
 error:
 	for (uint index = 0; index < run->n_bufs; ++index) {
-		US_CLOSE_FD(run->hw_bufs[index].dma_fd, close);
+		US_CLOSE_FD(run->hw_bufs[index].dma_fd);
 	}
 	return -1;
 }

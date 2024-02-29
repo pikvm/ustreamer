@@ -170,7 +170,7 @@ static void *_video_sink_thread(void *arg) {
 
 	close_memsink:
 		US_DELETE(mem, us_memsink_shared_unmap);
-		US_CLOSE_FD(fd, close);
+		US_CLOSE_FD(fd);
 		US_JLOG_INFO("video", "Memsink closed");
 		sleep(1); // error_delay
 	}

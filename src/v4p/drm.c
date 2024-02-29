@@ -254,8 +254,8 @@ static void _drm_cleanup(us_drm_s *drm) {
 		run->n_bufs = 0;
 	}
 
-	US_CLOSE_FD(run->status_fd, close);
-	US_CLOSE_FD(run->fd, close);
+	US_CLOSE_FD(run->status_fd);
+	US_CLOSE_FD(run->fd);
 
 	run->crtc_id = 0;
 	run->next_n_buf = 0;
@@ -391,7 +391,7 @@ static int _drm_check_status(us_drm_s *drm) {
 	return (status_ch == 'd' ? -2 : 0);
 
 error:
-	US_CLOSE_FD(run->status_fd, close);
+	US_CLOSE_FD(run->status_fd);
 	return -1;
 }
 

@@ -179,7 +179,7 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key
 	return 0;
 }
 
-int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_requested, bool key_required) { // cppcheck-suppress unusedFunction
+int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_requested, bool key_required) {
 	assert(!sink->server); // Client only
 
 	if (us_flock_timedwait_monotonic(sink->fd, sink->timeout) < 0) {
