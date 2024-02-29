@@ -57,6 +57,7 @@ typedef struct {
 		x_dest->online = x_src->online; \
 		x_dest->key = x_src->key; \
 		x_dest->gop = x_src->gop; \
+		\
 		x_dest->grab_ts = x_src->grab_ts; \
 		x_dest->encode_begin_ts = x_src->encode_begin_ts; \
 		x_dest->encode_end_ts = x_src->encode_end_ts; \
@@ -65,6 +66,7 @@ typedef struct {
 #define US_FRAME_COMPARE_GEOMETRY(x_a, x_b) ( \
 		/* Compare the used size and significant meta (no timings) */ \
 		x_a->used == x_b->used \
+		\
 		&& x_a->width == x_b->width \
 		&& x_a->height == x_b->height \
 		&& x_a->format == x_b->format \
