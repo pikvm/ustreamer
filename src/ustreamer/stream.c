@@ -245,7 +245,7 @@ static us_workers_pool_s *_stream_init_loop(us_stream_s *stream) {
 		stream->dev->dma_export = (
 			stream->enc->type == US_ENCODER_TYPE_M2M_VIDEO
 			|| stream->enc->type == US_ENCODER_TYPE_M2M_IMAGE
-			|| (_RUN(h264) && !us_is_jpeg(stream->dev->run->format))
+			|| _RUN(h264) != NULL
 		);
 		if (us_device_open(stream->dev) == 0) {
 			return us_encoder_workers_pool_init(stream->enc, stream->dev);

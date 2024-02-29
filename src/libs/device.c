@@ -194,7 +194,8 @@ int us_device_open(us_device_s *dev) {
 	if (_device_open_queue_buffers(dev) < 0) {
 		goto error;
 	}
-	if (dev->dma_export) {
+	if (dev->dma_export && !us_is_jpeg(run->format)) {
+		// uStreamer doesn't have any component that could handle JPEG capture via DMA
 		run->dma = !_device_open_export_to_dma(dev);
 		if (!run->dma && dev->dma_required) {
 			goto error;
