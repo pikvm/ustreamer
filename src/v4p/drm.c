@@ -75,7 +75,8 @@ us_drm_s *us_drm_init(void) {
 
 	us_drm_s *drm;
 	US_CALLOC(drm, 1);
-	drm->path = "/dev/dri/card0";
+	// drm->path = "/dev/dri/card0";
+	drm->path = "/dev/dri/by-path/platform-gpu-card";
 	drm->port = "HDMI-A-1";
 	drm->n_bufs = 4;
 	drm->timeout = 5;
