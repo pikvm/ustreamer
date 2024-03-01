@@ -91,7 +91,9 @@ const char *us_encoder_type_to_string(us_encoder_type_e type) {
 	return _ENCODER_TYPES[0].name;
 }
 
-us_workers_pool_s *us_encoder_workers_pool_init(us_encoder_s *enc, us_device_s *dev) {
+void us_encoder_open(us_encoder_s *enc, us_device_s *dev) {
+	assert(enc->run->pool == NULL);
+
 #	define DR(x_next) dev->run->x_next
 
 	us_encoder_type_e type = (_ER(cpu_forced) ? US_ENCODER_TYPE_CPU : enc->type);
@@ -162,13 +164,18 @@ us_workers_pool_s *us_encoder_workers_pool_init(us_encoder_s *enc, us_device_s *
 			: 0
 		);
 
-		return us_workers_pool_init(
+		enc->run->pool = us_workers_pool_init(
 			"JPEG", "jw", n_workers, desired_interval,
 			_worker_job_init, (void *)enc,
 			_worker_job_destroy,
 			_worker_run_job);
 
 #	undef DR
+}
+
+void us_encoder_close(us_encoder_s *enc) {
+	assert(enc->run->pool != NULL);
+	US_DELETE(enc->run->pool, us_workers_pool_destroy);
 }
 
 void us_encoder_get_runtime_params(us_encoder_s *enc, us_encoder_type_e *type, unsigned *quality) {

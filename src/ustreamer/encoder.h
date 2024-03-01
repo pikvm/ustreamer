@@ -63,6 +63,8 @@ typedef struct {
 
 	unsigned			n_m2ms;
 	us_m2m_encoder_s	**m2ms;
+
+	us_workers_pool_s	*pool;
 } us_encoder_runtime_s;
 
 typedef struct {
@@ -86,7 +88,7 @@ void us_encoder_destroy(us_encoder_s *enc);
 us_encoder_type_e us_encoder_parse_type(const char *str);
 const char *us_encoder_type_to_string(us_encoder_type_e type);
 
-us_workers_pool_s *us_encoder_workers_pool_init(us_encoder_s *enc, us_device_s *dev);
-void us_encoder_get_runtime_params(us_encoder_s *enc, us_encoder_type_e *type, unsigned *quality);
+void us_encoder_open(us_encoder_s *enc, us_device_s *dev);
+void us_encoder_close(us_encoder_s *enc);
 
-int us_encoder_compress(us_encoder_s *enc, unsigned worker_number, us_frame_s *src, us_frame_s *dest);
+void us_encoder_get_runtime_params(us_encoder_s *enc, us_encoder_type_e *type, unsigned *quality);
