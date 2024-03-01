@@ -7,7 +7,7 @@
 /python/ustreamer.egg-info/
 /janus/build/
 /ustreamer
-/ustreamer-dump
+/ustreamer-*
 /config.mk
 vgcore.*
 *.sock
