@@ -88,13 +88,16 @@ override _CFLAGS += $(shell pkg-config --cflags libdrm)
 _V4P_LDFLAGS = $(shell pkg-config --libs libdrm)
 endif
 
+
 # =====
 all: $(_TARGETS)
 
 
 install: all
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
-	for i in $(subst .bin,,$(_TARGETS)); do install -m755 $$i.bin $(DESTDIR)$(PREFIX)/bin/$$i; done
+	for i in $(subst .bin,,$(_TARGETS)); do \
+		install -m755 $$i.bin $(DESTDIR)$(PREFIX)/bin/$$i; \
+	done
 
 
 install-strip: install

@@ -36,7 +36,9 @@ endif
 
 apps:
 	$(MAKE) -C src
-	$(ECHO) ln -sf src/*.bin .
+	for i in src/ustreamer.bin src/ustreamer-*.bin; do \
+		test ! -x $$i || ln -sf $$i .; \
+	done
 
 
 python:
@@ -117,7 +119,7 @@ clean-all: linters clean
 
 clean:
 	rm -rf pkg/arch/pkg pkg/arch/src pkg/arch/v*.tar.gz pkg/arch/ustreamer-*.pkg.tar.{xz,zst}
-	rm -f *.bin *.so
+	rm -f ustreamer ustreamer-* *.so
 	$(MAKE) -C src clean
 	$(MAKE) -C python clean
 	$(MAKE) -C janus clean
