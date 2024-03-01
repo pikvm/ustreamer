@@ -36,8 +36,8 @@ endif
 
 apps:
 	$(MAKE) -C src
-	for i in src/ustreamer.bin src/ustreamer-*.bin; do \
-		test ! -x $$i || ln -sf $$i .; \
+	for i in src/*.bin; do \
+		test ! -x $$i || ln -sf $$i `basename $$i .bin`; \
 	done
 
 
