@@ -34,6 +34,7 @@
 
 #include "../libs/tools.h"
 #include "../libs/threading.h"
+#include "../libs/process.h"
 #include "../libs/logging.h"
 #include "../libs/ring.h"
 #include "../libs/frame.h"
@@ -52,6 +53,7 @@
 typedef struct {
 	us_ring_s		*http_jpeg_ring;
 	atomic_bool		http_has_clients;
+	atomic_uint_least64_t http_last_request_ts; // Seconds
 	atomic_uint		captured_fps;
 
 	bool			last_online;
@@ -71,6 +73,7 @@ typedef struct {
 	int				last_as_blank;
 	bool			slowdown;
 	unsigned		error_delay;
+	unsigned		exit_on_no_clients;
 
 	us_memsink_s	*sink;
 	us_memsink_s	*raw_sink;
@@ -89,5 +92,3 @@ void us_stream_destroy(us_stream_s *stream);
 
 void us_stream_loop(us_stream_s *stream);
 void us_stream_loop_break(us_stream_s *stream);
-
-bool us_stream_has_clients(us_stream_s *stream);

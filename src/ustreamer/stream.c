@@ -23,6 +23,8 @@
 #include "stream.h"
 
 
+static bool _stream_is_stopped(us_stream_s *stream);
+static bool _stream_has_any_clients(us_stream_s *stream);
 static bool _stream_slowdown(us_stream_s *stream);
 static int _stream_init_loop(us_stream_s *stream);
 static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame);
@@ -49,6 +51,7 @@ us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 	US_CALLOC(run, 1);
 	US_RING_INIT_WITH_ITEMS(run->http_jpeg_ring, 4, us_frame_init);
 	atomic_init(&run->http_has_clients, false);
+	atomic_init(&run->http_last_request_ts, 0);
 	atomic_init(&run->captured_fps, 0);
 	atomic_init(&run->stop, false);
 	run->blank = us_blank_init();
@@ -76,6 +79,8 @@ void us_stream_loop(us_stream_s *stream) {
 	US_LOG_INFO("Using V4L2 device: %s", stream->dev->path);
 	US_LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
 
+	atomic_store(&stream->run->http_last_request_ts, us_get_now_monotonic());
+
 	if (stream->h264_sink != NULL) {
 		_RUN(h264) = us_h264_stream_init(stream->h264_sink, stream->h264_m2m_path, stream->h264_bitrate, stream->h264_gop);
 	}
@@ -88,7 +93,7 @@ void us_stream_loop(us_stream_s *stream) {
 
 		US_LOG_INFO("Capturing ...");
 
-		while (!atomic_load(&_RUN(stop))) {
+		while (!_stream_is_stopped(stream)) {
 			US_SEP_DEBUG('-');
 			US_LOG_DEBUG("Waiting for worker ...");
 
@@ -111,7 +116,7 @@ void us_stream_loop(us_stream_s *stream) {
 			}
 
 			const bool h264_force_key = _stream_slowdown(stream);
-			if (atomic_load(&_RUN(stop))) {
+			if (_stream_is_stopped(stream)) {
 				break;
 			}
 
@@ -196,7 +201,27 @@ void us_stream_loop_break(us_stream_s *stream) {
 	atomic_store(&_RUN(stop), true);
 }
 
-bool us_stream_has_clients(us_stream_s *stream) {
+static bool _stream_is_stopped(us_stream_s *stream) {
+	const bool stop = atomic_load(&_RUN(stop));
+	if (stop) {
+		return true;
+	}
+	if (stream->exit_on_no_clients > 0) {
+		const long double now = us_get_now_monotonic();
+		const uint64_t http_last_request_ts = atomic_load(&_RUN(http_last_request_ts)); // Seconds
+		if (_stream_has_any_clients(stream)) {
+			atomic_store(&_RUN(http_last_request_ts), now);
+		} else if (http_last_request_ts + stream->exit_on_no_clients < now) {
+			US_LOG_INFO("No requests or HTTP/sink clients found in last %u seconds, exiting ...",
+				stream->exit_on_no_clients);
+			us_process_suicide();
+			atomic_store(&_RUN(http_last_request_ts), now);
+		}
+	}
+	return false;
+}
+
+static bool _stream_has_any_clients(us_stream_s *stream) {
 	return (
 		atomic_load(&_RUN(http_has_clients))
 		// has_clients синков НЕ обновляются в реальном времени
@@ -208,7 +233,7 @@ bool us_stream_has_clients(us_stream_s *stream) {
 static bool _stream_slowdown(us_stream_s *stream) {
 	if (stream->slowdown) {
 		unsigned count = 0;
-		while (count < 10 && !atomic_load(&_RUN(stop)) && !us_stream_has_clients(stream)) {
+		while (count < 10 && !_stream_is_stopped(stream) && !_stream_has_any_clients(stream)) {
 			usleep(100000);
 			++count;
 		}
@@ -219,7 +244,7 @@ static bool _stream_slowdown(us_stream_s *stream) {
 
 static int _stream_init_loop(us_stream_s *stream) {
 	int access_errno = 0;
-	while (!atomic_load(&_RUN(stop))) {
+	while (!_stream_is_stopped(stream)) {
 		unsigned width = stream->dev->run->width;
 		unsigned height = stream->dev->run->height;
 		if (width == 0 || height == 0) {
@@ -304,7 +329,7 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame) {
 
 	int ri = -1;
 	while (
-		!atomic_load(&_RUN(stop))
+		!_stream_is_stopped(stream)
 		&& ((ri = us_ring_producer_acquire(run->http_jpeg_ring, 0)) < 0)
 	) {
 		US_LOG_ERROR("Can't push JPEG to HTTP ring (no free slots)");

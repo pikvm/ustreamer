@@ -457,7 +457,7 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 				};
 				break;
 #			endif
-			case _O_EXIT_ON_NO_CLIENTS:		OPT_NUMBER("--exit-on-no-clients", server->exit_on_no_clients, 0, 86400, 0);
+			case _O_EXIT_ON_NO_CLIENTS:		OPT_NUMBER("--exit-on-no-clients", stream->exit_on_no_clients, 0, 86400, 0);
 #			ifdef WITH_SETPROCTITLE
 			case _O_PROCESS_NAME_PREFIX:	OPT_SET(process_name_prefix, optarg);
 #			endif

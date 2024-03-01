@@ -37,7 +37,6 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_ctx);
 static void _http_callback_stream_error(struct bufferevent *buf_event, short what, void *v_ctx);
 
-static void _http_request_watcher(int fd, short event, void *v_server);
 static void _http_refresher(int fd, short event, void *v_server);
 static void _http_queue_send_stream(us_server_s *server, bool stream_updated, bool frame_updated);
 
@@ -91,11 +90,6 @@ void us_server_destroy(us_server_s *server) {
 		event_free(run->refresher);
 	}
 
-	if (run->request_watcher != NULL) {
-		event_del(run->request_watcher);
-		event_free(run->request_watcher);
-	}
-
 	evhttp_free(run->http);
 	US_CLOSE_FD(run->ext_fd);
 	event_base_free(run->base);
@@ -139,14 +133,6 @@ int us_server_listen(us_server_s *server) {
 	us_frame_copy(stream->run->blank->jpeg, ex->frame);
 	ex->notify_last_width = ex->frame->width;
 	ex->notify_last_height = ex->frame->height;
-
-	if (server->exit_on_no_clients > 0) {
-		run->last_request_ts = us_get_now_monotonic();
-		struct timeval interval = {0};
-		interval.tv_usec = 100000;
-		assert((run->request_watcher = event_new(run->base, -1, EV_PERSIST, _http_request_watcher, server)) != NULL);
-		assert(!event_add(run->request_watcher, &interval));
-	}
 
 	{
 		struct timeval interval = {0};
@@ -223,7 +209,7 @@ void us_server_loop_break(us_server_s *server) {
 static int _http_preprocess_request(struct evhttp_request *request, us_server_s *server) {
 	us_server_runtime_s *const run = server->run;
 
-	run->last_request_ts = us_get_now_monotonic();
+	atomic_store(&server->stream->run->http_last_request_ts, us_get_now_monotonic());
 
 	if (server->allow_origin[0] != '\0') {
 		const char *const cors_headers = _http_get_header(request, "Access-Control-Request-Headers");
@@ -831,24 +817,6 @@ static void _http_queue_send_stream(us_server_s *server, bool stream_updated, bo
 		queued_fps_accum += 1;
 	} else if (!has_clients) {
 		ex->queued_fps = 0;
-	}
-}
-
-static void _http_request_watcher(int fd, short what, void *v_server) {
-	(void)fd;
-	(void)what;
-
-	us_server_s *const server = (us_server_s *)v_server;
-	us_server_runtime_s *const run = server->run;
-	const long double now = us_get_now_monotonic();
-
-	if (us_stream_has_clients(server->stream)) {
-		run->last_request_ts = now;
-	} else if (run->last_request_ts + server->exit_on_no_clients < now) {
-		US_LOG_INFO("HTTP: No requests or HTTP/sink clients found in last %u seconds, exiting ...",
-			server->exit_on_no_clients);
-		us_process_suicide();
-		run->last_request_ts = now;
 	}
 }
 
