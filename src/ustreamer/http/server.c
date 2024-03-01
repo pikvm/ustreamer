@@ -923,8 +923,9 @@ static bool _expose_frame(us_server_s *server, const us_frame_s *frame) {
 	}
 
 	if (frame->used == 0) {
-		// Фрейм нулевой длины означает, что мы просто должны повторить то что уже есть.
-		US_FRAME_COPY_META(frame, ex->frame);
+		// Фрейм нулевой длины означает, что мы просто должны повторить то,
+		// что у нас уже есть, с поправкой на онлайн.
+		ex->frame->online = frame->online;
 	} else {
 		us_frame_copy(frame, ex->frame);
 	}
