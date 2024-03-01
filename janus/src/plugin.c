@@ -107,7 +107,7 @@ static void *_video_rtp_thread(void *arg) {
 	while (!_STOP) {
 		const int ri = us_ring_consumer_acquire(_g_video_ring, 0.1);
 		if (ri >= 0) {
-			us_frame_s *frame = _g_video_ring->items[ri];
+			const us_frame_s *const frame = _g_video_ring->items[ri];
 			_LOCK_VIDEO;
 			const bool zero_playout_delay = (frame->gop == 0);
 			us_rtpv_wrap(_g_rtpv, frame, zero_playout_delay);

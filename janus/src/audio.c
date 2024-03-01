@@ -170,7 +170,7 @@ int us_audio_get_encoded(us_audio_s *audio, uint8_t *data, size_t *size, uint64_
 	if (ri < 0) {
 		return -2;
 	}
-	_enc_buffer_s *const buf = audio->enc_ring->items[ri];
+	const _enc_buffer_s *const buf = audio->enc_ring->items[ri];
 	if (*size < buf->used) {
 		us_ring_consumer_release(audio->enc_ring, ri);
 		return -3;
