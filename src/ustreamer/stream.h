@@ -24,7 +24,10 @@
 
 #include <stdatomic.h>
 
+#include <pthread.h>
+
 #include "../libs/types.h"
+#include "../libs/queue.h"
 #include "../libs/ring.h"
 #include "../libs/memsink.h"
 #include "../libs/device.h"
@@ -35,6 +38,15 @@
 
 
 typedef struct {
+	pthread_t	tid;
+	us_queue_s	*queue;
+} us_stream_releaser_s;
+
+typedef struct {
+	us_stream_releaser_s	*releasers;
+	pthread_mutex_t			release_mutex;
+	atomic_bool				release_stop;
+
 	us_ring_s		*http_jpeg_ring;
 	atomic_bool		http_has_clients;
 	atomic_ullong	http_last_request_ts; // Seconds
