@@ -50,7 +50,7 @@ typedef struct {
 	us_ring_s		*http_jpeg_ring;
 	atomic_bool		http_has_clients;
 	atomic_ullong	http_last_request_ts; // Seconds
-	atomic_uint		captured_fps;
+	atomic_uint		http_captured_fps;
 
 	bool			last_online;
 	long double		last_as_blank_ts;

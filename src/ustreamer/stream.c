@@ -89,7 +89,7 @@ us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 	US_RING_INIT_WITH_ITEMS(run->http_jpeg_ring, 4, us_frame_init);
 	atomic_init(&run->http_has_clients, false);
 	atomic_init(&run->http_last_request_ts, 0);
-	atomic_init(&run->captured_fps, 0);
+	atomic_init(&run->http_captured_fps, 0);
 	atomic_init(&run->stop, false);
 	run->blank = us_blank_init();
 
@@ -198,7 +198,7 @@ void us_stream_loop(us_stream_s *stream) {
 				const sll now_sec_ts = us_floor_ms(now_ts);
 				if (now_sec_ts != captured_fps_ts) {
 					US_LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps_accum);
-					atomic_store(&run->captured_fps, captured_fps_accum);
+					atomic_store(&run->http_captured_fps, captured_fps_accum);
 					captured_fps_accum = 0;
 					captured_fps_ts = now_sec_ts;
 				}
@@ -319,7 +319,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 		}
 		us_blank_draw(run->blank, "< NO SIGNAL >", width, height);
 
-		atomic_store(&run->captured_fps, 0);
+		atomic_store(&run->http_captured_fps, 0);
 		_stream_expose_frame(stream, NULL);
 
 		_SINK_PUT(raw_sink, run->blank->raw);

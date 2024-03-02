@@ -444,7 +444,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		(server->fake_height ? server->fake_height : ex->frame->height),
 		us_bool_to_string(ex->frame->online),
 		stream->dev->desired_fps,
-		atomic_load(&stream->run->captured_fps),
+		atomic_load(&stream->run->http_captured_fps),
 		ex->queued_fps,
 		run->stream_clients_count
 	);
