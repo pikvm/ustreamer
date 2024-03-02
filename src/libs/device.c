@@ -80,6 +80,7 @@ static const struct {
 	{"USERPTR",	V4L2_MEMORY_USERPTR},
 };
 
+static int _device_wait_buffer(us_device_s *dev);
 static int _device_consume_event(us_device_s *dev);
 static void _v4l2_buffer_copy(const struct v4l2_buffer *src, struct v4l2_buffer *dest);
 static bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf, const u8 *data);
@@ -258,77 +259,23 @@ void us_device_close(us_device_s *dev) {
 	run->persistent_timeout_reported = false;
 }
 
-int us_device_wait_buffer(us_device_s *dev) {
-	us_device_runtime_s *const run = dev->run;
-
-#	define INIT_FD_SET(x_set) \
-		fd_set x_set; FD_ZERO(&x_set); FD_SET(run->fd, &x_set);
-	INIT_FD_SET(read_fds);
-	INIT_FD_SET(error_fds);
-#	undef INIT_FD_SET
-
-	// Раньше мы проверяли и has_write, но потом выяснилось, что libcamerify зачем-то
-	// генерирует эвенты на запись, вероятно ошибочно. Судя по всему, игнорирование
-	// has_write не делает никому плохо.
-
-	struct timeval timeout;
-	timeout.tv_sec = dev->timeout;
-	timeout.tv_usec = 0;
-
-	_D_LOG_DEBUG("Calling select() on video device ...");
-
-	bool has_read = false;
-	bool has_error = false;
-	const int selected = select(run->fd + 1, &read_fds, NULL, &error_fds, &timeout);
-	if (selected > 0) {
-		has_read = FD_ISSET(run->fd, &read_fds);
-		has_error = FD_ISSET(run->fd, &error_fds);
-	}
-	_D_LOG_DEBUG("Device select() --> %d; has_read=%d, has_error=%d", selected, has_read, has_error);
-
-	if (selected < 0) {
-		if (errno != EINTR) {
-			_D_LOG_PERROR("Device select() error");
-		}
-		return -1;
-	} else if (selected == 0) {
-		if (dev->persistent) {
-			if (!run->persistent_timeout_reported) {
-				_D_LOG_ERROR("Persistent device timeout (unplugged)");
-				run->persistent_timeout_reported = true;
-			}
-		} else {
-			// Если устройство не персистентное, то таймаут является ошибкой
-			return -1;
-		}
-		return -2; // No new frames
-	} else {
-		run->persistent_timeout_reported = false;
-		if (has_error && _device_consume_event(dev) < 0) {
-			return -1; // Restart required
-		}
-	}
-	return 0;
-}
-
-static int _device_consume_event(us_device_s *dev) {
-	struct v4l2_event event;
-	if (us_xioctl(dev->run->fd, VIDIOC_DQEVENT, &event) < 0) {
-		_D_LOG_PERROR("Can't consume V4L2 event");
-		return -1;
-	}
-	switch (event.type) {
-		case V4L2_EVENT_SOURCE_CHANGE:
-			_D_LOG_INFO("Got V4L2_EVENT_SOURCE_CHANGE: Source changed");
-			return -1;
-		case V4L2_EVENT_EOS:
-			_D_LOG_INFO("Got V4L2_EVENT_EOS: End of stream");
-			return -1;
-	}
-	return 0;
-}
-
 int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
+	// Это сложная функция, которая делает сразу много всего, чтобы получить новый фрейм.
+	//   - Вызывается _device_wait_buffer() с select() внутри, чтобы подождать новый фрейм
+	//     или эвент V4L2. Обработка эвентов более приоритетна, чем кадров.
+	//   - При таймауте select() в _device_wait_buffer() возвращаем -2 для персистентных
+	//     устройств типа TC358743, для остальных же возвращаем ошибку -1.
+	//   - Если есть новые фреймы, то пропустить их все, пока не закончатся и вернуть
+	//     самый-самый свежий, содержащий при этом валидные данные.
+	//   - Если таковых не нашлось, вернуть -3.
+	//   - Ошибка -1 возвращается при любых сбоях.
+
+	switch (_device_wait_buffer(dev)) {
+		case 0: break; // New frame
+		case -2: return -2; // Persistent timeout
+		default: return -1; // Error
+	}
+
 	us_device_runtime_s *const run = dev->run;
 
 	*hw = NULL;
@@ -409,7 +356,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 				if (buf_got) {
 					break; // Process any latest valid frame
 				} else if (broken) {
-					return -2; // If we have only broken frames on this capture session
+					return -3; // If we have only broken frames on this capture session
 				}
 			}
 			_D_LOG_PERROR("Can't grab device buffer");
@@ -441,6 +388,75 @@ int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw) {
 		return -1;
 	}
 	hw->grabbed = false;
+	return 0;
+}
+
+int _device_wait_buffer(us_device_s *dev) {
+	us_device_runtime_s *const run = dev->run;
+
+#	define INIT_FD_SET(x_set) \
+		fd_set x_set; FD_ZERO(&x_set); FD_SET(run->fd, &x_set);
+	INIT_FD_SET(read_fds);
+	INIT_FD_SET(error_fds);
+#	undef INIT_FD_SET
+
+	// Раньше мы проверяли и has_write, но потом выяснилось, что libcamerify зачем-то
+	// генерирует эвенты на запись, вероятно ошибочно. Судя по всему, игнорирование
+	// has_write не делает никому плохо.
+
+	struct timeval timeout;
+	timeout.tv_sec = dev->timeout;
+	timeout.tv_usec = 0;
+
+	_D_LOG_DEBUG("Calling select() on video device ...");
+
+	bool has_read = false;
+	bool has_error = false;
+	const int selected = select(run->fd + 1, &read_fds, NULL, &error_fds, &timeout);
+	if (selected > 0) {
+		has_read = FD_ISSET(run->fd, &read_fds);
+		has_error = FD_ISSET(run->fd, &error_fds);
+	}
+	_D_LOG_DEBUG("Device select() --> %d; has_read=%d, has_error=%d", selected, has_read, has_error);
+
+	if (selected < 0) {
+		if (errno != EINTR) {
+			_D_LOG_PERROR("Device select() error");
+		}
+		return -1;
+	} else if (selected == 0) {
+		if (!dev->persistent) {
+			// Если устройство не персистентное, то таймаут является ошибкой
+			return -1;
+		}
+		if (!run->persistent_timeout_reported) {
+			_D_LOG_ERROR("Persistent device timeout (unplugged)");
+			run->persistent_timeout_reported = true;
+		}
+		return -2; // Таймаут, нет новых фреймов
+	} else {
+		run->persistent_timeout_reported = false;
+		if (has_error && _device_consume_event(dev) < 0) {
+			return -1; // Restart required
+		}
+	}
+	return 0;
+}
+
+static int _device_consume_event(us_device_s *dev) {
+	struct v4l2_event event;
+	if (us_xioctl(dev->run->fd, VIDIOC_DQEVENT, &event) < 0) {
+		_D_LOG_PERROR("Can't consume V4L2 event");
+		return -1;
+	}
+	switch (event.type) {
+		case V4L2_EVENT_SOURCE_CHANGE:
+			_D_LOG_INFO("Got V4L2_EVENT_SOURCE_CHANGE: Source changed");
+			return -1;
+		case V4L2_EVENT_EOS:
+			_D_LOG_INFO("Got V4L2_EVENT_EOS: End of stream");
+			return -1;
+	}
 	return 0;
 }
 
@@ -666,7 +682,7 @@ static int _device_open_format(us_device_s *dev, bool first) {
 			_format_to_string_supported(FMT(pixelformat)));
 
 		char *format_str;
-		if ((format_str = (char *)_format_to_string_nullable(FMT(pixelformat))) != NULL) {
+		if ((format_str = (char*)_format_to_string_nullable(FMT(pixelformat))) != NULL) {
 			_D_LOG_INFO("Falling back to format=%s", format_str);
 		} else {
 			char fourcc_str[8];

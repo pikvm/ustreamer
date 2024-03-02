@@ -132,6 +132,5 @@ int us_device_parse_io_method(const char *str);
 int us_device_open(us_device_s *dev);
 void us_device_close(us_device_s *dev);
 
-int us_device_wait_buffer(us_device_s *dev);
 int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw);
 int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw);

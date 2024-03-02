@@ -216,29 +216,26 @@ static void _main_loop(void) {
 				continue;
 			}
 
-			switch (us_device_wait_buffer(dev)) {
-				case 0: break; // New frame
+			us_hw_buffer_s *hw;
+			const int buf_index = us_device_grab_buffer(dev, &hw);
+			switch (buf_index) {
+				case -3: continue; // Broken frame
 				case -2: // Persistent timeout
 					if (us_drm_expose(drm, US_DRM_EXPOSE_NO_SIGNAL, NULL, 0) < 0) {
 						_slowdown();
 						continue;
 					}
-				default: goto close; // Error
+				case -1: goto close; // Any error
 			}
+			assert(buf_index >= 0);
 
-			us_hw_buffer_s *hw;
-			const int buf_index = us_device_grab_buffer(dev, &hw);
-			if (buf_index >= 0) {
-				const int exposed = us_drm_expose(drm, US_DRM_EXPOSE_FRAME, &hw->raw, dev->run->hz);
-				if (us_device_release_buffer(dev, hw) < 0) {
-					goto close;
-				}
-				if (exposed < 0) {
-					_slowdown();
-					continue;
-				}
-			} else if (buf_index != -2) { // -2 for broken frame
+			const int exposed = us_drm_expose(drm, US_DRM_EXPOSE_FRAME, &hw->raw, dev->run->hz);
+			if (us_device_release_buffer(dev, hw) < 0) {
 				goto close;
+			}
+			if (exposed < 0) {
+				_slowdown();
+				continue;
 			}
 		}
 

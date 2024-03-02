@@ -98,7 +98,7 @@ void us_stream_loop(us_stream_s *stream) {
 			US_LOG_DEBUG("Waiting for worker ...");
 
 			us_worker_s *const ready_wr = us_workers_pool_wait(stream->enc->run->pool);
-			us_encoder_job_s *const ready_job = (us_encoder_job_s *)(ready_wr->job);
+			us_encoder_job_s *const ready_job = ready_wr->job;
 
 			if (ready_job->hw != NULL) {
 				if (us_device_release_buffer(stream->dev, ready_job->hw) < 0) {
@@ -107,7 +107,7 @@ void us_stream_loop(us_stream_s *stream) {
 				ready_job->hw = NULL;
 				if (ready_wr->job_failed) {
 					// pass
-				} else  if (ready_wr->job_timely) {
+				} else if (ready_wr->job_timely) {
 					_stream_expose_frame(stream, ready_job->dest);
 					US_LOG_PERF("##### Encoded JPEG exposed; worker=%s, latency=%.3Lf",
 						ready_wr->name, us_get_now_monotonic() - ready_job->dest->grab_ts);
@@ -121,56 +121,50 @@ void us_stream_loop(us_stream_s *stream) {
 				goto close;
 			}
 
-			switch (us_device_wait_buffer(stream->dev)) {
-				case 0: break; // New frame
+			us_hw_buffer_s *hw;
+			const int buf_index = us_device_grab_buffer(stream->dev, &hw);
+			switch (buf_index) {
+				case -3: continue; // Broken frame
 				case -2: // Persistent timeout
-#					ifdef WITH_GPIO
-					us_gpio_set_stream_online(false);
-#					endif
-					goto close;
-				default: goto close; // Error
+				case -1: goto close; // Any error
 			}
+			assert(buf_index >= 0);
 
 #			ifdef WITH_GPIO
 			us_gpio_set_stream_online(true);
 #			endif
 
 			const long double now = us_get_now_monotonic();
-			const long long now_second = us_floor_ms(now);
 
-			us_hw_buffer_s *hw;
-			const int buf_index = us_device_grab_buffer(stream->dev, &hw);
-
-			if (buf_index >= 0) {
-				if (now < grab_after) {
-					fluency_passed += 1;
-					US_LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf",
-						fluency_passed, now, grab_after);
-					if (us_device_release_buffer(stream->dev, hw) < 0) {
-						goto close;
-					}
-				} else {
-					fluency_passed = 0;
-
-					if (now_second != captured_fps_second) {
-						US_LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps_accum);
-						atomic_store(&run->captured_fps, captured_fps_accum);
-						captured_fps_accum = 0;
-						captured_fps_second = now_second;
-					}
-					captured_fps_accum += 1;
-
-					const long double fluency_delay = us_workers_pool_get_fluency_delay(stream->enc->run->pool, ready_wr);
-					grab_after = now + fluency_delay;
-					US_LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
-
-					ready_job->hw = hw;
-					us_workers_pool_assign(stream->enc->run->pool, ready_wr);
-					US_LOG_DEBUG("Assigned new frame in buffer=%d to worker=%s", buf_index, ready_wr->name);
-
-					_SINK_PUT(raw_sink, &hw->raw);
-					_H264_PUT(&hw->raw, h264_force_key);
+			if (now < grab_after) {
+				fluency_passed += 1;
+				US_LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf",
+					fluency_passed, now, grab_after);
+				if (us_device_release_buffer(stream->dev, hw) < 0) {
+					goto close;
 				}
+			} else {
+				fluency_passed = 0;
+
+				const long long now_second = us_floor_ms(now);
+				if (now_second != captured_fps_second) {
+					US_LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps_accum);
+					atomic_store(&run->captured_fps, captured_fps_accum);
+					captured_fps_accum = 0;
+					captured_fps_second = now_second;
+				}
+				captured_fps_accum += 1;
+
+				const long double fluency_delay = us_workers_pool_get_fluency_delay(stream->enc->run->pool, ready_wr);
+				grab_after = now + fluency_delay;
+				US_LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
+
+				ready_job->hw = hw;
+				us_workers_pool_assign(stream->enc->run->pool, ready_wr);
+				US_LOG_DEBUG("Assigned new frame in buffer=%d to worker=%s", buf_index, ready_wr->name);
+
+				_SINK_PUT(raw_sink, &hw->raw);
+				_H264_PUT(&hw->raw, h264_force_key);
 			}
 		}
 
@@ -212,7 +206,7 @@ static bool _stream_is_stopped(us_stream_s *stream) {
 }
 
 static bool _stream_has_any_clients(us_stream_s *stream) {
-	us_stream_runtime_s *const run = stream->run;
+	const us_stream_runtime_s *const run = stream->run;
 	return (
 		atomic_load(&run->http_has_clients)
 		// has_clients синков НЕ обновляются в реальном времени
