@@ -366,7 +366,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 	} while (true);
 
 	*hw = &run->hw_bufs[buf.index];
-	atomic_store(&(*hw)->busy, 0);
+	atomic_store(&(*hw)->refs, 0);
 	(*hw)->raw.dma_fd = (*hw)->dma_fd;
 	(*hw)->raw.used = buf.bytesused;
 	(*hw)->raw.width = run->width;
@@ -383,6 +383,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 }
 
 int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw) {
+	assert(atomic_load(&hw->refs) == 0);
 	const uint index = hw->buf.index;
 	_D_LOG_DEBUG("Releasing device buffer=%u ...", index);
 	if (us_xioctl(dev->run->fd, VIDIOC_QBUF, &hw->buf) < 0) {
@@ -390,8 +391,15 @@ int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw) {
 		return -1;
 	}
 	hw->grabbed = false;
-	atomic_store(&hw->busy, 0);
 	return 0;
+}
+
+void us_device_buffer_incref(us_hw_buffer_s *hw) {
+	atomic_fetch_add(&hw->refs, 1);
+}
+
+void us_device_buffer_decref(us_hw_buffer_s *hw) {
+	atomic_fetch_sub(&hw->refs, 1);
 }
 
 int _device_wait_buffer(us_device_s *dev) {
@@ -834,7 +842,7 @@ static int _device_open_io_method_mmap(us_device_s *dev) {
 		}
 
 		us_hw_buffer_s *hw = &run->hw_bufs[run->n_bufs];
-		atomic_init(&hw->busy, false);
+		atomic_init(&hw->refs, 0);
 		const uz buf_size = (run->capture_mplane ? buf.m.planes[0].length : buf.length);
 		const off_t buf_offset = (run->capture_mplane ? buf.m.planes[0].m.mem_offset : buf.m.offset);
 

@@ -48,7 +48,7 @@ typedef struct {
 	struct v4l2_buffer	buf;
 	int					dma_fd;
 	bool				grabbed;
-	atomic_int			busy;
+	atomic_int			refs;
 } us_hw_buffer_s;
 
 typedef struct {
@@ -132,3 +132,6 @@ void us_device_close(us_device_s *dev);
 
 int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw);
 int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw);
+
+void us_device_buffer_incref(us_hw_buffer_s *hw);
+void us_device_buffer_decref(us_hw_buffer_s *hw);
