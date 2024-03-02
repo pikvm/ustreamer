@@ -104,6 +104,7 @@ void us_stream_loop(us_stream_s *stream) {
 				if (us_device_release_buffer(stream->dev, ready_job->hw) < 0) {
 					goto close;
 				}
+				ready_job->hw = NULL;
 				if (ready_wr->job_failed) {
 					// pass
 				} else  if (ready_wr->job_timely) {
