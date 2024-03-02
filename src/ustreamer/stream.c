@@ -120,68 +120,55 @@ void us_stream_loop(us_stream_s *stream) {
 				goto close;
 			}
 
-			bool has_read;
-			bool has_error;
-			const int selected = us_device_select(stream->dev, &has_read, &has_error);
-
-			if (selected < 0) {
-				if (errno != EINTR) {
-					US_LOG_PERROR("Mainloop select() error");
-					goto close;
-				}
-			} else if (selected == 0) { // Persistent timeout
-#				ifdef WITH_GPIO
-				us_gpio_set_stream_online(false);
-#				endif
-			} else {
-				if (has_read) {
+			switch (us_device_wait_buffer(stream->dev)) {
+				case 0: break; // New frame
+				case -2: // Persistent timeout
 #					ifdef WITH_GPIO
-					us_gpio_set_stream_online(true);
+					us_gpio_set_stream_online(false);
 #					endif
+					goto close;
+				default: goto close; // Error
+			}
 
-					const long double now = us_get_now_monotonic();
-					const long long now_second = us_floor_ms(now);
+#			ifdef WITH_GPIO
+			us_gpio_set_stream_online(true);
+#			endif
 
-					us_hw_buffer_s *hw;
-					const int buf_index = us_device_grab_buffer(stream->dev, &hw);
+			const long double now = us_get_now_monotonic();
+			const long long now_second = us_floor_ms(now);
 
-					if (buf_index >= 0) {
-						if (now < grab_after) {
-							fluency_passed += 1;
-							US_LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf",
-								fluency_passed, now, grab_after);
-							if (us_device_release_buffer(stream->dev, hw) < 0) {
-								goto close;
-							}
-						} else {
-							fluency_passed = 0;
+			us_hw_buffer_s *hw;
+			const int buf_index = us_device_grab_buffer(stream->dev, &hw);
 
-							if (now_second != captured_fps_second) {
-								US_LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps_accum);
-								atomic_store(&run->captured_fps, captured_fps_accum);
-								captured_fps_accum = 0;
-								captured_fps_second = now_second;
-							}
-							captured_fps_accum += 1;
-
-							const long double fluency_delay = us_workers_pool_get_fluency_delay(stream->enc->run->pool, ready_wr);
-							grab_after = now + fluency_delay;
-							US_LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
-
-							ready_job->hw = hw;
-							us_workers_pool_assign(stream->enc->run->pool, ready_wr);
-							US_LOG_DEBUG("Assigned new frame in buffer=%d to worker=%s", buf_index, ready_wr->name);
-
-							_SINK_PUT(raw_sink, &hw->raw);
-							_H264_PUT(&hw->raw, h264_force_key);
-						}
-					} else if (buf_index != -2) { // -2 for broken frame
+			if (buf_index >= 0) {
+				if (now < grab_after) {
+					fluency_passed += 1;
+					US_LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf",
+						fluency_passed, now, grab_after);
+					if (us_device_release_buffer(stream->dev, hw) < 0) {
 						goto close;
 					}
-				}
+				} else {
+					fluency_passed = 0;
 
-				if (has_error && us_device_consume_event(stream->dev) < 0) {
-					goto close;
+					if (now_second != captured_fps_second) {
+						US_LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps_accum);
+						atomic_store(&run->captured_fps, captured_fps_accum);
+						captured_fps_accum = 0;
+						captured_fps_second = now_second;
+					}
+					captured_fps_accum += 1;
+
+					const long double fluency_delay = us_workers_pool_get_fluency_delay(stream->enc->run->pool, ready_wr);
+					grab_after = now + fluency_delay;
+					US_LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
+
+					ready_job->hw = hw;
+					us_workers_pool_assign(stream->enc->run->pool, ready_wr);
+					US_LOG_DEBUG("Assigned new frame in buffer=%d to worker=%s", buf_index, ready_wr->name);
+
+					_SINK_PUT(raw_sink, &hw->raw);
+					_H264_PUT(&hw->raw, h264_force_key);
 				}
 			}
 		}

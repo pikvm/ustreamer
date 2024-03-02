@@ -216,40 +216,29 @@ static void _main_loop(void) {
 				continue;
 			}
 
-			bool has_read;
-			bool has_error;
-			const int selected = us_device_select(dev, &has_read, &has_error);
+			switch (us_device_wait_buffer(dev)) {
+				case 0: break; // New frame
+				case -2: // Persistent timeout
+					if (us_drm_expose(drm, US_DRM_EXPOSE_NO_SIGNAL, NULL, 0) < 0) {
+						_slowdown();
+						continue;
+					}
+				default: goto close; // Error
+			}
 
-			if (selected < 0) {
-				if (errno != EINTR) {
-					US_LOG_PERROR("Mainloop select() error");
+			us_hw_buffer_s *hw;
+			const int buf_index = us_device_grab_buffer(dev, &hw);
+			if (buf_index >= 0) {
+				const int exposed = us_drm_expose(drm, US_DRM_EXPOSE_FRAME, &hw->raw, dev->run->hz);
+				if (us_device_release_buffer(dev, hw) < 0) {
 					goto close;
 				}
-			} else if (selected == 0) { // Persistent timeout
-				if (us_drm_expose(drm, US_DRM_EXPOSE_NO_SIGNAL, NULL, 0) < 0) {
+				if (exposed < 0) {
 					_slowdown();
 					continue;
 				}
-			} else {
-				if (has_read) {
-					us_hw_buffer_s *hw;
-					const int buf_index = us_device_grab_buffer(dev, &hw);
-					if (buf_index >= 0) {
-						const int exposed = us_drm_expose(drm, US_DRM_EXPOSE_FRAME, &hw->raw, dev->run->hz);
-						if (us_device_release_buffer(dev, hw) < 0) {
-							goto close;
-						}
-						if (exposed < 0) {
-							_slowdown();
-							continue;
-						}
-					} else if (buf_index != -2) { // -2 for broken frame
-						goto close;
-					}
-				}
-				if (has_error && us_device_consume_event(dev) < 0) {
-					goto close;
-				}
+			} else if (buf_index != -2) { // -2 for broken frame
+				goto close;
 			}
 		}
 

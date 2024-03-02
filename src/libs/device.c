@@ -80,7 +80,7 @@ static const struct {
 	{"USERPTR",	V4L2_MEMORY_USERPTR},
 };
 
-
+static int _device_consume_event(us_device_s *dev);
 static void _v4l2_buffer_copy(const struct v4l2_buffer *src, struct v4l2_buffer *dest);
 static bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf, const u8 *data);
 static int _device_open_check_cap(us_device_s *dev);
@@ -258,7 +258,7 @@ void us_device_close(us_device_s *dev) {
 	run->persistent_timeout_reported = false;
 }
 
-int us_device_select(us_device_s *dev, bool *has_read, bool *has_error) {
+int us_device_wait_buffer(us_device_s *dev) {
 	us_device_runtime_s *const run = dev->run;
 
 #	define INIT_FD_SET(x_set) \
@@ -277,19 +277,21 @@ int us_device_select(us_device_s *dev, bool *has_read, bool *has_error) {
 
 	_D_LOG_DEBUG("Calling select() on video device ...");
 
-	int retval = select(run->fd + 1, &read_fds, NULL, &error_fds, &timeout);
-	if (retval > 0) {
-		*has_read = FD_ISSET(run->fd, &read_fds);
-		*has_error = FD_ISSET(run->fd, &error_fds);
-	} else {
-		*has_read = false;
-		*has_error = false;
+	bool has_read = false;
+	bool has_error = false;
+	const int selected = select(run->fd + 1, &read_fds, NULL, &error_fds, &timeout);
+	if (selected > 0) {
+		has_read = FD_ISSET(run->fd, &read_fds);
+		has_error = FD_ISSET(run->fd, &error_fds);
 	}
-	_D_LOG_DEBUG("Device select() --> %d; has_read=%d, has_error=%d", retval, *has_read, *has_error);
+	_D_LOG_DEBUG("Device select() --> %d; has_read=%d, has_error=%d", selected, has_read, has_error);
 
-	if (retval > 0) {
-		run->persistent_timeout_reported = false;
-	} else if (retval == 0) {
+	if (selected < 0) {
+		if (errno != EINTR) {
+			_D_LOG_PERROR("Device select() error");
+		}
+		return -1;
+	} else if (selected == 0) {
 		if (dev->persistent) {
 			if (!run->persistent_timeout_reported) {
 				_D_LOG_ERROR("Persistent device timeout (unplugged)");
@@ -297,10 +299,33 @@ int us_device_select(us_device_s *dev, bool *has_read, bool *has_error) {
 			}
 		} else {
 			// Если устройство не персистентное, то таймаут является ошибкой
-			retval = -1;
+			return -1;
+		}
+		return -2; // No new frames
+	} else {
+		run->persistent_timeout_reported = false;
+		if (has_error && _device_consume_event(dev) < 0) {
+			return -1; // Restart required
 		}
 	}
-	return retval;
+	return 0;
+}
+
+static int _device_consume_event(us_device_s *dev) {
+	struct v4l2_event event;
+	if (us_xioctl(dev->run->fd, VIDIOC_DQEVENT, &event) < 0) {
+		_D_LOG_PERROR("Can't consume V4L2 event");
+		return -1;
+	}
+	switch (event.type) {
+		case V4L2_EVENT_SOURCE_CHANGE:
+			_D_LOG_INFO("Got V4L2_EVENT_SOURCE_CHANGE: Source changed");
+			return -1;
+		case V4L2_EVENT_EOS:
+			_D_LOG_INFO("Got V4L2_EVENT_EOS: End of stream");
+			return -1;
+	}
+	return 0;
 }
 
 int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
@@ -416,24 +441,6 @@ int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw) {
 		return -1;
 	}
 	hw->grabbed = false;
-	return 0;
-}
-
-int us_device_consume_event(us_device_s *dev) {
-	struct v4l2_event event;
-	_D_LOG_INFO("Consuming V4L2 event ...");
-	if (us_xioctl(dev->run->fd, VIDIOC_DQEVENT, &event) == 0) {
-		switch (event.type) {
-			case V4L2_EVENT_SOURCE_CHANGE:
-				_D_LOG_INFO("Got V4L2_EVENT_SOURCE_CHANGE: source changed");
-				return -1;
-			case V4L2_EVENT_EOS:
-				_D_LOG_INFO("Got V4L2_EVENT_EOS: end of stream (ignored)");
-				return 0;
-		}
-	} else {
-		_D_LOG_PERROR("Got some V4L2 device event, but where is it? ");
-	}
 	return 0;
 }
 
