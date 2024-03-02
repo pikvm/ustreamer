@@ -150,16 +150,16 @@ int us_device_parse_format(const char *str) {
 			return item->format;
 		}
 	});
-	return US_FORMAT_UNKNOWN;
+	return -1;
 }
 
-v4l2_std_id us_device_parse_standard(const char *str) {
-	US_ARRAY_ITERATE(_STANDARDS, 1, item, {
+int us_device_parse_standard(const char *str) {
+	US_ARRAY_ITERATE(_STANDARDS, 0, item, {
 		if (!strcasecmp(item->name, str)) {
 			return item->standard;
 		}
 	});
-	return US_STANDARD_UNKNOWN;
+	return -1;
 }
 
 int us_device_parse_io_method(const char *str) {
@@ -168,7 +168,7 @@ int us_device_parse_io_method(const char *str) {
 			return item->io_method;
 		}
 	});
-	return US_IO_METHOD_UNKNOWN;
+	return -1;
 }
 
 int us_device_open(us_device_s *dev) {
@@ -1083,7 +1083,7 @@ static const char *_standard_to_string(v4l2_std_id standard) {
 			return item->name;
 		}
 	});
-	return _STANDARDS[0].name;
+	return "???";
 }
 
 static const char *_io_method_to_string_supported(enum v4l2_memory io_method) {

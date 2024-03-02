@@ -36,13 +36,8 @@
 
 #define US_VIDEO_MAX_FPS		((uint)120)
 
-#define US_STANDARD_UNKNOWN		V4L2_STD_UNKNOWN
 #define US_STANDARDS_STR		"PAL, NTSC, SECAM"
-
-#define US_FORMAT_UNKNOWN		-1
 #define US_FORMATS_STR			"YUYV, YVYU, UYVY, RGB565, RGB24, BGR24, MJPEG, JPEG"
-
-#define US_IO_METHOD_UNKNOWN	-1
 #define US_IO_METHODS_STR		"MMAP, USERPTR"
 
 
@@ -126,7 +121,7 @@ us_device_s *us_device_init(void);
 void us_device_destroy(us_device_s *dev);
 
 int us_device_parse_format(const char *str);
-v4l2_std_id us_device_parse_standard(const char *str);
+int us_device_parse_standard(const char *str);
 int us_device_parse_io_method(const char *str);
 
 int us_device_open(us_device_s *dev);

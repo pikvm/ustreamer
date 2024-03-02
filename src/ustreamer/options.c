@@ -296,11 +296,13 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 			break; \
 		}
 
-#	define OPT_PARSE(x_name, x_dest, x_func, x_invalid, x_available) { \
-			if ((x_dest = x_func(optarg)) == x_invalid) { \
+#	define OPT_PARSE_ENUM(x_name, x_dest, x_func, x_available) { \
+			const int m_value = x_func(optarg); \
+			if (m_value < 0) { \
 				printf("Unknown " x_name ": %s; available: %s\n", optarg, x_available); \
 				return -1; \
 			} \
+			x_dest = m_value; \
 			break; \
 		}
 
@@ -355,10 +357,10 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 			case _O_RESOLUTION:			OPT_RESOLUTION("--resolution", dev->width, dev->height, true);
 #			pragma GCC diagnostic ignored "-Wsign-compare"
 #			pragma GCC diagnostic push
-			case _O_FORMAT:				OPT_PARSE("pixel format", dev->format, us_device_parse_format, US_FORMAT_UNKNOWN, US_FORMATS_STR);
+			case _O_FORMAT:				OPT_PARSE_ENUM("pixel format", dev->format, us_device_parse_format, US_FORMATS_STR);
 #			pragma GCC diagnostic pop
-			case _O_TV_STANDARD:		OPT_PARSE("TV standard", dev->standard, us_device_parse_standard, US_STANDARD_UNKNOWN, US_STANDARDS_STR);
-			case _O_IO_METHOD:			OPT_PARSE("IO method", dev->io_method, us_device_parse_io_method, US_IO_METHOD_UNKNOWN, US_IO_METHODS_STR);
+			case _O_TV_STANDARD:		OPT_PARSE_ENUM("TV standard", dev->standard, us_device_parse_standard, US_STANDARDS_STR);
+			case _O_IO_METHOD:			OPT_PARSE_ENUM("IO method", dev->io_method, us_device_parse_io_method, US_IO_METHODS_STR);
 			case _O_DESIRED_FPS:		OPT_NUMBER("--desired-fps", dev->desired_fps, 0, US_VIDEO_MAX_FPS, 0);
 			case _O_MIN_FRAME_SIZE:		OPT_NUMBER("--min-frame-size", dev->min_frame_size, 1, 8192, 0);
 			case _O_PERSISTENT:			OPT_SET(dev->persistent, true);
@@ -366,7 +368,7 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 			case _O_BUFFERS:			OPT_NUMBER("--buffers", dev->n_bufs, 1, 32, 0);
 			case _O_WORKERS:			OPT_NUMBER("--workers", enc->n_workers, 1, 32, 0);
 			case _O_QUALITY:			OPT_NUMBER("--quality", dev->jpeg_quality, 1, 100, 0);
-			case _O_ENCODER:			OPT_PARSE("encoder type", enc->type, us_encoder_parse_type, US_ENCODER_TYPE_UNKNOWN, ENCODER_TYPES_STR);
+			case _O_ENCODER:			OPT_PARSE_ENUM("encoder type", enc->type, us_encoder_parse_type, ENCODER_TYPES_STR);
 			case _O_GLITCHED_RESOLUTIONS: break; // Deprecated
 			case _O_BLANK:				break; // Deprecated
 			case _O_LAST_AS_BLANK:		OPT_NUMBER("--last-as-blank", stream->last_as_blank, 0, 86400, 0);

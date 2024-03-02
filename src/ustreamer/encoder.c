@@ -73,13 +73,13 @@ void us_encoder_destroy(us_encoder_s *enc) {
 	free(enc);
 }
 
-us_encoder_type_e us_encoder_parse_type(const char *str) {
+int us_encoder_parse_type(const char *str) {
 	US_ARRAY_ITERATE(_ENCODER_TYPES, 0, item, {
 		if (!strcasecmp(item->name, str)) {
 			return item->type;
 		}
 	});
-	return US_ENCODER_TYPE_UNKNOWN;
+	return -1;
 }
 
 const char *us_encoder_type_to_string(us_encoder_type_e type) {
@@ -205,8 +205,6 @@ static bool _worker_run_job(us_worker_s *wr) {
 	const us_frame_s *src = &job->hw->raw;
 	us_frame_s *dest = job->dest;
 
-	assert(_ER(type) != US_ENCODER_TYPE_UNKNOWN);
-
 	if (_ER(type) == US_ENCODER_TYPE_CPU) {
 		US_LOG_VERBOSE("Compressing JPEG using CPU: worker=%s, buffer=%u",
 			wr->name, job->hw->buf.index);
@@ -230,6 +228,9 @@ static bool _worker_run_job(us_worker_s *wr) {
 		us_frame_encoding_begin(src, dest, V4L2_PIX_FMT_JPEG);
 		usleep(5000); // Просто чтобы работала логика desired_fps
 		dest->encode_end_ts = us_get_now_monotonic(); // us_frame_encoding_end()
+
+	} else {
+		assert(0 && "Unknown encoder type");
 	}
 
 	US_LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%s, buffer=%u",

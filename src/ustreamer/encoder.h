@@ -47,7 +47,6 @@
 #define ENCODER_TYPES_STR "CPU, HW, M2M-VIDEO, M2M-IMAGE, NOOP"
 
 typedef enum {
-	US_ENCODER_TYPE_UNKNOWN, // Only for us_encoder_parse_type() and main()
 	US_ENCODER_TYPE_CPU,
 	US_ENCODER_TYPE_HW,
 	US_ENCODER_TYPE_M2M_VIDEO,
@@ -85,7 +84,7 @@ typedef struct {
 us_encoder_s *us_encoder_init(void);
 void us_encoder_destroy(us_encoder_s *enc);
 
-us_encoder_type_e us_encoder_parse_type(const char *str);
+int us_encoder_parse_type(const char *str);
 const char *us_encoder_type_to_string(us_encoder_type_e type);
 
 void us_encoder_open(us_encoder_s *enc, us_device_s *dev);
