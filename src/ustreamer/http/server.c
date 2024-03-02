@@ -207,7 +207,7 @@ void us_server_loop_break(us_server_s *server) {
 #define ADD_HEADER(x_key, x_value) assert(!evhttp_add_header(evhttp_request_get_output_headers(request), x_key, x_value))
 
 static int _http_preprocess_request(struct evhttp_request *request, us_server_s *server) {
-	us_server_runtime_s *const run = server->run;
+	const us_server_runtime_s *const run = server->run;
 
 	atomic_store(&server->stream->run->http_last_request_ts, us_get_now_monotonic());
 
