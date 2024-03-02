@@ -14,7 +14,7 @@ _V4P = ustreamer-v4p.bin
 _CFLAGS = -MD -c -std=c17 -Wall -Wextra -D_GNU_SOURCE $(CFLAGS)
 _LDFLAGS = $(LDFLAGS)
 
-_COMMON_LIBS = -lm -ljpeg -pthread -lrt
+_COMMON_LIBS = -lm -ljpeg -pthread -lrt -latomic
 
 _USTR_LIBS = $(_COMMON_LIBS) -levent -levent_pthreads
 _USTR_SRCS = $(shell ls \
