@@ -50,6 +50,15 @@
 
 
 typedef struct {
+	pthread_t			tid;
+	us_device_s			*dev;
+	us_queue_s			*queue;
+	us_h264_stream_s	*h264;
+	atomic_bool			*stop;
+} _h264_context_s;
+
+typedef struct {
+	pthread_t		tid;
 	us_device_s		*dev;
 	us_queue_s		*queue;
 	pthread_mutex_t	*mutex;
@@ -57,14 +66,14 @@ typedef struct {
 } _releaser_context_s;
 
 
+static void *_h264_thread(void *v_ctx);
 static void *_releaser_thread(void *v_ctx);
 
-static void _stream_release_buffer(us_stream_s *stream, us_hw_buffer_s *hw);
-static bool _stream_is_stopped(us_stream_s *stream);
 static bool _stream_has_any_clients(us_stream_s *stream);
 static bool _stream_slowdown(us_stream_s *stream);
 static int _stream_init_loop(us_stream_s *stream);
 static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame);
+static void _stream_check_suicide(us_stream_s *stream);
 
 
 #define _SINK_PUT(x_sink, x_frame) { \
@@ -74,18 +83,10 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame);
 		} \
 	}
 
-#define _H264_PUT(x_frame, x_force_key) { \
-		if (stream->run->h264) { \
-			us_h264_stream_process(stream->run->h264, x_frame, x_force_key); \
-		} \
-	}
-
 
 us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 	us_stream_runtime_s *run;
 	US_CALLOC(run, 1);
-	US_MUTEX_INIT(run->release_mutex);
-	atomic_init(&run->release_stop, false);
 	US_RING_INIT_WITH_ITEMS(run->http_jpeg_ring, 4, us_frame_init);
 	atomic_init(&run->http_has_clients, false);
 	atomic_init(&run->http_last_request_ts, 0);
@@ -108,7 +109,6 @@ us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 void us_stream_destroy(us_stream_s *stream) {
 	us_blank_destroy(stream->run->blank);
 	US_RING_DELETE_WITH_ITEMS(stream->run->http_jpeg_ring, us_frame_destroy);
-	US_MUTEX_DESTROY(stream->run->release_mutex);
 	free(stream->run);
 	free(stream);
 }
@@ -126,17 +126,29 @@ void us_stream_loop(us_stream_s *stream) {
 	}
 
 	while (!_stream_init_loop(stream)) {
+		atomic_bool threads_stop;
+		atomic_init(&threads_stop, false);
+
+		pthread_mutex_t release_mutex;
+		US_MUTEX_INIT(release_mutex);
 		const uint n_releasers = stream->dev->run->n_bufs;
-		US_CALLOC(run->releasers, n_releasers);
+		_releaser_context_s *releasers;
+		US_CALLOC(releasers, n_releasers);
 		for (uint index = 0; index < n_releasers; ++index) {
-			run->releasers[index].queue = us_queue_init(1);
-			_releaser_context_s *ctx;
-			US_CALLOC(ctx, 1);
-			ctx->dev = stream->dev;
-			ctx->queue = run->releasers[index].queue;
-			ctx->mutex = &run->release_mutex;
-			ctx->stop = &run->release_stop;
-			US_THREAD_CREATE(run->releasers[index].tid, _releaser_thread, ctx);
+			releasers[index].dev = stream->dev;
+			releasers[index].queue = us_queue_init(1);
+			releasers[index].mutex = &release_mutex;
+			releasers[index].stop = &threads_stop;
+			US_THREAD_CREATE(releasers[index].tid, _releaser_thread, &releasers[index]);
+		}
+
+		_h264_context_s h264_ctx;
+		if (run->h264 != NULL) {
+			h264_ctx.dev = stream->dev;
+			h264_ctx.queue = us_queue_init(stream->dev->run->n_bufs);
+			h264_ctx.h264 = run->h264;
+			h264_ctx.stop = &threads_stop;
+			US_THREAD_CREATE(h264_ctx.tid, _h264_thread, &h264_ctx);
 		}
 
 		ldf grab_after = 0;
@@ -146,7 +158,9 @@ void us_stream_loop(us_stream_s *stream) {
 
 		US_LOG_INFO("Capturing ...");
 
-		while (!_stream_is_stopped(stream) && !atomic_load(&run->release_stop)) {
+		while (!atomic_load(&run->stop) && !atomic_load(&threads_stop)) {
+			_stream_check_suicide(stream);
+
 			US_SEP_DEBUG('-');
 			US_LOG_DEBUG("Waiting for worker ...");
 
@@ -154,7 +168,8 @@ void us_stream_loop(us_stream_s *stream) {
 			us_encoder_job_s *const ready_job = ready_wr->job;
 
 			if (ready_job->hw != NULL) {
-				_stream_release_buffer(stream, ready_job->hw);
+				assert(!us_queue_put(releasers[ready_job->hw->buf.index].queue, ready_job->hw, 0));
+				atomic_fetch_sub(&ready_job->hw->busy, 1);
 				ready_job->hw = NULL;
 				if (ready_wr->job_failed) {
 					// pass
@@ -168,7 +183,7 @@ void us_stream_loop(us_stream_s *stream) {
 			}
 
 			const bool h264_force_key = _stream_slowdown(stream);
-			if (_stream_is_stopped(stream)) {
+			if (atomic_load(&run->stop) || atomic_load(&threads_stop)) {
 				goto close;
 			}
 
@@ -191,8 +206,14 @@ void us_stream_loop(us_stream_s *stream) {
 				fluency_passed += 1;
 				US_LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf",
 					fluency_passed, now_ts, grab_after);
-				_stream_release_buffer(stream, hw);
+				assert(!us_queue_put(releasers[hw->buf.index].queue, hw, 0));
 			} else {
+				int hw_busy = 1;
+				if (run->h264 != NULL) {
+					hw_busy += 1;
+				}
+				atomic_store(&hw->busy, hw_busy);
+
 				fluency_passed = 0;
 
 				const sll now_sec_ts = us_floor_ms(now_ts);
@@ -213,18 +234,29 @@ void us_stream_loop(us_stream_s *stream) {
 				US_LOG_DEBUG("Assigned new frame in buffer=%d to worker=%s", buf_index, ready_wr->name);
 
 				_SINK_PUT(raw_sink, &hw->raw);
-				_H264_PUT(&hw->raw, h264_force_key);
+
+				if (run->h264 != NULL) {
+					us_queue_put(h264_ctx.queue, hw, h264_force_key);
+				}
 			}
 		}
 
 	close:
-		atomic_store(&run->release_stop, true);
-		for (uint index = 0; index < n_releasers; ++index) {
-			US_THREAD_JOIN(run->releasers[index].tid);
-			us_queue_destroy(run->releasers[index].queue);
+		atomic_store(&threads_stop, true);
+
+		if (run->h264 != NULL) {
+			US_THREAD_JOIN(h264_ctx.tid);
+			us_queue_destroy(h264_ctx.queue);
 		}
-		free(run->releasers);
-		atomic_store(&run->release_stop, false);
+
+		for (uint index = 0; index < n_releasers; ++index) {
+			US_THREAD_JOIN(releasers[index].tid);
+			us_queue_destroy(releasers[index].queue);
+		}
+		free(releasers);
+		US_MUTEX_DESTROY(release_mutex);
+
+		atomic_store(&threads_stop, false);
 
 		us_encoder_close(stream->enc);
 		us_device_close(stream->dev);
@@ -241,11 +273,29 @@ void us_stream_loop_break(us_stream_s *stream) {
 	atomic_store(&stream->run->stop, true);
 }
 
+static void *_h264_thread(void *v_ctx) {
+	_h264_context_s *ctx = v_ctx;
+	while (!atomic_load(ctx->stop)) {
+		us_hw_buffer_s *hw;
+		if (!us_queue_get(ctx->queue, (void**)&hw, 0.1)) {
+			us_h264_stream_process(ctx->h264, &hw->raw, false);
+			atomic_fetch_sub(&hw->busy, 1);
+		}
+	}
+	return NULL;
+}
+
 static void *_releaser_thread(void *v_ctx) {
 	_releaser_context_s *ctx = v_ctx;
 	while (!atomic_load(ctx->stop)) {
 		us_hw_buffer_s *hw;
 		if (!us_queue_get(ctx->queue, (void**)&hw, 0.1)) {
+			while (atomic_load(&hw->busy) > 0) {
+				if (atomic_load(ctx->stop)) {
+					break;
+				}
+				usleep(5 * 1000);
+			}
 			US_MUTEX_LOCK(*ctx->mutex);
 			const int released = us_device_release_buffer(ctx->dev, hw);
 			US_MUTEX_UNLOCK(*ctx->mutex);
@@ -254,34 +304,8 @@ static void *_releaser_thread(void *v_ctx) {
 			}
 		}
 	}
-	atomic_store(ctx->stop, true); // Stop all other guys
-	free(ctx);
+	atomic_store(ctx->stop, true); // Stop all other guys on error
 	return NULL;
-}
-
-static void _stream_release_buffer(us_stream_s *stream, us_hw_buffer_s *hw) {
-	assert(!us_queue_put(stream->run->releasers[hw->buf.index].queue, hw, 0));
-}
-
-static bool _stream_is_stopped(us_stream_s *stream) {
-	us_stream_runtime_s *const run = stream->run;
-	const bool stop = atomic_load(&run->stop);
-	if (stop) {
-		return true;
-	}
-	if (stream->exit_on_no_clients > 0) {
-		const ldf now_ts = us_get_now_monotonic();
-		const ull http_last_request_ts = atomic_load(&run->http_last_request_ts); // Seconds
-		if (_stream_has_any_clients(stream)) {
-			atomic_store(&run->http_last_request_ts, now_ts);
-		} else if (http_last_request_ts + stream->exit_on_no_clients < now_ts) {
-			US_LOG_INFO("No requests or HTTP/sink clients found in last %u seconds, exiting ...",
-				stream->exit_on_no_clients);
-			us_process_suicide();
-			atomic_store(&run->http_last_request_ts, now_ts);
-		}
-	}
-	return false;
 }
 
 static bool _stream_has_any_clients(us_stream_s *stream) {
@@ -297,7 +321,7 @@ static bool _stream_has_any_clients(us_stream_s *stream) {
 static bool _stream_slowdown(us_stream_s *stream) {
 	if (stream->slowdown) {
 		unsigned count = 0;
-		while (count < 10 && !_stream_is_stopped(stream) && !_stream_has_any_clients(stream)) {
+		while (count < 10 && !atomic_load(&stream->run->stop) && !_stream_has_any_clients(stream)) {
 			usleep(100000);
 			++count;
 		}
@@ -310,7 +334,9 @@ static int _stream_init_loop(us_stream_s *stream) {
 	us_stream_runtime_s *const run = stream->run;
 
 	int access_errno = 0;
-	while (!_stream_is_stopped(stream)) {
+	while (!atomic_load(&stream->run->stop)) {
+		_stream_check_suicide(stream);
+
 		unsigned width = stream->dev->run->width;
 		unsigned height = stream->dev->run->height;
 		if (width == 0 || height == 0) {
@@ -323,7 +349,10 @@ static int _stream_init_loop(us_stream_s *stream) {
 		_stream_expose_frame(stream, NULL);
 
 		_SINK_PUT(raw_sink, run->blank->raw);
-		_H264_PUT(run->blank->raw, false);
+
+		if (run->h264 != NULL) {
+			us_h264_stream_process(run->h264, run->blank->raw, false);
+		}
 
 		if (access(stream->dev->path, R_OK|W_OK) < 0) {
 			if (access_errno != errno) {
@@ -394,7 +423,7 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame) {
 
 	int ri = -1;
 	while (
-		!_stream_is_stopped(stream)
+		!atomic_load(&run->stop)
 		&& ((ri = us_ring_producer_acquire(run->http_jpeg_ring, 0)) < 0)
 	) {
 		US_LOG_ERROR("Can't push JPEG to HTTP ring (no free slots)");
@@ -415,4 +444,21 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame) {
 	us_ring_producer_release(run->http_jpeg_ring, ri);
 
 	_SINK_PUT(jpeg_sink, (frame != NULL ? frame : run->blank->jpeg));
+}
+
+static void _stream_check_suicide(us_stream_s *stream) {
+	us_stream_runtime_s *const run = stream->run;
+	if (stream->exit_on_no_clients <= 0) {
+		return;
+	}
+	const ldf now_ts = us_get_now_monotonic();
+	const ull http_last_request_ts = atomic_load(&run->http_last_request_ts); // Seconds
+	if (_stream_has_any_clients(stream)) {
+		atomic_store(&run->http_last_request_ts, now_ts);
+	} else if (http_last_request_ts + stream->exit_on_no_clients < now_ts) {
+		US_LOG_INFO("No requests or HTTP/sink clients found in last %u seconds, exiting ...",
+			stream->exit_on_no_clients);
+		us_process_suicide();
+		atomic_store(&run->http_last_request_ts, now_ts);
+	}
 }

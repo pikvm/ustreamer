@@ -38,14 +38,7 @@
 
 
 typedef struct {
-	pthread_t	tid;
-	us_queue_s	*queue;
-} us_stream_releaser_s;
-
-typedef struct {
-	us_stream_releaser_s	*releasers;
-	pthread_mutex_t			release_mutex;
-	atomic_bool				release_stop;
+	us_h264_stream_s	*h264;
 
 	us_ring_s		*http_jpeg_ring;
 	atomic_bool		http_has_clients;
@@ -54,8 +47,6 @@ typedef struct {
 
 	bool			last_online;
 	long double		last_as_blank_ts;
-
-	us_h264_stream_s	*h264;
 
 	us_blank_s		*blank;
 

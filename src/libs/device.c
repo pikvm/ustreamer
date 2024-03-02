@@ -23,6 +23,7 @@
 #include "device.h"
 
 #include <stdlib.h>
+#include <stdatomic.h>
 #include <stddef.h>
 #include <string.h>
 #include <strings.h>
@@ -365,6 +366,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 	} while (true);
 
 	*hw = &run->hw_bufs[buf.index];
+	atomic_store(&(*hw)->busy, 0);
 	(*hw)->raw.dma_fd = (*hw)->dma_fd;
 	(*hw)->raw.used = buf.bytesused;
 	(*hw)->raw.width = run->width;
@@ -388,6 +390,7 @@ int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw) {
 		return -1;
 	}
 	hw->grabbed = false;
+	atomic_store(&hw->busy, 0);
 	return 0;
 }
 
@@ -831,6 +834,7 @@ static int _device_open_io_method_mmap(us_device_s *dev) {
 		}
 
 		us_hw_buffer_s *hw = &run->hw_bufs[run->n_bufs];
+		atomic_init(&hw->busy, false);
 		const uz buf_size = (run->capture_mplane ? buf.m.planes[0].length : buf.length);
 		const off_t buf_offset = (run->capture_mplane ? buf.m.planes[0].m.mem_offset : buf.m.offset);
 

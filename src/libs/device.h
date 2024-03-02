@@ -22,6 +22,8 @@
 
 #pragma once
 
+#include <stdatomic.h>
+
 #include <linux/videodev2.h>
 
 #include "types.h"
@@ -46,6 +48,7 @@ typedef struct {
 	struct v4l2_buffer	buf;
 	int					dma_fd;
 	bool				grabbed;
+	atomic_int			busy;
 } us_hw_buffer_s;
 
 typedef struct {
