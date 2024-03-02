@@ -427,6 +427,7 @@ int _device_wait_buffer(us_device_s *dev) {
 	} else if (selected == 0) {
 		if (!dev->persistent) {
 			// Если устройство не персистентное, то таймаут является ошибкой
+			_D_LOG_ERROR("Device select() timeout");
 			return -1;
 		}
 		if (!run->persistent_timeout_reported) {
