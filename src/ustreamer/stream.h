@@ -22,32 +22,16 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <stdbool.h>
 #include <stdatomic.h>
-#include <unistd.h>
-#include <errno.h>
-#include <assert.h>
 
-#include <pthread.h>
-#include <linux/videodev2.h>
-
-#include "../libs/tools.h"
-#include "../libs/threading.h"
-#include "../libs/process.h"
-#include "../libs/logging.h"
+#include "../libs/types.h"
 #include "../libs/ring.h"
-#include "../libs/frame.h"
 #include "../libs/memsink.h"
 #include "../libs/device.h"
 
 #include "blank.h"
 #include "encoder.h"
-#include "workers.h"
 #include "h264.h"
-#ifdef WITH_GPIO
-#	include "gpio/gpio.h"
-#endif
 
 
 typedef struct {
