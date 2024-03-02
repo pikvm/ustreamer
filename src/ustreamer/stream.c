@@ -237,7 +237,7 @@ static bool _stream_has_any_clients(us_stream_s *stream) {
 	return (
 		atomic_load(&run->http_has_clients)
 		// has_clients синков НЕ обновляются в реальном времени
-		|| (stream->sink != NULL && atomic_load(&stream->sink->has_clients))
+		|| (stream->jpeg_sink != NULL && atomic_load(&stream->jpeg_sink->has_clients))
 		|| (run->h264 != NULL && /*run->h264->sink == NULL ||*/ atomic_load(&run->h264->sink->has_clients))
 	);
 }
@@ -362,5 +362,5 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame) {
 	run->last_online = (frame != NULL);
 	us_ring_producer_release(run->http_jpeg_ring, ri);
 
-	_SINK_PUT(sink, (frame != NULL ? frame : run->blank->jpeg));
+	_SINK_PUT(jpeg_sink, (frame != NULL ? frame : run->blank->jpeg));
 }

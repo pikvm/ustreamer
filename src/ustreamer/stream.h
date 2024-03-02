@@ -59,7 +59,7 @@ typedef struct {
 	unsigned		error_delay;
 	unsigned		exit_on_no_clients;
 
-	us_memsink_s	*sink;
+	us_memsink_s	*jpeg_sink;
 	us_memsink_s	*raw_sink;
 
 	us_memsink_s	*h264_sink;

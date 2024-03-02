@@ -53,7 +53,7 @@ typedef struct {
 	unsigned		argc;
 	char			**argv;
 	char			**argv_copy;
-	us_memsink_s	*sink;
+	us_memsink_s	*jpeg_sink;
 	us_memsink_s	*raw_sink;
 	us_memsink_s	*h264_sink;
 } us_options_s;

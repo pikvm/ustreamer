@@ -250,7 +250,7 @@ us_options_s *us_options_init(unsigned argc, char *argv[]) {
 }
 
 void us_options_destroy(us_options_s *options) {
-	US_DELETE(options->sink, us_memsink_destroy);
+	US_DELETE(options->jpeg_sink, us_memsink_destroy);
 	US_DELETE(options->raw_sink, us_memsink_destroy);
 	US_DELETE(options->h264_sink, us_memsink_destroy);
 
@@ -338,7 +338,7 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 		bool x_prefix##_rm = false; \
 		unsigned x_prefix##_client_ttl = 10; \
 		unsigned x_prefix##_timeout = 1;
-	ADD_SINK(sink);
+	ADD_SINK(jpeg_sink);
 	ADD_SINK(raw_sink);
 	ADD_SINK(h264_sink);
 #	undef ADD_SINK
@@ -436,7 +436,7 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 				case _O_##x_up##_RM:			OPT_SET(x_lp##_rm, true); \
 				case _O_##x_up##_CLIENT_TTL:	OPT_NUMBER("--" #x_opt "sink-client-ttl", x_lp##_client_ttl, 1, 60, 0); \
 				case _O_##x_up##_TIMEOUT:		OPT_NUMBER("--" #x_opt "sink-timeout", x_lp##_timeout, 1, 60, 0);
-			ADD_SINK("", sink, SINK)
+			ADD_SINK("", jpeg_sink, SINK)
 			ADD_SINK("raw-", raw_sink, RAW_SINK)
 			ADD_SINK("h264-", h264_sink, H264_SINK)
 			case _O_H264_BITRATE:			OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 25, 20000, 0);
@@ -497,7 +497,7 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 			} \
 			stream->x_prefix = options->x_prefix; \
 		}
-	ADD_SINK("JPEG", sink);
+	ADD_SINK("JPEG", jpeg_sink);
 	ADD_SINK("RAW", raw_sink);
 	ADD_SINK("H264", h264_sink);
 #	undef ADD_SINK

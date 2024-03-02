@@ -418,18 +418,18 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		);
 	}
 
-	if (stream->sink != NULL || stream->h264_sink != NULL) {
+	if (stream->jpeg_sink != NULL || stream->h264_sink != NULL) {
 		_A_EVBUFFER_ADD_PRINTF(buf, " \"sinks\": {");
-		if (stream->sink != NULL) {
+		if (stream->jpeg_sink != NULL) {
 			_A_EVBUFFER_ADD_PRINTF(buf,
 				"\"jpeg\": {\"has_clients\": %s}",
-				us_bool_to_string(atomic_load(&stream->sink->has_clients))
+				us_bool_to_string(atomic_load(&stream->jpeg_sink->has_clients))
 			);
 		}
 		if (stream->h264_sink != NULL) {
 			_A_EVBUFFER_ADD_PRINTF(buf,
 				"%s\"h264\": {\"has_clients\": %s}",
-				(stream->sink ? ", " : ""),
+				(stream->jpeg_sink ? ", " : ""),
 				us_bool_to_string(atomic_load(&stream->h264_sink->has_clients))
 			);
 		}
