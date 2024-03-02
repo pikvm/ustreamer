@@ -86,10 +86,10 @@ void us_stream_loop(us_stream_s *stream) {
 	}
 
 	while (!_stream_init_loop(stream)) {
-		long double grab_after = 0;
-		unsigned fluency_passed = 0;
-		unsigned captured_fps_accum = 0;
-		long long captured_fps_second = 0;
+		ldf grab_after = 0;
+		uint fluency_passed = 0;
+		uint captured_fps_accum = 0;
+		sll captured_fps_second = 0;
 
 		US_LOG_INFO("Capturing ...");
 
@@ -134,7 +134,7 @@ void us_stream_loop(us_stream_s *stream) {
 			us_gpio_set_stream_online(true);
 #			endif
 
-			const long double now = us_get_now_monotonic();
+			const ldf now = us_get_now_monotonic();
 
 			if (now < grab_after) {
 				fluency_passed += 1;
@@ -146,7 +146,7 @@ void us_stream_loop(us_stream_s *stream) {
 			} else {
 				fluency_passed = 0;
 
-				const long long now_second = us_floor_ms(now);
+				const sll now_second = us_floor_ms(now);
 				if (now_second != captured_fps_second) {
 					US_LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps_accum);
 					atomic_store(&run->captured_fps, captured_fps_accum);
@@ -155,7 +155,7 @@ void us_stream_loop(us_stream_s *stream) {
 				}
 				captured_fps_accum += 1;
 
-				const long double fluency_delay = us_workers_pool_get_fluency_delay(stream->enc->run->pool, ready_wr);
+				const ldf fluency_delay = us_workers_pool_get_fluency_delay(stream->enc->run->pool, ready_wr);
 				grab_after = now + fluency_delay;
 				US_LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
 
@@ -191,8 +191,8 @@ static bool _stream_is_stopped(us_stream_s *stream) {
 		return true;
 	}
 	if (stream->exit_on_no_clients > 0) {
-		const long double now = us_get_now_monotonic();
-		const uint64_t http_last_request_ts = atomic_load(&run->http_last_request_ts); // Seconds
+		const ldf now = us_get_now_monotonic();
+		const u64 http_last_request_ts = atomic_load(&run->http_last_request_ts); // Seconds
 		if (_stream_has_any_clients(stream)) {
 			atomic_store(&run->http_last_request_ts, now);
 		} else if (http_last_request_ts + stream->exit_on_no_clients < now) {
