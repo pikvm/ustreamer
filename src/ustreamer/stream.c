@@ -141,11 +141,12 @@ void us_stream_loop(us_stream_s *stream) {
 		_releaser_context_s *releasers;
 		US_CALLOC(releasers, n_releasers);
 		for (uint index = 0; index < n_releasers; ++index) {
-			releasers[index].dev = stream->dev;
-			releasers[index].queue = us_queue_init(1);
-			releasers[index].mutex = &release_mutex;
-			releasers[index].stop = &threads_stop;
-			US_THREAD_CREATE(releasers[index].tid, _releaser_thread, &releasers[index]);
+			_releaser_context_s *ctx = &releasers[index];
+			ctx->dev = stream->dev;
+			ctx->queue = us_queue_init(1);
+			ctx->mutex = &release_mutex;
+			ctx->stop = &threads_stop;
+			US_THREAD_CREATE(ctx->tid, _releaser_thread, ctx);
 		}
 
 		_jpeg_context_s jpeg_ctx = {
