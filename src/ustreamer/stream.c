@@ -95,6 +95,7 @@ us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 	US_CALLOC(run, 1);
 	US_RING_INIT_WITH_ITEMS(run->http_jpeg_ring, 4, us_frame_init);
 	atomic_init(&run->http_has_clients, false);
+	atomic_init(&run->http_snapshot_requested, 0);
 	atomic_init(&run->http_last_request_ts, 0);
 	atomic_init(&run->http_captured_fps, 0);
 	atomic_init(&run->stop, false);
@@ -267,6 +268,9 @@ static void *_jpeg_thread(void *v_ctx) {
 				// pass
 			} else if (ready_wr->job_timely) {
 				_stream_expose_frame(stream, ready_job->dest);
+				if (atomic_load(&stream->run->http_snapshot_requested) > 0) { // Process real snapshots
+					atomic_fetch_sub(&stream->run->http_snapshot_requested, 1);
+				}
 				US_LOG_PERF("##### Encoded JPEG exposed; worker=%s, latency=%.3Lf",
 					ready_wr->name, us_get_now_monotonic() - ready_job->dest->grab_ts);
 			} else {
@@ -354,6 +358,7 @@ static bool _stream_has_any_clients(us_stream_s *stream) {
 	const us_stream_runtime_s *const run = stream->run;
 	return (
 		atomic_load(&run->http_has_clients)
+		|| (atomic_load(&run->http_snapshot_requested) > 0)
 		// has_clients синков НЕ обновляются в реальном времени
 		|| (stream->jpeg_sink != NULL && atomic_load(&stream->jpeg_sink->has_clients))
 		|| (run->h264 != NULL && /*run->h264->sink == NULL ||*/ atomic_load(&run->h264->sink->has_clients))

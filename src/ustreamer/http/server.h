@@ -57,6 +57,14 @@ typedef struct us_stream_client_sx {
 	US_LIST_STRUCT(struct us_stream_client_sx);
 } us_stream_client_s;
 
+typedef struct us_snapshot_client_sx {
+	struct us_server_sx		*server;
+	struct evhttp_request	*request;
+	ldf						request_ts;
+
+	US_LIST_STRUCT(struct us_snapshot_client_sx);
+} us_snapshot_client_s;
+
 typedef struct {
 	us_frame_s	*frame;
 	uint		captured_fps;
@@ -83,6 +91,8 @@ typedef struct {
 
 	us_stream_client_s	*stream_clients;
 	uint				stream_clients_count;
+
+	us_snapshot_client_s *snapshot_clients;
 } us_server_runtime_s;
 
 typedef struct us_server_sx {
