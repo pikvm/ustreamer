@@ -855,6 +855,7 @@ static void _http_send_stream(us_server_s *server, bool stream_updated, bool fra
 
 static void _http_send_snapshot(us_server_s *server) {
 	us_server_exposed_s *const ex = server->run->exposed;
+	us_blank_s *blank = NULL;
 
 #	define ADD_TIME_HEADER(x_key, x_value) { \
 			US_SNPRINTF(header_buf, 255, "%.06Lf", x_value); \
@@ -865,16 +866,31 @@ static void _http_send_snapshot(us_server_s *server) {
 			US_SNPRINTF(header_buf, 255, "%u", x_value); \
 			_A_ADD_HEADER(request, x_key, header_buf); \
 		}
+	uint width;
+	uint height;
+	uint captured_fps; // Unused
+	bool online;
+	us_stream_get_capture_state(server->stream, &width, &height, &online, &captured_fps);
 
 	US_LIST_ITERATE(server->run->snapshot_clients, client, { // cppcheck-suppress constStatement
 		struct evhttp_request *request = client->request;
-		if (
-			(atomic_load(&server->stream->run->http_snapshot_requested) == 0) // Request complete
-			|| (client->request_ts + US_MAX((uint)1, server->timeout / 2) < us_get_now_monotonic())
-		) {
+
+		const bool has_fresh_snapshot = (atomic_load(&server->stream->run->http_snapshot_requested) == 0);
+		const bool timed_out = (client->request_ts + US_MAX((uint)1, server->timeout / 2) < us_get_now_monotonic());
+
+		if (has_fresh_snapshot || timed_out) {
+			us_frame_s *frame = ex->frame;
+			if (!online) {
+				if (blank == NULL) {
+					blank = us_blank_init();
+					us_blank_draw(blank, "< NO SIGNAL >", width, height);
+				}
+				frame = blank->jpeg;
+			}
+
 			struct evbuffer *buf;
 			_A_EVBUFFER_NEW(buf);
-			_A_EVBUFFER_ADD(buf, (const void*)ex->frame->data, ex->frame->used);
+			_A_EVBUFFER_ADD(buf, (const void*)frame->data, frame->used);
 
 			_A_ADD_HEADER(request, "Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, pre-check=0, post-check=0, max-age=0");
 			_A_ADD_HEADER(request, "Pragma", "no-cache");
@@ -884,16 +900,12 @@ static void _http_send_snapshot(us_server_s *server) {
 
 			ADD_TIME_HEADER("X-Timestamp", us_get_now_real());
 
-			_A_ADD_HEADER(request, "X-UStreamer-Online",			us_bool_to_string(ex->frame->online));
-			ADD_UNSIGNED_HEADER("X-UStreamer-Dropped",				ex->dropped);
-			ADD_UNSIGNED_HEADER("X-UStreamer-Width",				ex->frame->width);
-			ADD_UNSIGNED_HEADER("X-UStreamer-Height",				ex->frame->height);
-			ADD_TIME_HEADER("X-UStreamer-Grab-Timestamp",			ex->frame->grab_ts);
-			ADD_TIME_HEADER("X-UStreamer-Encode-Begin-Timestamp",	ex->frame->encode_begin_ts);
-			ADD_TIME_HEADER("X-UStreamer-Encode-End-Timestamp",		ex->frame->encode_end_ts);
-			ADD_TIME_HEADER("X-UStreamer-Expose-Begin-Timestamp",	ex->expose_begin_ts);
-			ADD_TIME_HEADER("X-UStreamer-Expose-Cmp-Timestamp",		ex->expose_cmp_ts);
-			ADD_TIME_HEADER("X-UStreamer-Expose-End-Timestamp",		ex->expose_end_ts);
+			_A_ADD_HEADER(request, "X-UStreamer-Online",			us_bool_to_string(frame->online));
+			ADD_UNSIGNED_HEADER("X-UStreamer-Width",				frame->width);
+			ADD_UNSIGNED_HEADER("X-UStreamer-Height",				frame->height);
+			ADD_TIME_HEADER("X-UStreamer-Grab-Timestamp",			frame->grab_ts);
+			ADD_TIME_HEADER("X-UStreamer-Encode-Begin-Timestamp",	frame->encode_begin_ts);
+			ADD_TIME_HEADER("X-UStreamer-Encode-End-Timestamp",		frame->encode_end_ts);
 			ADD_TIME_HEADER("X-UStreamer-Send-Timestamp",			us_get_now_monotonic());
 
 			_A_ADD_HEADER(request, "Content-Type", "image/jpeg");
@@ -908,6 +920,8 @@ static void _http_send_snapshot(us_server_s *server) {
 
 #	undef ADD_UNSUGNED_HEADER
 #	undef ADD_TIME_HEADER
+
+	US_DELETE(blank, us_blank_destroy);
 }
 
 static void _http_refresher(int fd, short what, void *v_server) {
