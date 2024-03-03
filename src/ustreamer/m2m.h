@@ -22,65 +22,49 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <string.h>
-#include <math.h>
-#include <fcntl.h>
-#include <poll.h>
-#include <errno.h>
-#include <assert.h>
-
-#include <sys/mman.h>
-
-#include <linux/videodev2.h>
-
-#include "../libs/tools.h"
-#include "../libs/logging.h"
+#include "../libs/types.h"
 #include "../libs/frame.h"
-#include "../libs/xioctl.h"
 
 
 typedef struct {
-	uint8_t	*data;
-	size_t	allocated;
+	u8	*data;
+	uz	allocated;
 } us_m2m_buffer_s;
 
 typedef struct {
 	int				fd;
 	us_m2m_buffer_s	*input_bufs;
-	unsigned		n_input_bufs;
+	uint			n_input_bufs;
 	us_m2m_buffer_s	*output_bufs;
-	unsigned		n_output_bufs;
+	uint			n_output_bufs;
 
-	unsigned		width;
-	unsigned		height;
-	unsigned		input_format;
-	unsigned		stride;
-	bool			dma;
-	bool			ready;
+	uint	p_width;
+	uint	p_height;
+	uint	p_input_format;
+	uint	p_stride;
+	bool	p_dma;
 
-	int				last_online;
+	bool	ready;
+	int		last_online;
 } us_m2m_encoder_runtime_s;
 
 typedef struct {
-	char			*name;
-	char			*path;
-	unsigned		output_format;
-	unsigned		fps;
-	unsigned		bitrate;
-	unsigned		gop;
-	unsigned		quality;
-	bool			allow_dma;
+	char	*name;
+	char	*path;
+	uint	output_format;
+	uint	fps;
+	uint	bitrate;
+	uint	gop;
+	uint	quality;
+	bool	allow_dma;
 
 	us_m2m_encoder_runtime_s *run;
 } us_m2m_encoder_s;
 
 
-us_m2m_encoder_s *us_m2m_h264_encoder_init(const char *name, const char *path, unsigned bitrate, unsigned gop);
-us_m2m_encoder_s *us_m2m_mjpeg_encoder_init(const char *name, const char *path, unsigned quality);
-us_m2m_encoder_s *us_m2m_jpeg_encoder_init(const char *name, const char *path, unsigned quality);
+us_m2m_encoder_s *us_m2m_h264_encoder_init(const char *name, const char *path, uint bitrate, uint gop);
+us_m2m_encoder_s *us_m2m_mjpeg_encoder_init(const char *name, const char *path, uint quality);
+us_m2m_encoder_s *us_m2m_jpeg_encoder_init(const char *name, const char *path, uint quality);
 void us_m2m_encoder_destroy(us_m2m_encoder_s *enc);
 
 int us_m2m_encoder_compress(us_m2m_encoder_s *enc, const us_frame_s *src, us_frame_s *dest, bool force_key);
