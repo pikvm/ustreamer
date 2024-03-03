@@ -87,7 +87,6 @@ static void _v4l2_buffer_copy(const struct v4l2_buffer *src, struct v4l2_buffer 
 static bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf, const u8 *data);
 static int _device_open_check_cap(us_device_s *dev);
 static int _device_open_dv_timings(us_device_s *dev);
-static int _device_apply_dv_timings(us_device_s *dev);
 static int _device_open_format(us_device_s *dev, bool first);
 static void _device_open_hw_fps(us_device_s *dev);
 static void _device_open_jpeg_quality(us_device_s *dev);
@@ -185,7 +184,10 @@ int us_device_open(us_device_s *dev) {
 	if (_device_open_check_cap(dev) < 0) {
 		goto error;
 	}
-	if (_device_open_dv_timings(dev) < 0) {
+	if (_device_apply_resolution(dev, dev->width, dev->height, dev->run->hz)) {
+		goto error;
+	}
+	if (dev->dv_timings && _device_open_dv_timings(dev) < 0) {
 		goto error;
 	}
 	if (_device_open_format(dev, true) < 0) {
@@ -585,66 +587,58 @@ static int _device_open_check_cap(us_device_s *dev) {
 }
 
 static int _device_open_dv_timings(us_device_s *dev) {
-	_device_apply_resolution(dev, dev->width, dev->height, dev->run->hz);
-	if (dev->dv_timings) {
-		_D_LOG_DEBUG("Using DV-timings");
-
-		if (_device_apply_dv_timings(dev) < 0) {
-			return -1;
-		}
-
-		struct v4l2_event_subscription sub = {.type = V4L2_EVENT_SOURCE_CHANGE};
-		_D_LOG_DEBUG("Subscribing to DV-timings events ...")
-		if (us_xioctl(dev->run->fd, VIDIOC_SUBSCRIBE_EVENT, &sub) < 0) {
-			_D_LOG_PERROR("Can't subscribe to DV-timings events");
-			return -1;
-		}
-	}
-	return 0;
-}
-
-static int _device_apply_dv_timings(us_device_s *dev) {
-	us_device_runtime_s *const run = dev->run; // cppcheck-suppress constVariablePointer
+	const us_device_runtime_s *const run = dev->run;
 
 	struct v4l2_dv_timings dv = {0};
+	_D_LOG_DEBUG("Querying DV-timings ...");
+	if (us_xioctl(run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv) < 0) {
+		goto querystd;
+	}
 
-	_D_LOG_DEBUG("Calling us_xioctl(VIDIOC_QUERY_DV_TIMINGS) ...");
-	if (us_xioctl(run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv) == 0) {
-		float hz = 0;
-		if (dv.type == V4L2_DV_BT_656_1120) {
-			// See v4l2_print_dv_timings() in the kernel
-			const uint htot = V4L2_DV_BT_FRAME_WIDTH(&dv.bt);
-			const uint vtot = V4L2_DV_BT_FRAME_HEIGHT(&dv.bt) / (dv.bt.interlaced ? 2 : 1);
-			const uint fps = ((htot * vtot) > 0 ? ((100 * (u64)dv.bt.pixelclock)) / (htot * vtot) : 0);
-			hz = (fps / 100) + (fps % 100) / 100.0;
-			_D_LOG_INFO("Got new DV-timings: %ux%u%s%.02f, pixclk=%llu, vsync=%u, hsync=%u",
-				dv.bt.width, dv.bt.height, (dv.bt.interlaced ? "i" : "p"), hz,
-				(ull)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync); // See #11 about %llu
-		} else {
-			_D_LOG_INFO("Got new DV-timings: %ux%u, pixclk=%llu, vsync=%u, hsync=%u",
-				dv.bt.width, dv.bt.height,
-				(ull)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync);
-		}
-
-		_D_LOG_DEBUG("Calling us_xioctl(VIDIOC_S_DV_TIMINGS) ...");
-		if (us_xioctl(run->fd, VIDIOC_S_DV_TIMINGS, &dv) < 0) {
-			_D_LOG_PERROR("Failed to set DV-timings");
-			return -1;
-		}
-
-		if (_device_apply_resolution(dev, dv.bt.width, dv.bt.height, hz) < 0) {
-			return -1;
-		}
-
+	float hz = 0;
+	if (dv.type == V4L2_DV_BT_656_1120) {
+		// See v4l2_print_dv_timings() in the kernel
+		const uint htot = V4L2_DV_BT_FRAME_WIDTH(&dv.bt);
+		const uint vtot = V4L2_DV_BT_FRAME_HEIGHT(&dv.bt) / (dv.bt.interlaced ? 2 : 1);
+		const uint fps = ((htot * vtot) > 0 ? ((100 * (u64)dv.bt.pixelclock)) / (htot * vtot) : 0);
+		hz = (fps / 100) + (fps % 100) / 100.0;
+		_D_LOG_INFO("Got new DV-timings: %ux%u%s%.02f, pixclk=%llu, vsync=%u, hsync=%u",
+			dv.bt.width, dv.bt.height, (dv.bt.interlaced ? "i" : "p"), hz,
+			(ull)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync); // See #11 about %llu
 	} else {
-		_D_LOG_DEBUG("Calling us_xioctl(VIDIOC_QUERYSTD) ...");
-		if (us_xioctl(run->fd, VIDIOC_QUERYSTD, &dev->standard) == 0) {
-			_D_LOG_INFO("Applying the new VIDIOC_S_STD: %s ...", _standard_to_string(dev->standard));
-			if (us_xioctl(run->fd, VIDIOC_S_STD, &dev->standard) < 0) {
-				_D_LOG_PERROR("Can't set video standard");
-				return -1;
-			}
-		}
+		_D_LOG_INFO("Got new DV-timings: %ux%u, pixclk=%llu, vsync=%u, hsync=%u",
+			dv.bt.width, dv.bt.height,
+			(ull)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync);
+	}
+
+	_D_LOG_DEBUG("Applying DV-timings ...");
+	if (us_xioctl(run->fd, VIDIOC_S_DV_TIMINGS, &dv) < 0) {
+		_D_LOG_PERROR("Failed to apply DV-timings");
+		return -1;
+	}
+	if (_device_apply_resolution(dev, dv.bt.width, dv.bt.height, hz) < 0) {
+		return -1;
+	}
+	goto subscribe;
+
+querystd:
+	_D_LOG_DEBUG("Failed to query DV-timings, trying QuerySTD ...");
+	if (us_xioctl(run->fd, VIDIOC_QUERYSTD, &dev->standard) < 0) {
+		_D_LOG_ERROR("Failed to query DV-timings and QuerySTD");
+		return -1;
+	}
+	if (us_xioctl(run->fd, VIDIOC_S_STD, &dev->standard) < 0) {
+		_D_LOG_PERROR("Can't set apply standard: %s", _standard_to_string(dev->standard));
+		return -1;
+	}
+	_D_LOG_DEBUG("Applied new video standard: %s", _standard_to_string(dev->standard));
+
+subscribe:
+	struct v4l2_event_subscription sub = {.type = V4L2_EVENT_SOURCE_CHANGE};
+	_D_LOG_DEBUG("Subscribing to V4L2_EVENT_SOURCE_CHANGE ...")
+	if (us_xioctl(dev->run->fd, VIDIOC_SUBSCRIBE_EVENT, &sub) < 0) {
+		_D_LOG_PERROR("Can't subscribe to V4L2_EVENT_SOURCE_CHANGE");
+		return -1;
 	}
 	return 0;
 }
