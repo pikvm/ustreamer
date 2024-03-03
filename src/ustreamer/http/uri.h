@@ -22,11 +22,9 @@
 
 #pragma once
 
-#include <stdbool.h>
-
-#include <event2/util.h>
-#include <event2/http.h>
 #include <event2/keyvalq_struct.h>
+
+#include "../../libs/types.h"
 
 
 bool us_uri_get_true(struct evkeyvalq *params, const char *key);

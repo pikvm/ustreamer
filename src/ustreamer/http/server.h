@@ -22,95 +22,53 @@
 
 #pragma once
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdatomic.h>
-#include <string.h>
-#include <inttypes.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <assert.h>
-
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/time.h>
-#include <netinet/tcp.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
 
 #include <event2/util.h>
 #include <event2/event.h>
-#include <event2/thread.h>
 #include <event2/http.h>
-#include <event2/buffer.h>
-#include <event2/bufferevent.h>
-#include <event2/keyvalq_struct.h>
 
-#ifndef EVTHREAD_USE_PTHREADS_IMPLEMENTED
-#	error Required libevent-pthreads support
-#endif
-
-#include "../../libs/tools.h"
-#include "../../libs/threading.h"
-#include "../../libs/logging.h"
-#include "../../libs/process.h"
+#include "../../libs/types.h"
 #include "../../libs/frame.h"
-#include "../../libs/base64.h"
 #include "../../libs/list.h"
-#include "../data/index_html.h"
-#include "../data/favicon_ico.h"
 #include "../encoder.h"
 #include "../stream.h"
-#ifdef WITH_GPIO
-#	include "../gpio/gpio.h"
-#endif
-
-#include "bev.h"
-#include "unix.h"
-#include "uri.h"
-#include "mime.h"
-#include "static.h"
-#ifdef WITH_SYSTEMD
-#	include "systemd/systemd.h"
-#endif
 
 
 typedef struct us_stream_client_sx {
 	struct us_server_sx		*server;
 	struct evhttp_request	*request;
 
-	char		*key;
-	bool		extra_headers;
-	bool		advance_headers;
-	bool		dual_final_frames;
-	bool		zero_data;
+	char	*key;
+	bool	extra_headers;
+	bool	advance_headers;
+	bool	dual_final_frames;
+	bool	zero_data;
 
-	char		*hostport;
-	uint64_t	id;
-	bool		need_initial;
-	bool		need_first_frame;
-	bool		updated_prev;
-	unsigned	fps;
-	unsigned	fps_accum;
-	long long	fps_accum_second;
+	char	*hostport;
+	u64		id;
+	bool	need_initial;
+	bool	need_first_frame;
+	bool	updated_prev;
+	uint	fps;
+	uint	fps_accum;
+	sll		fps_accum_second;
 
 	US_LIST_STRUCT(struct us_stream_client_sx);
 } us_stream_client_s;
 
 typedef struct {
-	us_frame_s		*frame;
-	unsigned		captured_fps;
-	unsigned		queued_fps;
-	unsigned		dropped;
-	long double		expose_begin_ts;
-	long double		expose_cmp_ts;
-	long double		expose_end_ts;
+	us_frame_s	*frame;
+	uint		captured_fps;
+	uint		queued_fps;
+	uint		dropped;
+	ldf			expose_begin_ts;
+	ldf			expose_cmp_ts;
+	ldf			expose_end_ts;
 
-	bool			notify_last_online;
-	unsigned		notify_last_width;
-	unsigned		notify_last_height;
+	bool		notify_last_online;
+	uint		notify_last_width;
+	uint		notify_last_height;
 } us_server_exposed_s;
 
 typedef struct {
@@ -124,37 +82,37 @@ typedef struct {
 	us_server_exposed_s	*exposed;
 
 	us_stream_client_s	*stream_clients;
-	unsigned			stream_clients_count;
+	uint				stream_clients_count;
 } us_server_runtime_s;
 
 typedef struct us_server_sx {
-	char		*host;
-	unsigned	port;
+	us_stream_s	*stream;
 
-	char		*unix_path;
-	bool		unix_rm;
-	mode_t		unix_mode;
+	char	*host;
+	uint	port;
+
+	char	*unix_path;
+	bool	unix_rm;
+	mode_t	unix_mode;
 
 #	ifdef WITH_SYSTEMD
-	bool		systemd;
+	bool	systemd;
 #	endif
 
-	bool		tcp_nodelay;
-	unsigned	timeout;
+	bool	tcp_nodelay;
+	uint	timeout;
 
-	char		*user;
-	char		*passwd;
-	char		*static_path;
-	char		*allow_origin;
-	char		*instance_id;
+	char	*user;
+	char	*passwd;
+	char	*static_path;
+	char	*allow_origin;
+	char	*instance_id;
 
-	unsigned	drop_same_frames;
-	unsigned	fake_width;
-	unsigned	fake_height;
+	uint	drop_same_frames;
+	uint	fake_width;
+	uint	fake_height;
 
-	bool		notify_parent;
-
-	us_stream_s	*stream;
+	bool	notify_parent;
 
 	us_server_runtime_s *run;
 } us_server_s;

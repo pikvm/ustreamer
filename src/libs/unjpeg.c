@@ -54,7 +54,7 @@ int us_unjpeg(const us_frame_s *src, us_frame_s *dest, bool decode) {
 
 	// https://stackoverflow.com/questions/19857766/error-handling-in-libjpeg
 	_jpeg_error_manager_s jpeg_error;
-	jpeg.err = jpeg_std_error((struct jpeg_error_mgr *)&jpeg_error);
+	jpeg.err = jpeg_std_error((struct jpeg_error_mgr*)&jpeg_error);
 	jpeg_error.mgr.error_exit = _jpeg_error_handler;
 	jpeg_error.frame = src;
 	if (setjmp(jpeg_error.jmp) < 0) {
@@ -94,7 +94,7 @@ done:
 }
 
 static void _jpeg_error_handler(j_common_ptr jpeg) {
-	_jpeg_error_manager_s *jpeg_error = (_jpeg_error_manager_s *)jpeg->err;
+	_jpeg_error_manager_s *jpeg_error = (_jpeg_error_manager_s*)jpeg->err;
 	char msg[JMSG_LENGTH_MAX];
 
 	(*jpeg_error->mgr.format_message)(jpeg, msg);

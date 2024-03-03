@@ -22,18 +22,5 @@
 
 #pragma once
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <assert.h>
-
-#include <sys/stat.h>
-
-#include "../../libs/tools.h"
-#include "../../libs/logging.h"
-
-#include "path.h"
-
 
 char *us_find_static_file_path(const char *root_path, const char *request_path);

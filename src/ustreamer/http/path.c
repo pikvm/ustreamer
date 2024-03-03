@@ -22,6 +22,14 @@
 
 #include "path.h"
 
+#ifdef TEST_HTTP_PATH
+#	include <stdio.h>
+#	include <stdlib.h>
+#endif
+#include <string.h>
+
+#include "../../libs/tools.h"
+
 
 char *us_simplify_request_path(const char *str) {
 	// Based on Lighttpd sources:

@@ -22,6 +22,14 @@
 
 #include "bev.h"
 
+#include <string.h>
+#include <errno.h>
+
+#include <event2/util.h>
+#include <event2/bufferevent.h>
+
+#include "../../libs/tools.h"
+
 
 char *us_bufferevent_format_reason(short what) {
 	char *reason;
@@ -34,6 +42,7 @@ char *us_bufferevent_format_reason(short what) {
 	strncat(reason, perror_str, 1023);
 	free(perror_str);
 	strcat(reason, " (");
+
 #	define FILL_REASON(x_bev, x_name) { \
 			if (what & x_bev) { \
 				if (first) { \
@@ -44,7 +53,6 @@ char *us_bufferevent_format_reason(short what) {
 				strcat(reason, x_name); \
 			} \
 		}
-
 	FILL_REASON(BEV_EVENT_READING, "reading");
 	FILL_REASON(BEV_EVENT_WRITING, "writing");
 	FILL_REASON(BEV_EVENT_ERROR, "error");

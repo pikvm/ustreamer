@@ -22,14 +22,5 @@
 
 #pragma once
 
-#include <string.h>
-#include <errno.h>
-
-#include <event2/util.h>
-#include <event2/bufferevent.h>
-
-#include "../../libs/tools.h"
-#include "../../libs/logging.h"
-
 
 char *us_bufferevent_format_reason(short what);

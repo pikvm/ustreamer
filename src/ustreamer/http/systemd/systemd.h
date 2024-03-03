@@ -22,16 +22,8 @@
 
 #pragma once
 
-#include <unistd.h>
-#include <assert.h>
-
 #include <event2/http.h>
 #include <event2/util.h>
-
-#include <systemd/sd-daemon.h>
-
-#include "../../../libs/tools.h"
-#include "../../../libs/logging.h"
 
 
 evutil_socket_t us_evhttp_bind_systemd(struct evhttp *http);

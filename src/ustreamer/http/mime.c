@@ -22,6 +22,13 @@
 
 #include "mime.h"
 
+#include <string.h>
+
+#include <event2/util.h>
+
+#include "../../libs/tools.h"
+#include "../../libs/array.h"
+
 
 static const struct {
 	const char *ext; // cppcheck-suppress unusedStructMember
