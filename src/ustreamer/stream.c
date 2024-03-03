@@ -195,8 +195,7 @@ void us_stream_loop(us_stream_s *stream) {
 			us_hw_buffer_s *hw;
 			const int buf_index = us_device_grab_buffer(dev, &hw);
 			switch (buf_index) {
-				case -3: continue; // Broken frame
-				case -2: continue; // Persistent timeout
+				case -2: continue; // Broken frame
 				case -1: goto close; // Error
 			}
 			assert(buf_index >= 0);
@@ -248,6 +247,10 @@ void us_stream_loop(us_stream_s *stream) {
 
 		us_encoder_close(stream->enc);
 		us_device_close(dev);
+
+		if (!atomic_load(&run->stop)) {
+			US_SEP_INFO('=');
+		}
 	}
 
 	US_DELETE(run->h264, us_h264_stream_destroy);
@@ -421,7 +424,7 @@ static bool _stream_has_any_clients(us_stream_s *stream) {
 static int _stream_init_loop(us_stream_s *stream) {
 	us_stream_runtime_s *const run = stream->run;
 
-	int access_errno = 0;
+	bool waiting_reported = false;
 	while (!atomic_load(&stream->run->stop)) {
 		_stream_check_suicide(stream);
 
@@ -445,32 +448,33 @@ static int _stream_init_loop(us_stream_s *stream) {
 
 		_SINK_PUT(raw_sink, run->blank->raw);
 
-		if (access(stream->dev->path, R_OK|W_OK) < 0) {
-			if (access_errno != errno) {
-				US_SEP_INFO('=');
-				US_LOG_PERROR("Can't access device");
-				US_LOG_INFO("Waiting for the device access ...");
-				access_errno = errno;
-			}
-			goto sleep_and_retry;
-		}
-
-		US_SEP_INFO('=');
-		access_errno = 0;
-
 		stream->dev->dma_export = (
 			stream->enc->type == US_ENCODER_TYPE_M2M_VIDEO
 			|| stream->enc->type == US_ENCODER_TYPE_M2M_IMAGE
 			|| run->h264 != NULL
 		);
-		if (us_device_open(stream->dev) == 0) {
-			us_encoder_open(stream->enc, stream->dev);
-			return 0;
+		switch (us_device_open(stream->dev)) {
+			case -2:
+				if (!waiting_reported) {
+					waiting_reported = true;
+					US_LOG_INFO("Waiting for the capture device ...");
+				}
+				goto sleep_and_retry;
+			case -1:
+				waiting_reported = false;
+				goto sleep_and_retry;
+			default: break;
 		}
-		US_LOG_INFO("Sleeping %u seconds before new stream init ...", stream->error_delay);
+		us_encoder_open(stream->enc, stream->dev);
+		return 0;
 
 	sleep_and_retry:
-		sleep(stream->error_delay);
+		for (uint count = 0; count < stream->error_delay * 10; ++count) {
+			if (atomic_load(&run->stop)) {
+				break;
+			}
+			usleep(100 * 1000);
+		}
 	}
 	return -1;
 }

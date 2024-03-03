@@ -85,13 +85,13 @@ Without arguments, ```ustreamer``` will try to open ```/dev/video0``` with 640x4
 
 :exclamation: Please note that since µStreamer v2.0 cross-domain requests were disabled by default for [security reasons](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS). To enable the old behavior, use the option `--allow-origin=\*`.
 
-The recommended way of running µStreamer with [Auvidea B101](https://www.raspberrypi.org/forums/viewtopic.php?f=38&t=120702&start=400#p1339178) on Raspberry Pi:
+The recommended way of running µStreamer with [TC358743-based capture device](https://www.raspberrypi.org/forums/viewtopic.php?f=38&t=120702&start=400#p1339178) on Raspberry Pi:
 ```
 $ ./ustreamer \
     --format=uyvy \ # Device input format
     --encoder=m2m-image \ # Hardware encoding on V4L2 M2M driver
     --workers=3 \ # Workers number
-    --persistent \ # Don't re-initialize device on timeout (for example when HDMI cable was disconnected)
+    --persistent \ # Suppress repetitive signal source errors (for example when HDMI cable was disconnected)
     --dv-timings \ # Use DV-timings
     --drop-same-frames=30 # Save the traffic
 ```

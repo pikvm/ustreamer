@@ -203,6 +203,9 @@ static void _main_loop(void) {
 		}
 
 		if (us_device_open(dev) < 0) {
+			if (us_drm_wait_for_vsync(drm) == 0) {
+				us_drm_expose(drm, US_DRM_EXPOSE_NO_SIGNAL, NULL, 0);
+			}
 			goto close;
 		}
 
@@ -219,12 +222,7 @@ static void _main_loop(void) {
 			us_hw_buffer_s *hw;
 			const int buf_index = us_device_grab_buffer(dev, &hw);
 			switch (buf_index) {
-				case -3: continue; // Broken frame
-				case -2: // Persistent timeout
-					if (us_drm_expose(drm, US_DRM_EXPOSE_NO_SIGNAL, NULL, 0) < 0) {
-						_slowdown();
-						continue;
-					}
+				case -2: continue; // Broken frame
 				case -1: goto close; // Any error
 			}
 			assert(buf_index >= 0);

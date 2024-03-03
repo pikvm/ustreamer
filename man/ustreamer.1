@@ -17,7 +17,7 @@ Without arguments, \fBustreamer\fR will try to open \fB/dev/video0\fR with 640x4
 
 Please note that since µStreamer v2\.0 cross\-domain requests were disabled by default for security reasons\. To enable the old behavior, use the option \fB\-\-allow\-origin=\e*\fR\.
 
-For example, the recommended way of running µStreamer with Auvidea B101 on a Raspberry Pi is:
+For example, the recommended way of running µStreamer with TC358743-based capture device on a Raspberry Pi is:
 
 \fBustreamer \e\fR
 .RS
@@ -27,7 +27,7 @@ For example, the recommended way of running µStreamer with Auvidea B101 on a Ra
 .nf
 \fB\-\-workers=3 \e\fR # Maximum workers for V4L2 encoder
 .nf
-\fB\-\-persistent \e\fR # Don\'t re\-initialize device on timeout (for example when HDMI cable was disconnected)
+\fB\-\-persistent \e\fR # Suppress repetitive signal source errors (for example when HDMI cable was disconnected)
 .nf
 \fB\-\-dv\-timings \e\fR # Use DV\-timings
 .nf
@@ -69,7 +69,7 @@ Desired FPS. Default: maximum possible.
 Drop frames smaller then this limit. Useful if the device produces small\-sized garbage frames. Default: 128 bytes.
 .TP
 .BR \-n ", " \-\-persistent
-Don't re\-initialize device on timeout. Default: disabled.
+Suppress repetitive signal source errors. Default: disabled.
 .TP
 .BR \-t ", " \-\-dv\-timings
 Enable DV-timings querying and events processing to automatic resolution change. Default: disabled.

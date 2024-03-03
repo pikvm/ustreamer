@@ -86,7 +86,7 @@ static int _device_consume_event(us_device_s *dev);
 static void _v4l2_buffer_copy(const struct v4l2_buffer *src, struct v4l2_buffer *dest);
 static bool _device_is_buffer_valid(us_device_s *dev, const struct v4l2_buffer *buf, const u8 *data);
 static int _device_open_check_cap(us_device_s *dev);
-static int _device_open_dv_timings(us_device_s *dev);
+static int _device_open_dv_timings(us_device_s *dev, bool apply);
 static int _device_open_format(us_device_s *dev, bool first);
 static void _device_open_hw_fps(us_device_s *dev);
 static void _device_open_jpeg_quality(us_device_s *dev);
@@ -174,12 +174,32 @@ int us_device_parse_io_method(const char *str) {
 int us_device_open(us_device_s *dev) {
 	us_device_runtime_s *const run = dev->run;
 
+	if (access(dev->path, R_OK | W_OK) < 0) {
+		if (run->open_error_reported != -errno) {
+			run->open_error_reported = -errno; // Don't confuse it with __LINE__
+			US_LOG_PERROR("No access to capture device");
+		}
+		goto tmp_error;
+	}
+
 	_D_LOG_DEBUG("Opening capture device ...");
-	if ((run->fd = open(dev->path, O_RDWR|O_NONBLOCK)) < 0) {
+	if ((run->fd = open(dev->path, O_RDWR | O_NONBLOCK)) < 0) {
 		_D_LOG_PERROR("Can't capture open device");
 		goto error;
 	}
 	_D_LOG_DEBUG("Capture device fd=%d opened", run->fd);
+
+	if (dev->dv_timings && dev->persistent) {
+		_D_LOG_DEBUG("Probing DV-timings or QuerySTD ...");
+		if (_device_open_dv_timings(dev, false) < 0) {
+			const int line = __LINE__;
+			if (run->open_error_reported != line) {
+				run->open_error_reported = line;
+				_D_LOG_ERROR("No signal from source");
+			}
+			goto tmp_error;
+		}
+	}
 
 	if (_device_open_check_cap(dev) < 0) {
 		goto error;
@@ -187,7 +207,7 @@ int us_device_open(us_device_s *dev) {
 	if (_device_apply_resolution(dev, dev->width, dev->height, dev->run->hz)) {
 		goto error;
 	}
-	if (dev->dv_timings && _device_open_dv_timings(dev) < 0) {
+	if (dev->dv_timings && _device_open_dv_timings(dev, true) < 0) {
 		goto error;
 	}
 	if (_device_open_format(dev, true) < 0) {
@@ -216,10 +236,17 @@ int us_device_open(us_device_s *dev) {
 		goto error;
 	}
 	run->streamon = true;
+
+	run->open_error_reported = 0;
 	_D_LOG_INFO("Capturing started");
 	return 0;
 
+tmp_error:
+	us_device_close(dev);
+	return -2;
+
 error:
+	run->open_error_reported = 0;
 	us_device_close(dev);
 	return -1;
 }
@@ -268,7 +295,6 @@ void us_device_close(us_device_s *dev) {
 	}
 
 	US_CLOSE_FD(run->fd);
-	run->persistent_timeout_reported = false;
 
 	if (say) {
 		_D_LOG_INFO("Capturing stopped");
@@ -279,17 +305,13 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 	// Это сложная функция, которая делает сразу много всего, чтобы получить новый фрейм.
 	//   - Вызывается _device_wait_buffer() с select() внутри, чтобы подождать новый фрейм
 	//     или эвент V4L2. Обработка эвентов более приоритетна, чем кадров.
-	//   - При таймауте select() в _device_wait_buffer() возвращаем -2 для персистентных
-	//     устройств типа TC358743, для остальных же возвращаем ошибку -1.
 	//   - Если есть новые фреймы, то пропустить их все, пока не закончатся и вернуть
 	//     самый-самый свежий, содержащий при этом валидные данные.
-	//   - Если таковых не нашлось, вернуть -3.
+	//   - Если таковых не нашлось, вернуть -2.
 	//   - Ошибка -1 возвращается при любых сбоях.
 
-	switch (_device_wait_buffer(dev)) {
-		case 0: break; // New frame
-		case -2: return -2; // Persistent timeout
-		default: return -1; // Error
+	if (_device_wait_buffer(dev) < 0) {
+		return -1;
 	}
 
 	us_device_runtime_s *const run = dev->run;
@@ -372,7 +394,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 				if (buf_got) {
 					break; // Process any latest valid frame
 				} else if (broken) {
-					return -3; // If we have only broken frames on this capture session
+					return -2; // If we have only broken frames on this capture session
 				}
 			}
 			_D_LOG_PERROR("Can't grab HW buffer");
@@ -452,18 +474,9 @@ int _device_wait_buffer(us_device_s *dev) {
 		}
 		return -1;
 	} else if (selected == 0) {
-		if (!dev->persistent) {
-			// Если устройство не персистентное, то таймаут является ошибкой
-			_D_LOG_ERROR("Device select() timeout");
-			return -1;
-		}
-		if (!run->persistent_timeout_reported) {
-			_D_LOG_ERROR("Persistent device timeout (unplugged)");
-			run->persistent_timeout_reported = true;
-		}
-		return -2; // Таймаут, нет новых фреймов
+		_D_LOG_ERROR("Device select() timeout");
+		return -1;
 	} else {
-		run->persistent_timeout_reported = false;
 		if (has_error && _device_consume_event(dev) < 0) {
 			return -1; // Restart required
 		}
@@ -586,13 +599,20 @@ static int _device_open_check_cap(us_device_s *dev) {
 	return 0;
 }
 
-static int _device_open_dv_timings(us_device_s *dev) {
+static int _device_open_dv_timings(us_device_s *dev, bool apply) {
+	// Just probe only if @apply is false
+
 	const us_device_runtime_s *const run = dev->run;
 
+	int dv_errno = 0;
+
 	struct v4l2_dv_timings dv = {0};
-	_D_LOG_DEBUG("Querying DV-timings ...");
+	_D_LOG_DEBUG("Querying DV-timings (apply=%u) ...", apply);
 	if (us_xioctl(run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv) < 0) {
+		dv_errno = errno; // ENOLINK if no signal
 		goto querystd;
+	} else if (!apply) {
+		goto probe_only;
 	}
 
 	float hz = 0;
@@ -602,11 +622,11 @@ static int _device_open_dv_timings(us_device_s *dev) {
 		const uint vtot = V4L2_DV_BT_FRAME_HEIGHT(&dv.bt) / (dv.bt.interlaced ? 2 : 1);
 		const uint fps = ((htot * vtot) > 0 ? ((100 * (u64)dv.bt.pixelclock)) / (htot * vtot) : 0);
 		hz = (fps / 100) + (fps % 100) / 100.0;
-		_D_LOG_INFO("Got new DV-timings: %ux%u%s%.02f, pixclk=%llu, vsync=%u, hsync=%u",
+		_D_LOG_INFO("Detected DV-timings: %ux%u%s%.02f, pixclk=%llu, vsync=%u, hsync=%u",
 			dv.bt.width, dv.bt.height, (dv.bt.interlaced ? "i" : "p"), hz,
 			(ull)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync); // See #11 about %llu
 	} else {
-		_D_LOG_INFO("Got new DV-timings: %ux%u, pixclk=%llu, vsync=%u, hsync=%u",
+		_D_LOG_INFO("Detected DV-timings: %ux%u, pixclk=%llu, vsync=%u, hsync=%u",
 			dv.bt.width, dv.bt.height,
 			(ull)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync);
 	}
@@ -624,8 +644,16 @@ static int _device_open_dv_timings(us_device_s *dev) {
 querystd:
 	_D_LOG_DEBUG("Failed to query DV-timings, trying QuerySTD ...");
 	if (us_xioctl(run->fd, VIDIOC_QUERYSTD, &dev->standard) < 0) {
-		_D_LOG_ERROR("Failed to query DV-timings and QuerySTD");
+		if (apply) {
+			char *std_error = us_errno_to_string(errno); // Read the errno first
+			char *dv_error = us_errno_to_string(dv_errno);
+			_D_LOG_ERROR("Failed to query DV-timings (%s) and QuerySTD (%s)", dv_error, std_error);
+			free(dv_error);
+			free(std_error);
+		}
 		return -1;
+	} else if (!apply) {
+		goto probe_only;
 	}
 	if (us_xioctl(run->fd, VIDIOC_S_STD, &dev->standard) < 0) {
 		_D_LOG_PERROR("Can't set apply standard: %s", _standard_to_string(dev->standard));
@@ -640,6 +668,8 @@ subscribe:
 		_D_LOG_PERROR("Can't subscribe to V4L2_EVENT_SOURCE_CHANGE");
 		return -1;
 	}
+
+probe_only:
 	return 0;
 }
 

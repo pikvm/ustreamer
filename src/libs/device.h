@@ -67,7 +67,7 @@ typedef struct {
 	enum v4l2_buf_type	capture_type;
 	bool				capture_mplane;
 	bool				streamon;
-	bool				persistent_timeout_reported;
+	int					open_error_reported;
 } us_device_runtime_s;
 
 typedef enum {
