@@ -503,15 +503,20 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		_A_EVBUFFER_ADD_PRINTF(buf, "},");
 	}
 
+	uint width;
+	uint height;
+	bool online;
+	uint captured_fps;
+	us_stream_get_capture_state(stream, &width, &height, &online, &captured_fps);
 	_A_EVBUFFER_ADD_PRINTF(buf,
 		" \"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
 		" \"online\": %s, \"desired_fps\": %u, \"captured_fps\": %u},"
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
-		(server->fake_width ? server->fake_width : ex->frame->width),
-		(server->fake_height ? server->fake_height : ex->frame->height),
-		us_bool_to_string(ex->frame->online),
+		(server->fake_width ? server->fake_width : width),
+		(server->fake_height ? server->fake_height : height),
+		us_bool_to_string(online),
 		stream->dev->desired_fps,
-		atomic_load(&stream->run->http_captured_fps),
+		captured_fps,
 		ex->queued_fps,
 		run->stream_clients_count
 	);

@@ -44,7 +44,7 @@ typedef struct {
 	atomic_bool		http_has_clients;
 	atomic_uint		http_snapshot_requested;
 	atomic_ullong	http_last_request_ts; // Seconds
-	atomic_uint		http_captured_fps;
+	atomic_ullong	http_capture_state; // Bits
 
 	bool			last_online;
 	long double		last_as_blank_ts;
@@ -80,3 +80,5 @@ void us_stream_destroy(us_stream_s *stream);
 
 void us_stream_loop(us_stream_s *stream);
 void us_stream_loop_break(us_stream_s *stream);
+
+void us_stream_get_capture_state(us_stream_s *stream, uint *width, uint *height, bool *online, uint *captured_fps);

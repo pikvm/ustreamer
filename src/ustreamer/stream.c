@@ -76,6 +76,7 @@ static void *_jpeg_thread(void *v_ctx);
 static void *_h264_thread(void *v_ctx);
 static void *_releaser_thread(void *v_ctx);
 
+static void _stream_set_capture_state(us_stream_s *stream, uint width, uint height, bool online, uint captured_fps);
 static bool _stream_has_any_clients(us_stream_s *stream);
 static int _stream_init_loop(us_stream_s *stream);
 static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame);
@@ -97,7 +98,7 @@ us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 	atomic_init(&run->http_has_clients, false);
 	atomic_init(&run->http_snapshot_requested, 0);
 	atomic_init(&run->http_last_request_ts, 0);
-	atomic_init(&run->http_captured_fps, 0);
+	atomic_init(&run->http_capture_state, 0);
 	atomic_init(&run->stop, false);
 	run->blank = us_blank_init();
 
@@ -110,6 +111,9 @@ us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 	stream->h264_bitrate = 5000; // Kbps
 	stream->h264_gop = 30;
 	stream->run = run;
+
+	us_blank_draw(run->blank, "< NO SIGNAL >", dev->width, dev->height);
+	_stream_set_capture_state(stream, dev->width, dev->height, false, 0);
 	return stream;
 }
 
@@ -122,9 +126,10 @@ void us_stream_destroy(us_stream_s *stream) {
 
 void us_stream_loop(us_stream_s *stream) {
 	us_stream_runtime_s *const run = stream->run;
+	us_device_s *const dev = stream->dev;
 
-	US_LOG_INFO("Using V4L2 device: %s", stream->dev->path);
-	US_LOG_INFO("Using desired FPS: %u", stream->dev->desired_fps);
+	US_LOG_INFO("Using V4L2 device: %s", dev->path);
+	US_LOG_INFO("Using desired FPS: %u", dev->desired_fps);
 
 	atomic_store(&run->http_last_request_ts, us_get_now_monotonic());
 
@@ -138,12 +143,12 @@ void us_stream_loop(us_stream_s *stream) {
 
 		pthread_mutex_t release_mutex;
 		US_MUTEX_INIT(release_mutex);
-		const uint n_releasers = stream->dev->run->n_bufs;
+		const uint n_releasers = dev->run->n_bufs;
 		_releaser_context_s *releasers;
 		US_CALLOC(releasers, n_releasers);
 		for (uint index = 0; index < n_releasers; ++index) {
 			_releaser_context_s *ctx = &releasers[index];
-			ctx->dev = stream->dev;
+			ctx->dev = dev;
 			ctx->queue = us_queue_init(1);
 			ctx->mutex = &release_mutex;
 			ctx->stop = &threads_stop;
@@ -151,7 +156,7 @@ void us_stream_loop(us_stream_s *stream) {
 		}
 
 		_jpeg_context_s jpeg_ctx = {
-			.queue = us_queue_init(stream->dev->run->n_bufs),
+			.queue = us_queue_init(dev->run->n_bufs),
 			.stream = stream,
 			.stop = &threads_stop,
 		};
@@ -159,8 +164,8 @@ void us_stream_loop(us_stream_s *stream) {
 
 		_h264_context_s h264_ctx;
 		if (run->h264 != NULL) {
-			h264_ctx.dev = stream->dev;
-			h264_ctx.queue = us_queue_init(stream->dev->run->n_bufs);
+			h264_ctx.dev = dev;
+			h264_ctx.queue = us_queue_init(dev->run->n_bufs);
 			h264_ctx.h264 = run->h264;
 			h264_ctx.stop = &threads_stop;
 			US_THREAD_CREATE(h264_ctx.tid, _h264_thread, &h264_ctx);
@@ -168,6 +173,7 @@ void us_stream_loop(us_stream_s *stream) {
 
 		uint captured_fps_accum = 0;
 		sll captured_fps_ts = 0;
+		uint captured_fps = 0;
 
 		US_LOG_INFO("Capturing ...");
 
@@ -183,7 +189,7 @@ void us_stream_loop(us_stream_s *stream) {
 			}
 
 			us_hw_buffer_s *hw;
-			const int buf_index = us_device_grab_buffer(stream->dev, &hw);
+			const int buf_index = us_device_grab_buffer(dev, &hw);
 			switch (buf_index) {
 				case -3: continue; // Broken frame
 				case -2: // Persistent timeout
@@ -193,13 +199,14 @@ void us_stream_loop(us_stream_s *stream) {
 
 			const sll now_sec_ts = us_floor_ms(us_get_now_monotonic());
 			if (now_sec_ts != captured_fps_ts) {
-				US_LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps_accum);
-				atomic_store(&run->http_captured_fps, captured_fps_accum);
+				captured_fps = captured_fps_accum;
 				captured_fps_accum = 0;
 				captured_fps_ts = now_sec_ts;
+				US_LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps);
 			}
 			captured_fps_accum += 1;
 
+			_stream_set_capture_state(stream, dev->run->width, dev->run->height, true, captured_fps);
 #			ifdef WITH_GPIO
 			us_gpio_set_stream_online(true);
 #			endif
@@ -236,11 +243,7 @@ void us_stream_loop(us_stream_s *stream) {
 		atomic_store(&threads_stop, false);
 
 		us_encoder_close(stream->enc);
-		us_device_close(stream->dev);
-
-#		ifdef WITH_GPIO
-		us_gpio_set_stream_online(false);
-#		endif
+		us_device_close(dev);
 	}
 
 	US_DELETE(run->h264, us_h264_stream_destroy);
@@ -248,6 +251,24 @@ void us_stream_loop(us_stream_s *stream) {
 
 void us_stream_loop_break(us_stream_s *stream) {
 	atomic_store(&stream->run->stop, true);
+}
+
+void us_stream_get_capture_state(us_stream_s *stream, uint *width, uint *height, bool *online, uint *captured_fps) {
+	const u64 state = atomic_load(&stream->run->http_capture_state);
+	*width = state & 0xFFFF;
+	*height = (state >> 16) & 0xFFFF;
+	*captured_fps = (state >> 32) & 0xFFFF;
+	*online = (state >> 48) & 1;
+}
+
+void _stream_set_capture_state(us_stream_s *stream, uint width, uint height, bool online, uint captured_fps) {
+	const u64 state = (
+		(u64)(width & 0xFFFF)
+		| ((u64)(height & 0xFFFF) << 16)
+		| ((u64)(captured_fps & 0xFFFF) << 32)
+		| ((u64)(online ? 1 : 0) << 48)
+	);
+	atomic_store(&stream->run->http_capture_state, state);
 }
 
 static void *_jpeg_thread(void *v_ctx) {
@@ -380,8 +401,11 @@ static int _stream_init_loop(us_stream_s *stream) {
 		}
 		us_blank_draw(run->blank, "< NO SIGNAL >", width, height);
 
-		atomic_store(&run->http_captured_fps, 0);
+		_stream_set_capture_state(stream, width, height, true, 0);
 		_stream_expose_frame(stream, NULL);
+#		ifdef WITH_GPIO
+		us_gpio_set_stream_online(false);
+#		endif
 
 		if (run->h264 != NULL) {
 			us_h264_stream_process(run->h264, run->blank->raw, true);

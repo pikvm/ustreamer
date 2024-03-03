@@ -31,7 +31,7 @@
 
 
 #define US_VIDEO_MIN_WIDTH		((uint)160)
-#define US_VIDEO_MAX_WIDTH		((uint)15360)
+#define US_VIDEO_MAX_WIDTH		((uint)15360) // Remember about stream->run->http_capture_state;
 
 #define US_VIDEO_MIN_HEIGHT		((uint)120)
 #define US_VIDEO_MAX_HEIGHT		((uint)8640)
