@@ -135,7 +135,7 @@ bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame) {
 int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key_requested) {
 	assert(sink->server);
 
-	const long double now = us_get_now_monotonic();
+	const ldf now = us_get_now_monotonic();
 
 	if (frame->used > US_MEMSINK_MAX_DATA) {
 		US_LOG_ERROR("%s-sink: Can't put frame: is too big (%zu > %zu)",

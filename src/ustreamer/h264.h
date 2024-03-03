@@ -22,15 +22,12 @@
 
 #pragma once
 
-#include <stdbool.h>
 #include <stdatomic.h>
-#include <assert.h>
 
-#include "../libs/tools.h"
-#include "../libs/logging.h"
+#include "../libs/types.h"
 #include "../libs/frame.h"
 #include "../libs/memsink.h"
-#include "../libs/unjpeg.h"
+
 #include "m2m.h"
 
 
@@ -44,6 +41,6 @@ typedef struct {
 } us_h264_stream_s;
 
 
-us_h264_stream_s *us_h264_stream_init(us_memsink_s *sink, const char *path, unsigned bitrate, unsigned gop);
+us_h264_stream_s *us_h264_stream_init(us_memsink_s *sink, const char *path, uint bitrate, uint gop);
 void us_h264_stream_destroy(us_h264_stream_s *h264);
 void us_h264_stream_process(us_h264_stream_s *h264, const us_frame_s *frame, bool force_key);

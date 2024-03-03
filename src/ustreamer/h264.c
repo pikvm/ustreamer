@@ -22,8 +22,19 @@
 
 #include "h264.h"
 
+#include <stdatomic.h>
 
-us_h264_stream_s *us_h264_stream_init(us_memsink_s *sink, const char *path, unsigned bitrate, unsigned gop) {
+#include "../libs/types.h"
+#include "../libs/tools.h"
+#include "../libs/logging.h"
+#include "../libs/frame.h"
+#include "../libs/memsink.h"
+#include "../libs/unjpeg.h"
+
+#include "m2m.h"
+
+
+us_h264_stream_s *us_h264_stream_init(us_memsink_s *sink, const char *path, uint bitrate, uint gop) {
 	us_h264_stream_s *h264;
 	US_CALLOC(h264, 1);
 	h264->sink = sink;
@@ -47,13 +58,13 @@ void us_h264_stream_process(us_h264_stream_s *h264, const us_frame_s *frame, boo
 	}
 
 	if (us_is_jpeg(frame->format)) {
-		const long double now = us_get_now_monotonic();
+		const ldf now_ts = us_get_now_monotonic();
 		US_LOG_DEBUG("H264: Input frame is JPEG; decoding ...");
 		if (us_unjpeg(frame, h264->tmp_src, true) < 0) {
 			return;
 		}
 		frame = h264->tmp_src;
-		US_LOG_VERBOSE("H264: JPEG decoded; time=%.3Lf", us_get_now_monotonic() - now);
+		US_LOG_VERBOSE("H264: JPEG decoded; time=%.3Lf", us_get_now_monotonic() - now_ts);
 	}
 
 	if (h264->key_requested) {

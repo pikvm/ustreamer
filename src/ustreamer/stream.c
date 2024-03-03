@@ -301,12 +301,20 @@ static void *_jpeg_thread(void *v_ctx) {
 
 static void *_h264_thread(void *v_ctx) {
 	_h264_context_s *ctx = v_ctx;
+
+	ldf last_encode_ts = us_get_now_monotonic();
 	while (!atomic_load(ctx->stop)) {
 		us_hw_buffer_s *hw;
 		if (us_queue_get(ctx->queue, (void**)&hw, 0.1) < 0) {
 			continue;
 		}
-		us_h264_stream_process(ctx->h264, &hw->raw, false);
+
+		// Форсим кейфрейм, если от захвата давно не было фреймов (при слоудауне)
+		const ldf now_ts = us_get_now_monotonic();
+		const bool force_key = (last_encode_ts + 0.5 < now_ts);
+		last_encode_ts = now_ts;
+
+		us_h264_stream_process(ctx->h264, &hw->raw, force_key);
 		us_device_buffer_decref(hw);
 	}
 	return NULL;
@@ -314,17 +322,20 @@ static void *_h264_thread(void *v_ctx) {
 
 static void *_releaser_thread(void *v_ctx) {
 	_releaser_context_s *ctx = v_ctx;
+
 	while (!atomic_load(ctx->stop)) {
 		us_hw_buffer_s *hw;
 		if (us_queue_get(ctx->queue, (void**)&hw, 0.1) < 0) {
 			continue;
 		}
+
 		while (atomic_load(&hw->refs) > 0) {
 			if (atomic_load(ctx->stop)) {
 				goto done;
 			}
 			usleep(5 * 1000);
 		}
+
 		US_MUTEX_LOCK(*ctx->mutex);
 		const int released = us_device_release_buffer(ctx->dev, hw);
 		US_MUTEX_UNLOCK(*ctx->mutex);
@@ -332,6 +343,7 @@ static void *_releaser_thread(void *v_ctx) {
 			goto done;
 		}
 	}
+
 done:
 	atomic_store(ctx->stop, true); // Stop all other guys on error
 	return NULL;
@@ -365,11 +377,11 @@ static int _stream_init_loop(us_stream_s *stream) {
 		atomic_store(&run->http_captured_fps, 0);
 		_stream_expose_frame(stream, NULL);
 
-		_SINK_PUT(raw_sink, run->blank->raw);
-
 		if (run->h264 != NULL) {
-			us_h264_stream_process(run->h264, run->blank->raw, false);
+			us_h264_stream_process(run->h264, run->blank->raw, true);
 		}
+
+		_SINK_PUT(raw_sink, run->blank->raw);
 
 		if (access(stream->dev->path, R_OK|W_OK) < 0) {
 			if (access_errno != errno) {
