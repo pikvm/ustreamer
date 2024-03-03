@@ -129,7 +129,13 @@ bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame) {
 		US_LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
 		return false;
 	}
-	return (has_clients || !US_FRAME_COMPARE_GEOMETRY(sink->mem, frame));;
+	if (has_clients) {
+		return true;
+	}
+	if (frame != NULL && !US_FRAME_COMPARE_GEOMETRY(sink->mem, frame)) {
+		return true;
+	}
+	return false;
 }
 
 int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key_requested) {

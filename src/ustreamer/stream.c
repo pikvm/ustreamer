@@ -304,6 +304,16 @@ static void *_jpeg_thread(void *v_ctx) {
 			continue;
 		}
 
+		if ( // Если никто не смотрит MJPEG - пропускаем кадр
+			!atomic_load(&stream->run->http_has_clients)
+			&& (atomic_load(&stream->run->http_snapshot_requested) == 0)
+			&& (stream->jpeg_sink == NULL || !us_memsink_server_check(stream->jpeg_sink, NULL))
+		) {
+			US_LOG_VERBOSE("Passed JPEG encoding because nobody is watching");
+			us_device_buffer_decref(hw);
+			continue;
+		}
+
 		const ldf now_ts = us_get_now_monotonic();
 		if (now_ts < grab_after) {
 			fluency_passed += 1;
@@ -335,7 +345,13 @@ static void *_h264_thread(void *v_ctx) {
 			continue;
 		}
 
-		// Форсим кейфрейм, если от захвата давно не было фреймов (при слоудауне)
+		if (!us_memsink_server_check(ctx->h264->sink, NULL)) {
+			us_device_buffer_decref(hw);
+			US_LOG_VERBOSE("Passed JPEG encoding because nobody is watching");
+			continue;
+		}
+
+		// Форсим кейфрейм, если от захвата давно не было фреймов
 		const ldf now_ts = us_get_now_monotonic();
 		const bool force_key = (last_encode_ts + 0.5 < now_ts);
 		last_encode_ts = now_ts;
@@ -485,7 +501,7 @@ static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame) {
 		!atomic_load(&run->stop)
 		&& ((ri = us_ring_producer_acquire(run->http_jpeg_ring, 0)) < 0)
 	) {
-		US_LOG_ERROR("Can't push JPEG to HTTP ring (no free slots)");
+		// US_LOG_ERROR("Can't push JPEG to HTTP ring (no free slots)");
 	}
 	if (ri < 0) {
 		return;

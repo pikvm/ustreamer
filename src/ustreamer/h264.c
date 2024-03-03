@@ -53,9 +53,9 @@ void us_h264_stream_destroy(us_h264_stream_s *h264) {
 }
 
 void us_h264_stream_process(us_h264_stream_s *h264, const us_frame_s *frame, bool force_key) {
-	if (!us_memsink_server_check(h264->sink, frame)) {
+	/*if (!us_memsink_server_check(h264->sink, frame)) {
 		return;
-	}
+	}*/
 
 	if (us_is_jpeg(frame->format)) {
 		const ldf now_ts = us_get_now_monotonic();
