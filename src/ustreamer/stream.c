@@ -196,7 +196,7 @@ void us_stream_loop(us_stream_s *stream) {
 			const int buf_index = us_device_grab_buffer(dev, &hw);
 			switch (buf_index) {
 				case -3: continue; // Broken frame
-				case -2: // Persistent timeout
+				case -2: continue; // Persistent timeout
 				case -1: goto close; // Error
 			}
 			assert(buf_index >= 0);
@@ -380,7 +380,7 @@ static void *_h264_thread(void *v_ctx) {
 
 		if (!us_memsink_server_check(ctx->h264->sink, NULL)) {
 			us_device_buffer_decref(hw);
-			US_LOG_VERBOSE("Passed JPEG encoding because nobody is watching");
+			US_LOG_VERBOSE("Passed H264 encoding because nobody is watching");
 			continue;
 		}
 
