@@ -299,7 +299,6 @@ static int _http_preprocess_request(struct evhttp_request *request, us_server_s 
 
 	if (run->auth_token != NULL) {
 		const char *const token = _http_get_header(request, "Authorization");
-
 		if (token == NULL || strcmp(token, run->auth_token) != 0) {
 			_A_ADD_HEADER(request, "WWW-Authenticate", "Basic realm=\"Restricted area\"");
 			evhttp_send_reply(request, 401, "Unauthorized", NULL);
@@ -311,7 +310,6 @@ static int _http_preprocess_request(struct evhttp_request *request, us_server_s 
 		evhttp_send_reply(request, HTTP_OK, "OK", NULL);
 		return -1;
 	}
-
 	return 0;
 }
 
@@ -415,7 +413,6 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 
 	{
 		struct stat st;
-
 		if (fstat(fd, &st) < 0) {
 			_S_LOG_PERROR("Can't stat() found static file %s", static_path);
 			goto not_found;
@@ -629,13 +626,13 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	us_server_s *const server = client->server;
 	us_server_exposed_s *const ex = server->run->exposed;
 
-	const ldf now = us_get_now_monotonic();
-	const sll now_second = us_floor_ms(now);
+	const ldf now_ts = us_get_now_monotonic();
+	const sll now_sec_ts = us_floor_ms(now_ts);
 
-	if (now_second != client->fps_accum_second) {
+	if (now_sec_ts != client->fps_ts) {
 		client->fps = client->fps_accum;
 		client->fps_accum = 0;
-		client->fps_accum_second = now_second;
+		client->fps_ts = now_sec_ts;
 	}
 	client->fps_accum += 1;
 
@@ -746,8 +743,8 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				ex->expose_begin_ts,
 				ex->expose_cmp_ts,
 				ex->expose_end_ts,
-				now,
-				now - ex->frame->grab_ts
+				now_ts,
+				now_ts - ex->frame->grab_ts
 			);
 		}
 	}
@@ -843,12 +840,12 @@ static void _http_send_stream(us_server_s *server, bool stream_updated, bool fra
 
 	if (queued) {
 		static uint queued_fps_accum = 0;
-		static sll queued_fps_second = 0;
-		const sll now = us_floor_ms(us_get_now_monotonic());
-		if (now != queued_fps_second) {
+		static sll queued_fps_ts = 0;
+		const sll now_sec_ts = us_floor_ms(us_get_now_monotonic());
+		if (now_sec_ts != queued_fps_ts) {
 			ex->queued_fps = queued_fps_accum;
 			queued_fps_accum = 0;
-			queued_fps_second = now;
+			queued_fps_ts = now_sec_ts;
 		}
 		queued_fps_accum += 1;
 	} else if (!has_clients) {

@@ -50,9 +50,9 @@ typedef struct us_stream_client_sx {
 	bool	need_initial;
 	bool	need_first_frame;
 	bool	updated_prev;
-	uint	fps;
 	uint	fps_accum;
-	sll		fps_accum_second;
+	sll		fps_ts;
+	uint	fps;
 
 	US_LIST_STRUCT(struct us_stream_client_sx);
 } us_stream_client_s;
