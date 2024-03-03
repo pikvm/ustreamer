@@ -175,10 +175,13 @@ int us_device_parse_io_method(const char *str) {
 int us_device_open(us_device_s *dev) {
 	us_device_runtime_s *const run = dev->run;
 
+	_D_LOG_DEBUG("Opening capture device ...");
 	if ((run->fd = open(dev->path, O_RDWR|O_NONBLOCK)) < 0) {
-		_D_LOG_PERROR("Can't open device");
+		_D_LOG_PERROR("Can't capture open device");
 		goto error;
 	}
+	_D_LOG_DEBUG("Capture device fd=%d opened", run->fd);
+
 	if (_device_open_check_cap(dev) < 0) {
 		goto error;
 	}
@@ -222,17 +225,22 @@ error:
 void us_device_close(us_device_s *dev) {
 	us_device_runtime_s *const run = dev->run;
 
+	bool say = false;
+
 	if (run->streamon) {
+		say = true;
+		_D_LOG_DEBUG("Calling VIDIOC_STREAMOFF ...");
 		enum v4l2_buf_type type = run->capture_type;
 		if (us_xioctl(run->fd, VIDIOC_STREAMOFF, &type) < 0) {
 			_D_LOG_PERROR("Can't stop capturing");
 		}
 		run->streamon = false;
-		_D_LOG_INFO("Capturing stopped");
+		_D_LOG_DEBUG("VIDIOC_STREAMOFF successful");
 	}
 
 	if (run->hw_bufs != NULL) {
-		_D_LOG_DEBUG("Releasing device buffers ...");
+		say = true;
+		_D_LOG_DEBUG("Releasing HW buffers ...");
 		for (uint index = 0; index < run->n_bufs; ++index) {
 			us_hw_buffer_s *hw = &run->hw_bufs[index];
 
@@ -241,7 +249,7 @@ void us_device_close(us_device_s *dev) {
 			if (dev->io_method == V4L2_MEMORY_MMAP) {
 				if (hw->raw.allocated > 0 && hw->raw.data != NULL) {
 					if (munmap(hw->raw.data, hw->raw.allocated) < 0) {
-						_D_LOG_PERROR("Can't unmap device buffer=%u", index);
+						_D_LOG_PERROR("Can't unmap HW buffer=%u", index);
 					}
 				}
 			} else { // V4L2_MEMORY_USERPTR
@@ -254,10 +262,15 @@ void us_device_close(us_device_s *dev) {
 		}
 		US_DELETE(run->hw_bufs, free);
 		run->n_bufs = 0;
+		_D_LOG_DEBUG("All HW buffers released");
 	}
 
 	US_CLOSE_FD(run->fd);
 	run->persistent_timeout_reported = false;
+
+	if (say) {
+		_D_LOG_INFO("Capturing stopped");
+	}
 }
 
 int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
@@ -292,7 +305,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 	uint skipped = 0;
 	bool broken = false;
 
-	_D_LOG_DEBUG("Grabbing device buffer ...");
+	_D_LOG_DEBUG("Grabbing hw buffer ...");
 
 	do {
 		struct v4l2_buffer new = {0};
@@ -308,7 +321,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 
 		if (new_got) {
 			if (new.index >= run->n_bufs) {
-				_D_LOG_ERROR("V4L2 error: grabbed invalid device buffer=%u, n_bufs=%u", new.index, run->n_bufs);
+				_D_LOG_ERROR("V4L2 error: grabbed invalid HW buffer=%u, n_bufs=%u", new.index, run->n_bufs);
 				return -1;
 			}
 
@@ -316,7 +329,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 #			define FRAME_DATA(x_buf) run->hw_bufs[x_buf.index].raw.data
 
 			if (GRABBED(new)) {
-				_D_LOG_ERROR("V4L2 error: grabbed device buffer=%u is already used", new.index);
+				_D_LOG_ERROR("V4L2 error: grabbed HW buffer=%u is already used", new.index);
 				return -1;
 			}
 			GRABBED(new) = true;
@@ -327,9 +340,9 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 
 			broken = !_device_is_buffer_valid(dev, &new, FRAME_DATA(new));
 			if (broken) {
-				_D_LOG_DEBUG("Releasing device buffer=%u (broken frame) ...", new.index);
+				_D_LOG_DEBUG("Releasing HW buffer=%u (broken frame) ...", new.index);
 				if (us_xioctl(run->fd, VIDIOC_QBUF, &new) < 0) {
-					_D_LOG_PERROR("Can't release device buffer=%u (broken frame)", new.index);
+					_D_LOG_PERROR("Can't release HW buffer=%u (broken frame)", new.index);
 					return -1;
 				}
 				GRABBED(new) = false;
@@ -338,7 +351,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 
 			if (buf_got) {
 				if (us_xioctl(run->fd, VIDIOC_QBUF, &buf) < 0) {
-					_D_LOG_PERROR("Can't release device buffer=%u (skipped frame)", buf.index);
+					_D_LOG_PERROR("Can't release HW buffer=%u (skipped frame)", buf.index);
 					return -1;
 				}
 				GRABBED(buf) = false;
@@ -360,7 +373,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 					return -3; // If we have only broken frames on this capture session
 				}
 			}
-			_D_LOG_PERROR("Can't grab device buffer");
+			_D_LOG_PERROR("Can't grab HW buffer");
 			return -1;
 		}
 	} while (true);
@@ -377,7 +390,7 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 	_v4l2_buffer_copy(&buf, &(*hw)->buf);
 	(*hw)->raw.grab_ts = (ldf)((buf.timestamp.tv_sec * (u64)1000) + (buf.timestamp.tv_usec / 1000)) / 1000;
 
-	_D_LOG_DEBUG("Grabbed new frame: buffer=%u, bytesused=%u, grab_ts=%.3Lf, latency=%.3Lf, skipped=%u",
+	_D_LOG_DEBUG("Grabbed HW buffer=%u: bytesused=%u, grab_ts=%.3Lf, latency=%.3Lf, skipped=%u",
 		buf.index, buf.bytesused, (*hw)->raw.grab_ts, us_get_now_monotonic() - (*hw)->raw.grab_ts, skipped);
 	return buf.index;
 }
@@ -385,12 +398,13 @@ int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw) {
 int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw) {
 	assert(atomic_load(&hw->refs) == 0);
 	const uint index = hw->buf.index;
-	_D_LOG_DEBUG("Releasing device buffer=%u ...", index);
+	_D_LOG_DEBUG("Releasing HW buffer=%u ...", index);
 	if (us_xioctl(dev->run->fd, VIDIOC_QBUF, &hw->buf) < 0) {
-		_D_LOG_PERROR("Can't release device buffer=%u", index);
+		_D_LOG_PERROR("Can't release HW buffer=%u", index);
 		return -1;
 	}
 	hw->grabbed = false;
+	_D_LOG_DEBUG("HW buffer=%u released", index);
 	return 0;
 }
 

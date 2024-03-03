@@ -192,6 +192,7 @@ static void _m2m_encoder_ensure(us_m2m_encoder_s *enc, const us_frame_s *frame) 
 	run->p_stride = frame->stride;
 	run->p_dma = dma;
 
+	_E_LOG_DEBUG("Opening encoder device ...");
 	if ((run->fd = open(enc->path, O_RDWR)) < 0) {
 		_E_LOG_PERROR("Can't open encoder device");
 		goto error;
