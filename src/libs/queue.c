@@ -104,9 +104,9 @@ int us_queue_get(us_queue_s *queue, void **item, ldf timeout) {
 
 #undef _WAIT_OR_UNLOCK
 
-/*int us_queue_get_free(us_queue_s *queue) {
+bool us_queue_is_empty(us_queue_s *queue) {
 	US_MUTEX_LOCK(queue->mutex);
 	const uint size = queue->size;
 	US_MUTEX_UNLOCK(queue->mutex);
-	return queue->capacity - size;
-}*/
+	return (bool)(queue->capacity - size);
+}

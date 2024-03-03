@@ -45,7 +45,7 @@ typedef struct {
 
 #define US_QUEUE_DELETE_WITH_ITEMS(x_queue, x_free_item) { \
 		if (x_queue) { \
-			while (!us_queue_get_free(x_queue)) { \
+			while (!us_queue_is_empty(x_queue)) { \
 				void *m_ptr; \
 				if (!us_queue_get(x_queue, &m_ptr, 0)) { \
 					US_DELETE(m_ptr, x_free_item); \
@@ -61,4 +61,4 @@ void us_queue_destroy(us_queue_s *queue);
 
 int us_queue_put(us_queue_s *queue, void *item, ldf timeout);
 int us_queue_get(us_queue_s *queue, void **item, ldf timeout);
-// int us_queue_get_free(us_queue_s *queue);
+bool us_queue_is_empty(us_queue_s *queue);

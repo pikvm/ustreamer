@@ -26,6 +26,7 @@
 #include <stdatomic.h>
 #include <unistd.h>
 #include <errno.h>
+#include <assert.h>
 
 #include <pthread.h>
 
@@ -303,6 +304,10 @@ static void *_jpeg_thread(void *v_ctx) {
 		if (us_queue_get(ctx->queue, (void**)&hw, 0.1) < 0) {
 			continue;
 		}
+		while (!us_queue_is_empty(ctx->queue)) { // Берем только самый свежий кадр
+			us_device_buffer_decref(hw);
+			assert(!us_queue_get(ctx->queue, (void**)&hw, 0));
+		}
 
 		if ( // Если никто не смотрит MJPEG - пропускаем кадр
 			!atomic_load(&stream->run->http_has_clients)
@@ -343,6 +348,10 @@ static void *_h264_thread(void *v_ctx) {
 		us_hw_buffer_s *hw;
 		if (us_queue_get(ctx->queue, (void**)&hw, 0.1) < 0) {
 			continue;
+		}
+		while (!us_queue_is_empty(ctx->queue)) { // Берем только самый свежий кадр
+			us_device_buffer_decref(hw);
+			assert(!us_queue_get(ctx->queue, (void**)&hw, 0));
 		}
 
 		if (!us_memsink_server_check(ctx->h264->sink, NULL)) {
