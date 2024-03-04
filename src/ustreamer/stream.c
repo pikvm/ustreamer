@@ -83,7 +83,7 @@ static us_hw_buffer_s *_get_latest_hw(us_queue_s *queue);
 
 static bool _stream_has_any_clients(us_stream_s *stream);
 static int _stream_init_loop(us_stream_s *stream);
-static void _stream_expose_http(us_stream_s *stream, us_frame_s *frame);
+static void _stream_expose_http(us_stream_s *stream, const us_frame_s *frame);
 static void _stream_check_suicide(us_stream_s *stream);
 
 
@@ -482,7 +482,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 	return -1;
 }
 
-static void _stream_expose_http(us_stream_s *stream, us_frame_s *frame) {
+static void _stream_expose_http(us_stream_s *stream, const us_frame_s *frame) {
 	us_stream_runtime_s *const run = stream->run;
 	int ri;
 	while ((ri = us_ring_producer_acquire(run->http_jpeg_ring, 0)) < 0) {
