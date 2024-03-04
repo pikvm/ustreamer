@@ -876,7 +876,7 @@ static void _http_send_snapshot(us_server_s *server) {
 		struct evhttp_request *request = client->request;
 
 		const bool has_fresh_snapshot = (atomic_load(&server->stream->run->http_snapshot_requested) == 0);
-		const bool timed_out = (client->request_ts + US_MAX((uint)1, server->timeout / 2) < us_get_now_monotonic());
+		const bool timed_out = (client->request_ts + US_MAX((uint)1, server->stream->error_delay * 3) < us_get_now_monotonic());
 
 		if (has_fresh_snapshot || timed_out) {
 			us_frame_s *frame = ex->frame;
