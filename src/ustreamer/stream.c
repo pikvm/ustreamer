@@ -83,7 +83,7 @@ static us_hw_buffer_s *_get_latest_hw(us_queue_s *queue);
 
 static bool _stream_has_any_clients(us_stream_s *stream);
 static int _stream_init_loop(us_stream_s *stream);
-static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame);
+static void _stream_expose_http(us_stream_s *stream, us_frame_s *frame);
 static void _stream_check_suicide(us_stream_s *stream);
 
 
@@ -110,7 +110,6 @@ us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 	US_CALLOC(stream, 1);
 	stream->dev = dev;
 	stream->enc = enc;
-	stream->last_as_blank = -1;
 	stream->error_delay = 1;
 	stream->h264_bitrate = 5000; // Kbps
 	stream->h264_gop = 30;
@@ -326,10 +325,11 @@ static void *_jpeg_thread(void *v_ctx) {
 			if (ready_wr->job_failed) {
 				// pass
 			} else if (ready_wr->job_timely) {
-				_stream_expose_frame(stream, ready_job->dest);
+				_stream_expose_http(stream, ready_job->dest);
 				if (atomic_load(&stream->run->http_snapshot_requested) > 0) { // Process real snapshots
 					atomic_fetch_sub(&stream->run->http_snapshot_requested, 1);
 				}
+				_SINK_PUT(jpeg_sink, ready_job->dest);
 				US_LOG_PERF("##### Encoded JPEG exposed; worker=%s, latency=%.3Lf",
 					ready_wr->name, us_get_now_monotonic() - ready_job->dest->grab_ts);
 			} else {
@@ -355,7 +355,7 @@ static void *_jpeg_thread(void *v_ctx) {
 		const ldf now_ts = us_get_now_monotonic();
 		if (now_ts < grab_after) {
 			fluency_passed += 1;
-			US_LOG_VERBOSE("Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf",
+			US_LOG_VERBOSE("Passed %u JPEG frames for fluency: now=%.03Lf, grab_after=%.03Lf",
 				fluency_passed, now_ts, grab_after);
 			us_device_buffer_decref(hw);
 			continue;
@@ -440,15 +440,15 @@ static int _stream_init_loop(us_stream_s *stream) {
 		us_blank_draw(run->blank, "< NO SIGNAL >", width, height);
 
 		_stream_set_capture_state(stream, width, height, false, 0);
-		_stream_expose_frame(stream, NULL);
 #		ifdef WITH_GPIO
 		us_gpio_set_stream_online(false);
 #		endif
 
+		_stream_expose_http(stream, run->blank->jpeg);
+		_SINK_PUT(jpeg_sink, run->blank->jpeg);
 		if (run->h264 != NULL) {
 			us_h264_stream_process(run->h264, run->blank->raw, true);
 		}
-
 		_SINK_PUT(raw_sink, run->blank->raw);
 
 		stream->dev->dma_export = (
@@ -482,75 +482,29 @@ static int _stream_init_loop(us_stream_s *stream) {
 	return -1;
 }
 
-static void _stream_expose_frame(us_stream_s *stream, us_frame_s *frame) {
+static void _stream_expose_http(us_stream_s *stream, us_frame_s *frame) {
 	us_stream_runtime_s *const run = stream->run;
-
-	us_frame_s *new = NULL;
-
-	if (frame != NULL) {
-		new = frame;
-		run->last_as_blank_ts = 0; // Останавливаем таймер
-		US_LOG_DEBUG("Exposed ALIVE video frame");
-
-	} else {
-		if (run->last_online) { // Если переходим из online в offline
-			if (stream->last_as_blank < 0) { // Если last_as_blank выключен, просто покажем старую картинку
-				new = run->blank->jpeg;
-				US_LOG_INFO("Changed video frame to BLANK");
-			} else if (stream->last_as_blank > 0) { // // Если нужен таймер - запустим
-				run->last_as_blank_ts = us_get_now_monotonic() + stream->last_as_blank;
-				US_LOG_INFO("Freezed last ALIVE video frame for %d seconds", stream->last_as_blank);
-			} else {  // last_as_blank == 0 - показываем последний фрейм вечно
-				US_LOG_INFO("Freezed last ALIVE video frame forever");
-			}
-		} else if (stream->last_as_blank < 0) {
-			new = run->blank->jpeg;
-			// US_LOG_INFO("Changed video frame to BLANK");
-		}
-
-		if ( // Если уже оффлайн, включена фича last_as_blank с таймером и он запущен
-			stream->last_as_blank > 0
-			&& run->last_as_blank_ts != 0
-			&& run->last_as_blank_ts < us_get_now_monotonic()
-		) {
-			new = run->blank->jpeg;
-			run->last_as_blank_ts = 0; // Останавливаем таймер
-			US_LOG_INFO("Changed last ALIVE video frame to BLANK");
+	int ri;
+	while ((ri = us_ring_producer_acquire(run->http_jpeg_ring, 0)) < 0) {
+		if (atomic_load(&run->stop)) {
+			return;
 		}
 	}
-
-	int ri = -1;
-	while (
-		!atomic_load(&run->stop)
-		&& ((ri = us_ring_producer_acquire(run->http_jpeg_ring, 0)) < 0)
-	) {
-		// US_LOG_ERROR("Can't push JPEG to HTTP ring (no free slots)");
-	}
-	if (ri < 0) {
-		return;
-	}
-
 	us_frame_s *const dest = run->http_jpeg_ring->items[ri];
-	if (new == NULL) {
-		dest->used = 0;
-		dest->online = false;
-	} else {
-		us_frame_copy(new, dest);
-		dest->online = true;
-	}
-	run->last_online = (frame != NULL);
+	us_frame_copy(frame, dest);
 	us_ring_producer_release(run->http_jpeg_ring, ri);
-
-	_SINK_PUT(jpeg_sink, (frame != NULL ? frame : run->blank->jpeg));
 }
 
 static void _stream_check_suicide(us_stream_s *stream) {
 	if (stream->exit_on_no_clients == 0) {
 		return;
 	}
+
 	us_stream_runtime_s *const run = stream->run;
+
 	const ldf now_ts = us_get_now_monotonic();
 	const ull http_last_request_ts = atomic_load(&run->http_last_request_ts); // Seconds
+
 	if (_stream_has_any_clients(stream)) {
 		atomic_store(&run->http_last_request_ts, now_ts);
 	} else if (http_last_request_ts + stream->exit_on_no_clients < now_ts) {

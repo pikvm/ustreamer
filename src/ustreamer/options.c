@@ -371,7 +371,7 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 			case _O_ENCODER:			OPT_PARSE_ENUM("encoder type", enc->type, us_encoder_parse_type, ENCODER_TYPES_STR);
 			case _O_GLITCHED_RESOLUTIONS: break; // Deprecated
 			case _O_BLANK:				break; // Deprecated
-			case _O_LAST_AS_BLANK:		OPT_NUMBER("--last-as-blank", stream->last_as_blank, 0, 86400, 0);
+			case _O_LAST_AS_BLANK:		break; // Deprecated
 			case _O_SLOWDOWN:			OPT_SET(stream->slowdown, true);
 			case _O_DEVICE_TIMEOUT:		OPT_NUMBER("--device-timeout", dev->timeout, 1, 60, 0);
 			case _O_DEVICE_ERROR_DELAY:	OPT_NUMBER("--device-error-delay", stream->error_delay, 1, 60, 0);
@@ -624,13 +624,8 @@ static void _help(FILE *fp, const us_device_s *dev, const us_encoder_s *enc, con
 	SAY("                                             * M2M-IMAGE  ── GPU-accelerated JPEG encoding using V4L2 M2M image interface;");
 	SAY("                                             * NOOP  ─────── Don't compress MJPEG stream (do nothing).\n");
 	SAY("    -g|--glitched-resolutions <WxH,...>  ─ It doesn't do anything. Still here for compatibility.\n");
-	SAY("    -k|--blank <path>  ─────────────────── It doesn't do anything. Still here for compatibility..\n");
-	SAY("                                           during the streaming. Default: black screen 640x480 with 'NO SIGNAL'.\n");
-	SAY("    -K|--last-as-blank <sec>  ──────────── Show the last frame received from the camera after it was disconnected,");
-	SAY("                                           but no more than specified time (or endlessly if 0 is specified).");
-	SAY("                                           If the device has not yet been online, display some error text.");
-	SAY("                                           Default: disabled.");
-	SAY("                                           Note: currently this option has no effect on memory sinks.\n");
+	SAY("    -k|--blank <path>  ─────────────────── It doesn't do anything. Still here for compatibility.\n");
+	SAY("    -K|--last-as-blank <sec>  ──────────── It doesn't do anything. Still here for compatibility.\n");
 	SAY("    -l|--slowdown  ─────────────────────── Slowdown capturing to 1 FPS or less when no stream or sink clients");
 	SAY("                                           are connected. Useful to reduce CPU consumption. Default: disabled.\n");
 	SAY("    --device-timeout <sec>  ────────────── Timeout for device querying. Default: %u.\n", dev->timeout);

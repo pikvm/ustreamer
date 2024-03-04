@@ -46,9 +46,6 @@ typedef struct {
 	atomic_ullong	http_last_request_ts; // Seconds
 	atomic_ullong	http_capture_state; // Bits
 
-	bool			last_online;
-	long double		last_as_blank_ts;
-
 	us_blank_s		*blank;
 
 	atomic_bool		stop;
