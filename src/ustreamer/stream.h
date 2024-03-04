@@ -57,15 +57,15 @@ typedef struct {
 
 	int				last_as_blank;
 	bool			slowdown;
-	unsigned		error_delay;
-	unsigned		exit_on_no_clients;
+	uint			error_delay;
+	uint			exit_on_no_clients;
 
 	us_memsink_s	*jpeg_sink;
 	us_memsink_s	*raw_sink;
 
 	us_memsink_s	*h264_sink;
-	unsigned		h264_bitrate;
-	unsigned		h264_gop;
+	uint			h264_bitrate;
+	uint			h264_gop;
 	char			*h264_m2m_path;
 
 	us_stream_runtime_s	*run;

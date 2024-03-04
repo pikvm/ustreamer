@@ -431,8 +431,8 @@ static int _stream_init_loop(us_stream_s *stream) {
 	while (!atomic_load(&stream->run->stop)) {
 		_stream_check_suicide(stream);
 
-		unsigned width = stream->dev->run->width;
-		unsigned height = stream->dev->run->height;
+		uint width = stream->dev->run->width;
+		uint height = stream->dev->run->height;
 		if (width == 0 || height == 0) {
 			width = stream->dev->width;
 			height = stream->dev->height;
