@@ -439,7 +439,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 		}
 		us_blank_draw(run->blank, "< NO SIGNAL >", width, height);
 
-		_stream_set_capture_state(stream, width, height, true, 0);
+		_stream_set_capture_state(stream, width, height, false, 0);
 		_stream_expose_frame(stream, NULL);
 #		ifdef WITH_GPIO
 		us_gpio_set_stream_online(false);
