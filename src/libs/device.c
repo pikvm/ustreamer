@@ -662,6 +662,7 @@ querystd:
 	_D_LOG_DEBUG("Applied new video standard: %s", _standard_to_string(dev->standard));
 
 subscribe:
+	; // Empty statement for the goto label above
 	struct v4l2_event_subscription sub = {.type = V4L2_EVENT_SOURCE_CHANGE};
 	_D_LOG_DEBUG("Subscribing to V4L2_EVENT_SOURCE_CHANGE ...")
 	if (us_xioctl(dev->run->fd, VIDIOC_SUBSCRIBE_EVENT, &sub) < 0) {
