@@ -22,7 +22,6 @@
 
 #include <stdio.h>
 #include <stdbool.h>
-#include <signal.h>
 
 #include <pthread.h>
 
@@ -30,6 +29,7 @@
 #include "../libs/threading.h"
 #include "../libs/logging.h"
 #include "../libs/device.h"
+#include "../libs/signal.h"
 
 #include "options.h"
 #include "encoder.h"
@@ -76,24 +76,6 @@ static void _signal_handler(int signum) {
 	us_server_loop_break(_g_server);
 }
 
-static void _install_signal_handlers(void) {
-	struct sigaction sig_act = {0};
-
-	assert(!sigemptyset(&sig_act.sa_mask));
-	sig_act.sa_handler = _signal_handler;
-	assert(!sigaddset(&sig_act.sa_mask, SIGINT));
-	assert(!sigaddset(&sig_act.sa_mask, SIGTERM));
-
-	US_LOG_DEBUG("Installing SIGINT handler ...");
-	assert(!sigaction(SIGINT, &sig_act, NULL));
-
-	US_LOG_DEBUG("Installing SIGTERM handler ...");
-	assert(!sigaction(SIGTERM, &sig_act, NULL));
-
-	US_LOG_DEBUG("Ignoring SIGPIPE ...");
-	assert(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
-}
-
 int main(int argc, char *argv[]) {
 	assert(argc >= 0);
 	int exit_code = 0;
@@ -112,7 +94,7 @@ int main(int argc, char *argv[]) {
 		us_gpio_init();
 #		endif
 
-		_install_signal_handlers();
+		us_install_signals_handler(_signal_handler, true);
 
 		if ((exit_code = us_server_listen(_g_server)) == 0) {
 #			ifdef WITH_GPIO

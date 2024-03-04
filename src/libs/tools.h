@@ -34,12 +34,6 @@
 
 #include <sys/file.h>
 
-#if defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 32
-#	define HAS_SIGABBREV_NP
-#else
-#	include <signal.h>
-#endif
-
 #include "types.h"
 
 
@@ -191,24 +185,4 @@ INLINE char *us_errno_to_string(int error) {
 #	else
 	return us_strdup(strerror_r(error, buf, max_len));
 #	endif
-}
-
-INLINE char *us_signum_to_string(int signum) {
-#	ifdef HAS_SIGABBREV_NP
-	const char *const name = sigabbrev_np(signum);
-#	else
-	const char *const name = (
-		signum == SIGTERM ? "TERM" :
-		signum == SIGINT ? "INT" :
-		signum == SIGPIPE ? "PIPE" :
-		NULL
-	);
-#	endif
-	char *buf;
-	if (name != NULL) {
-		US_ASPRINTF(buf, "SIG%s", name);
-	} else {
-		US_ASPRINTF(buf, "SIG[%d]", signum);
-	}
-	return buf;
 }

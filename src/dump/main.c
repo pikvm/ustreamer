@@ -24,7 +24,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <signal.h>
 #include <limits.h>
 #include <float.h>
 #include <getopt.h>
@@ -36,6 +35,7 @@
 #include "../libs/logging.h"
 #include "../libs/frame.h"
 #include "../libs/memsink.h"
+#include "../libs/signal.h"
 #include "../libs/options.h"
 
 #include "file.h"
@@ -95,7 +95,6 @@ typedef struct {
 
 
 static void _signal_handler(int signum);
-static void _install_signal_handlers(void);
 
 static int _dump_sink(
 	const char *sink_name, unsigned sink_timeout,
@@ -190,7 +189,7 @@ int main(int argc, char *argv[]) {
 		ctx.destroy = us_output_file_destroy;
 	}
 
-	_install_signal_handlers();
+	us_install_signals_handler(_signal_handler, false);
 	const int retval = abs(_dump_sink(sink_name, sink_timeout, count, interval, key_required, &ctx));
 	if (ctx.v_output && ctx.destroy) {
 		ctx.destroy(ctx.v_output);
@@ -204,25 +203,6 @@ static void _signal_handler(int signum) {
 	US_LOG_INFO_NOLOCK("===== Stopping by %s =====", name);
 	free(name);
 	_g_stop = true;
-}
-
-static void _install_signal_handlers(void) {
-	struct sigaction sig_act = {0};
-
-	assert(!sigemptyset(&sig_act.sa_mask));
-	sig_act.sa_handler = _signal_handler;
-	assert(!sigaddset(&sig_act.sa_mask, SIGINT));
-	assert(!sigaddset(&sig_act.sa_mask, SIGTERM));
-	assert(!sigaddset(&sig_act.sa_mask, SIGPIPE));
-
-	US_LOG_DEBUG("Installing SIGINT handler ...");
-	assert(!sigaction(SIGINT, &sig_act, NULL));
-
-	US_LOG_DEBUG("Installing SIGTERM handler ...");
-	assert(!sigaction(SIGTERM, &sig_act, NULL));
-
-	US_LOG_DEBUG("Installing SIGTERM handler ...");
-	assert(!sigaction(SIGPIPE, &sig_act, NULL));
 }
 
 static int _dump_sink(

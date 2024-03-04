@@ -25,7 +25,6 @@
 #include <stdatomic.h>
 #include <string.h>
 #include <unistd.h>
-#include <signal.h>
 #include <getopt.h>
 #include <errno.h>
 #include <assert.h>
@@ -41,6 +40,7 @@
 #include "../libs/tools.h"
 #include "../libs/logging.h"
 #include "../libs/device.h"
+#include "../libs/signal.h"
 #include "../libs/options.h"
 
 #include "drm.h"
@@ -82,7 +82,6 @@ atomic_bool _g_ustreamer_online = false;
 
 
 static void _signal_handler(int signum);
-static void _install_signal_handlers(void);
 
 static void _main_loop();
 static void *_follower_thread(void *v_unix_follow);
@@ -137,7 +136,7 @@ int main(int argc, char *argv[]) {
 #	undef OPT_NUMBER
 #	undef OPT_SET
 
-	_install_signal_handlers();
+	us_install_signals_handler(_signal_handler, false);
 
 	pthread_t follower_tid;
 	if (unix_follow != NULL) {
@@ -157,25 +156,6 @@ static void _signal_handler(int signum) {
 	US_LOG_INFO_NOLOCK("===== Stopping by %s =====", name);
 	free(name);
 	atomic_store(&_g_stop, true);
-}
-
-static void _install_signal_handlers(void) {
-	struct sigaction sig_act = {0};
-
-	assert(!sigemptyset(&sig_act.sa_mask));
-	sig_act.sa_handler = _signal_handler;
-	assert(!sigaddset(&sig_act.sa_mask, SIGINT));
-	assert(!sigaddset(&sig_act.sa_mask, SIGTERM));
-	assert(!sigaddset(&sig_act.sa_mask, SIGPIPE));
-
-	US_LOG_DEBUG("Installing SIGINT handler ...");
-	assert(!sigaction(SIGINT, &sig_act, NULL));
-
-	US_LOG_DEBUG("Installing SIGTERM handler ...");
-	assert(!sigaction(SIGTERM, &sig_act, NULL));
-
-	US_LOG_DEBUG("Installing SIGTERM handler ...");
-	assert(!sigaction(SIGPIPE, &sig_act, NULL));
 }
 
 static void _main_loop(void) {
