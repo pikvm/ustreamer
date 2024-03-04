@@ -93,10 +93,12 @@ void us_janus_client_send(us_janus_client_s *client, const us_rtp_s *rtp) {
 }
 
 static void *_video_thread(void *v_client) {
+	US_THREAD_SETTLE("us_c_video");
 	return _common_thread(v_client, true);
 }
 
 static void *_audio_thread(void *v_client) {
+	US_THREAD_SETTLE("us_c_audio");
 	return _common_thread(v_client, false);
 }
 

@@ -100,8 +100,7 @@ janus_plugin *create(void);
 
 static void *_video_rtp_thread(void *arg) {
 	(void)arg;
-
-	US_THREAD_RENAME("us_video_rtp");
+	US_THREAD_SETTLE("us_video_rtp");
 	atomic_store(&_g_video_rtp_tid_created, true);
 
 	while (!_STOP) {
@@ -120,8 +119,7 @@ static void *_video_rtp_thread(void *arg) {
 
 static void *_video_sink_thread(void *arg) {
 	(void)arg;
-
-	US_THREAD_RENAME("us_video_sink");
+	US_THREAD_SETTLE("us_video_sink");
 	atomic_store(&_g_video_sink_tid_created, true);
 
 	us_frame_s *drop = us_frame_init();
@@ -185,15 +183,16 @@ static void *_video_sink_thread(void *arg) {
 		US_JLOG_INFO("video", "Memsink closed");
 		sleep(1); // error_delay
 	}
+
 	us_frame_destroy(drop);
 	return NULL;
 }
 
 static void *_audio_thread(void *arg) {
 	(void)arg;
-
-	US_THREAD_RENAME("us_audio");
+	US_THREAD_SETTLE("us_audio");
 	atomic_store(&_g_audio_tid_created, true);
+
 	assert(_g_config->audio_dev_name != NULL);
 	assert(_g_config->tc358743_dev_path != NULL);
 

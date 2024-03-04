@@ -227,10 +227,9 @@ static void _main_loop(void) {
 }
 
 static void *_follower_thread(void *v_unix_follow) {
+	US_THREAD_SETTLE("follower");
 	const char *path = v_unix_follow;
 	assert(path != NULL);
-
-	US_THREAD_RENAME("follower");
 
 	while (!atomic_load(&_g_stop)) {
 		int fd = socket(AF_UNIX, SOCK_STREAM, 0);

@@ -279,6 +279,7 @@ void _stream_set_capture_state(us_stream_s *stream, uint width, uint height, boo
 }
 
 static void *_releaser_thread(void *v_ctx) {
+	US_THREAD_SETTLE("str_rel")
 	_releaser_context_s *ctx = v_ctx;
 
 	while (!atomic_load(ctx->stop)) {
@@ -308,6 +309,7 @@ done:
 }
 
 static void *_jpeg_thread(void *v_ctx) {
+	US_THREAD_SETTLE("str_jpeg")
 	_jpeg_context_s *ctx = v_ctx;
 	us_stream_s *stream = ctx->stream;
 
@@ -372,6 +374,7 @@ static void *_jpeg_thread(void *v_ctx) {
 }
 
 static void *_h264_thread(void *v_ctx) {
+	US_THREAD_SETTLE("str_h264");
 	_h264_context_s *ctx = v_ctx;
 
 	ldf last_encode_ts = us_get_now_monotonic();

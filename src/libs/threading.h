@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <signal.h>
 #include <assert.h>
 
 #include <sys/syscall.h>
@@ -56,8 +57,13 @@
 			us_thread_set_name(m_new_tname_buf); \
 		}
 #else
-#	define US_THREAD_RENAME(_fmt, ...)
+#	define US_THREAD_RENAME(x_fmt, ...)
 #endif
+
+#define US_THREAD_SETTLE(x_fmt, ...) { \
+		US_THREAD_RENAME((x_fmt), ##__VA_ARGS__); \
+		us_thread_block_signals(); \
+	}
 
 #define US_MUTEX_INIT(x_mutex)		assert(!pthread_mutex_init(&(x_mutex), NULL))
 #define US_MUTEX_DESTROY(x_mutex)	assert(!pthread_mutex_destroy(&(x_mutex)))
@@ -123,4 +129,12 @@ INLINE void us_thread_get_name(char *name) { // Always required for logging
 #ifdef WITH_PTHREAD_NP
 	}
 #endif
+}
+
+INLINE void us_thread_block_signals(void) {
+	sigset_t mask;
+	assert(!sigemptyset(&mask));
+	assert(!sigaddset(&mask, SIGINT));
+	assert(!sigaddset(&mask, SIGTERM));
+	assert(!pthread_sigmask(SIG_BLOCK, &mask, NULL));
 }

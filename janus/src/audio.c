@@ -195,7 +195,7 @@ static _enc_buffer_s *_enc_buffer_init(void) {
 }
 
 static void *_pcm_thread(void *v_audio) {
-	US_THREAD_RENAME("us_a_pcm");
+	US_THREAD_SETTLE("us_a_pcm");
 
 	us_audio_s *const audio = (us_audio_s *)v_audio;
 	uint8_t in[_MAX_BUF8];
@@ -225,7 +225,7 @@ static void *_pcm_thread(void *v_audio) {
 }
 
 static void *_encoder_thread(void *v_audio) {
-	US_THREAD_RENAME("us_a_enc");
+	US_THREAD_SETTLE("us_a_enc");
 
 	us_audio_s *const audio = (us_audio_s *)v_audio;
 	int16_t in_res[_MAX_BUF16];
