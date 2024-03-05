@@ -27,6 +27,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
+#include <locale.h> // Make C locale for strerror_l()
 #include <errno.h>
 #include <math.h>
 #include <time.h>
@@ -175,14 +176,26 @@ INLINE int us_flock_timedwait_monotonic(int fd, ldf timeout) {
 }
 
 INLINE char *us_errno_to_string(int error) {
+#	if (_POSIX_C_SOURCE >= 200112L) && !defined(_GNU_SOURCE) // XSI
 	char buf[2048];
 	const uz max_len = sizeof(buf) - 1;
-#	if (_POSIX_C_SOURCE >= 200112L) && ! _GNU_SOURCE
 	if (strerror_r(error, buf, max_len) != 0) {
 		US_SNPRINTF(buf, max_len, "Errno = %d", error);
 	}
 	return us_strdup(buf);
-#	else
+
+#	elif defined(__GLIBC__) && defined(_GNU_SOURCE) // GNU
+	char buf[2048];
+	const uz max_len = sizeof(buf) - 1;
 	return us_strdup(strerror_r(error, buf, max_len));
+
+#	else // BSD
+	locale_t locale = newlocale(LC_MESSAGES_MASK, "C", NULL);
+	if (locale) {
+		char *ptr = us_strdup(strerror_l(error, locale));
+		freelocale(locale);
+		return ptr;
+	}
+	return us_strdup("!!! newlocale() error !!!");
 #	endif
 }
