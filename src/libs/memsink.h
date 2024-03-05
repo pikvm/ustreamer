@@ -41,8 +41,11 @@ typedef struct {
 
 	int					fd;
 	us_memsink_shared_s	*mem;
-	u64					last_id;
-	atomic_bool			has_clients; // Only for server
+
+	u64			last_readed_id; // Only for client
+
+	atomic_bool	has_clients; // Only for server results
+	ldf			unsafe_last_client_ts; // Only for server
 } us_memsink_s;
 
 

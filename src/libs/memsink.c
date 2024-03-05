@@ -101,16 +101,35 @@ void us_memsink_destroy(us_memsink_s *sink) {
 }
 
 bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame) {
-	// Return true (the need to write to memsink) on any of these conditions:
-	//   - EWOULDBLOCK - we have an active client;
-	//   - Incorrect magic or version - need to first write;
-	//   - We have some active clients by last_client_ts;
-	//   - Frame meta differs (like size, format, but not timestamp).
+	// Если frame == NULL, то только проверяем наличие клиентов
+	// или необходимость инициализировать память.
 
 	assert(sink->server);
 
+	if (sink->mem->magic != US_MEMSINK_MAGIC || sink->mem->version != US_MEMSINK_VERSION) {
+		// Если регион памяти не был инициализирован, то нужно что-то туда положить.
+		// Блокировка не нужна, потому что только сервер пишет в эти переменные.
+		return true;
+	}
+
+	const ldf unsafe_ts = sink->mem->last_client_ts;
+	if (unsafe_ts != sink->unsafe_last_client_ts) {
+		// Клиент пишет в синке свою отметку last_client_ts при любом действии.
+		// Мы не берем блокировку здесь, а просто проверяем, является ли это число тем же самым,
+		// что было прочитано нами в предыдущих итерациях. Значению не нужно быть консистентным,
+		// и даже если мы прочитали мусор из-за гонки в памяти между чтением здеси и записью
+		// из клиента, мы все равно можем сделать вывод, есть ли у нас клиенты вообще.
+		// Если число число поменялось то у нас точно есть клиенты и дальнейшие проверки
+		// проводить не требуется. Если же число неизменно, то стоит поставить блокировку
+		// и проверить, нужно ли записать что-нибудь в память для инициализации фрейма.
+		sink->unsafe_last_client_ts = unsafe_ts;
+		atomic_store(&sink->has_clients, true);
+		return true;
+	}
+
 	if (flock(sink->fd, LOCK_EX | LOCK_NB) < 0) {
 		if (errno == EWOULDBLOCK) {
+			// Есть живой клиент, который прямо сейчас взял блокировку и читает фрейм из синка
 			atomic_store(&sink->has_clients, true);
 			return true;
 		}
@@ -118,10 +137,7 @@ bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame) {
 		return false;
 	}
 
-	if (sink->mem->magic != US_MEMSINK_MAGIC || sink->mem->version != US_MEMSINK_VERSION) {
-		return true;
-	}
-
+	// Проверяем, есть ли у нас живой клиент по таймауту
 	const bool has_clients = (sink->mem->last_client_ts + sink->client_ttl > us_get_now_monotonic());
 	atomic_store(&sink->has_clients, has_clients);
 
@@ -133,6 +149,7 @@ bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame) {
 		return true;
 	}
 	if (frame != NULL && !US_FRAME_COMPARE_GEOMETRY(sink->mem, frame)) {
+		// Если есть изменения в геометрии/формате фрейма, то их тоже нобходимо сразу записать в синк
 		return true;
 	}
 	return false;
@@ -152,12 +169,13 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key
 	if (us_flock_timedwait_monotonic(sink->fd, 1) == 0) {
 		US_LOG_VERBOSE("%s-sink: >>>>> Exposing new frame ...", sink->name);
 
-		sink->last_id = us_get_now_id();
-		sink->mem->id = sink->last_id;
+		sink->mem->id = us_get_now_id();
 		if (sink->mem->key_requested && frame->key) {
 			sink->mem->key_requested = false;
 		}
-		*key_requested = sink->mem->key_requested;
+		if (key_requested != NULL) { // We don't need it for non-H264 sinks
+			*key_requested = sink->mem->key_requested;
+		}
 
 		memcpy(sink->mem->data, frame->data, frame->used);
 		sink->mem->used = frame->used;
@@ -196,27 +214,33 @@ int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_reque
 		return -1;
 	}
 
-	int retval = -2; // Not updated
+	int retval = 0;
 
-	if (sink->mem->magic == US_MEMSINK_MAGIC) {
-		if (sink->mem->version != US_MEMSINK_VERSION) {
-			US_LOG_ERROR("%s-sink: Protocol version mismatch: sink=%u, required=%u",
-				sink->name, sink->mem->version, US_MEMSINK_VERSION);
-			retval = -1;
-			goto done;
-		}
-		if (sink->mem->id != sink->last_id) { // When updated
-			sink->last_id = sink->mem->id;
-			us_frame_set_data(frame, sink->mem->data, sink->mem->used);
-			US_FRAME_COPY_META(sink->mem, frame);
-			*key_requested = sink->mem->key_requested;
-			retval = 0;
-		}
-		sink->mem->last_client_ts = us_get_now_monotonic();
-		if (key_required) {
-			sink->mem->key_requested = true;
-		}
+	if (sink->mem->magic != US_MEMSINK_MAGIC) {
+		retval = -2; // Not updated
+		goto done;
 	}
+	if (sink->mem->version != US_MEMSINK_VERSION) {
+		US_LOG_ERROR("%s-sink: Protocol version mismatch: sink=%u, required=%u",
+			sink->name, sink->mem->version, US_MEMSINK_VERSION);
+		retval = -1;
+		goto done;
+	}
+	if (sink->mem->id == sink->last_readed_id) {
+		retval = -2; // Not updated
+		goto done;
+	}
+
+	sink->last_readed_id = sink->mem->id;
+	us_frame_set_data(frame, sink->mem->data, sink->mem->used);
+	US_FRAME_COPY_META(sink->mem, frame);
+	if (key_requested != NULL) { // We don't need it for non-H264 sinks
+		*key_requested = sink->mem->key_requested;
+	}
+	if (key_required) {
+		sink->mem->key_requested = true;
+	}
+	sink->mem->last_client_ts = us_get_now_monotonic();
 
 done:
 	if (flock(sink->fd, LOCK_UN) < 0) {
