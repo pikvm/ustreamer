@@ -456,6 +456,10 @@ static int _stream_init_loop(us_stream_s *stream) {
 
 	bool waiting_reported = false;
 	while (!atomic_load(&stream->run->stop)) {
+#		ifdef WITH_GPIO
+		us_gpio_set_stream_online(false);
+#		endif
+
 		// Флаги has_clients у синков не обновляются сами по себе, поэтому обновим их
 		// на каждой итерации старта стрима. После старта этим будут заниматься воркеры.
 		if (stream->jpeg_sink != NULL) {
@@ -470,25 +474,6 @@ static int _stream_init_loop(us_stream_s *stream) {
 
 		_stream_check_suicide(stream);
 
-		uint width = stream->dev->run->width;
-		uint height = stream->dev->run->height;
-		if (width == 0 || height == 0) {
-			width = stream->dev->width;
-			height = stream->dev->height;
-		}
-		us_blank_draw(run->blank, "< NO SIGNAL >", width, height);
-
-		_stream_set_capture_state(stream, width, height, false, 0);
-#		ifdef WITH_GPIO
-		us_gpio_set_stream_online(false);
-#		endif
-
-		_stream_expose_jpeg(stream, run->blank->jpeg);
-		if (run->h264 != NULL) {
-			us_h264_stream_process(run->h264, run->blank->raw, true);
-		}
-		_stream_expose_raw(stream, run->blank->raw);
-
 		stream->dev->dma_export = (
 			stream->enc->type == US_ENCODER_TYPE_M2M_VIDEO
 			|| stream->enc->type == US_ENCODER_TYPE_M2M_IMAGE
@@ -500,19 +485,37 @@ static int _stream_init_loop(us_stream_s *stream) {
 					waiting_reported = true;
 					US_LOG_INFO("Waiting for the capture device ...");
 				}
-				goto sleep_and_retry;
+				goto offline_and_retry;
 			case -1:
 				waiting_reported = false;
-				goto sleep_and_retry;
+				goto offline_and_retry;
 			default: break;
 		}
 		us_encoder_open(stream->enc, stream->dev);
 		return 0;
 
-	sleep_and_retry:
+	offline_and_retry:
 		for (uint count = 0; count < stream->error_delay * 10; ++count) {
 			if (atomic_load(&run->stop)) {
 				break;
+			}
+			if (count % 10 == 0) {
+				// Каждую секунду повторяем blank
+				uint width = stream->dev->run->width;
+				uint height = stream->dev->run->height;
+				if (width == 0 || height == 0) {
+					width = stream->dev->width;
+					height = stream->dev->height;
+				}
+				us_blank_draw(run->blank, "< NO SIGNAL >", width, height);
+
+				_stream_set_capture_state(stream, width, height, false, 0);
+
+				_stream_expose_jpeg(stream, run->blank->jpeg);
+				if (run->h264 != NULL) {
+					us_h264_stream_process(run->h264, run->blank->raw, true);
+				}
+				_stream_expose_raw(stream, run->blank->raw);
 			}
 			usleep(100 * 1000);
 		}
