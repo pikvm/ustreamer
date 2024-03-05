@@ -609,7 +609,10 @@ static int _device_open_dv_timings(us_device_s *dev, bool apply) {
 	struct v4l2_dv_timings dv = {0};
 	_D_LOG_DEBUG("Querying DV-timings (apply=%u) ...", apply);
 	if (us_xioctl(run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv) < 0) {
-		dv_errno = errno; // ENOLINK if no signal
+		// TC358743 errors here (see in the kernel: drivers/media/i2c/tc358743.c):
+		//   - ENOLINK: No valid signal (SYS_STATUS & MASK_S_TMDS)
+		//   - ENOLCK:  No sync on signal (SYS_STATUS & MASK_S_SYNC)
+		dv_errno = errno;
 		goto querystd;
 	} else if (!apply) {
 		goto probe_only;
