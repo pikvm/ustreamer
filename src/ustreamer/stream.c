@@ -331,10 +331,10 @@ static void *_jpeg_thread(void *v_ctx) {
 				if (atomic_load(&stream->run->http_snapshot_requested) > 0) { // Process real snapshots
 					atomic_fetch_sub(&stream->run->http_snapshot_requested, 1);
 				}
-				US_LOG_PERF("##### Encoded JPEG exposed; worker=%s, latency=%.3Lf",
+				US_LOG_PERF("JPEG: ##### Encoded JPEG exposed; worker=%s, latency=%.3Lf",
 					ready_wr->name, us_get_now_monotonic() - ready_job->dest->grab_ts);
 			} else {
-				US_LOG_PERF("----- Encoded JPEG dropped; worker=%s", ready_wr->name);
+				US_LOG_PERF("JPEG: ----- Encoded JPEG dropped; worker=%s", ready_wr->name);
 			}
 		}
 
@@ -345,7 +345,7 @@ static void *_jpeg_thread(void *v_ctx) {
 
 		const bool update_required = (stream->jpeg_sink != NULL && us_memsink_server_check(stream->jpeg_sink, NULL));
 		if (!update_required && !_stream_has_jpeg_clients_cached(stream)) {
-			US_LOG_VERBOSE("Passed JPEG encoding because nobody is watching");
+			US_LOG_VERBOSE("JPEG: Passed encoding because nobody is watching");
 			us_device_buffer_decref(hw);
 			continue;
 		}
@@ -353,7 +353,7 @@ static void *_jpeg_thread(void *v_ctx) {
 		const ldf now_ts = us_get_now_monotonic();
 		if (now_ts < grab_after) {
 			fluency_passed += 1;
-			US_LOG_VERBOSE("Passed %u JPEG frames for fluency: now=%.03Lf, grab_after=%.03Lf",
+			US_LOG_VERBOSE("JPEG: Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf",
 				fluency_passed, now_ts, grab_after);
 			us_device_buffer_decref(hw);
 			continue;
@@ -362,11 +362,11 @@ static void *_jpeg_thread(void *v_ctx) {
 
 		const ldf fluency_delay = us_workers_pool_get_fluency_delay(stream->enc->run->pool, ready_wr);
 		grab_after = now_ts + fluency_delay;
-		US_LOG_VERBOSE("Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
+		US_LOG_VERBOSE("JPEG: Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
 
 		ready_job->hw = hw;
 		us_workers_pool_assign(stream->enc->run->pool, ready_wr);
-		US_LOG_DEBUG("Assigned new frame in buffer=%d to worker=%s", hw->buf.index, ready_wr->name);
+		US_LOG_DEBUG("JPEG: Assigned new frame in buffer=%d to worker=%s", hw->buf.index, ready_wr->name);
 	}
 	return NULL;
 }
@@ -384,7 +384,7 @@ static void *_h264_thread(void *v_ctx) {
 
 		if (!us_memsink_server_check(ctx->stream->run->h264->sink, NULL)) {
 			us_device_buffer_decref(hw);
-			US_LOG_VERBOSE("Passed H264 encoding because nobody is watching");
+			US_LOG_VERBOSE("H264: Passed encoding because nobody is watching");
 			continue;
 		}
 
@@ -411,7 +411,7 @@ static void *_raw_thread(void *v_ctx) {
 
 		if (!us_memsink_server_check(ctx->stream->raw_sink, NULL)) {
 			us_device_buffer_decref(hw);
-			US_LOG_VERBOSE("Passed RAW publishing because nobody is watching");
+			US_LOG_VERBOSE("RAW: Passed publishing because nobody is watching");
 			continue;
 		}
 
