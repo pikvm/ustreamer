@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
 	if (unix_follow != NULL) {
 		US_THREAD_CREATE(follower_tid, _follower_thread, unix_follow);
 	}
-	_main_loop(unix_follow);
+	_main_loop();
 	if (unix_follow != NULL) {
 		US_THREAD_JOIN(follower_tid);
 	}
