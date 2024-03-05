@@ -314,7 +314,7 @@ static void *_jpeg_thread(void *v_ctx) {
 	_worker_context_s *ctx = v_ctx;
 	us_stream_s *stream = ctx->stream;
 
-	ldf grab_after = 0;
+	ldf grab_after_ts = 0;
 	uint fluency_passed = 0;
 
 	while (!atomic_load(ctx->stop)) {
@@ -351,18 +351,18 @@ static void *_jpeg_thread(void *v_ctx) {
 		}
 
 		const ldf now_ts = us_get_now_monotonic();
-		if (now_ts < grab_after) {
+		if (now_ts < grab_after_ts) {
 			fluency_passed += 1;
 			US_LOG_VERBOSE("JPEG: Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf",
-				fluency_passed, now_ts, grab_after);
+				fluency_passed, now_ts, grab_after_ts);
 			us_device_buffer_decref(hw);
 			continue;
 		}
 		fluency_passed = 0;
 
 		const ldf fluency_delay = us_workers_pool_get_fluency_delay(stream->enc->run->pool, ready_wr);
-		grab_after = now_ts + fluency_delay;
-		US_LOG_VERBOSE("JPEG: Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after);
+		grab_after_ts = now_ts + fluency_delay;
+		US_LOG_VERBOSE("JPEG: Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after_ts);
 
 		ready_job->hw = hw;
 		us_workers_pool_assign(stream->enc->run->pool, ready_wr);
@@ -374,26 +374,42 @@ static void *_jpeg_thread(void *v_ctx) {
 static void *_h264_thread(void *v_ctx) {
 	US_THREAD_SETTLE("str_h264");
 	_worker_context_s *ctx = v_ctx;
+	us_h264_stream_s *h264 = ctx->stream->run->h264;
 
+	ldf grab_after_ts = 0;
 	ldf last_encode_ts = us_get_now_monotonic();
+
 	while (!atomic_load(ctx->stop)) {
 		us_hw_buffer_s *hw = _get_latest_hw(ctx->queue);
 		if (hw == NULL) {
 			continue;
 		}
 
-		if (!us_memsink_server_check(ctx->stream->run->h264->sink, NULL)) {
+		if (!us_memsink_server_check(h264->sink, NULL)) {
 			us_device_buffer_decref(hw);
 			US_LOG_VERBOSE("H264: Passed encoding because nobody is watching");
+			continue;
+		}
+
+		if (hw->raw.grab_ts < grab_after_ts) {
+			us_device_buffer_decref(hw);
+			US_LOG_VERBOSE("H264: Passed encoding for FPS limit: %u", h264->enc->run->fps_limit);
 			continue;
 		}
 
 		// Форсим кейфрейм, если от захвата давно не было фреймов
 		const ldf now_ts = us_get_now_monotonic();
 		const bool force_key = (last_encode_ts + 0.5 < now_ts);
+		us_h264_stream_process(h264, &hw->raw, force_key);
 		last_encode_ts = now_ts;
 
-		us_h264_stream_process(ctx->stream->run->h264, &hw->raw, force_key);
+		// M2M-енкодер увеличивает задержку на 100 милисекунд при 1080p, если скормить ему больше 30 FPS.
+		// Поэтому у нас есть два режима: 60 FPS для маленьких видео и 30 для 1920x1080(1200).
+		// Следующй фрейм захватывается не раньше, чем это требуется по FPS, минус небольшая
+		// погрешность (если захват неравномерный) - немного меньше 1/60, и примерно треть от 1/30.
+		const ldf frame_interval = (ldf)1 / h264->enc->run->fps_limit;
+		grab_after_ts = hw->raw.grab_ts + frame_interval - 0.01;
+
 		us_device_buffer_decref(hw);
 	}
 	return NULL;

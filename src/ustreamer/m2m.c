@@ -43,7 +43,7 @@
 
 static us_m2m_encoder_s *_m2m_encoder_init(
 	const char *name, const char *path, uint output_format,
-	uint fps, uint bitrate, uint gop, uint quality, bool allow_dma);
+	uint bitrate, uint gop, uint quality, bool allow_dma);
 
 static void _m2m_encoder_ensure(us_m2m_encoder_s *enc, const us_frame_s *frame);
 
@@ -64,11 +64,8 @@ static int _m2m_encoder_compress_raw(us_m2m_encoder_s *enc, const us_frame_s *sr
 
 
 us_m2m_encoder_s *us_m2m_h264_encoder_init(const char *name, const char *path, uint bitrate, uint gop) {
-	// FIXME: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L2100
-	// По логике вещей правильно 0, но почему-то на низких разрешениях типа 640x480
-	// енкодер через несколько секунд перестает производить корректные фреймы.
 	bitrate *= 1000; // From Kbps
-	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_H264, 30, bitrate, gop, 0, true);
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_H264, bitrate, gop, 0, true);
 }
 
 us_m2m_encoder_s *us_m2m_mjpeg_encoder_init(const char *name, const char *path, uint quality) {
@@ -79,13 +76,12 @@ us_m2m_encoder_s *us_m2m_mjpeg_encoder_init(const char *name, const char *path, 
 	bitrate = step * round(bitrate / step);
 	bitrate *= 1000; // From Kbps
 	assert(bitrate > 0);
-	// FIXME: То же самое про 30 or 0, но еще даже не проверено на низких разрешениях
-	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_MJPEG, 30, bitrate, 0, 0, true);
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_MJPEG, bitrate, 0, 0, true);
 }
 
 us_m2m_encoder_s *us_m2m_jpeg_encoder_init(const char *name, const char *path, uint quality) {
 	// FIXME: DMA не работает
-	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_JPEG, 30, 0, 0, quality, false);
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_JPEG, 0, 0, quality, false);
 }
 
 void us_m2m_encoder_destroy(us_m2m_encoder_s *enc) {
@@ -127,7 +123,7 @@ int us_m2m_encoder_compress(us_m2m_encoder_s *enc, const us_frame_s *src, us_fra
 
 static us_m2m_encoder_s *_m2m_encoder_init(
 	const char *name, const char *path, uint output_format,
-	uint fps, uint bitrate, uint gop, uint quality, bool allow_dma) {
+	uint bitrate, uint gop, uint quality, bool allow_dma) {
 
 	US_LOG_INFO("%s: Initializing encoder ...", name);
 
@@ -145,7 +141,6 @@ static us_m2m_encoder_s *_m2m_encoder_init(
 		enc->path = us_strdup(path);
 	}
 	enc->output_format = output_format;
-	enc->fps = fps;
 	enc->bitrate = bitrate;
 	enc->gop = gop;
 	enc->quality = quality;
@@ -265,11 +260,23 @@ static void _m2m_encoder_ensure(us_m2m_encoder_s *enc, const us_frame_s *frame) 
 		}
 	}
 
-	if (enc->fps > 0) { // TODO: Check this for MJPEG
+	if (run->p_width * run->p_height <= 1280 * 720) {
+		// H264 требует каких-то лимитов. Больше 30 не поддерживается, а при 0
+		// через какое-то время начинает производить некорректные фреймы.
+		// Если же привысить fps, то резко увеличивается время кодирования.
+		run->fps_limit = 60;
+	} else {
+		run->fps_limit = 30;
+	}
+	// H264: 30 or 0? https://github.com/6by9/yavta/blob/master/yavta.c#L2100
+	// По логике вещей правильно 0, но почему-то на низких разрешениях типа 640x480
+	// енкодер через несколько секунд перестает производить корректные фреймы.
+	// JPEG: То же самое про 30 or 0, но еще даже не проверено на низких разрешениях.
+	{
 		struct v4l2_streamparm setfps = {0};
 		setfps.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 		setfps.parm.output.timeperframe.numerator = 1;
-		setfps.parm.output.timeperframe.denominator = enc->fps;
+		setfps.parm.output.timeperframe.denominator = run->fps_limit;
 		_E_LOG_DEBUG("Configuring INPUT FPS ...");
 		_E_XIOCTL(VIDIOC_S_PARM, &setfps, "Can't set INPUT FPS");
 	}
