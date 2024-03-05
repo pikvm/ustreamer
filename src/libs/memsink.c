@@ -226,6 +226,10 @@ int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_reque
 		retval = -1;
 		goto done;
 	}
+
+	// Let the sink know that the client is alive
+	sink->mem->last_client_ts = us_get_now_monotonic();
+
 	if (sink->mem->id == sink->last_readed_id) {
 		retval = -2; // Not updated
 		goto done;
@@ -240,7 +244,6 @@ int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_reque
 	if (key_required) {
 		sink->mem->key_requested = true;
 	}
-	sink->mem->last_client_ts = us_get_now_monotonic();
 
 done:
 	if (flock(sink->fd, LOCK_UN) < 0) {
