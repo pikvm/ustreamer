@@ -264,7 +264,6 @@ void us_device_close(us_device_s *dev) {
 			_D_LOG_PERROR("Can't stop capturing");
 		}
 		run->streamon = false;
-		_D_LOG_DEBUG("VIDIOC_STREAMOFF successful");
 	}
 
 	if (run->hw_bufs != NULL) {
@@ -291,7 +290,6 @@ void us_device_close(us_device_s *dev) {
 		}
 		US_DELETE(run->hw_bufs, free);
 		run->n_bufs = 0;
-		_D_LOG_DEBUG("All HW buffers released");
 	}
 
 	US_CLOSE_FD(run->fd);
