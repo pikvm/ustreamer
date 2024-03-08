@@ -36,11 +36,3 @@
 		JANUS_LOG(LOG_ERR, "[%s/%-9s] " x_msg ": %s\n", US_PLUGIN_NAME, x_prefix, ##__VA_ARGS__, m_perror_str); \
 		free(m_perror_str); \
 	}
-
-#define US_ONCE(...) { \
-		const int m_reported = __LINE__; \
-		if (m_reported != once) { \
-			__VA_ARGS__; \
-			once = m_reported; \
-		} \
-	}

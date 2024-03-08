@@ -72,6 +72,14 @@
 		(m_a > m_b ? m_a : m_b); \
 	})
 
+#define US_ONCE(...) { \
+		const int m_reported = __LINE__; \
+		if (m_reported != once) { \
+			__VA_ARGS__; \
+			once = m_reported; \
+		} \
+	}
+
 
 INLINE char *us_strdup(const char *str) {
 	char *const new = strdup(str);

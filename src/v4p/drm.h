@@ -28,19 +28,16 @@
 #include "../libs/types.h"
 #include "../libs/frame.h"
 #include "../libs/frametext.h"
+#include "../libs/device.h"
 
 
 typedef enum {
-	US_DRM_EXPOSE_FRAME = 0,
-	US_DRM_EXPOSE_NO_SIGNAL,
-	US_DRM_EXPOSE_BUSY,
-} us_drm_expose_e;
-
-typedef enum {
-	US_DRM_STATE_OK = 0,
-	US_DRM_STATE_CLOSED,
-	US_DRM_STATE_NO_DISPLAY,
-} us_drm_state_e;
+	US_DRM_STUB_USER = 1,
+	US_DRM_STUB_BAD_RESOLUTION,
+	US_DRM_STUB_BAD_FORMAT,
+	US_DRM_STUB_NO_SIGNAL,
+	US_DRM_STUB_BUSY,
+} us_drm_stub_e;
 
 typedef struct {
 	u32		id;
@@ -49,11 +46,13 @@ typedef struct {
 	uz		allocated;
 	bool	dumb_created;
 	bool	fb_added;
+	struct {
+		bool *has_vsync;
+	} ctx;
 } us_drm_buffer_s;
 
 typedef struct {
 	int				status_fd;
-
 	int				fd;
 	u32				crtc_id;
 	u32				conn_id;
@@ -61,22 +60,15 @@ typedef struct {
 	us_drm_buffer_s	*bufs;
 	uint			n_bufs;
 	drmModeCrtc		*saved_crtc;
-	uint			next_n_buf;
 	bool			has_vsync;
-
+	int				stub_n_buf;
 	us_frametext_s	*ft;
-
-	uint			p_width;
-	uint			p_height;
-	float			p_hz;
-
-	us_drm_state_e	state;
+	bool			unplugged_reported;
 } us_drm_runtime_s;
 
 typedef struct {
 	char	*path;
 	char	*port;
-	uint	n_bufs;
 	uint	timeout;
 
 	us_drm_runtime_s *run;
@@ -86,5 +78,9 @@ typedef struct {
 us_drm_s *us_drm_init(void);
 void us_drm_destroy(us_drm_s *drm);
 
+int us_drm_open(us_drm_s *drm, const us_device_s *dev);
+void us_drm_close(us_drm_s *drm);
+
+int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_device_s *dev);
+int us_drm_expose_dma(us_drm_s *drm, const us_hw_buffer_s *hw);
 int us_drm_wait_for_vsync(us_drm_s *drm);
-int us_drm_expose(us_drm_s *drm, us_drm_expose_e ex, const us_frame_s *frame, float hz);

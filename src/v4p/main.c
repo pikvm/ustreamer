@@ -164,61 +164,102 @@ static void _main_loop(void) {
 
 	us_device_s *dev = us_device_init();
 	dev->path = "/dev/kvmd-video";
-	dev->n_bufs = drm->n_bufs;
+	dev->n_bufs = 6;
 	dev->format = V4L2_PIX_FMT_RGB24;
 	dev->dv_timings = true;
 	dev->persistent = true;
+	dev->dma_export = true;
+	dev->dma_required = true;
 
+	int once = 0;
+	int drm_opened = -1;
 	while (!atomic_load(&_g_stop)) {
-		if (atomic_load(&_g_ustreamer_online)) {
-			if (us_drm_wait_for_vsync(drm) == 0) {
-				us_drm_expose(drm, US_DRM_EXPOSE_BUSY, NULL, 0);
-			}
-			if (dev->run->fd >= 0) {
+		if (drm_opened <= 0) {
+			if ((drm_opened = us_drm_open(drm, NULL)) < 0) {
 				goto close;
-			} else {
-				_slowdown();
-				continue;
 			}
+		}
+		assert(drm_opened > 0);
+
+		if (atomic_load(&_g_ustreamer_online)) {
+			US_ONCE({ US_LOG_INFO("DRM: Online stream is active"); });
+			if (us_drm_wait_for_vsync(drm) < 0) {
+				goto close;
+			}
+			if (us_drm_expose_stub(drm, US_DRM_STUB_BUSY, NULL) < 0) {
+				goto close;
+			}
+			_slowdown();
+			continue;
 		}
 
 		if (us_device_open(dev) < 0) {
-			if (us_drm_wait_for_vsync(drm) == 0) {
-				us_drm_expose(drm, US_DRM_EXPOSE_NO_SIGNAL, NULL, 0);
+			if (us_drm_wait_for_vsync(drm) < 0) {
+				goto close;
 			}
+			if (us_drm_expose_stub(drm, US_DRM_STUB_NO_SIGNAL, NULL) < 0) {
+				goto close;
+			}
+			_slowdown();
+			continue;
+		}
+
+		us_drm_close(drm);
+		if ((drm_opened = us_drm_open(drm, dev)) < 0) {
 			goto close;
 		}
 
+		once = 0;
+
+		us_hw_buffer_s *prev_hw = NULL;
 		while (!atomic_load(&_g_stop)) {
 			if (atomic_load(&_g_ustreamer_online)) {
 				goto close;
 			}
 
 			if (us_drm_wait_for_vsync(drm) < 0) {
-				_slowdown();
-				continue;
+				goto close;
+			}
+
+			if (prev_hw != NULL) {
+				if (us_device_release_buffer(dev, prev_hw) < 0) {
+					goto close;
+				}
+				prev_hw = NULL;
 			}
 
 			us_hw_buffer_s *hw;
-			const int buf_index = us_device_grab_buffer(dev, &hw);
-			switch (buf_index) {
+			const int n_buf = us_device_grab_buffer(dev, &hw);
+			switch (n_buf) {
 				case -2: continue; // Broken frame
 				case -1: goto close; // Any error
 			}
-			assert(buf_index >= 0);
+			assert(n_buf >= 0);
 
-			const int exposed = us_drm_expose(drm, US_DRM_EXPOSE_FRAME, &hw->raw, dev->run->hz);
-			if (us_device_release_buffer(dev, hw) < 0) {
-				goto close;
+			int exposed;
+			if (drm_opened == 0) {
+				exposed = us_drm_expose_dma(drm, hw);
+				prev_hw = hw;
+			} else {
+				exposed = us_drm_expose_stub(drm, drm_opened, dev);
+				if (us_device_release_buffer(dev, hw) < 0) {
+					goto close;
+				}
 			}
+
 			if (exposed < 0) {
+				goto close;
+			} else if (drm_opened > 0) {
 				_slowdown();
-				continue;
 			}
 		}
 
 	close:
+		us_drm_close(drm);
+		drm_opened = -1;
+
 		us_device_close(dev);
+
 		_slowdown();
 	}
 
