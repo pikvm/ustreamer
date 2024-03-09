@@ -182,7 +182,7 @@ static void _main_loop(void) {
 		assert(drm_opened > 0);
 
 		if (atomic_load(&_g_ustreamer_online)) {
-			US_ONCE({ US_LOG_ERROR("DRM: Online stream is active"); });
+			US_ONCE({ US_LOG_ERROR("DRM: Online stream is active, stopping capture ..."); });
 			if (us_drm_wait_for_vsync(drm) < 0) {
 				goto close;
 			}
@@ -194,10 +194,13 @@ static void _main_loop(void) {
 		}
 
 		if (us_device_open(dev) < 0) {
-			if (us_drm_wait_for_vsync(drm) < 0) {
+			/*if (us_drm_wait_for_vsync(drm) < 0) {
 				goto close;
 			}
 			if (us_drm_expose_stub(drm, US_DRM_STUB_NO_SIGNAL, NULL) < 0) {
+				goto close;
+			}*/
+			if (us_drm_dpms_power_off(drm) < 0) {
 				goto close;
 			}
 			_slowdown();

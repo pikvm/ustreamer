@@ -46,10 +46,12 @@
 
 static void _drm_vsync_callback(int fd, uint n_frame, uint sec, uint usec, void *v_buf);
 static int _drm_check_status(us_drm_s *drm);
+static void _drm_ensure_dpms_power(us_drm_s *drm, bool on);
 static int _drm_init_buffers(us_drm_s *drm, const us_device_s *dev);
 static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz);
 
 static drmModeModeInfo *_find_best_mode(drmModeConnector *conn, uint width, uint height, float hz);
+static u32 _find_dpms(int fd, drmModeConnector *conn);
 static u32 _find_crtc(int fd, drmModeRes *res, drmModeConnector *conn, u32 *taken_crtcs);
 static const char *_connector_type_to_string(u32 type);
 static float _get_refresh_rate(const drmModeModeInfo *mode);
@@ -68,6 +70,7 @@ us_drm_s *us_drm_init(void) {
 	run->fd = -1;
 	run->status_fd = -1;
 	run->has_vsync = true;
+	run->dpms_state = -1;
 	run->ft = us_frametext_init();
 
 	us_drm_s *drm;
@@ -219,11 +222,23 @@ void us_drm_close(us_drm_s *drm) {
 
 	run->crtc_id = 0;
 	run->has_vsync = true;
+	run->dpms_state = -1;
 	run->stub_n_buf = 0;
 
 	if (say) {
 		_D_LOG_INFO("Closed");
 	}
+}
+
+int us_drm_dpms_power_off(us_drm_s *drm) {
+	assert(drm->run->fd >= 0);
+	switch (_drm_check_status(drm)) {
+		case 0: break;
+		case -2: return -2;
+		default: return -1;
+	}
+	_drm_ensure_dpms_power(drm, false);
+	return 0;
 }
 
 int us_drm_wait_for_vsync(us_drm_s *drm) {
@@ -236,6 +251,7 @@ int us_drm_wait_for_vsync(us_drm_s *drm) {
 		case -2: return -2;
 		default: return -1;
 	}
+	_drm_ensure_dpms_power(drm, true);
 
 	if (run->has_vsync) {
 		return 0;
@@ -289,6 +305,7 @@ int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_device_s *dev
 		case -2: return -2;
 		default: return -1;
 	}
+	_drm_ensure_dpms_power(drm, true);
 
 #	define DRAW_MSG(x_msg) us_frametext_draw(run->ft, (x_msg), run->mode.hdisplay, run->mode.vdisplay)
 	switch (stub) {
@@ -357,6 +374,7 @@ int us_drm_expose_dma(us_drm_s *drm, const us_hw_buffer_s *hw) {
 		case -2: return -2;
 		default: return -1;
 	}
+	_drm_ensure_dpms_power(drm, true);
 
 	run->has_vsync = false;
 
@@ -410,6 +428,20 @@ static int _drm_check_status(us_drm_s *drm) {
 error:
 	US_CLOSE_FD(run->status_fd);
 	return -1;
+}
+
+static void _drm_ensure_dpms_power(us_drm_s *drm, bool on) {
+	us_drm_runtime_s *const run = drm->run;
+	if (run->dpms_id > 0 && run->dpms_state != (int)on) {
+		_D_LOG_INFO("Changing DPMS power mode: %d -> %u ...", run->dpms_state, on);
+		if (drmModeConnectorSetProperty(
+			run->fd, run->conn_id, run->dpms_id,
+			(on ? DRM_MODE_DPMS_ON : DRM_MODE_DPMS_OFF)
+		) < 0) {
+			_D_LOG_PERROR("Can't set DPMS power=%u (ignored)", on);
+		}
+	}
+	run->dpms_state = (int)on;
 }
 
 static int _drm_init_buffers(us_drm_s *drm, const us_device_s *dev) {
@@ -517,7 +549,7 @@ static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz) {
 			drmModeFreeConnector(conn);
 			continue;
 		}
-		_D_LOG_DEBUG("Found connector for port %s: conn_type=%d, conn_type_id=%d",
+		_D_LOG_INFO("Using connector %s: conn_type=%d, conn_type_id=%d",
 			drm->port, conn->connector_type, conn->connector_type_id);
 
 		if (conn->connection != DRM_MODE_CONNECTED) {
@@ -532,11 +564,14 @@ static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz) {
 			drmModeFreeConnector(conn);
 			goto unplugged;
 		}
-		assert(best->hdisplay > 0);
-		assert(best->vdisplay > 0);
-
-		_D_LOG_INFO("The best display mode is: %ux%up%.02f",
+		_D_LOG_INFO("Using best mode: %ux%up%.02f",
 			best->hdisplay, best->vdisplay, _get_refresh_rate(best));
+
+		if ((run->dpms_id = _find_dpms(run->fd, conn)) > 0) {
+			_D_LOG_INFO("Using DPMS: id=%u", run->dpms_id);
+		} else {
+			_D_LOG_INFO("Using DPMS: None");
+		}
 
 		u32 taken_crtcs = 0; // Unused here
 		if ((run->crtc_id = _find_crtc(run->fd, res, conn, &taken_crtcs)) == 0) {
@@ -544,6 +579,8 @@ static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz) {
 			drmModeFreeConnector(conn);
 			goto done;
 		}
+		_D_LOG_INFO("Using CRTC: id=%u", run->crtc_id);
+
 		run->conn_id = conn->connector_id;
 		memcpy(&run->mode, best, sizeof(drmModeModeInfo));
 
@@ -596,7 +633,24 @@ static drmModeModeInfo *_find_best_mode(drmModeConnector *conn, uint width, uint
 	if (best == NULL) {
 		best = (conn->count_modes > 0 ? &conn->modes[0] : NULL);
 	}
+	assert(best == NULL || best->hdisplay > 0);
+	assert(best == NULL || best->vdisplay > 0);
 	return best;
+}
+
+static u32 _find_dpms(int fd, drmModeConnector *conn) {
+	for (int pi = 0; pi < conn->count_props; pi++) {
+		drmModePropertyPtr prop = drmModeGetProperty(fd, conn->props[pi]);
+		if (prop != NULL) {
+			if (!strcmp(prop->name, "DPMS")) {
+				const u32 id = prop->prop_id;
+				drmModeFreeProperty(prop);
+				return id;
+			}
+			drmModeFreeProperty(prop);
+		}
+	}
+	return 0;
 }
 
 static u32 _find_crtc(int fd, drmModeRes *res, drmModeConnector *conn, u32 *taken_crtcs) {

@@ -56,13 +56,15 @@ typedef struct {
 	int				fd;
 	u32				crtc_id;
 	u32				conn_id;
+	u32				dpms_id;
 	drmModeModeInfo	mode;
 	us_drm_buffer_s	*bufs;
 	uint			n_bufs;
 	drmModeCrtc		*saved_crtc;
+	int				dpms_state;
 	bool			has_vsync;
-	bool			stub;
 	uint			stub_n_buf;
+	bool			stub;
 	us_frametext_s	*ft;
 	bool			unplugged_reported;
 } us_drm_runtime_s;
@@ -82,6 +84,7 @@ void us_drm_destroy(us_drm_s *drm);
 int us_drm_open(us_drm_s *drm, const us_device_s *dev);
 void us_drm_close(us_drm_s *drm);
 
+int us_drm_dpms_power_off(us_drm_s *drm);
+int us_drm_wait_for_vsync(us_drm_s *drm);
 int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_device_s *dev);
 int us_drm_expose_dma(us_drm_s *drm, const us_hw_buffer_s *hw);
-int us_drm_wait_for_vsync(us_drm_s *drm);
