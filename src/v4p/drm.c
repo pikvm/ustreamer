@@ -168,7 +168,7 @@ error:
 
 unplugged:
 	if (!run->unplugged_reported) {
-		_D_LOG_INFO("Display is not plugged");
+		_D_LOG_ERROR("Display is not plugged");
 		run->unplugged_reported = true;
 	}
 	us_drm_close(drm);

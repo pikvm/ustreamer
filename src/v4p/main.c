@@ -182,7 +182,7 @@ static void _main_loop(void) {
 		assert(drm_opened > 0);
 
 		if (atomic_load(&_g_ustreamer_online)) {
-			US_ONCE({ US_LOG_INFO("DRM: Online stream is active"); });
+			US_ONCE({ US_LOG_ERROR("DRM: Online stream is active"); });
 			if (us_drm_wait_for_vsync(drm) < 0) {
 				goto close;
 			}
