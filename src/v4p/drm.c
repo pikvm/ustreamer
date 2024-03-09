@@ -46,9 +46,10 @@
 
 static void _drm_vsync_callback(int fd, uint n_frame, uint sec, uint usec, void *v_buf);
 static int _drm_check_status(us_drm_s *drm);
-static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz);
 static int _drm_init_buffers(us_drm_s *drm, const us_device_s *dev);
+static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz);
 
+static drmModeModeInfo *_find_best_mode(drmModeConnector *conn, uint width, uint height, float hz);
 static u32 _find_crtc(int fd, drmModeRes *res, drmModeConnector *conn, u32 *taken_crtcs);
 static const char *_connector_type_to_string(u32 type);
 static float _get_refresh_rate(const drmModeModeInfo *mode);
@@ -411,107 +412,6 @@ error:
 	return -1;
 }
 
-static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz) {
-	us_drm_runtime_s *const run = drm->run;
-
-	run->crtc_id = 0;
-
-	_D_LOG_DEBUG("Trying to find the appropriate sink ...");
-
-	drmModeRes *res = drmModeGetResources(run->fd);
-	if (res == NULL) {
-		_D_LOG_PERROR("Can't get resources info");
-		goto done;
-	}
-	if (res->count_connectors <= 0) {
-		_D_LOG_ERROR("Can't find any connectors");
-		goto done;
-	}
-
-	for (int ci = 0; ci < res->count_connectors; ++ci) {
-		drmModeConnector *conn = drmModeGetConnector(run->fd, res->connectors[ci]);
-		if (conn == NULL) {
-			_D_LOG_PERROR("Can't get connector index=%d", ci);
-			goto done;
-		}
-
-		char port[32];
-		US_SNPRINTF(port, 31, "%s-%u",
-			_connector_type_to_string(conn->connector_type),
-			conn->connector_type_id);
-		if (strcmp(port, drm->port) != 0) {
-			drmModeFreeConnector(conn);
-			continue;
-		}
-		_D_LOG_DEBUG("Found connector for port %s: conn_type=%d, conn_type_id=%d",
-			drm->port, conn->connector_type, conn->connector_type_id);
-
-		if (conn->connection != DRM_MODE_CONNECTED) {
-			_D_LOG_ERROR("Connector for port %s has !DRM_MODE_CONNECTED", drm->port);
-			drmModeFreeConnector(conn);
-			goto done;
-		}
-
-		drmModeModeInfo *best = NULL;
-		drmModeModeInfo *closest = NULL;
-		drmModeModeInfo *pref = NULL;
-		for (int mi = 0; mi < conn->count_modes; ++mi) {
-			drmModeModeInfo *const mode = &conn->modes[mi];
-			if (mode->flags & DRM_MODE_FLAG_INTERLACE) {
-				continue; // Paranoia for size and discard interlaced
-			}
-			const float mode_hz = _get_refresh_rate(mode);
-			if (mode->hdisplay == width && mode->vdisplay == height) {
-				best = mode; // Any mode with exact resolution
-				if (hz > 0 && mode_hz == hz) {
-					break; // Exact mode with same freq
-				}
-			}
-			if (mode->hdisplay == width && mode->vdisplay < height) {
-				if (closest == NULL || _get_refresh_rate(closest) != hz) {
-					closest = mode; // Something like 1920x1080p60 for 1920x1200p60 source
-				}
-			}
-			if (pref == NULL && (mode->type & DRM_MODE_TYPE_PREFERRED)) {
-				pref = mode; // Preferred mode if nothing is found
-			}
-		}
-		if (best == NULL) { best = closest; }
-		if (best == NULL) { best = pref; }
-		if (best == NULL) { best = (conn->count_modes > 0 ? &conn->modes[0] : NULL); }
-		if (best == NULL) {
-			_D_LOG_ERROR("Can't find any appropriate display modes");
-			drmModeFreeConnector(conn);
-			goto unplugged;
-		}
-		assert(best->hdisplay > 0);
-		assert(best->vdisplay > 0);
-
-		_D_LOG_INFO("The best display mode is: %ux%up%.02f",
-			best->hdisplay, best->vdisplay, _get_refresh_rate(best));
-
-		u32 taken_crtcs = 0; // Unused here
-		if ((run->crtc_id = _find_crtc(run->fd, res, conn, &taken_crtcs)) == 0) {
-			_D_LOG_ERROR("Can't find CRTC");
-			drmModeFreeConnector(conn);
-			goto done;
-		}
-		run->conn_id = conn->connector_id;
-		memcpy(&run->mode, best, sizeof(drmModeModeInfo));
-
-		drmModeFreeConnector(conn);
-		break;
-	}
-
-done:
-	drmModeFreeResources(res);
-	return (run->crtc_id > 0 ? 0 : -1);
-
-unplugged:
-	drmModeFreeResources(res);
-	return -2;
-}
-
 static int _drm_init_buffers(us_drm_s *drm, const us_device_s *dev) {
 	us_drm_runtime_s *const run = drm->run;
 
@@ -583,6 +483,120 @@ static int _drm_init_buffers(us_drm_s *drm, const us_device_s *dev) {
 		buf->fb_added = true;
 	}
 	return 0;
+}
+
+static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz) {
+	us_drm_runtime_s *const run = drm->run;
+
+	run->crtc_id = 0;
+
+	_D_LOG_DEBUG("Trying to find the appropriate sink ...");
+
+	drmModeRes *res = drmModeGetResources(run->fd);
+	if (res == NULL) {
+		_D_LOG_PERROR("Can't get resources info");
+		goto done;
+	}
+	if (res->count_connectors <= 0) {
+		_D_LOG_ERROR("Can't find any connectors");
+		goto done;
+	}
+
+	for (int ci = 0; ci < res->count_connectors; ++ci) {
+		drmModeConnector *conn = drmModeGetConnector(run->fd, res->connectors[ci]);
+		if (conn == NULL) {
+			_D_LOG_PERROR("Can't get connector index=%d", ci);
+			goto done;
+		}
+
+		char port[32];
+		US_SNPRINTF(port, 31, "%s-%u",
+			_connector_type_to_string(conn->connector_type),
+			conn->connector_type_id);
+		if (strcmp(port, drm->port) != 0) {
+			drmModeFreeConnector(conn);
+			continue;
+		}
+		_D_LOG_DEBUG("Found connector for port %s: conn_type=%d, conn_type_id=%d",
+			drm->port, conn->connector_type, conn->connector_type_id);
+
+		if (conn->connection != DRM_MODE_CONNECTED) {
+			_D_LOG_ERROR("Connector for port %s has !DRM_MODE_CONNECTED", drm->port);
+			drmModeFreeConnector(conn);
+			goto done;
+		}
+
+		drmModeModeInfo *best;
+		if ((best = _find_best_mode(conn, width, height, hz)) == NULL) {
+			_D_LOG_ERROR("Can't find any appropriate display modes");
+			drmModeFreeConnector(conn);
+			goto unplugged;
+		}
+		assert(best->hdisplay > 0);
+		assert(best->vdisplay > 0);
+
+		_D_LOG_INFO("The best display mode is: %ux%up%.02f",
+			best->hdisplay, best->vdisplay, _get_refresh_rate(best));
+
+		u32 taken_crtcs = 0; // Unused here
+		if ((run->crtc_id = _find_crtc(run->fd, res, conn, &taken_crtcs)) == 0) {
+			_D_LOG_ERROR("Can't find CRTC");
+			drmModeFreeConnector(conn);
+			goto done;
+		}
+		run->conn_id = conn->connector_id;
+		memcpy(&run->mode, best, sizeof(drmModeModeInfo));
+
+		drmModeFreeConnector(conn);
+		break;
+	}
+
+done:
+	drmModeFreeResources(res);
+	return (run->crtc_id > 0 ? 0 : -1);
+
+unplugged:
+	drmModeFreeResources(res);
+	return -2;
+}
+
+static drmModeModeInfo *_find_best_mode(drmModeConnector *conn, uint width, uint height, float hz) {
+	drmModeModeInfo *best = NULL;
+	drmModeModeInfo *closest = NULL;
+	drmModeModeInfo *pref = NULL;
+
+	for (int mi = 0; mi < conn->count_modes; ++mi) {
+		drmModeModeInfo *const mode = &conn->modes[mi];
+		if (mode->flags & DRM_MODE_FLAG_INTERLACE) {
+			continue; // Discard interlaced
+		}
+		const float mode_hz = _get_refresh_rate(mode);
+		if (mode->hdisplay == width && mode->vdisplay == height) {
+			best = mode; // Any mode with exact resolution
+			if (hz > 0 && mode_hz == hz) {
+				break; // Exact mode with same freq
+			}
+		}
+		if (mode->hdisplay == width && mode->vdisplay < height) {
+			if (closest == NULL || _get_refresh_rate(closest) != hz) {
+				closest = mode; // Something like 1920x1080p60 for 1920x1200p60 source
+			}
+		}
+		if (pref == NULL && (mode->type & DRM_MODE_TYPE_PREFERRED)) {
+			pref = mode; // Preferred mode if nothing is found
+		}
+	}
+
+	if (best == NULL) {
+		best = closest;
+	}
+	if (best == NULL) {
+		best = pref;
+	}
+	if (best == NULL) {
+		best = (conn->count_modes > 0 ? &conn->modes[0] : NULL);
+	}
+	return best;
 }
 
 static u32 _find_crtc(int fd, drmModeRes *res, drmModeConnector *conn, u32 *taken_crtcs) {
