@@ -47,7 +47,8 @@ typedef struct {
 	bool	dumb_created;
 	bool	fb_added;
 	struct {
-		bool *has_vsync;
+		bool	*has_vsync;
+		int		*exposing_dma_fd;
 	} ctx;
 } us_drm_buffer_s;
 
@@ -64,6 +65,7 @@ typedef struct {
 	int				dpms_state;
 	bool			opened_for_stub;
 	bool			has_vsync;
+	int				exposing_dma_fd;
 	uint			stub_n_buf;
 	bool			unplugged_reported;
 	us_frametext_s	*ft;

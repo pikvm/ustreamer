@@ -69,8 +69,9 @@ us_drm_s *us_drm_init(void) {
 	US_CALLOC(run, 1);
 	run->fd = -1;
 	run->status_fd = -1;
-	run->has_vsync = true;
 	run->dpms_state = -1;
+	run->has_vsync = true;
+	run->exposing_dma_fd = -1;
 	run->ft = us_frametext_init();
 
 	us_drm_s *drm;
@@ -161,8 +162,9 @@ int us_drm_open(us_drm_s *drm, const us_device_s *dev) {
 		goto error;
 	}
 
-	run->unplugged_reported = false;
 	run->opened_for_stub = (stub > 0);
+	run->exposing_dma_fd = -1;
+	run->unplugged_reported = false;
 	_D_LOG_INFO("Opened for %s ...", (run->opened_for_stub ? "STUB" : "DMA"));
 	return stub;
 
@@ -181,6 +183,14 @@ unplugged:
 
 void us_drm_close(us_drm_s *drm) {
 	us_drm_runtime_s *const run = drm->run;
+
+	if (run->exposing_dma_fd >= 0) {
+		// Нужно подождать, пока dma_fd не освободится, прежде чем прерывать процесс.
+		// Просто на всякий случай.
+		assert(run->fd >= 0);
+		us_drm_wait_for_vsync(drm);
+		run->exposing_dma_fd = -1;
+	}
 
 	if (run->saved_crtc != NULL) {
 		_D_LOG_DEBUG("Restoring CRTC ...");
@@ -221,8 +231,8 @@ void us_drm_close(us_drm_s *drm) {
 	US_CLOSE_FD(run->fd);
 
 	run->crtc_id = 0;
-	run->has_vsync = true;
 	run->dpms_state = -1;
+	run->has_vsync = true;
 	run->stub_n_buf = 0;
 
 	if (say) {
@@ -291,6 +301,7 @@ static void _drm_vsync_callback(int fd, uint n_frame, uint sec, uint usec, void 
 	(void)usec;
 	us_drm_buffer_s *const buf = v_buf;
 	*buf->ctx.has_vsync = true;
+	*buf->ctx.exposing_dma_fd = -1;
 	_D_LOG_DEBUG("Got VSync signal");
 }
 
@@ -387,6 +398,7 @@ int us_drm_expose_dma(us_drm_s *drm, const us_hw_buffer_s *hw) {
 		_D_LOG_PERROR("Can't expose DMA framebuffer n_buf=%u ...", run->stub_n_buf);
 	}
 	_D_LOG_DEBUG("Exposed DMA framebuffer n_buf=%u", run->stub_n_buf);
+	run->exposing_dma_fd = hw->dma_fd;
 	return retval;
 }
 
@@ -458,6 +470,7 @@ static int _drm_init_buffers(us_drm_s *drm, const us_device_s *dev) {
 		us_drm_buffer_s *const buf = &run->bufs[n_buf];
 
 		buf->ctx.has_vsync = &run->has_vsync;
+		buf->ctx.exposing_dma_fd = &run->exposing_dma_fd;
 
 		u32 handles[4] = {0};
 		u32 strides[4] = {0};
