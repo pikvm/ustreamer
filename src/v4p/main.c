@@ -174,43 +174,31 @@ static void _main_loop(void) {
 	int once = 0;
 	int drm_opened = -1;
 	while (!atomic_load(&_g_stop)) {
+#		define CHECK(x_arg) if ((x_arg) < 0) { goto close; }
+
 		if (drm_opened <= 0) {
-			if ((drm_opened = us_drm_open(drm, NULL)) < 0) {
-				goto close;
-			}
+			CHECK(drm_opened = us_drm_open(drm, NULL));
 		}
 		assert(drm_opened > 0);
 
 		if (atomic_load(&_g_ustreamer_online)) {
 			US_ONCE({ US_LOG_ERROR("DRM: Online stream is active, stopping capture ..."); });
-			if (us_drm_wait_for_vsync(drm) < 0) {
-				goto close;
-			}
-			if (us_drm_expose_stub(drm, US_DRM_STUB_BUSY, NULL) < 0) {
-				goto close;
-			}
+			CHECK(us_drm_wait_for_vsync(drm));
+			CHECK(us_drm_expose_stub(drm, US_DRM_STUB_BUSY, NULL));
 			_slowdown();
 			continue;
 		}
 
 		if (us_device_open(dev) < 0) {
-			/*if (us_drm_wait_for_vsync(drm) < 0) {
-				goto close;
-			}
-			if (us_drm_expose_stub(drm, US_DRM_STUB_NO_SIGNAL, NULL) < 0) {
-				goto close;
-			}*/
-			if (us_drm_dpms_power_off(drm) < 0) {
-				goto close;
-			}
+			/*CHECK(us_drm_wait_for_vsync(drm));
+			CHECK(us_drm_expose_stub(drm, US_DRM_STUB_NO_SIGNAL, NULL));*/
+			CHECK(us_drm_dpms_power_off(drm));
 			_slowdown();
 			continue;
 		}
 
 		us_drm_close(drm);
-		if ((drm_opened = us_drm_open(drm, dev)) < 0) {
-			goto close;
-		}
+		CHECK(drm_opened = us_drm_open(drm, dev));
 
 		once = 0;
 
@@ -220,14 +208,10 @@ static void _main_loop(void) {
 				goto close;
 			}
 
-			if (us_drm_wait_for_vsync(drm) < 0) {
-				goto close;
-			}
+			CHECK(us_drm_wait_for_vsync(drm));
 
 			if (prev_hw != NULL) {
-				if (us_device_release_buffer(dev, prev_hw) < 0) {
-					goto close;
-				}
+				CHECK(us_device_release_buffer(dev, prev_hw));
 				prev_hw = NULL;
 			}
 
@@ -239,20 +223,15 @@ static void _main_loop(void) {
 			}
 			assert(n_buf >= 0);
 
-			int exposed;
 			if (drm_opened == 0) {
-				exposed = us_drm_expose_dma(drm, hw);
+				CHECK(us_drm_expose_dma(drm, hw));
 				prev_hw = hw;
 			} else {
-				exposed = us_drm_expose_stub(drm, drm_opened, dev);
-				if (us_device_release_buffer(dev, hw) < 0) {
-					goto close;
-				}
+				CHECK(us_drm_expose_stub(drm, drm_opened, dev));
+				CHECK(us_device_release_buffer(dev, hw));
 			}
 
-			if (exposed < 0) {
-				goto close;
-			} else if (drm_opened > 0) {
+			if (drm_opened > 0) {
 				_slowdown();
 			}
 		}
@@ -264,6 +243,8 @@ static void _main_loop(void) {
 		us_device_close(dev);
 
 		_slowdown();
+
+#		undef CHECK
 	}
 
 	us_device_destroy(dev);
