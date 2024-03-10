@@ -244,7 +244,10 @@ int us_drm_dpms_power_off(us_drm_s *drm) {
 	assert(drm->run->fd >= 0);
 	switch (_drm_check_status(drm)) {
 		case 0: break;
-		case -2: return -2;
+		case -2: return 0; // Unplugged, nice
+		// Во время переключения DPMS монитор моргает один раз состоянием disconnected,
+		// а потом почему-то снова оказывается connected. Так что просто считаем,
+		// что отсоединенный монитор на этом этапе - это нормально.
 		default: return -1;
 	}
 	_drm_ensure_dpms_power(drm, false);
