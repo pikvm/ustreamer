@@ -62,11 +62,11 @@ typedef struct {
 	uint			n_bufs;
 	drmModeCrtc		*saved_crtc;
 	int				dpms_state;
+	bool			opened_for_stub;
 	bool			has_vsync;
 	uint			stub_n_buf;
-	bool			stub;
-	us_frametext_s	*ft;
 	bool			unplugged_reported;
+	us_frametext_s	*ft;
 } us_drm_runtime_s;
 
 typedef struct {

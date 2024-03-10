@@ -162,8 +162,8 @@ int us_drm_open(us_drm_s *drm, const us_device_s *dev) {
 	}
 
 	run->unplugged_reported = false;
-	run->stub = (stub > 0);
-	_D_LOG_INFO("Opened for %s ...", (run->stub ? "STUB" : "DMA"));
+	run->opened_for_stub = (stub > 0);
+	_D_LOG_INFO("Opened for %s ...", (run->opened_for_stub ? "STUB" : "DMA"));
 	return stub;
 
 error:
@@ -298,7 +298,7 @@ int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_device_s *dev
 	us_drm_runtime_s *const run = drm->run;
 
 	assert(run->fd >= 0);
-	assert(run->stub);
+	assert(run->opened_for_stub);
 
 	switch (_drm_check_status(drm)) {
 		case 0: break;
@@ -367,7 +367,7 @@ int us_drm_expose_dma(us_drm_s *drm, const us_hw_buffer_s *hw) {
 	us_drm_buffer_s *const buf = &run->bufs[hw->buf.index];
 
 	assert(run->fd >= 0);
-	assert(!run->stub);
+	assert(!run->opened_for_stub);
 
 	switch (_drm_check_status(drm)) {
 		case 0: break;
