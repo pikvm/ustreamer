@@ -216,12 +216,11 @@ static void _main_loop(void) {
 			}
 
 			us_hw_buffer_s *hw;
-			const int n_buf = us_device_grab_buffer(dev, &hw);
-			switch (n_buf) {
+			switch (us_device_grab_buffer(dev, &hw)) {
 				case -2: continue; // Broken frame
 				case -1: goto close; // Any error
+				default: break; // Grabbed on >= 0
 			}
-			assert(n_buf >= 0);
 
 			if (drm_opened == 0) {
 				CHECK(us_drm_expose_dma(drm, hw));

@@ -177,12 +177,11 @@ void us_stream_loop(us_stream_s *stream) {
 		uint slowdown_count = 0;
 		while (!atomic_load(&run->stop) && !atomic_load(&threads_stop)) {
 			us_hw_buffer_s *hw;
-			const int buf_index = us_device_grab_buffer(dev, &hw);
-			switch (buf_index) {
+			switch (us_device_grab_buffer(dev, &hw)) {
 				case -2: continue; // Broken frame
 				case -1: goto close; // Error
+				default: break; // Grabbed on >= 0
 			}
-			assert(buf_index >= 0);
 
 			const sll now_sec_ts = us_floor_ms(us_get_now_monotonic());
 			if (now_sec_ts != captured_fps_ts) {
@@ -208,7 +207,7 @@ void us_stream_loop(us_stream_s *stream) {
 				us_device_buffer_incref(hw); // RAW
 				us_queue_put(raw_ctx.queue, hw, 0);
 			}
-			us_queue_put(releasers[buf_index].queue, hw, 0); // Plan to release
+			us_queue_put(releasers[hw->buf.index].queue, hw, 0); // Plan to release
 
 			// Мы не обновляем здесь состояние синков, потому что это происходит внутри обслуживающих их потоков
 			_stream_check_suicide(stream);
