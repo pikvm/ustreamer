@@ -42,12 +42,12 @@
 #include "uslibs/list.h"
 #include "uslibs/ring.h"
 #include "uslibs/memsinksh.h"
+#include "uslibs/tc358743.h"
 
 #include "const.h"
 #include "logging.h"
 #include "client.h"
 #include "audio.h"
-#include "tc358743.h"
 #include "rtp.h"
 #include "rtpv.h"
 #include "rtpa.h"
@@ -188,6 +188,22 @@ static void *_video_sink_thread(void *arg) {
 	return NULL;
 }
 
+static int _check_tc358743_audio(uint *audio_hz) {
+	int fd;
+	if ((fd = open(_g_config->tc358743_dev_path, O_RDWR)) < 0) {
+		US_JLOG_PERROR("audio", "Can't open TC358743 V4L2 device");
+		return -1;
+	}
+	const int checked = us_tc358743_xioctl_get_audio_hz(fd, audio_hz);
+	if (checked < 0) {
+		US_JLOG_PERROR("audio", "Can't check TC358743 audio state (%d)", checked);
+		close(fd);
+		return -1;
+	}
+	close(fd);
+	return 0;
+}
+
 static void *_audio_thread(void *arg) {
 	(void)arg;
 	US_THREAD_SETTLE("us_audio");
@@ -204,32 +220,27 @@ static void *_audio_thread(void *arg) {
 			continue;
 		}
 
-		us_tc358743_info_s info = {0};
+		uint audio_hz = 0;
 		us_audio_s *audio = NULL;
 
-		if (us_tc358743_read_info(_g_config->tc358743_dev_path, &info) < 0) {
+		if (_check_tc358743_audio(&audio_hz) < 0) {
 			goto close_audio;
 		}
-		if (!info.has_audio) {
+		if (audio_hz == 0) {
 			US_ONCE({ US_JLOG_INFO("audio", "No audio presented from the host"); });
 			goto close_audio;
 		}
 		US_ONCE({ US_JLOG_INFO("audio", "Detected host audio"); });
-		if ((audio = us_audio_init(_g_config->audio_dev_name, info.audio_hz)) == NULL) {
+		if ((audio = us_audio_init(_g_config->audio_dev_name, audio_hz)) == NULL) {
 			goto close_audio;
 		}
 
 		once = 0;
 
 		while (!_STOP && _HAS_WATCHERS && _HAS_LISTENERS) {
-			if (
-				us_tc358743_read_info(_g_config->tc358743_dev_path, &info) < 0
-				|| !info.has_audio
-				|| audio->pcm_hz != info.audio_hz
-			) {
+			if (_check_tc358743_audio(&audio_hz) < 0 || audio->pcm_hz != audio_hz) {
 				goto close_audio;
 			}
-
 			uz size = US_RTP_DATAGRAM_SIZE - US_RTP_HEADER_SIZE;
 			u8 data[size];
 			u64 pts;

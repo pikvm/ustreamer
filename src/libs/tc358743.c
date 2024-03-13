@@ -28,11 +28,9 @@
 #include <linux/videodev2.h>
 #include <linux/v4l2-controls.h>
 
-#include "uslibs/types.h"
-#include "uslibs/tools.h"
-#include "uslibs/xioctl.h"
-
-#include "logging.h"
+#include "types.h"
+#include "tools.h"
+#include "xioctl.h"
 
 
 #ifndef V4L2_CID_USER_TC358743_BASE
@@ -46,28 +44,22 @@
 #endif
 
 
-int us_tc358743_read_info(const char *path, us_tc358743_info_s *info) {
-	US_MEMSET_ZERO(*info);
+int us_tc358743_xioctl_get_audio_hz(int fd, uint *audio_hz) {
+	*audio_hz = 0;
 
-	int fd = -1;
-	if ((fd = open(path, O_RDWR)) < 0) {
-		US_JLOG_PERROR("audio", "Can't open TC358743 V4L2 device");
+	struct v4l2_control ctl = {.id = TC358743_CID_AUDIO_PRESENT};
+	if (us_xioctl(fd, VIDIOC_G_CTRL, &ctl) < 0) {
 		return -1;
 	}
+	if (!ctl.value) {
+		return 0; // No audio
+	}
 
-#	define READ_CID(x_cid, x_field) { \
-			struct v4l2_control m_ctl = {.id = x_cid}; \
-			if (us_xioctl(fd, VIDIOC_G_CTRL, &m_ctl) < 0) { \
-				US_JLOG_PERROR("audio", "Can't get value of " #x_cid); \
-				close(fd); \
-				return -1; \
-			} \
-			info->x_field = m_ctl.value; \
-		}
-	READ_CID(TC358743_CID_AUDIO_PRESENT,		has_audio);
-	READ_CID(TC358743_CID_AUDIO_SAMPLING_RATE,	audio_hz);
-#	undef READ_CID
-
-	close(fd);
+	US_MEMSET_ZERO(ctl);
+	ctl.id = TC358743_CID_AUDIO_SAMPLING_RATE;
+	if (us_xioctl(fd, VIDIOC_G_CTRL, &ctl) < 0) {
+		return -2;
+	}
+	*audio_hz = ctl.value;
 	return 0;
 }

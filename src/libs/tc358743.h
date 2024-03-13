@@ -22,13 +22,7 @@
 
 #pragma once
 
-#include "uslibs/types.h"
+#include "types.h"
 
 
-typedef struct {
-	bool	has_audio;
-	uint	audio_hz;
-} us_tc358743_info_s;
-
-
-int us_tc358743_read_info(const char *path, us_tc358743_info_s *info);
+int us_tc358743_xioctl_get_audio_hz(int fd, uint *audio_hz);
