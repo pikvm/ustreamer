@@ -487,9 +487,17 @@ static int _m2m_encoder_compress_raw(us_m2m_encoder_s *enc, const us_frame_s *sr
 	// Для не-DMA отправка буфера по факту являтся освобождением этого буфера
 	bool input_released = !run->p_dma;
 
-	while (true) {
-		struct pollfd enc_poll = {run->fd, POLLIN, 0};
+	// https://github.com/pikvm/ustreamer/issues/253
+	// За секунду точно должно закодироваться.
+	const ldf deadline_ts = us_get_now_monotonic() + 1;
 
+	while (true) {
+		if (us_get_now_monotonic() > deadline_ts) {
+			_E_LOG_ERROR("Waiting for the encoder is too long");
+			goto error;
+		}
+
+		struct pollfd enc_poll = {run->fd, POLLIN, 0};
 		_E_LOG_DEBUG("Polling encoder ...");
 		if (poll(&enc_poll, 1, 1000) < 0 && errno != EINTR) {
 			_E_LOG_PERROR("Can't poll encoder");
