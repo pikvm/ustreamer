@@ -453,12 +453,25 @@ static struct janus_plugin_result *_plugin_handle_message(
 
 	} else if (!strcmp(request_str, "watch")) {
 		bool with_audio = false;
+		uint video_orient = 0;
 		{
 			json_t *const params = json_object_get(msg, "params");
 			if (params != NULL) {
-				json_t *const audio = json_object_get(params, "audio");
-				if (audio != NULL && json_is_boolean(audio)) {
-					with_audio = (_g_rtpa != NULL && json_boolean_value(audio));
+				{
+					json_t *const obj = json_object_get(params, "audio");
+					if (obj != NULL && json_is_boolean(obj)) {
+						with_audio = (_g_rtpa != NULL && json_boolean_value(obj));
+					}
+				}
+				{
+					json_t *const obj = json_object_get(params, "orientation");
+					if (obj != NULL && json_is_integer(obj)) {
+						video_orient = json_integer_value(obj);
+						switch (video_orient) {
+							case 90: case 180: case 270: break;
+							default: video_orient = 0; break;
+						}
+					}
 				}
 			}
 		}
@@ -498,6 +511,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 			US_LIST_ITERATE(_g_clients, client, {
 				if (client->session == session) {
 					atomic_store(&client->transmit_audio, with_audio);
+					atomic_store(&client->video_orient, video_orient);
 				}
 				has_listeners = (has_listeners || atomic_load(&client->transmit_audio));
 			});

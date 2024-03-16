@@ -39,6 +39,7 @@ typedef struct us_janus_client_sx {
 	janus_plugin_session	*session;
 	atomic_bool				transmit;
 	atomic_bool				transmit_audio;
+	atomic_uint				video_orient;
 
 	pthread_t				video_tid;
 	pthread_t				audio_tid;

@@ -51,6 +51,7 @@ us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_sessio
 	client->session = session;
 	atomic_init(&client->transmit, false);
 	atomic_init(&client->transmit_audio, false);
+	atomic_init(&client->video_orient, 0);
 
 	atomic_init(&client->stop, false);
 
@@ -131,6 +132,7 @@ static void *_common_thread(void *v_client, bool video) {
 #				endif
 			};
 			janus_plugin_rtp_extensions_reset(&packet.extensions);
+
 			/*if (rtp->zero_playout_delay) {
 				// https://github.com/pikvm/pikvm/issues/784
 				packet.extensions.min_delay = 0;
@@ -141,6 +143,13 @@ static void *_common_thread(void *v_client, bool video) {
 				// 3s - Firefox default
 				packet.extensions.max_delay = 300; // == 3s, i.e. 10ms granularity
 			}*/
+
+			if (rtp.video) {
+				const uint video_orient = atomic_load(&client->video_orient);
+				if (video_orient != 0) {
+					packet.extensions.video_rotation = video_orient;
+				}
+			}
 
 			client->gw->relay_rtp(client->session, &packet);
 		}
