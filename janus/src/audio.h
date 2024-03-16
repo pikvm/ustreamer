@@ -22,50 +22,40 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
 #include <stdatomic.h>
-#include <assert.h>
-
-#include <sys/types.h>
 
 #include <pthread.h>
 #include <alsa/asoundlib.h>
 #include <speex/speex_resampler.h>
 #include <opus/opus.h>
 
-#include "uslibs/tools.h"
-#include "uslibs/array.h"
+#include "uslibs/types.h"
 #include "uslibs/ring.h"
-#include "uslibs/threading.h"
-
-#include "logging.h"
 
 
 typedef struct {
 	snd_pcm_t			*pcm;
-	unsigned			pcm_hz;
-	unsigned			pcm_frames;
-	size_t				pcm_size;
+	uint				pcm_hz;
+	uint				pcm_frames;
+	uz					pcm_size;
 	snd_pcm_hw_params_t	*pcm_params;
 	SpeexResamplerState	*res;
 	OpusEncoder			*enc;
 
-	us_ring_s			*pcm_ring;
-	us_ring_s			*enc_ring;
-	uint32_t			pts;
+	us_ring_s		*pcm_ring;
+	us_ring_s		*enc_ring;
+	u32				pts;
 
-	pthread_t			pcm_tid;
-	pthread_t			enc_tid;
-	bool				tids_created;
-	atomic_bool			stop;
+	pthread_t		pcm_tid;
+	pthread_t		enc_tid;
+	bool			tids_created;
+	atomic_bool		stop;
 } us_audio_s;
 
 
 bool us_audio_probe(const char *name);
 
-us_audio_s *us_audio_init(const char *name, unsigned pcm_hz);
+us_audio_s *us_audio_init(const char *name, uint pcm_hz);
 void us_audio_destroy(us_audio_s *audio);
 
-int us_audio_get_encoded(us_audio_s *audio, uint8_t *data, size_t *size, uint64_t *pts);
+int us_audio_get_encoded(us_audio_s *audio, u8 *data, uz *size, u64 *pts);

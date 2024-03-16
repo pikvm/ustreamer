@@ -22,6 +22,23 @@
 
 #include "audio.h"
 
+#include <stdlib.h>
+#include <stdatomic.h>
+#include <assert.h>
+
+#include <pthread.h>
+#include <alsa/asoundlib.h>
+#include <speex/speex_resampler.h>
+#include <opus/opus.h>
+
+#include "uslibs/types.h"
+#include "uslibs/tools.h"
+#include "uslibs/array.h"
+#include "uslibs/ring.h"
+#include "uslibs/threading.h"
+
+#include "logging.h"
+
 
 #define _JLOG_PERROR_ALSA(_err, _prefix, _msg, ...)	US_JLOG_ERROR(_prefix, _msg ": %s", ##__VA_ARGS__, snd_strerror(_err))
 #define _JLOG_PERROR_RES(_err, _prefix, _msg, ...)	US_JLOG_ERROR(_prefix, _msg ": %s", ##__VA_ARGS__, speex_resampler_strerror(_err))
@@ -31,7 +48,7 @@
 //   - https://github.com/xiph/opus/blob/7b05f44/src/opus_demo.c#L368
 #define _HZ_TO_FRAMES(_hz)	(6 * (_hz) / 50) // 120ms
 #define _HZ_TO_BUF16(_hz)	(_HZ_TO_FRAMES(_hz) * 2) // One stereo frame = (16bit L) + (16bit R)
-#define _HZ_TO_BUF8(_hz)	(_HZ_TO_BUF16(_hz) * sizeof(int16_t))
+#define _HZ_TO_BUF8(_hz)	(_HZ_TO_BUF16(_hz) * sizeof(s16))
 
 #define _MIN_PCM_HZ			8000
 #define _MAX_PCM_HZ			192000
@@ -41,13 +58,13 @@
 
 
 typedef struct {
-	int16_t		data[_MAX_BUF16];
+	s16		data[_MAX_BUF16];
 } _pcm_buffer_s;
 
 typedef struct {
-	uint8_t		data[_MAX_BUF8]; // Worst case
-	size_t		used;
-	uint64_t	pts;
+	u8		data[_MAX_BUF8]; // Worst case
+	uz		used;
+	u64	pts;
 } _enc_buffer_s;
 
 
@@ -71,7 +88,7 @@ bool us_audio_probe(const char *name) {
 	return true;
 }
 
-us_audio_s *us_audio_init(const char *name, unsigned pcm_hz) {
+us_audio_s *us_audio_init(const char *name, uint pcm_hz) {
 	us_audio_s *audio;
 	US_CALLOC(audio, 1);
 	audio->pcm_hz = pcm_hz;
@@ -162,7 +179,7 @@ void us_audio_destroy(us_audio_s *audio) {
 	free(audio);
 }
 
-int us_audio_get_encoded(us_audio_s *audio, uint8_t *data, size_t *size, uint64_t *pts) {
+int us_audio_get_encoded(us_audio_s *audio, u8 *data, uz *size, u64 *pts) {
 	if (atomic_load(&audio->stop)) {
 		return -1;
 	}
@@ -198,7 +215,7 @@ static void *_pcm_thread(void *v_audio) {
 	US_THREAD_SETTLE("us_a_pcm");
 
 	us_audio_s *const audio = (us_audio_s *)v_audio;
-	uint8_t in[_MAX_BUF8];
+	u8 in[_MAX_BUF8];
 
 	while (!atomic_load(&audio->stop)) {
 		const int frames = snd_pcm_readi(audio->pcm, in, audio->pcm_frames);
@@ -228,7 +245,7 @@ static void *_encoder_thread(void *v_audio) {
 	US_THREAD_SETTLE("us_a_enc");
 
 	us_audio_s *const audio = (us_audio_s *)v_audio;
-	int16_t in_res[_MAX_BUF16];
+	s16 in_res[_MAX_BUF16];
 
 	while (!atomic_load(&audio->stop)) {
 		const int in_ri = us_ring_consumer_acquire(audio->pcm_ring, 0.1);
@@ -237,11 +254,11 @@ static void *_encoder_thread(void *v_audio) {
 		}
 		_pcm_buffer_s *const in = audio->pcm_ring->items[in_ri];
 
-		int16_t *in_ptr;
+		s16 *in_ptr;
 		if (audio->res != NULL) {
 			assert(audio->pcm_hz != _ENCODER_INPUT_HZ);
-			uint32_t in_count = audio->pcm_frames;
-			uint32_t out_count = _HZ_TO_FRAMES(_ENCODER_INPUT_HZ);
+			u32 in_count = audio->pcm_frames;
+			u32 out_count = _HZ_TO_FRAMES(_ENCODER_INPUT_HZ);
 			speex_resampler_process_interleaved_int(audio->res, in->data, &in_count, in_res, &out_count);
 			in_ptr = in_res;
 		} else {
