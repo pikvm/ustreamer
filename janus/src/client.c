@@ -104,7 +104,7 @@ static void *_audio_thread(void *v_client) {
 }
 
 static void *_common_thread(void *v_client, bool video) {
-	us_janus_client_s *const client = (us_janus_client_s *)v_client;
+	us_janus_client_s *const client = v_client;
 	us_ring_s *const ring = (video ? client->video_ring : client->audio_ring);
 	assert(ring != NULL); // Audio may be NULL
 

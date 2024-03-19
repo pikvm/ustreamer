@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
 	_output_context_s ctx = {0};
 
 	if (output_path && output_path[0] != '\0') {
-		if ((ctx.v_output = (void *)us_output_file_init(output_path, output_json)) == NULL) {
+		if ((ctx.v_output = (void*)us_output_file_init(output_path, output_json)) == NULL) {
 			return 1;
 		}
 		ctx.write = us_output_file_write;

@@ -274,7 +274,7 @@ static void *_follower_thread(void *v_unix_follow) {
 		strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 		addr.sun_family = AF_UNIX;
 
-		const bool online = !connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+		const bool online = !connect(fd, (struct sockaddr*)&addr, sizeof(addr));
 		atomic_store(&_g_ustreamer_online, online);
 		US_CLOSE_FD(fd); // cppcheck-suppress unreadVariable
 

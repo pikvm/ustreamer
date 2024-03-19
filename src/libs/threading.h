@@ -84,7 +84,7 @@ INLINE void us_thread_set_name(const char *name) {
 #	elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
 	pthread_set_name_np(pthread_self(), name);
 #	elif defined(__NetBSD__)
-	pthread_setname_np(pthread_self(), "%s", (void *)name);
+	pthread_setname_np(pthread_self(), "%s", (void*)name);
 #	else
 #		error us_thread_set_name() not implemented, you can disable it using WITH_PTHREAD_NP=0
 #	endif

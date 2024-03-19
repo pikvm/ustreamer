@@ -166,7 +166,7 @@ void us_encoder_open(us_encoder_s *enc, us_device_s *dev) {
 
 		enc->run->pool = us_workers_pool_init(
 			"JPEG", "jw", n_workers, desired_interval,
-			_worker_job_init, (void *)enc,
+			_worker_job_init, (void*)enc,
 			_worker_job_destroy,
 			_worker_run_job);
 
@@ -188,19 +188,19 @@ void us_encoder_get_runtime_params(us_encoder_s *enc, us_encoder_type_e *type, u
 static void *_worker_job_init(void *v_enc) {
 	us_encoder_job_s *job;
 	US_CALLOC(job, 1);
-	job->enc = (us_encoder_s *)v_enc;
+	job->enc = (us_encoder_s*)v_enc;
 	job->dest = us_frame_init();
-	return (void *)job;
+	return (void*)job;
 }
 
 static void _worker_job_destroy(void *v_job) {
-	us_encoder_job_s *job = (us_encoder_job_s *)v_job;
+	us_encoder_job_s *job = v_job;
 	us_frame_destroy(job->dest);
 	free(job);
 }
 
 static bool _worker_run_job(us_worker_s *wr) {
-	us_encoder_job_s *job = (us_encoder_job_s *)wr->job;
+	us_encoder_job_s *job = wr->job;
 	us_encoder_s *enc = job->enc; // Just for _ER()
 	const us_frame_s *src = &job->hw->raw;
 	us_frame_s *dest = job->dest;

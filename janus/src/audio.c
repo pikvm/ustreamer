@@ -214,7 +214,7 @@ static _enc_buffer_s *_enc_buffer_init(void) {
 static void *_pcm_thread(void *v_audio) {
 	US_THREAD_SETTLE("us_a_pcm");
 
-	us_audio_s *const audio = (us_audio_s *)v_audio;
+	us_audio_s *const audio = v_audio;
 	u8 in[_MAX_BUF8];
 
 	while (!atomic_load(&audio->stop)) {
@@ -244,7 +244,7 @@ static void *_pcm_thread(void *v_audio) {
 static void *_encoder_thread(void *v_audio) {
 	US_THREAD_SETTLE("us_a_enc");
 
-	us_audio_s *const audio = (us_audio_s *)v_audio;
+	us_audio_s *const audio = v_audio;
 	s16 in_res[_MAX_BUF16];
 
 	while (!atomic_load(&audio->stop)) {

@@ -62,7 +62,7 @@ us_workers_pool_s *us_workers_pool_init(
 		WR(pool) = pool;
 		WR(job) = job_init(job_init_arg);
 
-		US_THREAD_CREATE(WR(tid), _worker_thread, (void *)&(pool->workers[number]));
+		US_THREAD_CREATE(WR(tid), _worker_thread, (void*)&(pool->workers[number]));
 		pool->free_workers += 1;
 
 #		undef WR
@@ -176,7 +176,7 @@ long double us_workers_pool_get_fluency_delay(us_workers_pool_s *pool, const us_
 }
 
 static void *_worker_thread(void *v_worker) {
-	us_worker_s *wr = (us_worker_s *)v_worker;
+	us_worker_s *wr = v_worker;
 
 	US_THREAD_SETTLE("%s", wr->name);
 	US_LOG_DEBUG("Hello! I am a worker %s ^_^", wr->name);

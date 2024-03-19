@@ -47,7 +47,7 @@ us_output_file_s *us_output_file_init(const char *path, bool json) {
 }
 
 void us_output_file_write(void *v_output, const us_frame_s *frame) {
-	us_output_file_s *output = (us_output_file_s *)v_output;
+	us_output_file_s *output = v_output;
 	if (output->json) {
 		us_base64_encode(frame->data, frame->used, &output->base64_data, &output->base64_allocated);
 		fprintf(output->fp,
@@ -66,7 +66,7 @@ void us_output_file_write(void *v_output, const us_frame_s *frame) {
 }
 
 void us_output_file_destroy(void *v_output) {
-	us_output_file_s *output = (us_output_file_s *)v_output;
+	us_output_file_s *output = v_output;
 	US_DELETE(output->base64_data, free);
 	if (output->fp && output->fp != stdout) {
 		if (fclose(output->fp) < 0) {

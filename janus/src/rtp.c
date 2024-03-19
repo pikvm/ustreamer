@@ -57,7 +57,7 @@ void us_rtp_write_header(us_rtp_s *rtp, u32 pts, bool marked) {
 	++rtp->seq;
 
 #	define WRITE_BE_U32(x_offset, x_value) \
-		*((u32 *)(rtp->datagram + x_offset)) = __builtin_bswap32(x_value)
+		*((u32*)(rtp->datagram + x_offset)) = __builtin_bswap32(x_value)
 	WRITE_BE_U32(0, word0);
 	WRITE_BE_U32(4, pts);
 	WRITE_BE_U32(8, rtp->ssrc);

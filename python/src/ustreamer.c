@@ -99,11 +99,11 @@ static PyObject *_MemsinkObject_close(_MemsinkObject *self, PyObject *Py_UNUSED(
 
 static PyObject *_MemsinkObject_enter(_MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
 	Py_INCREF(self);
-	return (PyObject *)self;
+	return (PyObject*)self;
 }
 
 static PyObject *_MemsinkObject_exit(_MemsinkObject *self, PyObject *Py_UNUSED(ignored)) {
-	return PyObject_CallMethod((PyObject *)self, "close", "");
+	return PyObject_CallMethod((PyObject*)self, "close", "");
 }
 
 static int _wait_frame(_MemsinkObject *self) {
@@ -230,7 +230,7 @@ static PyObject *_MemsinkObject_wait_frame(_MemsinkObject *self, PyObject *args,
 	SET_NUMBER(grab_ts, Double, Float);
 	SET_NUMBER(encode_begin_ts, Double, Float);
 	SET_NUMBER(encode_end_ts, Double, Float);
-	SET_VALUE("data", PyBytes_FromStringAndSize((const char *)self->frame->data, self->frame->used));
+	SET_VALUE("data", PyBytes_FromStringAndSize((const char*)self->frame->data, self->frame->used));
 
 #	undef SET_NUMBER
 #	undef SET_VALUE
@@ -305,7 +305,7 @@ PyMODINIT_FUNC PyInit_ustreamer(void) {
 
 	Py_INCREF(&_MemsinkType);
 
-	if (PyModule_AddObject(module, "Memsink", (PyObject *)&_MemsinkType) < 0) {
+	if (PyModule_AddObject(module, "Memsink", (PyObject*)&_MemsinkType) < 0) {
 		return NULL;
 	}
 
