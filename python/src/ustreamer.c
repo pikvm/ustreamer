@@ -26,6 +26,7 @@ typedef struct {
 	double	lock_timeout;
 	double	wait_timeout;
 	double	drop_same_frames;
+	uz		data_size;
 
 	int					fd;
 	us_memsink_shared_s	*mem;
@@ -37,7 +38,10 @@ typedef struct {
 
 
 static void _MemsinkObject_destroy_internals(_MemsinkObject *self) {
-	US_DELETE(self->mem, us_memsink_shared_unmap);
+	if (self->mem != NULL) {
+		us_memsink_shared_unmap(self->mem, self->data_size);
+		self->mem = NULL;
+	}
 	US_CLOSE_FD(self->fd);
 	US_DELETE(self->frame, us_frame_destroy);
 }
@@ -64,13 +68,18 @@ static int _MemsinkObject_init(_MemsinkObject *self, PyObject *args, PyObject *k
 	SET_DOUBLE(drop_same_frames, >= 0);
 #	undef SET_DOUBLE
 
+	if ((self->data_size = us_memsink_calculate_size(self->obj)) == 0) {
+		PyErr_SetString(PyExc_ValueError, "Invalid memsink object suffix");
+		return -1;
+	}
+
 	self->frame = us_frame_init();
 
 	if ((self->fd = shm_open(self->obj, O_RDWR, 0)) == -1) {
 		PyErr_SetFromErrno(PyExc_OSError);
 		goto error;
 	}
-	if ((self->mem = us_memsink_shared_map(self->fd)) == NULL) {
+	if ((self->mem = us_memsink_shared_map(self->fd, self->data_size)) == NULL) {
 		PyErr_SetFromErrno(PyExc_OSError);
 		goto error;
 	}
@@ -139,7 +148,7 @@ static int _wait_frame(_MemsinkObject *self) {
 			if (
 				US_FRAME_COMPARE_GEOMETRY(self->mem, self->frame)
 				&& (self->frame_ts + self->drop_same_frames > now_ts)
-				&& !memcmp(self->frame->data, mem->data, mem->used)
+				&& !memcmp(self->frame->data, us_memsink_get_data(mem), mem->used)
 			) {
 				self->frame_id = mem->id;
 				goto retry;
@@ -190,7 +199,7 @@ static PyObject *_MemsinkObject_wait_frame(_MemsinkObject *self, PyObject *args,
 	}
 
 	us_memsink_shared_s *mem = self->mem;
-	us_frame_set_data(self->frame, mem->data, mem->used);
+	us_frame_set_data(self->frame, us_memsink_get_data(mem), mem->used);
 	US_FRAME_COPY_META(self->mem, self->frame);
 	self->frame_id = mem->id;
 	self->frame_ts = us_get_now_monotonic();

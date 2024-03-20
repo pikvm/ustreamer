@@ -136,12 +136,18 @@ static void *_video_sink_thread(void *arg) {
 		int fd = -1;
 		us_memsink_shared_s *mem = NULL;
 
+		const uz data_size = us_memsink_calculate_size(_g_config->video_sink_name);
+		if (data_size == 0) {
+			US_ONCE({ US_JLOG_ERROR("video", "Invalid memsink object suffix"); });
+			goto close_memsink;
+		}
+
 		if ((fd = shm_open(_g_config->video_sink_name, O_RDWR, 0)) <= 0) {
 			US_ONCE({ US_JLOG_PERROR("video", "Can't open memsink"); });
 			goto close_memsink;
 		}
 
-		if ((mem = us_memsink_shared_map(fd)) == NULL) {
+		if ((mem = us_memsink_shared_map(fd, data_size)) == NULL) {
 			US_ONCE({ US_JLOG_PERROR("video", "Can't map memsink"); });
 			goto close_memsink;
 		}
@@ -178,7 +184,10 @@ static void *_video_sink_thread(void *arg) {
 		}
 
 	close_memsink:
-		US_DELETE(mem, us_memsink_shared_unmap);
+		if (mem != NULL) {
+			us_memsink_shared_unmap(mem, data_size);
+			mem = NULL;
+		}
 		US_CLOSE_FD(fd);
 		US_JLOG_INFO("video", "Memsink closed");
 		sleep(1); // error_delay

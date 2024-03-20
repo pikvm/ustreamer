@@ -56,6 +56,11 @@ us_memsink_s *us_memsink_init(
 
 	US_LOG_INFO("Using %s-sink: %s", name, obj);
 
+	if ((sink->data_size = us_memsink_calculate_size(obj)) == 0) {
+		US_LOG_ERROR("%s-sink: Invalid object suffix", name);
+		goto error;
+	}
+
 	const mode_t mask = umask(0);
 	sink->fd = shm_open(sink->obj, (server ? O_RDWR | O_CREAT : O_RDWR), mode);
 	umask(mask);
@@ -65,12 +70,12 @@ us_memsink_s *us_memsink_init(
 		goto error;
 	}
 
-	if (sink->server && ftruncate(sink->fd, sizeof(us_memsink_shared_s)) < 0) {
+	if (sink->server && ftruncate(sink->fd, sizeof(us_memsink_shared_s) + sink->data_size) < 0) {
 		US_LOG_PERROR("%s-sink: Can't truncate shared memory", name);
 		goto error;
 	}
 
-	if ((sink->mem = us_memsink_shared_map(sink->fd)) == NULL) {
+	if ((sink->mem = us_memsink_shared_map(sink->fd, sink->data_size)) == NULL) {
 		US_LOG_PERROR("%s-sink: Can't mmap shared memory", name);
 		goto error;
 	}
@@ -83,7 +88,7 @@ error:
 
 void us_memsink_destroy(us_memsink_s *sink) {
 	if (sink->mem != NULL) {
-		if (us_memsink_shared_unmap(sink->mem) < 0) {
+		if (us_memsink_shared_unmap(sink->mem, sink->data_size) < 0) {
 			US_LOG_PERROR("%s-sink: Can't unmap shared memory", sink->name);
 		}
 	}
@@ -160,9 +165,9 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key
 
 	const ldf now = us_get_now_monotonic();
 
-	if (frame->used > US_MEMSINK_MAX_DATA) {
+	if (frame->used > sink->data_size) {
 		US_LOG_ERROR("%s-sink: Can't put frame: is too big (%zu > %zu)",
-			sink->name, frame->used, US_MEMSINK_MAX_DATA);
+			sink->name, frame->used, sink->data_size);
 		return 0; // -2
 	}
 
@@ -177,7 +182,7 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key
 			*key_requested = sink->mem->key_requested;
 		}
 
-		memcpy(sink->mem->data, frame->data, frame->used);
+		memcpy(us_memsink_get_data(sink->mem), frame->data, frame->used);
 		sink->mem->used = frame->used;
 		US_FRAME_COPY_META(frame, sink->mem);
 
@@ -236,7 +241,7 @@ int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_reque
 	}
 
 	sink->last_readed_id = sink->mem->id;
-	us_frame_set_data(frame, sink->mem->data, sink->mem->used);
+	us_frame_set_data(frame, us_memsink_get_data(sink->mem), sink->mem->used);
 	US_FRAME_COPY_META(sink->mem, frame);
 	if (key_requested != NULL) { // We don't need it for non-H264 sinks
 		*key_requested = sink->mem->key_requested;

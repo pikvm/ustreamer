@@ -22,6 +22,8 @@
 
 #include "memsinksh.h"
 
+#include <string.h>
+#include <strings.h>
 #include <assert.h>
 
 #include <sys/mman.h>
@@ -29,10 +31,10 @@
 #include "types.h"
 
 
-us_memsink_shared_s *us_memsink_shared_map(int fd) {
+us_memsink_shared_s *us_memsink_shared_map(int fd, uz data_size) {
 	us_memsink_shared_s *mem = mmap(
 		NULL,
-		sizeof(us_memsink_shared_s),
+		sizeof(us_memsink_shared_s) + data_size,
 		PROT_READ | PROT_WRITE, MAP_SHARED,
 		fd, 0);
 	if (mem == MAP_FAILED) {
@@ -42,7 +44,29 @@ us_memsink_shared_s *us_memsink_shared_map(int fd) {
 	return mem;
 }
 
-int us_memsink_shared_unmap(us_memsink_shared_s *mem) {
+int us_memsink_shared_unmap(us_memsink_shared_s *mem, uz data_size) {
 	assert(mem != NULL);
-	return munmap(mem, sizeof(us_memsink_shared_s));
+	return munmap(mem, sizeof(us_memsink_shared_s) + data_size);
+}
+
+uz us_memsink_calculate_size(const char *obj) {
+	const char *ptr = strrchr(obj, ':');
+	if (ptr == NULL) {
+		ptr = strrchr(obj, '.');
+	}
+	if (ptr != NULL) {
+		ptr += 1;
+		if (!strcasecmp(ptr, "jpeg")) {
+			return 4 * 1024 * 1024;
+		} else if (!strcasecmp(ptr, "h264")) {
+			return 2 * 1024 * 1024;
+		} else if (!strcasecmp(ptr, "raw")) {
+			return 1920 * 1200 * 3; // RGB
+		}
+	}
+	return 0;
+}
+
+u8 *us_memsink_get_data(us_memsink_shared_s *mem) {
+	return (u8*)(mem + sizeof(us_memsink_shared_s));
 }

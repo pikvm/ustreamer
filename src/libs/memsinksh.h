@@ -26,12 +26,7 @@
 
 
 #define US_MEMSINK_MAGIC	((u64)0xCAFEBABECAFEBABE)
-#define US_MEMSINK_VERSION	((u32)4)
-
-#ifndef US_CFG_MEMSINK_MAX_DATA
-#	define US_CFG_MEMSINK_MAX_DATA 33554432
-#endif
-#define US_MEMSINK_MAX_DATA ((uz)(US_CFG_MEMSINK_MAX_DATA))
+#define US_MEMSINK_VERSION	((u32)5)
 
 
 typedef struct {
@@ -55,10 +50,11 @@ typedef struct {
 
 	ldf		last_client_ts;
 	bool	key_requested;
-
-	u8		data[US_MEMSINK_MAX_DATA];
 } us_memsink_shared_s;
 
 
-us_memsink_shared_s *us_memsink_shared_map(int fd);
-int us_memsink_shared_unmap(us_memsink_shared_s *mem);
+us_memsink_shared_s *us_memsink_shared_map(int fd, uz data_size);
+int us_memsink_shared_unmap(us_memsink_shared_s *mem, uz data_size);
+
+uz us_memsink_calculate_size(const char *obj);
+u8 *us_memsink_get_data(us_memsink_shared_s *mem);

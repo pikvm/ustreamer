@@ -34,6 +34,7 @@
 typedef struct {
 	const char	*name;
 	const char	*obj;
+	uz			data_size;
 	bool		server;
 	bool		rm;
 	uint		client_ttl; // Only for server

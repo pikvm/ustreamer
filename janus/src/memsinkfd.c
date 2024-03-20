@@ -58,7 +58,7 @@ int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s *mem, u64 last_id) {
 }
 
 int us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, us_frame_s *frame, u64 *frame_id, bool key_required) {
-	us_frame_set_data(frame, mem->data, mem->used);
+	us_frame_set_data(frame, us_memsink_get_data(mem), mem->used);
 	US_FRAME_COPY_META(mem, frame);
 	*frame_id = mem->id;
 	mem->last_client_ts = us_get_now_monotonic();
