@@ -212,25 +212,25 @@ Timeout for client connections. Default: 10.
 .SS "JPEG sink options"
 With shared memory sink you can write a stream to a file. See \fBustreamer-dump\fR(1) for more info.
 .TP
-.BR \-\-sink\ \fIname
-Use the specified shared memory object to sink JPEG frames. Default: disabled.
+.BR \-\-jpeg\-sink\ \fIname
+Use the specified shared memory object to sink JPEG frames. The name should end with a suffix ".jpeg" or ":jpeg". Default: disabled.
 .TP
-.BR \-\-sink\-mode\ \fImode
+.BR \-\-jpeg\-sink\-mode\ \fImode
 Set JPEG sink permissions (like 777). Default: 660.
 .TP
-.BR \-\-sink\-rm
+.BR \-\-jpeg\-sink\-rm
 Remove shared memory on stop. Default: disabled.
 .TP
-.BR \-\-sink\-client\-ttl\ \fIsec
+.BR \-\-jpeg\-sink\-client\-ttl\ \fIsec
 Client TTL. Default: 10.
 .TP
-.BR \-\-sink\-timeout\ \fIsec
+.BR \-\-jpeg\-sink\-timeout\ \fIsec
 Timeout for lock. Default: 1.
 
 .SS "H264 sink options"
 .TP
 .BR \-\-h264\-sink\ \fIname
-Use the specified shared memory object to sink H264 frames. Default: disabled.
+Use the specified shared memory object to sink H264 frames. The name should end with a suffix ".h264" or ":h264". Default: disabled.
 .TP
 .BR \-\-h264\-sink\-mode\ \fImode
 Set H264 sink permissions (like 777). Default: 660.
@@ -253,6 +253,22 @@ Interval between keyframes. Default: 30.
 .BR \-\-h264\-m2m\-device\ \fI/dev/path
 Path to V4L2 mem-to-mem encoder device. Default: auto-select.
 
+.SS "RAW sink options"
+.TP
+.BR \-\-raw\-sink\ \fIname
+Use the specified shared memory object to sink RAW frames. The name should end with a suffix ".raw" or ":raw". Default: disabled.
+.TP
+.BR \-\-raw\-sink\-mode\ \fImode
+Set RAW sink permissions (like 777). Default: 660.
+.TP
+.BR \-\-raw\-sink\-rm
+Remove shared memory on stop. Default: disabled.
+.TP
+.BR \-\-raw\-sink\-client\-ttl\ \fIsec
+Client TTL. Default: 10.
+.TP
+.BR \-\-raw\-sink\-timeout\ \fIsec
+Timeout for lock. Default: 1.
 
 .SS "Process options"
 .TP

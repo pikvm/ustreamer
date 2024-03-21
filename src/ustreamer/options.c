@@ -92,7 +92,7 @@ enum _US_OPT_VALUES {
 		_O_##x_prefix##_RM, \
 		_O_##x_prefix##_CLIENT_TTL, \
 		_O_##x_prefix##_TIMEOUT,
-	ADD_SINK(SINK)
+	ADD_SINK(JPEG_SINK)
 	ADD_SINK(RAW_SINK)
 	ADD_SINK(H264_SINK)
 	_O_H264_BITRATE,
@@ -184,18 +184,25 @@ static const struct option _LONG_OPTS[] = {
 	{"server-timeout",			required_argument,	NULL,	_O_SERVER_TIMEOUT},
 
 #	define ADD_SINK(x_opt, x_prefix) \
-		{x_opt "sink",				required_argument,	NULL,	_O_##x_prefix}, \
-		{x_opt "sink-mode",			required_argument,	NULL,	_O_##x_prefix##_MODE}, \
-		{x_opt "sink-rm",			no_argument,		NULL,	_O_##x_prefix##_RM}, \
-		{x_opt "sink-client-ttl",	required_argument,	NULL,	_O_##x_prefix##_CLIENT_TTL}, \
-		{x_opt "sink-timeout",		required_argument,	NULL,	_O_##x_prefix##_TIMEOUT},
-	ADD_SINK("", SINK)
-	ADD_SINK("raw-", RAW_SINK)
-	ADD_SINK("h264-", H264_SINK)
+		{x_opt "-sink",				required_argument,	NULL,	_O_##x_prefix}, \
+		{x_opt "-sink-mode",			required_argument,	NULL,	_O_##x_prefix##_MODE}, \
+		{x_opt "-sink-rm",			no_argument,		NULL,	_O_##x_prefix##_RM}, \
+		{x_opt "-sink-client-ttl",	required_argument,	NULL,	_O_##x_prefix##_CLIENT_TTL}, \
+		{x_opt "-sink-timeout",		required_argument,	NULL,	_O_##x_prefix##_TIMEOUT},
+	ADD_SINK("jpeg", JPEG_SINK)
+	ADD_SINK("raw", RAW_SINK)
+	ADD_SINK("h264", H264_SINK)
+#	undef ADD_SINK
+	// Extra opts for H.264
 	{"h264-bitrate",			required_argument,	NULL,	_O_H264_BITRATE},
 	{"h264-gop",				required_argument,	NULL,	_O_H264_GOP},
 	{"h264-m2m-device",			required_argument,	NULL,	_O_H264_M2M_DEVICE},
-#	undef ADD_SINK
+	// Compatibility
+	{"sink",					required_argument,	NULL,	_O_JPEG_SINK},
+	{"sink-mode",				required_argument,	NULL,	_O_JPEG_SINK_MODE},
+	{"sink-rm",					no_argument,		NULL,	_O_JPEG_SINK_RM},
+	{"sink-client-ttl",			required_argument,	NULL,	_O_JPEG_SINK_CLIENT_TTL},
+	{"sink-timeout",			required_argument,	NULL,	_O_JPEG_SINK_TIMEOUT},
 
 #	ifdef WITH_GPIO
 	{"gpio-device",				required_argument,	NULL,	_O_GPIO_DEVICE},
@@ -432,17 +439,17 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 
 #			define ADD_SINK(x_opt, x_lp, x_up) \
 				case _O_##x_up:					OPT_SET(x_lp##_name, optarg); \
-				case _O_##x_up##_MODE:			OPT_NUMBER("--" #x_opt "sink-mode", x_lp##_mode, INT_MIN, INT_MAX, 8); \
+				case _O_##x_up##_MODE:			OPT_NUMBER("--" #x_opt "-sink-mode", x_lp##_mode, INT_MIN, INT_MAX, 8); \
 				case _O_##x_up##_RM:			OPT_SET(x_lp##_rm, true); \
-				case _O_##x_up##_CLIENT_TTL:	OPT_NUMBER("--" #x_opt "sink-client-ttl", x_lp##_client_ttl, 1, 60, 0); \
-				case _O_##x_up##_TIMEOUT:		OPT_NUMBER("--" #x_opt "sink-timeout", x_lp##_timeout, 1, 60, 0);
-			ADD_SINK("", jpeg_sink, SINK)
-			ADD_SINK("raw-", raw_sink, RAW_SINK)
-			ADD_SINK("h264-", h264_sink, H264_SINK)
+				case _O_##x_up##_CLIENT_TTL:	OPT_NUMBER("--" #x_opt "-sink-client-ttl", x_lp##_client_ttl, 1, 60, 0); \
+				case _O_##x_up##_TIMEOUT:		OPT_NUMBER("--" #x_opt "-sink-timeout", x_lp##_timeout, 1, 60, 0);
+			ADD_SINK("jpeg", jpeg_sink, JPEG_SINK)
+			ADD_SINK("raw", raw_sink, RAW_SINK)
+			ADD_SINK("h264", h264_sink, H264_SINK)
+#			undef ADD_SINK
 			case _O_H264_BITRATE:			OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 25, 20000, 0);
 			case _O_H264_GOP:				OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
 			case _O_H264_M2M_DEVICE:		OPT_SET(stream->h264_m2m_path, optarg);
-#			undef ADD_SINK
 
 #			ifdef WITH_GPIO
 			case _O_GPIO_DEVICE:			OPT_SET(us_g_gpio.path, optarg);
@@ -677,18 +684,20 @@ static void _help(FILE *fp, const us_device_s *dev, const us_encoder_s *enc, con
 #	define ADD_SINK(x_name, x_opt) \
 		SAY(x_name " sink options:"); \
 		SAY("══════════════════"); \
-		SAY("    --" x_opt "sink <name>  ──────────── Use the shared memory to sink " x_name " frames. Default: disabled.\n"); \
-		SAY("    --" x_opt "sink-mode <mode>  ─────── Set " x_name " sink permissions (like 777). Default: 660.\n"); \
-		SAY("    --" x_opt "sink-rm  ──────────────── Remove shared memory on stop. Default: disabled.\n"); \
-		SAY("    --" x_opt "sink-client-ttl <sec>  ── Client TTL. Default: 10.\n"); \
-		SAY("    --" x_opt "sink-timeout <sec>  ───── Timeout for lock. Default: 1.\n");
-	ADD_SINK("JPEG", "")
-	ADD_SINK("RAW", "raw-")
-	ADD_SINK("H264", "h264-")
+		SAY("    --" x_opt "-sink <name>  ──────────── Use the shared memory to sink " x_name " frames. Default: disabled."); \
+		SAY("                                     The name should end with a suffix \"." x_opt "\" or \"." x_opt "\"."); \
+		SAY("                                     Default: disabled.\n"); \
+		SAY("    --" x_opt "-sink-mode <mode>  ─────── Set " x_name " sink permissions (like 777). Default: 660.\n"); \
+		SAY("    --" x_opt "-sink-rm  ──────────────── Remove shared memory on stop. Default: disabled.\n"); \
+		SAY("    --" x_opt "-sink-client-ttl <sec>  ── Client TTL. Default: 10.\n"); \
+		SAY("    --" x_opt "-sink-timeout <sec>  ───── Timeout for lock. Default: 1.\n");
+	ADD_SINK("JPEG", "jpeg")
+	ADD_SINK("RAW", "raw")
+	ADD_SINK("H264", "h264")
+#	undef ADD_SINK
 	SAY("    --h264-bitrate <kbps>  ───────── H264 bitrate in Kbps. Default: %u.\n", stream->h264_bitrate);
 	SAY("    --h264-gop <N>  ──────────────── Interval between keyframes. Default: %u.\n", stream->h264_gop);
 	SAY("    --h264-m2m-device </dev/path>  ─ Path to V4L2 M2M encoder device. Default: auto select.\n");
-#	undef ADD_SINK
 #	ifdef WITH_GPIO
 	SAY("GPIO options:");
 	SAY("═════════════");
