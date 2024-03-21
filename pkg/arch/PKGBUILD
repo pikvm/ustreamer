@@ -28,13 +28,6 @@ if [ -e /usr/include/janus/plugins/plugin.h ];then
 fi
 
 
-# LD does not link mmal with this option
-# This DOESN'T affect setup.py
-LDFLAGS="${LDFLAGS//,--as-needed,/,}"
-LDFLAGS="${LDFLAGS//-Wl,--as-needed /}"  # pacman 6.1
-export LDFLAGS="${LDFLAGS}"
-
-
 build() {
 	cd "$srcdir"
 	rm -rf $pkgname-build
