@@ -5,7 +5,7 @@
 #    This source file is partially based on this code:                       #
 #      - https://github.com/catid/kvm/blob/master/kvm_pipeline/src           #
 #                                                                            #
-#    Copyright (C) 2018-2023  Maxim Devaev <mdevaev@gmail.com>               #
+#    Copyright (C) 2018-2024  Maxim Devaev <mdevaev@gmail.com>               #
 #                                                                            #
 #    This program is free software: you can redistribute it and/or modify    #
 #    it under the terms of the GNU General Public License as published by    #

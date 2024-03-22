@@ -2,7 +2,7 @@
 #                                                                            #
 #    uStreamer - Lightweight and fast MJPEG-HTTP streamer.                   #
 #                                                                            #
-#    Copyright (C) 2018-2023  Maxim Devaev <mdevaev@gmail.com>               #
+#    Copyright (C) 2018-2024  Maxim Devaev <mdevaev@gmail.com>               #
 #                                                                            #
 #    This program is free software: you can redistribute it and/or modify    #
 #    it under the terms of the GNU General Public License as published by    #
@@ -294,7 +294,7 @@ static void _help(FILE *fp) {
 	SAY("\nuStreamer-V4P - Video passthrough for PiKVM V4 Plus");
 	SAY("═════════════════════════════════════════════════════");
 	SAY("Version: %s; license: GPLv3", US_VERSION);
-	SAY("Copyright (C) 2018-2023 Maxim Devaev <mdevaev@gmail.com>\n");
+	SAY("Copyright (C) 2018-2024 Maxim Devaev <mdevaev@gmail.com>\n");
 	SAY("Example:");
 	SAY("════════");
 	SAY("    ustreamer-v4p\n");

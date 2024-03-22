@@ -2,7 +2,7 @@
 #                                                                            #
 #    uStreamer - Lightweight and fast MJPEG-HTTP streamer.                   #
 #                                                                            #
-#    Copyright (C) 2018-2023  Maxim Devaev <mdevaev@gmail.com>               #
+#    Copyright (C) 2018-2024  Maxim Devaev <mdevaev@gmail.com>               #
 #                                                                            #
 #    This program is free software: you can redistribute it and/or modify    #
 #    it under the terms of the GNU General Public License as published by    #
@@ -593,7 +593,7 @@ static void _help(FILE *fp, const us_device_s *dev, const us_encoder_s *enc, con
 	SAY("\nuStreamer - Lightweight and fast MJPEG-HTTP streamer");
 	SAY("═══════════════════════════════════════════════════");
 	SAY("Version: %s; license: GPLv3", US_VERSION);
-	SAY("Copyright (C) 2018-2023 Maxim Devaev <mdevaev@gmail.com>\n");
+	SAY("Copyright (C) 2018-2024 Maxim Devaev <mdevaev@gmail.com>\n");
 	SAY("Capturing options:");
 	SAY("══════════════════");
 	SAY("    -d|--device </dev/path>  ───────────── Path to V4L2 device. Default: %s.\n", dev->path);

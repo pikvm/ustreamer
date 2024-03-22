@@ -209,7 +209,7 @@ v4l2 utilities provide the tools to manage USB webcam setting and information. S
 
 -----
 # License
-Copyright (C) 2018-2023 by Maxim Devaev mdevaev@gmail.com
+Copyright (C) 2018-2024 by Maxim Devaev mdevaev@gmail.com
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
