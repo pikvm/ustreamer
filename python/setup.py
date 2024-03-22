@@ -29,7 +29,6 @@ if __name__ == "__main__":
                 extra_compile_args=["-std=c17", "-D_GNU_SOURCE"],
                 undef_macros=["NDEBUG"],
                 sources=_find_sources(".c"),
-                depends=_find_sources(".h"),
             ),
         ],
     )

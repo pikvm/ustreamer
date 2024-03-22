@@ -9,12 +9,14 @@ PY ?= python3
 # =====
 all:
 	$(info == PY_BUILD ustreamer-*.so)
-	$(ECHO) $(PY) setup.py build
+	rm -rf root
+	$(ECHO) $(PY) -m build --skip-dependency-check --no-isolation
+	$(ECHO) $(PY) -m pip install dist/*.whl --ignore-installed --root=./root
 
 
 install:
-	$(PY) setup.py install --prefix=$(PREFIX) --root=$(if $(R_DESTDIR),$(R_DESTDIR),/)
+	$(PY) -m pip install dist/*.whl --ignore-installed --prefix=$(PREFIX) --root=$(if $(R_DESTDIR),$(R_DESTDIR),/)
 
 
 clean:
-	rm -rf build ustreamer.egg-info
+	rm -rf root dist ustreamer.egg-info

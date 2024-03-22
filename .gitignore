@@ -3,8 +3,9 @@
 /pkg/arch/pkg/
 /pkg/arch/src/
 /src/build/
-/python/build/
+/python/dist/
 /python/ustreamer.egg-info/
+/python/root/
 /janus/build/
 /ustreamer
 /ustreamer-*

@@ -1,0 +1,2 @@
+include setup.py
+recursive-include src *.c *h
