@@ -1,6 +1,6 @@
 -include ../config.mk
 
-DESTDIR ?=
+R_DESTDIR ?=
 PREFIX ?= /usr/local
 
 PY ?= python3
@@ -13,7 +13,7 @@ all:
 
 
 install:
-	$(PY) setup.py install --prefix=$(PREFIX) --root=$(if $(DESTDIR),$(DESTDIR),/)
+	$(PY) setup.py install --prefix=$(PREFIX) --root=$(if $(R_DESTDIR),$(R_DESTDIR),/)
 
 
 clean:

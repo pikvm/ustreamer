@@ -1,4 +1,4 @@
-DESTDIR ?=
+R_DESTDIR ?=
 PREFIX ?= /usr/local
 
 CC ?= gcc
@@ -42,8 +42,8 @@ $(_BUILD)/%.o: %.c
 
 
 install: $(_PLUGIN)
-	mkdir -p $(DESTDIR)$(PREFIX)/lib/ustreamer/janus
-	install -m755 $(_PLUGIN) $(DESTDIR)$(PREFIX)/lib/ustreamer/janus/$(PLUGIN)
+	mkdir -p $(R_DESTDIR)$(PREFIX)/lib/ustreamer/janus
+	install -m755 $(_PLUGIN) $(R_DESTDIR)$(PREFIX)/lib/ustreamer/janus/$(PLUGIN)
 
 
 clean:

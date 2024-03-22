@@ -9,6 +9,8 @@ PY ?= python3
 CFLAGS ?= -O3
 LDFLAGS ?=
 
+R_DESTDIR = $(if $(DESTDIR),$(shell realpath "$(DESTDIR)"),)
+
 export
 
 _LINTERS_IMAGE ?= ustreamer-linters
@@ -59,10 +61,10 @@ endif
 ifneq ($(call optbool,$(WITH_JANUS)),)
 	$(MAKE) -C janus install
 endif
-	mkdir -p $(DESTDIR)$(MANPREFIX)/man1
+	mkdir -p $(R_DESTDIR)$(MANPREFIX)/man1
 	for man in $(shell ls man); do \
-		install -m644 man/$$man $(DESTDIR)$(MANPREFIX)/man1/$$man; \
-		gzip -f $(DESTDIR)$(MANPREFIX)/man1/$$man; \
+		install -m644 man/$$man $(R_DESTDIR)$(MANPREFIX)/man1/$$man; \
+		gzip -f $(R_DESTDIR)$(MANPREFIX)/man1/$$man; \
 	done
 
 
