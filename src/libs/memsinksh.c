@@ -68,5 +68,5 @@ uz us_memsink_calculate_size(const char *obj) {
 }
 
 u8 *us_memsink_get_data(us_memsink_shared_s *mem) {
-	return (u8*)(mem + sizeof(us_memsink_shared_s));
+	return (u8*)(mem) + sizeof(us_memsink_shared_s);
 }

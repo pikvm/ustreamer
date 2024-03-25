@@ -26,7 +26,7 @@
 
 
 #define US_MEMSINK_MAGIC	((u64)0xCAFEBABECAFEBABE)
-#define US_MEMSINK_VERSION	((u32)5)
+#define US_MEMSINK_VERSION	((u32)6)
 
 
 typedef struct {
