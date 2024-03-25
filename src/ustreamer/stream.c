@@ -72,7 +72,7 @@ static void *_jpeg_thread(void *v_ctx);
 static void *_h264_thread(void *v_ctx);
 static void *_raw_thread(void *v_ctx);
 
-static us_hw_buffer_s *_get_latest_hw(us_queue_s *queue);
+static us_capture_hwbuf_s *_get_latest_hw(us_queue_s *queue);
 
 static bool _stream_has_jpeg_clients_cached(us_stream_s *stream);
 static bool _stream_has_any_clients_cached(us_stream_s *stream);
@@ -176,7 +176,7 @@ void us_stream_loop(us_stream_s *stream) {
 
 		uint slowdown_count = 0;
 		while (!atomic_load(&run->stop) && !atomic_load(&threads_stop)) {
-			us_hw_buffer_s *hw;
+			us_capture_hwbuf_s *hw;
 			switch (us_capture_grab_buffer(cap, &hw)) {
 				case -2: continue; // Broken frame
 				case -1: goto close; // Error
@@ -283,7 +283,7 @@ static void *_releaser_thread(void *v_ctx) {
 	_releaser_context_s *ctx = v_ctx;
 
 	while (!atomic_load(ctx->stop)) {
-		us_hw_buffer_s *hw;
+		us_capture_hwbuf_s *hw;
 		if (us_queue_get(ctx->queue, (void**)&hw, 0.1) < 0) {
 			continue;
 		}
@@ -337,7 +337,7 @@ static void *_jpeg_thread(void *v_ctx) {
 			}
 		}
 
-		us_hw_buffer_s *hw = _get_latest_hw(ctx->queue);
+		us_capture_hwbuf_s *hw = _get_latest_hw(ctx->queue);
 		if (hw == NULL) {
 			continue;
 		}
@@ -379,7 +379,7 @@ static void *_h264_thread(void *v_ctx) {
 	ldf last_encode_ts = us_get_now_monotonic();
 
 	while (!atomic_load(ctx->stop)) {
-		us_hw_buffer_s *hw = _get_latest_hw(ctx->queue);
+		us_capture_hwbuf_s *hw = _get_latest_hw(ctx->queue);
 		if (hw == NULL) {
 			continue;
 		}
@@ -419,7 +419,7 @@ static void *_raw_thread(void *v_ctx) {
 	_worker_context_s *ctx = v_ctx;
 
 	while (!atomic_load(ctx->stop)) {
-		us_hw_buffer_s *hw = _get_latest_hw(ctx->queue);
+		us_capture_hwbuf_s *hw = _get_latest_hw(ctx->queue);
 		if (hw == NULL) {
 			continue;
 		}
@@ -436,8 +436,8 @@ static void *_raw_thread(void *v_ctx) {
 	return NULL;
 }
 
-static us_hw_buffer_s *_get_latest_hw(us_queue_s *queue) {
-	us_hw_buffer_s *hw;
+static us_capture_hwbuf_s *_get_latest_hw(us_queue_s *queue) {
+	us_capture_hwbuf_s *hw;
 	if (us_queue_get(queue, (void**)&hw, 0.1) < 0) {
 		return NULL;
 	}

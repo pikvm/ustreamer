@@ -213,7 +213,7 @@ static void _main_loop(void) {
 		us_drm_close(drm);
 		CHECK(drm_opened = us_drm_open(drm, cap));
 
-		us_hw_buffer_s *prev_hw = NULL;
+		us_capture_hwbuf_s *prev_hw = NULL;
 		while (!atomic_load(&_g_stop)) {
 			if (atomic_load(&_g_ustreamer_online)) {
 				goto close;
@@ -226,7 +226,7 @@ static void _main_loop(void) {
 				prev_hw = NULL;
 			}
 
-			us_hw_buffer_s *hw;
+			us_capture_hwbuf_s *hw;
 			switch (us_capture_grab_buffer(cap, &hw)) {
 				case -2: continue; // Broken frame
 				case -1: goto close; // Any error

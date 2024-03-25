@@ -377,7 +377,7 @@ int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_capture_s *ca
 	return retval;
 }
 
-int us_drm_expose_dma(us_drm_s *drm, const us_hw_buffer_s *hw) {
+int us_drm_expose_dma(us_drm_s *drm, const us_capture_hwbuf_s *hw) {
 	us_drm_runtime_s *const run = drm->run;
 	us_drm_buffer_s *const buf = &run->bufs[hw->buf.index];
 
@@ -513,7 +513,7 @@ static int _drm_init_buffers(us_drm_s *drm, const us_capture_s *cap) {
 			strides[0] = create.pitch;
 
 		} else {
-			if (drmPrimeFDToHandle(run->fd, cap->run->hw_bufs[n_buf].dma_fd, &buf->handle) < 0) {
+			if (drmPrimeFDToHandle(run->fd, cap->run->bufs[n_buf].dma_fd, &buf->handle) < 0) {
 				_D_LOG_PERROR("Can't import DMA buffer=%u from capture device", n_buf);
 				return -1;
 			}

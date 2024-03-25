@@ -89,4 +89,4 @@ void us_drm_close(us_drm_s *drm);
 int us_drm_dpms_power_off(us_drm_s *drm);
 int us_drm_wait_for_vsync(us_drm_s *drm);
 int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_capture_s *cap);
-int us_drm_expose_dma(us_drm_s *drm, const us_hw_buffer_s *hw);
+int us_drm_expose_dma(us_drm_s *drm, const us_capture_hwbuf_s *hw);

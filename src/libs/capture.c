@@ -266,11 +266,11 @@ void us_capture_close(us_capture_s *cap) {
 		run->streamon = false;
 	}
 
-	if (run->hw_bufs != NULL) {
+	if (run->bufs != NULL) {
 		say = true;
 		_D_LOG_DEBUG("Releasing HW buffers ...");
 		for (uint index = 0; index < run->n_bufs; ++index) {
-			us_hw_buffer_s *hw = &run->hw_bufs[index];
+			us_capture_hwbuf_s *hw = &run->bufs[index];
 
 			US_CLOSE_FD(hw->dma_fd);
 
@@ -288,7 +288,7 @@ void us_capture_close(us_capture_s *cap) {
 				free(hw->buf.m.planes);
 			}
 		}
-		US_DELETE(run->hw_bufs, free);
+		US_DELETE(run->bufs, free);
 		run->n_bufs = 0;
 	}
 
@@ -299,7 +299,7 @@ void us_capture_close(us_capture_s *cap) {
 	}
 }
 
-int us_capture_grab_buffer(us_capture_s *cap, us_hw_buffer_s **hw) {
+int us_capture_grab_buffer(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 	// Это сложная функция, которая делает сразу много всего, чтобы получить новый фрейм.
 	//   - Вызывается _capture_wait_buffer() с select() внутри, чтобы подождать новый фрейм
 	//     или эвент V4L2. Обработка эвентов более приоритетна, чем кадров.
@@ -347,8 +347,8 @@ int us_capture_grab_buffer(us_capture_s *cap, us_hw_buffer_s **hw) {
 				return -1;
 			}
 
-#			define GRABBED(x_buf) run->hw_bufs[x_buf.index].grabbed
-#			define FRAME_DATA(x_buf) run->hw_bufs[x_buf.index].raw.data
+#			define GRABBED(x_buf) run->bufs[x_buf.index].grabbed
+#			define FRAME_DATA(x_buf) run->bufs[x_buf.index].raw.data
 
 			if (GRABBED(new)) {
 				_D_LOG_ERROR("V4L2 error: grabbed HW buffer=%u is already used", new.index);
@@ -400,7 +400,7 @@ int us_capture_grab_buffer(us_capture_s *cap, us_hw_buffer_s **hw) {
 		}
 	} while (true);
 
-	*hw = &run->hw_bufs[buf.index];
+	*hw = &run->bufs[buf.index];
 	atomic_store(&(*hw)->refs, 0);
 	(*hw)->raw.dma_fd = (*hw)->dma_fd;
 	(*hw)->raw.used = buf.bytesused;
@@ -417,7 +417,7 @@ int us_capture_grab_buffer(us_capture_s *cap, us_hw_buffer_s **hw) {
 	return buf.index;
 }
 
-int us_capture_release_buffer(us_capture_s *cap, us_hw_buffer_s *hw) {
+int us_capture_release_buffer(us_capture_s *cap, us_capture_hwbuf_s *hw) {
 	assert(atomic_load(&hw->refs) == 0);
 	const uint index = hw->buf.index;
 	_D_LOG_DEBUG("Releasing HW buffer=%u ...", index);
@@ -430,11 +430,11 @@ int us_capture_release_buffer(us_capture_s *cap, us_hw_buffer_s *hw) {
 	return 0;
 }
 
-void us_capture_buffer_incref(us_hw_buffer_s *hw) {
+void us_capture_buffer_incref(us_capture_hwbuf_s *hw) {
 	atomic_fetch_add(&hw->refs, 1);
 }
 
-void us_capture_buffer_decref(us_hw_buffer_s *hw) {
+void us_capture_buffer_decref(us_capture_hwbuf_s *hw) {
 	atomic_fetch_sub(&hw->refs, 1);
 }
 
@@ -862,7 +862,7 @@ static int _capture_open_io_method_mmap(us_capture_s *cap) {
 
 	_D_LOG_DEBUG("Allocating device buffers ...");
 
-	US_CALLOC(run->hw_bufs, req.count);
+	US_CALLOC(run->bufs, req.count);
 
 	for (run->n_bufs = 0; run->n_bufs < req.count; ++run->n_bufs) {
 		struct v4l2_buffer buf = {0};
@@ -881,7 +881,7 @@ static int _capture_open_io_method_mmap(us_capture_s *cap) {
 			return -1;
 		}
 
-		us_hw_buffer_s *hw = &run->hw_bufs[run->n_bufs];
+		us_capture_hwbuf_s *hw = &run->bufs[run->n_bufs];
 		atomic_init(&hw->refs, 0);
 		const uz buf_size = (run->capture_mplane ? buf.m.planes[0].length : buf.length);
 		const off_t buf_offset = (run->capture_mplane ? buf.m.planes[0].m.mem_offset : buf.m.offset);
@@ -930,13 +930,13 @@ static int _capture_open_io_method_userptr(us_capture_s *cap) {
 
 	_D_LOG_DEBUG("Allocating device buffers ...");
 
-	US_CALLOC(run->hw_bufs, req.count);
+	US_CALLOC(run->bufs, req.count);
 
 	const uint page_size = getpagesize();
 	const uint buf_size = us_align_size(run->raw_size, page_size);
 
 	for (run->n_bufs = 0; run->n_bufs < req.count; ++run->n_bufs) {
-		us_hw_buffer_s *hw = &run->hw_bufs[run->n_bufs];
+		us_capture_hwbuf_s *hw = &run->bufs[run->n_bufs];
 		assert((hw->raw.data = aligned_alloc(page_size, buf_size)) != NULL);
 		memset(hw->raw.data, 0, buf_size);
 		hw->raw.allocated = buf_size;
@@ -964,8 +964,8 @@ static int _capture_open_queue_buffers(us_capture_s *cap) {
 		if (cap->io_method == V4L2_MEMORY_USERPTR) {
 			// I am not sure, may be this is incorrect for mplane device, 
 			// but i don't have one which supports V4L2_MEMORY_USERPTR
-			buf.m.userptr = (unsigned long)run->hw_bufs[index].raw.data;
-			buf.length = run->hw_bufs[index].raw.allocated;
+			buf.m.userptr = (unsigned long)run->bufs[index].raw.data;
+			buf.length = run->bufs[index].raw.allocated;
 		}
 
 		_D_LOG_DEBUG("Calling us_xioctl(VIDIOC_QBUF) for buffer=%u ...", index);
@@ -990,13 +990,13 @@ static int _capture_open_export_to_dma(us_capture_s *cap) {
 			_D_LOG_PERROR("Can't export device buffer=%u to DMA", index);
 			goto error;
 		}
-		run->hw_bufs[index].dma_fd = exp.fd;
+		run->bufs[index].dma_fd = exp.fd;
 	}
 	return 0;
 
 error:
 	for (uint index = 0; index < run->n_bufs; ++index) {
-		US_CLOSE_FD(run->hw_bufs[index].dma_fd);
+		US_CLOSE_FD(run->bufs[index].dma_fd);
 	}
 	return -1;
 }

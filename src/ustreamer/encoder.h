@@ -75,9 +75,9 @@ typedef struct {
 } us_encoder_s;
 
 typedef struct {
-	us_encoder_s	*enc;
-	us_hw_buffer_s	*hw;
-	us_frame_s		*dest;
+	us_encoder_s		*enc;
+	us_capture_hwbuf_s	*hw;
+	us_frame_s			*dest;
 } us_encoder_job_s;
 
 
