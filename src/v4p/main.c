@@ -39,7 +39,7 @@
 #include "../libs/const.h"
 #include "../libs/tools.h"
 #include "../libs/logging.h"
-#include "../libs/device.h"
+#include "../libs/capture.h"
 #include "../libs/signal.h"
 #include "../libs/options.h"
 
@@ -162,14 +162,14 @@ static void _main_loop(void) {
 	us_drm_s *drm = us_drm_init();
 	drm->port = "HDMI-A-2";
 
-	us_device_s *dev = us_device_init();
-	dev->path = "/dev/kvmd-video";
-	dev->n_bufs = 6;
-	dev->format = V4L2_PIX_FMT_RGB24;
-	dev->dv_timings = true;
-	dev->persistent = true;
-	dev->dma_export = true;
-	dev->dma_required = true;
+	us_capture_s *cap = us_capture_init();
+	cap->path = "/dev/kvmd-video";
+	cap->n_bufs = 6;
+	cap->format = V4L2_PIX_FMT_RGB24;
+	cap->dv_timings = true;
+	cap->persistent = true;
+	cap->dma_export = true;
+	cap->dma_required = true;
 
 	int once = 0;
 	ldf blank_at_ts = 0;
@@ -192,7 +192,7 @@ static void _main_loop(void) {
 			continue;
 		}
 
-		if (us_device_open(dev) < 0) {
+		if (us_capture_open(cap) < 0) {
 			ldf now_ts = us_get_now_monotonic();
 			if (blank_at_ts == 0) {
 				blank_at_ts = now_ts + 5;
@@ -211,7 +211,7 @@ static void _main_loop(void) {
 		once = 0;
 		blank_at_ts = 0;
 		us_drm_close(drm);
-		CHECK(drm_opened = us_drm_open(drm, dev));
+		CHECK(drm_opened = us_drm_open(drm, cap));
 
 		us_hw_buffer_s *prev_hw = NULL;
 		while (!atomic_load(&_g_stop)) {
@@ -222,12 +222,12 @@ static void _main_loop(void) {
 			CHECK(us_drm_wait_for_vsync(drm));
 
 			if (prev_hw != NULL) {
-				CHECK(us_device_release_buffer(dev, prev_hw));
+				CHECK(us_capture_release_buffer(cap, prev_hw));
 				prev_hw = NULL;
 			}
 
 			us_hw_buffer_s *hw;
-			switch (us_device_grab_buffer(dev, &hw)) {
+			switch (us_capture_grab_buffer(cap, &hw)) {
 				case -2: continue; // Broken frame
 				case -1: goto close; // Any error
 				default: break; // Grabbed on >= 0
@@ -237,8 +237,8 @@ static void _main_loop(void) {
 				CHECK(us_drm_expose_dma(drm, hw));
 				prev_hw = hw;
 			} else {
-				CHECK(us_drm_expose_stub(drm, drm_opened, dev));
-				CHECK(us_device_release_buffer(dev, hw));
+				CHECK(us_drm_expose_stub(drm, drm_opened, cap));
+				CHECK(us_capture_release_buffer(cap, hw));
 			}
 
 			if (drm_opened > 0) {
@@ -250,14 +250,14 @@ static void _main_loop(void) {
 		us_drm_close(drm);
 		drm_opened = -1;
 
-		us_device_close(dev);
+		us_capture_close(cap);
 
 		_slowdown();
 
 #		undef CHECK
 	}
 
-	us_device_destroy(dev);
+	us_capture_destroy(cap);
 	us_drm_destroy(drm);
 }
 

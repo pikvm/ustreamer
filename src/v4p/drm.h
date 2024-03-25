@@ -28,7 +28,7 @@
 #include "../libs/types.h"
 #include "../libs/frame.h"
 #include "../libs/frametext.h"
-#include "../libs/device.h"
+#include "../libs/capture.h"
 
 
 typedef enum {
@@ -83,10 +83,10 @@ typedef struct {
 us_drm_s *us_drm_init(void);
 void us_drm_destroy(us_drm_s *drm);
 
-int us_drm_open(us_drm_s *drm, const us_device_s *dev);
+int us_drm_open(us_drm_s *drm, const us_capture_s *cap);
 void us_drm_close(us_drm_s *drm);
 
 int us_drm_dpms_power_off(us_drm_s *drm);
 int us_drm_wait_for_vsync(us_drm_s *drm);
-int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_device_s *dev);
+int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_capture_s *cap);
 int us_drm_expose_dma(us_drm_s *drm, const us_hw_buffer_s *hw);

@@ -38,7 +38,7 @@
 #include "../libs/ring.h"
 #include "../libs/frame.h"
 #include "../libs/memsink.h"
-#include "../libs/device.h"
+#include "../libs/capture.h"
 
 #include "blank.h"
 #include "encoder.h"
@@ -51,7 +51,7 @@
 
 typedef struct {
 	pthread_t		tid;
-	us_device_s		*dev;
+	us_capture_s	*cap;
 	us_queue_s		*queue;
 	pthread_mutex_t	*mutex;
 	atomic_bool		*stop;
@@ -82,7 +82,7 @@ static void _stream_expose_raw(us_stream_s *stream, const us_frame_s *frame);
 static void _stream_check_suicide(us_stream_s *stream);
 
 
-us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
+us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 	us_stream_runtime_s *run;
 	US_CALLOC(run, 1);
 	US_RING_INIT_WITH_ITEMS(run->http_jpeg_ring, 4, us_frame_init);
@@ -95,15 +95,15 @@ us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc) {
 
 	us_stream_s *stream;
 	US_CALLOC(stream, 1);
-	stream->dev = dev;
+	stream->cap = cap;
 	stream->enc = enc;
 	stream->error_delay = 1;
 	stream->h264_bitrate = 5000; // Kbps
 	stream->h264_gop = 30;
 	stream->run = run;
 
-	us_blank_draw(run->blank, "< NO SIGNAL >", dev->width, dev->height);
-	_stream_set_capture_state(stream, dev->width, dev->height, false, 0);
+	us_blank_draw(run->blank, "< NO SIGNAL >", cap->width, cap->height);
+	_stream_set_capture_state(stream, cap->width, cap->height, false, 0);
 	return stream;
 }
 
@@ -116,10 +116,10 @@ void us_stream_destroy(us_stream_s *stream) {
 
 void us_stream_loop(us_stream_s *stream) {
 	us_stream_runtime_s *const run = stream->run;
-	us_device_s *const dev = stream->dev;
+	us_capture_s *const cap = stream->cap;
 
-	US_LOG_INFO("Using V4L2 device: %s", dev->path);
-	US_LOG_INFO("Using desired FPS: %u", dev->desired_fps);
+	US_LOG_INFO("Using V4L2 device: %s", cap->path);
+	US_LOG_INFO("Using desired FPS: %u", cap->desired_fps);
 
 	atomic_store(&run->http_last_request_ts, us_get_now_monotonic());
 
@@ -133,12 +133,12 @@ void us_stream_loop(us_stream_s *stream) {
 
 		pthread_mutex_t release_mutex;
 		US_MUTEX_INIT(release_mutex);
-		const uint n_releasers = dev->run->n_bufs;
+		const uint n_releasers = cap->run->n_bufs;
 		_releaser_context_s *releasers;
 		US_CALLOC(releasers, n_releasers);
 		for (uint index = 0; index < n_releasers; ++index) {
 			_releaser_context_s *ctx = &releasers[index];
-			ctx->dev = dev;
+			ctx->cap = cap;
 			ctx->queue = us_queue_init(1);
 			ctx->mutex = &release_mutex;
 			ctx->stop = &threads_stop;
@@ -146,7 +146,7 @@ void us_stream_loop(us_stream_s *stream) {
 		}
 
 		_worker_context_s jpeg_ctx = {
-			.queue = us_queue_init(dev->run->n_bufs),
+			.queue = us_queue_init(cap->run->n_bufs),
 			.stream = stream,
 			.stop = &threads_stop,
 		};
@@ -154,7 +154,7 @@ void us_stream_loop(us_stream_s *stream) {
 
 		_worker_context_s h264_ctx;
 		if (run->h264 != NULL) {
-			h264_ctx.queue = us_queue_init(dev->run->n_bufs);
+			h264_ctx.queue = us_queue_init(cap->run->n_bufs);
 			h264_ctx.stream = stream;
 			h264_ctx.stop = &threads_stop;
 			US_THREAD_CREATE(h264_ctx.tid, _h264_thread, &h264_ctx);
@@ -177,7 +177,7 @@ void us_stream_loop(us_stream_s *stream) {
 		uint slowdown_count = 0;
 		while (!atomic_load(&run->stop) && !atomic_load(&threads_stop)) {
 			us_hw_buffer_s *hw;
-			switch (us_device_grab_buffer(dev, &hw)) {
+			switch (us_capture_grab_buffer(cap, &hw)) {
 				case -2: continue; // Broken frame
 				case -1: goto close; // Error
 				default: break; // Grabbed on >= 0
@@ -192,19 +192,19 @@ void us_stream_loop(us_stream_s *stream) {
 			}
 			captured_fps_accum += 1;
 
-			_stream_set_capture_state(stream, dev->run->width, dev->run->height, true, captured_fps);
+			_stream_set_capture_state(stream, cap->run->width, cap->run->height, true, captured_fps);
 #			ifdef WITH_GPIO
 			us_gpio_set_stream_online(true);
 #			endif
 
-			us_device_buffer_incref(hw); // JPEG
+			us_capture_buffer_incref(hw); // JPEG
 			us_queue_put(jpeg_ctx.queue, hw, 0);
 			if (run->h264 != NULL) {
-				us_device_buffer_incref(hw); // H264
+				us_capture_buffer_incref(hw); // H264
 				us_queue_put(h264_ctx.queue, hw, 0);
 			}
 			if (stream->raw_sink != NULL) {
-				us_device_buffer_incref(hw); // RAW
+				us_capture_buffer_incref(hw); // RAW
 				us_queue_put(raw_ctx.queue, hw, 0);
 			}
 			us_queue_put(releasers[hw->buf.index].queue, hw, 0); // Plan to release
@@ -246,7 +246,7 @@ void us_stream_loop(us_stream_s *stream) {
 		atomic_store(&threads_stop, false);
 
 		us_encoder_close(stream->enc);
-		us_device_close(dev);
+		us_capture_close(cap);
 
 		if (!atomic_load(&run->stop)) {
 			US_SEP_INFO('=');
@@ -296,7 +296,7 @@ static void *_releaser_thread(void *v_ctx) {
 		}
 
 		US_MUTEX_LOCK(*ctx->mutex);
-		const int released = us_device_release_buffer(ctx->dev, hw);
+		const int released = us_capture_release_buffer(ctx->cap, hw);
 		US_MUTEX_UNLOCK(*ctx->mutex);
 		if (released < 0) {
 			goto done;
@@ -321,7 +321,7 @@ static void *_jpeg_thread(void *v_ctx) {
 		us_encoder_job_s *const ready_job = ready_wr->job;
 
 		if (ready_job->hw != NULL) {
-			us_device_buffer_decref(ready_job->hw);
+			us_capture_buffer_decref(ready_job->hw);
 			ready_job->hw = NULL;
 			if (ready_wr->job_failed) {
 				// pass
@@ -345,7 +345,7 @@ static void *_jpeg_thread(void *v_ctx) {
 		const bool update_required = (stream->jpeg_sink != NULL && us_memsink_server_check(stream->jpeg_sink, NULL));
 		if (!update_required && !_stream_has_jpeg_clients_cached(stream)) {
 			US_LOG_VERBOSE("JPEG: Passed encoding because nobody is watching");
-			us_device_buffer_decref(hw);
+			us_capture_buffer_decref(hw);
 			continue;
 		}
 
@@ -354,7 +354,7 @@ static void *_jpeg_thread(void *v_ctx) {
 			fluency_passed += 1;
 			US_LOG_VERBOSE("JPEG: Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf",
 				fluency_passed, now_ts, grab_after_ts);
-			us_device_buffer_decref(hw);
+			us_capture_buffer_decref(hw);
 			continue;
 		}
 		fluency_passed = 0;
@@ -385,13 +385,13 @@ static void *_h264_thread(void *v_ctx) {
 		}
 
 		if (!us_memsink_server_check(h264->sink, NULL)) {
-			us_device_buffer_decref(hw);
+			us_capture_buffer_decref(hw);
 			US_LOG_VERBOSE("H264: Passed encoding because nobody is watching");
 			continue;
 		}
 
 		if (hw->raw.grab_ts < grab_after_ts) {
-			us_device_buffer_decref(hw);
+			us_capture_buffer_decref(hw);
 			US_LOG_VERBOSE("H264: Passed encoding for FPS limit: %u", h264->enc->run->fps_limit);
 			continue;
 		}
@@ -409,7 +409,7 @@ static void *_h264_thread(void *v_ctx) {
 		const ldf frame_interval = (ldf)1 / h264->enc->run->fps_limit;
 		grab_after_ts = hw->raw.grab_ts + frame_interval - 0.01;
 
-		us_device_buffer_decref(hw);
+		us_capture_buffer_decref(hw);
 	}
 	return NULL;
 }
@@ -425,13 +425,13 @@ static void *_raw_thread(void *v_ctx) {
 		}
 
 		if (!us_memsink_server_check(ctx->stream->raw_sink, NULL)) {
-			us_device_buffer_decref(hw);
+			us_capture_buffer_decref(hw);
 			US_LOG_VERBOSE("RAW: Passed publishing because nobody is watching");
 			continue;
 		}
 
 		us_memsink_server_put(ctx->stream->raw_sink, &hw->raw, false);
-		us_device_buffer_decref(hw);
+		us_capture_buffer_decref(hw);
 	}
 	return NULL;
 }
@@ -442,7 +442,7 @@ static us_hw_buffer_s *_get_latest_hw(us_queue_s *queue) {
 		return NULL;
 	}
 	while (!us_queue_is_empty(queue)) { // Берем только самый свежий кадр
-		us_device_buffer_decref(hw);
+		us_capture_buffer_decref(hw);
 		assert(!us_queue_get(queue, (void**)&hw, 0));
 	}
 	return hw;
@@ -489,12 +489,12 @@ static int _stream_init_loop(us_stream_s *stream) {
 
 		_stream_check_suicide(stream);
 
-		stream->dev->dma_export = (
+		stream->cap->dma_export = (
 			stream->enc->type == US_ENCODER_TYPE_M2M_VIDEO
 			|| stream->enc->type == US_ENCODER_TYPE_M2M_IMAGE
 			|| run->h264 != NULL
 		);
-		switch (us_device_open(stream->dev)) {
+		switch (us_capture_open(stream->cap)) {
 			case -2:
 				if (!waiting_reported) {
 					waiting_reported = true;
@@ -506,7 +506,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 				goto offline_and_retry;
 			default: break;
 		}
-		us_encoder_open(stream->enc, stream->dev);
+		us_encoder_open(stream->enc, stream->cap);
 		return 0;
 
 	offline_and_retry:
@@ -516,11 +516,11 @@ static int _stream_init_loop(us_stream_s *stream) {
 			}
 			if (count % 10 == 0) {
 				// Каждую секунду повторяем blank
-				uint width = stream->dev->run->width;
-				uint height = stream->dev->run->height;
+				uint width = stream->cap->run->width;
+				uint height = stream->cap->run->height;
 				if (width == 0 || height == 0) {
-					width = stream->dev->width;
-					height = stream->dev->height;
+					width = stream->cap->width;
+					height = stream->cap->height;
 				}
 				us_blank_draw(run->blank, "< NO SIGNAL >", width, height);
 

@@ -68,7 +68,7 @@ typedef struct {
 	bool				capture_mplane;
 	bool				streamon;
 	int					open_error_reported;
-} us_device_runtime_s;
+} us_capture_runtime_s;
 
 typedef enum {
 	CTL_MODE_NONE = 0,
@@ -116,22 +116,22 @@ typedef struct {
 	bool				persistent;
 	uint				timeout;
 	us_controls_s 		ctl;
-	us_device_runtime_s *run;
-} us_device_s;
+	us_capture_runtime_s *run;
+} us_capture_s;
 
 
-us_device_s *us_device_init(void);
-void us_device_destroy(us_device_s *dev);
+us_capture_s *us_capture_init(void);
+void us_capture_destroy(us_capture_s *cap);
 
-int us_device_parse_format(const char *str);
-int us_device_parse_standard(const char *str);
-int us_device_parse_io_method(const char *str);
+int us_capture_parse_format(const char *str);
+int us_capture_parse_standard(const char *str);
+int us_capture_parse_io_method(const char *str);
 
-int us_device_open(us_device_s *dev);
-void us_device_close(us_device_s *dev);
+int us_capture_open(us_capture_s *cap);
+void us_capture_close(us_capture_s *cap);
 
-int us_device_grab_buffer(us_device_s *dev, us_hw_buffer_s **hw);
-int us_device_release_buffer(us_device_s *dev, us_hw_buffer_s *hw);
+int us_capture_grab_buffer(us_capture_s *cap, us_hw_buffer_s **hw);
+int us_capture_release_buffer(us_capture_s *cap, us_hw_buffer_s *hw);
 
-void us_device_buffer_incref(us_hw_buffer_s *hw);
-void us_device_buffer_decref(us_hw_buffer_s *hw);
+void us_capture_buffer_incref(us_hw_buffer_s *hw);
+void us_capture_buffer_decref(us_hw_buffer_s *hw);

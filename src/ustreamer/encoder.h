@@ -35,7 +35,7 @@
 #include "../libs/threading.h"
 #include "../libs/logging.h"
 #include "../libs/frame.h"
-#include "../libs/device.h"
+#include "../libs/capture.h"
 
 #include "workers.h"
 #include "m2m.h"
@@ -87,7 +87,7 @@ void us_encoder_destroy(us_encoder_s *enc);
 int us_encoder_parse_type(const char *str);
 const char *us_encoder_type_to_string(us_encoder_type_e type);
 
-void us_encoder_open(us_encoder_s *enc, us_device_s *dev);
+void us_encoder_open(us_encoder_s *enc, us_capture_s *cap);
 void us_encoder_close(us_encoder_s *enc);
 
 void us_encoder_get_runtime_params(us_encoder_s *enc, us_encoder_type_e *type, unsigned *quality);

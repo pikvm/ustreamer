@@ -240,7 +240,7 @@ static int _parse_resolution(const char *str, unsigned *width, unsigned *height,
 static int _check_instance_id(const char *str);
 
 static void _features(void);
-static void _help(FILE *fp, const us_device_s *dev, const us_encoder_s *enc, const us_stream_s *stream, const us_server_s *server);
+static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, const us_stream_s *stream, const us_server_s *server);
 
 
 us_options_s *us_options_init(unsigned argc, char *argv[]) {
@@ -270,7 +270,7 @@ void us_options_destroy(us_options_s *options) {
 }
 
 
-int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us_stream_s *stream, us_server_s *server) {
+int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, us_stream_s *stream, us_server_s *server) {
 #	define OPT_SET(x_dest, x_value) { \
 			x_dest = x_value; \
 			break; \
@@ -314,15 +314,15 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 		}
 
 #	define OPT_CTL_DEFAULT_NOBREAK(x_dest) { \
-			dev->ctl.x_dest.mode = CTL_MODE_DEFAULT; \
+			cap->ctl.x_dest.mode = CTL_MODE_DEFAULT; \
 		}
 
 #	define OPT_CTL_MANUAL(x_dest) { \
 			if (!strcasecmp(optarg, "default")) { \
 				OPT_CTL_DEFAULT_NOBREAK(x_dest); \
 			} else { \
-				dev->ctl.x_dest.mode = CTL_MODE_VALUE; \
-				OPT_NUMBER("--"#x_dest, dev->ctl.x_dest.value, INT_MIN, INT_MAX, 0); \
+				cap->ctl.x_dest.mode = CTL_MODE_VALUE; \
+				OPT_NUMBER("--"#x_dest, cap->ctl.x_dest.value, INT_MIN, INT_MAX, 0); \
 			} \
 			break; \
 		}
@@ -331,10 +331,10 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 			if (!strcasecmp(optarg, "default")) { \
 				OPT_CTL_DEFAULT_NOBREAK(x_dest); \
 			} else if (!strcasecmp(optarg, "auto")) { \
-				dev->ctl.x_dest.mode = CTL_MODE_AUTO; \
+				cap->ctl.x_dest.mode = CTL_MODE_AUTO; \
 			} else { \
-				dev->ctl.x_dest.mode = CTL_MODE_VALUE; \
-				OPT_NUMBER("--"#x_dest, dev->ctl.x_dest.value, INT_MIN, INT_MAX, 0); \
+				cap->ctl.x_dest.mode = CTL_MODE_VALUE; \
+				OPT_NUMBER("--"#x_dest, cap->ctl.x_dest.value, INT_MIN, INT_MAX, 0); \
 			} \
 			break; \
 		}
@@ -359,28 +359,28 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 
 	for (int ch; (ch = getopt_long(options->argc, options->argv_copy, short_opts, _LONG_OPTS, NULL)) >= 0;) {
 		switch (ch) {
-			case _O_DEVICE:				OPT_SET(dev->path, optarg);
-			case _O_INPUT:				OPT_NUMBER("--input", dev->input, 0, 128, 0);
-			case _O_RESOLUTION:			OPT_RESOLUTION("--resolution", dev->width, dev->height, true);
+			case _O_DEVICE:				OPT_SET(cap->path, optarg);
+			case _O_INPUT:				OPT_NUMBER("--input", cap->input, 0, 128, 0);
+			case _O_RESOLUTION:			OPT_RESOLUTION("--resolution", cap->width, cap->height, true);
 #			pragma GCC diagnostic ignored "-Wsign-compare"
 #			pragma GCC diagnostic push
-			case _O_FORMAT:				OPT_PARSE_ENUM("pixel format", dev->format, us_device_parse_format, US_FORMATS_STR);
+			case _O_FORMAT:				OPT_PARSE_ENUM("pixel format", cap->format, us_capture_parse_format, US_FORMATS_STR);
 #			pragma GCC diagnostic pop
-			case _O_TV_STANDARD:		OPT_PARSE_ENUM("TV standard", dev->standard, us_device_parse_standard, US_STANDARDS_STR);
-			case _O_IO_METHOD:			OPT_PARSE_ENUM("IO method", dev->io_method, us_device_parse_io_method, US_IO_METHODS_STR);
-			case _O_DESIRED_FPS:		OPT_NUMBER("--desired-fps", dev->desired_fps, 0, US_VIDEO_MAX_FPS, 0);
-			case _O_MIN_FRAME_SIZE:		OPT_NUMBER("--min-frame-size", dev->min_frame_size, 1, 8192, 0);
-			case _O_PERSISTENT:			OPT_SET(dev->persistent, true);
-			case _O_DV_TIMINGS:			OPT_SET(dev->dv_timings, true);
-			case _O_BUFFERS:			OPT_NUMBER("--buffers", dev->n_bufs, 1, 32, 0);
+			case _O_TV_STANDARD:		OPT_PARSE_ENUM("TV standard", cap->standard, us_capture_parse_standard, US_STANDARDS_STR);
+			case _O_IO_METHOD:			OPT_PARSE_ENUM("IO method", cap->io_method, us_capture_parse_io_method, US_IO_METHODS_STR);
+			case _O_DESIRED_FPS:		OPT_NUMBER("--desired-fps", cap->desired_fps, 0, US_VIDEO_MAX_FPS, 0);
+			case _O_MIN_FRAME_SIZE:		OPT_NUMBER("--min-frame-size", cap->min_frame_size, 1, 8192, 0);
+			case _O_PERSISTENT:			OPT_SET(cap->persistent, true);
+			case _O_DV_TIMINGS:			OPT_SET(cap->dv_timings, true);
+			case _O_BUFFERS:			OPT_NUMBER("--buffers", cap->n_bufs, 1, 32, 0);
 			case _O_WORKERS:			OPT_NUMBER("--workers", enc->n_workers, 1, 32, 0);
-			case _O_QUALITY:			OPT_NUMBER("--quality", dev->jpeg_quality, 1, 100, 0);
+			case _O_QUALITY:			OPT_NUMBER("--quality", cap->jpeg_quality, 1, 100, 0);
 			case _O_ENCODER:			OPT_PARSE_ENUM("encoder type", enc->type, us_encoder_parse_type, ENCODER_TYPES_STR);
 			case _O_GLITCHED_RESOLUTIONS: break; // Deprecated
 			case _O_BLANK:				break; // Deprecated
 			case _O_LAST_AS_BLANK:		break; // Deprecated
 			case _O_SLOWDOWN:			OPT_SET(stream->slowdown, true);
-			case _O_DEVICE_TIMEOUT:		OPT_NUMBER("--device-timeout", dev->timeout, 1, 60, 0);
+			case _O_DEVICE_TIMEOUT:		OPT_NUMBER("--device-timeout", cap->timeout, 1, 60, 0);
 			case _O_DEVICE_ERROR_DELAY:	OPT_NUMBER("--device-error-delay", stream->error_delay, 1, 60, 0);
 			case _O_M2M_DEVICE:			OPT_SET(enc->m2m_path, optarg);
 
@@ -479,7 +479,7 @@ int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us
 			case _O_FORCE_LOG_COLORS:	OPT_SET(us_g_log_colored, true);
 			case _O_NO_LOG_COLORS:		OPT_SET(us_g_log_colored, false);
 
-			case _O_HELP:		_help(stdout, dev, enc, stream, server); return 1;
+			case _O_HELP:		_help(stdout, cap, enc, stream, server); return 1;
 			case _O_VERSION:	puts(US_VERSION); return 1;
 			case _O_FEATURES:	_features(); return 1;
 
@@ -588,7 +588,7 @@ static void _features(void) {
 #	endif
 }
 
-static void _help(FILE *fp, const us_device_s *dev, const us_encoder_s *enc, const us_stream_s *stream, const us_server_s *server) {
+static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, const us_stream_s *stream, const us_server_s *server) {
 #	define SAY(x_msg, ...) fprintf(fp, x_msg "\n", ##__VA_ARGS__)
 	SAY("\nuStreamer - Lightweight and fast MJPEG-HTTP streamer");
 	SAY("═══════════════════════════════════════════════════");
@@ -596,9 +596,9 @@ static void _help(FILE *fp, const us_device_s *dev, const us_encoder_s *enc, con
 	SAY("Copyright (C) 2018-2024 Maxim Devaev <mdevaev@gmail.com>\n");
 	SAY("Capturing options:");
 	SAY("══════════════════");
-	SAY("    -d|--device </dev/path>  ───────────── Path to V4L2 device. Default: %s.\n", dev->path);
-	SAY("    -i|--input <N>  ────────────────────── Input channel. Default: %u.\n", dev->input);
-	SAY("    -r|--resolution <WxH>  ─────────────── Initial image resolution. Default: %ux%u.\n", dev->width, dev->height);
+	SAY("    -d|--device </dev/path>  ───────────── Path to V4L2 device. Default: %s.\n", cap->path);
+	SAY("    -i|--input <N>  ────────────────────── Input channel. Default: %u.\n", cap->input);
+	SAY("    -r|--resolution <WxH>  ─────────────── Initial image resolution. Default: %ux%u.\n", cap->width, cap->height);
 	SAY("    -m|--format <fmt>  ─────────────────── Image format.");
 	SAY("                                           Available: %s; default: YUYV.\n", US_FORMATS_STR);
 	SAY("    -a|--tv-standard <std>  ────────────── Force TV standard.");
@@ -608,16 +608,16 @@ static void _help(FILE *fp, const us_device_s *dev, const us_encoder_s *enc, con
 	SAY("                                           Available: %s; default: MMAP.\n", US_IO_METHODS_STR);
 	SAY("    -f|--desired-fps <N>  ──────────────── Desired FPS. Default: maximum possible.\n");
 	SAY("    -z|--min-frame-size <N>  ───────────── Drop frames smaller then this limit. Useful if the device");
-	SAY("                                           produces small-sized garbage frames. Default: %zu bytes.\n", dev->min_frame_size);
+	SAY("                                           produces small-sized garbage frames. Default: %zu bytes.\n", cap->min_frame_size);
 	SAY("    -n|--persistent  ───────────────────── Don't re-initialize device on timeout. Default: disabled.\n");
 	SAY("    -t|--dv-timings  ───────────────────── Enable DV-timings querying and events processing");
 	SAY("                                           to automatic resolution change. Default: disabled.\n");
 	SAY("    -b|--buffers <N>  ──────────────────── The number of buffers to receive data from the device.");
 	SAY("                                           Each buffer may processed using an independent thread.");
-	SAY("                                           Default: %u (the number of CPU cores (but not more than 4) + 1).\n", dev->n_bufs);
+	SAY("                                           Default: %u (the number of CPU cores (but not more than 4) + 1).\n", cap->n_bufs);
 	SAY("    -w|--workers <N>  ──────────────────── The number of worker threads but not more than buffers.");
 	SAY("                                           Default: %u (the number of CPU cores (but not more than 4)).\n", enc->n_workers);
-	SAY("    -q|--quality <N>  ──────────────────── Set quality of JPEG encoding from 1 to 100 (best). Default: %u.", dev->jpeg_quality);
+	SAY("    -q|--quality <N>  ──────────────────── Set quality of JPEG encoding from 1 to 100 (best). Default: %u.", cap->jpeg_quality);
 	SAY("                                           Note: If HW encoding is used (JPEG source format selected),");
 	SAY("                                           this parameter attempts to configure the camera");
 	SAY("                                           or capture device hardware's internal encoder.");
@@ -635,7 +635,7 @@ static void _help(FILE *fp, const us_device_s *dev, const us_encoder_s *enc, con
 	SAY("    -K|--last-as-blank <sec>  ──────────── It doesn't do anything. Still here for compatibility.\n");
 	SAY("    -l|--slowdown  ─────────────────────── Slowdown capturing to 1 FPS or less when no stream or sink clients");
 	SAY("                                           are connected. Useful to reduce CPU consumption. Default: disabled.\n");
-	SAY("    --device-timeout <sec>  ────────────── Timeout for device querying. Default: %u.\n", dev->timeout);
+	SAY("    --device-timeout <sec>  ────────────── Timeout for device querying. Default: %u.\n", cap->timeout);
 	SAY("    --device-error-delay <sec>  ────────── Delay before trying to connect to the device again");
 	SAY("                                           after an error (timeout for example). Default: %u.\n", stream->error_delay);
 	SAY("    --m2m-device </dev/path>  ──────────── Path to V4L2 M2M encoder device. Default: auto select.\n");

@@ -205,8 +205,8 @@ int us_server_listen(us_server_s *server) {
 
 	{
 		struct timeval interval = {0};
-		if (stream->dev->desired_fps > 0) {
-			interval.tv_usec = 1000000 / (stream->dev->desired_fps * 2);
+		if (stream->cap->desired_fps > 0) {
+			interval.tv_usec = 1000000 / (stream->cap->desired_fps * 2);
 		} else {
 			interval.tv_usec = 16000; // ~60fps
 		}
@@ -512,7 +512,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		(server->fake_width ? server->fake_width : width),
 		(server->fake_height ? server->fake_height : height),
 		us_bool_to_string(online),
-		stream->dev->desired_fps,
+		stream->cap->desired_fps,
 		captured_fps,
 		ex->queued_fps,
 		run->stream_clients_count

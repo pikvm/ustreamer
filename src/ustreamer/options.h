@@ -39,7 +39,7 @@
 #include "../libs/frame.h"
 #include "../libs/memsink.h"
 #include "../libs/options.h"
-#include "../libs/device.h"
+#include "../libs/capture.h"
 
 #include "encoder.h"
 #include "stream.h"
@@ -62,4 +62,4 @@ typedef struct {
 us_options_s *us_options_init(unsigned argc, char *argv[]);
 void us_options_destroy(us_options_s *options);
 
-int options_parse(us_options_s *options, us_device_s *dev, us_encoder_s *enc, us_stream_s *stream, us_server_s *server);
+int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, us_stream_s *stream, us_server_s *server);

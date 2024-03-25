@@ -28,7 +28,7 @@
 #include "../libs/tools.h"
 #include "../libs/threading.h"
 #include "../libs/logging.h"
-#include "../libs/device.h"
+#include "../libs/capture.h"
 #include "../libs/signal.h"
 
 #include "options.h"
@@ -84,12 +84,12 @@ int main(int argc, char *argv[]) {
 	US_THREAD_RENAME("main");
 
 	us_options_s *options = us_options_init(argc, argv);
-	us_device_s *dev = us_device_init();
+	us_capture_s *cap = us_capture_init();
 	us_encoder_s *enc = us_encoder_init();
-	_g_stream = us_stream_init(dev, enc);
+	_g_stream = us_stream_init(cap, enc);
 	_g_server = us_server_init(_g_stream);
 
-	if ((exit_code = options_parse(options, dev, enc, _g_stream, _g_server)) == 0) {
+	if ((exit_code = options_parse(options, cap, enc, _g_stream, _g_server)) == 0) {
 #		ifdef WITH_GPIO
 		us_gpio_init();
 #		endif
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
 	us_server_destroy(_g_server);
 	us_stream_destroy(_g_stream);
 	us_encoder_destroy(enc);
-	us_device_destroy(dev);
+	us_capture_destroy(cap);
 	us_options_destroy(options);
 
 	if (exit_code == 0) {

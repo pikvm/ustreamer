@@ -42,12 +42,13 @@
 #include "../libs/logging.h"
 #include "../libs/frame.h"
 #include "../libs/frametext.h"
+#include "../libs/capture.h"
 
 
 static void _drm_vsync_callback(int fd, uint n_frame, uint sec, uint usec, void *v_buf);
 static int _drm_check_status(us_drm_s *drm);
 static void _drm_ensure_dpms_power(us_drm_s *drm, bool on);
-static int _drm_init_buffers(us_drm_s *drm, const us_device_s *dev);
+static int _drm_init_buffers(us_drm_s *drm, const us_capture_s *cap);
 static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz);
 
 static drmModeModeInfo *_find_best_mode(drmModeConnector *conn, uint width, uint height, float hz);
@@ -90,7 +91,7 @@ void us_drm_destroy(us_drm_s *drm) {
 	US_DELETE(drm, free); // cppcheck-suppress uselessAssignmentPtrArg
 }
 
-int us_drm_open(us_drm_s *drm, const us_device_s *dev) {
+int us_drm_open(us_drm_s *drm, const us_capture_s *cap) {
 	us_drm_runtime_s *const run = drm->run;
 
 	assert(run->fd < 0);
@@ -101,7 +102,7 @@ int us_drm_open(us_drm_s *drm, const us_device_s *dev) {
 		default: goto error;
 	}
 
-	_D_LOG_INFO("Configuring DRM device for %s ...", (dev == NULL ? "STUB" : "DMA"));
+	_D_LOG_INFO("Configuring DRM device for %s ...", (cap == NULL ? "STUB" : "DMA"));
 
 	if ((run->fd = open(drm->path, O_RDWR | O_CLOEXEC | O_NONBLOCK)) < 0) {
 		_D_LOG_PERROR("Can't open DRM device");
@@ -110,12 +111,12 @@ int us_drm_open(us_drm_s *drm, const us_device_s *dev) {
 	_D_LOG_DEBUG("DRM device fd=%d opened", run->fd);
 
 	int stub = 0; // Open the real device with DMA
-	if (dev == NULL) {
+	if (cap == NULL) {
 		stub = US_DRM_STUB_USER;
-	} else if (dev->run->format != V4L2_PIX_FMT_RGB24) {
+	} else if (cap->run->format != V4L2_PIX_FMT_RGB24) {
 		stub = US_DRM_STUB_BAD_FORMAT;
 		char fourcc_str[8];
-		us_fourcc_to_string(dev->run->format, fourcc_str, 8);
+		us_fourcc_to_string(cap->run->format, fourcc_str, 8);
 		_D_LOG_ERROR("Input format %s is not supported, forcing to STUB ...", fourcc_str);
 	}
 
@@ -137,9 +138,9 @@ int us_drm_open(us_drm_s *drm, const us_device_s *dev) {
 	}
 #	undef CHECK_CAP
 
-	const uint width = (stub > 0 ? 0 : dev->run->width);
-	const uint height = (stub > 0 ? 0 : dev->run->height);
-	const uint hz = (stub > 0 ? 0 : dev->run->hz);
+	const uint width = (stub > 0 ? 0 : cap->run->width);
+	const uint height = (stub > 0 ? 0 : cap->run->height);
+	const uint hz = (stub > 0 ? 0 : cap->run->hz);
 	switch (_drm_find_sink(drm, width, height, hz)) {
 		case 0: break;
 		case -2: goto unplugged;
@@ -151,7 +152,7 @@ int us_drm_open(us_drm_s *drm, const us_device_s *dev) {
 		_D_LOG_ERROR("There is no appropriate modes for the capture, forcing to STUB ...");
 	}
 
-	if (_drm_init_buffers(drm, (stub > 0 ? NULL : dev)) < 0) {
+	if (_drm_init_buffers(drm, (stub > 0 ? NULL : cap)) < 0) {
 		goto error;
 	}
 
@@ -308,7 +309,7 @@ static void _drm_vsync_callback(int fd, uint n_frame, uint sec, uint usec, void 
 	_D_LOG_DEBUG("Got VSync signal");
 }
 
-int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_device_s *dev) {
+int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_capture_s *cap) {
 	us_drm_runtime_s *const run = drm->run;
 
 	assert(run->fd >= 0);
@@ -324,14 +325,14 @@ int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_device_s *dev
 #	define DRAW_MSG(x_msg) us_frametext_draw(run->ft, (x_msg), run->mode.hdisplay, run->mode.vdisplay)
 	switch (stub) {
 		case US_DRM_STUB_BAD_RESOLUTION: {
-			assert(dev != NULL);
+			assert(cap != NULL);
 			char msg[1024];
 			US_SNPRINTF(msg, 1023,
 				"=== PiKVM ==="
 				"\n \n< UNSUPPORTED RESOLUTION >"
 				"\n \n< %ux%up%.02f >"
 				"\n \nby this display",
-				dev->run->width, dev->run->height, dev->run->hz);
+				cap->run->width, cap->run->height, cap->run->hz);
 			DRAW_MSG(msg);
 			break;
 		};
@@ -459,11 +460,11 @@ static void _drm_ensure_dpms_power(us_drm_s *drm, bool on) {
 	run->dpms_state = (int)on;
 }
 
-static int _drm_init_buffers(us_drm_s *drm, const us_device_s *dev) {
+static int _drm_init_buffers(us_drm_s *drm, const us_capture_s *cap) {
 	us_drm_runtime_s *const run = drm->run;
 
-	const uint n_bufs = (dev == NULL ? 4 : dev->run->n_bufs);
-	const char *name = (dev == NULL ? "STUB" : "DMA");
+	const uint n_bufs = (cap == NULL ? 4 : cap->run->n_bufs);
+	const char *name = (cap == NULL ? "STUB" : "DMA");
 
 	_D_LOG_DEBUG("Initializing %u %s buffers ...", n_bufs, name);
 
@@ -479,7 +480,7 @@ static int _drm_init_buffers(us_drm_s *drm, const us_device_s *dev) {
 		u32 strides[4] = {0};
 		u32 offsets[4] = {0};
 
-		if (dev == NULL) {
+		if (cap == NULL) {
 			struct drm_mode_create_dumb create = {
 				.width = run->mode.hdisplay,
 				.height = run->mode.vdisplay,
@@ -512,12 +513,12 @@ static int _drm_init_buffers(us_drm_s *drm, const us_device_s *dev) {
 			strides[0] = create.pitch;
 
 		} else {
-			if (drmPrimeFDToHandle(run->fd, dev->run->hw_bufs[n_buf].dma_fd, &buf->handle) < 0) {
+			if (drmPrimeFDToHandle(run->fd, cap->run->hw_bufs[n_buf].dma_fd, &buf->handle) < 0) {
 				_D_LOG_PERROR("Can't import DMA buffer=%u from capture device", n_buf);
 				return -1;
 			}
 			handles[0] = buf->handle;
-			strides[0] = dev->run->stride;
+			strides[0] = cap->run->stride;
 		}
 
 		if (drmModeAddFB2(

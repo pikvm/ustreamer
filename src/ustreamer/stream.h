@@ -30,7 +30,7 @@
 #include "../libs/queue.h"
 #include "../libs/ring.h"
 #include "../libs/memsink.h"
-#include "../libs/device.h"
+#include "../libs/capture.h"
 
 #include "blank.h"
 #include "encoder.h"
@@ -52,7 +52,7 @@ typedef struct {
 } us_stream_runtime_s;
 
 typedef struct {
-	us_device_s		*dev;
+	us_capture_s	*cap;
 	us_encoder_s	*enc;
 
 	int				last_as_blank;
@@ -72,7 +72,7 @@ typedef struct {
 } us_stream_s;
 
 
-us_stream_s *us_stream_init(us_device_s *dev, us_encoder_s *enc);
+us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc);
 void us_stream_destroy(us_stream_s *stream);
 
 void us_stream_loop(us_stream_s *stream);

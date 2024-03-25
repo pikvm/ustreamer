@@ -91,13 +91,13 @@ const char *us_encoder_type_to_string(us_encoder_type_e type) {
 	return _ENCODER_TYPES[0].name;
 }
 
-void us_encoder_open(us_encoder_s *enc, us_device_s *dev) {
+void us_encoder_open(us_encoder_s *enc, us_capture_s *cap) {
 	assert(enc->run->pool == NULL);
 
-#	define DR(x_next) dev->run->x_next
+#	define DR(x_next) cap->run->x_next
 
 	us_encoder_type_e type = (_ER(cpu_forced) ? US_ENCODER_TYPE_CPU : enc->type);
-	unsigned quality = dev->jpeg_quality;
+	unsigned quality = cap->jpeg_quality;
 	unsigned n_workers = US_MIN(enc->n_workers, DR(n_bufs));
 	bool cpu_forced = false;
 
@@ -139,7 +139,7 @@ void us_encoder_open(us_encoder_s *enc, us_device_s *dev) {
 
 	use_cpu:
 		type = US_ENCODER_TYPE_CPU;
-		quality = dev->jpeg_quality;
+		quality = cap->jpeg_quality;
 
 	ok:
 		if (type == US_ENCODER_TYPE_NOOP) {
@@ -159,8 +159,8 @@ void us_encoder_open(us_encoder_s *enc, us_device_s *dev) {
 		US_MUTEX_UNLOCK(_ER(mutex));
 
 		const long double desired_interval = (
-			dev->desired_fps > 0 && (dev->desired_fps < dev->run->hw_fps || dev->run->hw_fps == 0)
-			? (long double)1 / dev->desired_fps
+			cap->desired_fps > 0 && (cap->desired_fps < cap->run->hw_fps || cap->run->hw_fps == 0)
+			? (long double)1 / cap->desired_fps
 			: 0
 		);
 
