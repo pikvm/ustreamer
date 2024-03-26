@@ -484,6 +484,10 @@ static void *_drm_thread(void *v_ctx) {
 	_worker_context_s *ctx = v_ctx;
 	us_stream_runtime_s *run = ctx->stream->run;
 
+	// Close previously opened DRM for a stub
+	us_drm_close(run->drm);
+	run->drm_opened = -1;
+
 	us_capture_hwbuf_s *prev_hw = NULL;
 	while (!atomic_load(ctx->stop)) {
 #		define CHECK(x_arg) if ((x_arg) < 0) { goto close; }
