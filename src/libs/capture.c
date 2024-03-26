@@ -747,6 +747,21 @@ static int _capture_open_format(us_capture_s *cap, bool first) {
 	run->format = FMT(pixelformat);
 	_D_LOG_INFO("Using format: %s", _format_to_string_supported(run->format));
 
+	if (cap->format_swap_rgb) {
+		// Userspace workaround for TC358743 RGB/BGR bug:
+		//   - https://github.com/raspberrypi/linux/issues/6068
+		uint swapped = 0;
+		switch (run->format) {
+			case V4L2_PIX_FMT_RGB24: swapped = V4L2_PIX_FMT_BGR24; break;
+			case V4L2_PIX_FMT_BGR24: swapped = V4L2_PIX_FMT_RGB24; break;
+		}
+		if (swapped > 0) {
+			_D_LOG_INFO("Using format swap: %s -> %s",
+				_format_to_string_supported(run->format),
+				_format_to_string_supported(swapped));
+			run->format = swapped;
+		}
+	}
 
 	run->stride = FMTS(bytesperline);
 	run->raw_size = FMTS(sizeimage); // Only for userptr

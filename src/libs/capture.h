@@ -104,6 +104,8 @@ typedef struct {
 	uint				width;
 	uint				height;
 	uint				format;
+
+	bool				format_swap_rgb;
 	uint				jpeg_quality;
 	v4l2_std_id			standard;
 	enum v4l2_memory	io_method;

@@ -61,6 +61,7 @@ enum _US_OPT_VALUES {
 
 	_O_DEVICE_TIMEOUT = 10000,
 	_O_DEVICE_ERROR_DELAY,
+	_O_FORMAT_SWAP_RGB,
 	_O_M2M_DEVICE,
 
 	_O_IMAGE_DEFAULT,
@@ -136,6 +137,7 @@ static const struct option _LONG_OPTS[] = {
 	{"input",					required_argument,	NULL,	_O_INPUT},
 	{"resolution",				required_argument,	NULL,	_O_RESOLUTION},
 	{"format",					required_argument,	NULL,	_O_FORMAT},
+	{"format-swap-rgb",			required_argument,	NULL,	_O_FORMAT_SWAP_RGB},
 	{"tv-standard",				required_argument,	NULL,	_O_TV_STANDARD},
 	{"io-method",				required_argument,	NULL,	_O_IO_METHOD},
 	{"desired-fps",				required_argument,	NULL,	_O_DESIRED_FPS},
@@ -374,6 +376,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 #			pragma GCC diagnostic push
 			case _O_FORMAT:				OPT_PARSE_ENUM("pixel format", cap->format, us_capture_parse_format, US_FORMATS_STR);
 #			pragma GCC diagnostic pop
+			case _O_FORMAT_SWAP_RGB:	OPT_SET(cap->format_swap_rgb, true);
 			case _O_TV_STANDARD:		OPT_PARSE_ENUM("TV standard", cap->standard, us_capture_parse_standard, US_STANDARDS_STR);
 			case _O_IO_METHOD:			OPT_PARSE_ENUM("IO method", cap->io_method, us_capture_parse_io_method, US_IO_METHODS_STR);
 			case _O_DESIRED_FPS:		OPT_NUMBER("--desired-fps", cap->desired_fps, 0, US_VIDEO_MAX_FPS, 0);
@@ -613,6 +616,8 @@ static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, co
 	SAY("    -r|--resolution <WxH>  ─────────────── Initial image resolution. Default: %ux%u.\n", cap->width, cap->height);
 	SAY("    -m|--format <fmt>  ─────────────────── Image format.");
 	SAY("                                           Available: %s; default: YUYV.\n", US_FORMATS_STR);
+	SAY("       --format-swap-rgb  ──────────────── Enable R-G-B order swapping: RGB to BGR and vice versa.");
+	SAY("                                           Default: disabled.\n");
 	SAY("    -a|--tv-standard <std>  ────────────── Force TV standard.");
 	SAY("                                           Available: %s; default: disabled.\n", US_STANDARDS_STR);
 	SAY("    -I|--io-method <method>  ───────────── Set V4L2 IO method (see kernel documentation).");

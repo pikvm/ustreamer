@@ -165,6 +165,7 @@ static void _main_loop(void) {
 	cap->path = "/dev/kvmd-video";
 	cap->n_bufs = 6;
 	cap->format = V4L2_PIX_FMT_RGB24;
+	cap->format_swap_rgb = true;
 	cap->dv_timings = true;
 	cap->persistent = true;
 	cap->dma_export = true;
