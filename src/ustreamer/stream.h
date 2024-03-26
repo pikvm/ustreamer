@@ -46,6 +46,7 @@ typedef struct {
 #	ifdef WITH_V4P
 	us_drm_s		*drm;
 	int				drm_opened;
+	ldf				drm_blank_at_ts;
 #	endif
 
 	us_ring_s		*http_jpeg_ring;

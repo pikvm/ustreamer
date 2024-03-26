@@ -652,18 +652,36 @@ static int _stream_init_loop(us_stream_s *stream) {
 #ifdef WITH_V4P
 static void _stream_drm_ensure_no_signal(us_stream_s *stream) {
 	us_stream_runtime_s *const run = stream->run;
+
 	if (!stream->v4p) {
 		return;
 	}
+
+#	define CHECK(x_arg) if ((x_arg) < 0) { goto close; }
 	if (run->drm_opened <= 0) {
 		us_drm_close(run->drm);
-		run->drm_opened = us_drm_open(run->drm, NULL);
+		run->drm_blank_at_ts = 0;
+		CHECK(run->drm_opened = us_drm_open(run->drm, NULL));
 	}
-	if (run->drm_opened > 0) {
-		if (us_drm_wait_for_vsync(run->drm) == 0) {
-			us_drm_expose_stub(run->drm, US_DRM_STUB_NO_SIGNAL, NULL);
-		}
+
+	ldf now_ts = us_get_now_monotonic();
+	if (run->drm_blank_at_ts == 0) {
+		run->drm_blank_at_ts = now_ts + 5;
 	}
+
+	if (now_ts <= run->drm_blank_at_ts) {
+		CHECK(us_drm_wait_for_vsync(run->drm));
+		CHECK(us_drm_expose_stub(run->drm, US_DRM_STUB_NO_SIGNAL, NULL));
+	} else {
+		// US_ONCE({ US_LOG_INFO("DRM: Turning off the display by timeout ..."); });
+		CHECK(us_drm_dpms_power_off(run->drm));
+	}
+	return;
+#	undef CHECK
+
+close:
+	us_drm_close(run->drm);
+	run->drm_opened = -1;
 }
 #endif
 
