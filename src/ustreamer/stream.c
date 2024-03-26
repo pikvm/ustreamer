@@ -479,6 +479,7 @@ static void *_raw_thread(void *v_ctx) {
 	return NULL;
 }
 
+#ifdef WITH_V4P
 static void *_drm_thread(void *v_ctx) {
 	US_THREAD_SETTLE("str_drm");
 	_worker_context_s *ctx = v_ctx;
@@ -535,6 +536,7 @@ static void *_drm_thread(void *v_ctx) {
 	}
 	return NULL;
 }
+#endif
 
 static us_capture_hwbuf_s *_get_latest_hw(us_queue_s *queue) {
 	us_capture_hwbuf_s *hw;
@@ -560,8 +562,10 @@ static bool _stream_has_jpeg_clients_cached(us_stream_s *stream) {
 static bool _stream_has_any_clients_cached(us_stream_s *stream) {
 	const us_stream_runtime_s *const run = stream->run;
 	return (
-		stream->v4p
-		|| _stream_has_jpeg_clients_cached(stream)
+#		ifdef WITH_V4P
+		stream->v4p ||
+#		endif
+		_stream_has_jpeg_clients_cached(stream)
 		|| (run->h264 != NULL && atomic_load(&run->h264->sink->has_clients))
 		|| (stream->raw_sink != NULL && atomic_load(&stream->raw_sink->has_clients))
 	);
