@@ -113,7 +113,7 @@ int us_drm_open(us_drm_s *drm, const us_capture_s *cap) {
 	int stub = 0; // Open the real device with DMA
 	if (cap == NULL) {
 		stub = US_DRM_STUB_USER;
-	} else if (cap->run->format != V4L2_PIX_FMT_RGB24) {
+	} else if (cap->run->format != V4L2_PIX_FMT_RGB24 && cap->run->format != V4L2_PIX_FMT_BGR24) {
 		stub = US_DRM_STUB_BAD_FORMAT;
 		char fourcc_str[8];
 		us_fourcc_to_string(cap->run->format, fourcc_str, 8);
@@ -468,6 +468,8 @@ static int _drm_init_buffers(us_drm_s *drm, const us_capture_s *cap) {
 
 	_D_LOG_DEBUG("Initializing %u %s buffers ...", n_bufs, name);
 
+	uint format = DRM_FORMAT_RGB888;
+
 	US_CALLOC(run->bufs, n_bufs);
 	for (run->n_bufs = 0; run->n_bufs < n_bufs; ++run->n_bufs) {
 		const uint n_buf = run->n_bufs;
@@ -519,11 +521,16 @@ static int _drm_init_buffers(us_drm_s *drm, const us_capture_s *cap) {
 			}
 			handles[0] = buf->handle;
 			strides[0] = cap->run->stride;
+
+			switch (cap->run->format) {
+				case V4L2_PIX_FMT_RGB24: format = (DRM_FORMAT_BIG_ENDIAN ? DRM_FORMAT_BGR888 : DRM_FORMAT_RGB888); break;
+				case V4L2_PIX_FMT_BGR24: format = (DRM_FORMAT_BIG_ENDIAN ? DRM_FORMAT_RGB888 : DRM_FORMAT_BGR888); break;
+			}
 		}
 
 		if (drmModeAddFB2(
 			run->fd,
-			run->mode.hdisplay, run->mode.vdisplay, DRM_FORMAT_RGB888,
+			run->mode.hdisplay, run->mode.vdisplay, format,
 			handles, strides, offsets, &buf->id, 0
 		)) {
 			_D_LOG_PERROR("Can't setup buffer=%u", n_buf);
