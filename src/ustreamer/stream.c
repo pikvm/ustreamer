@@ -191,7 +191,7 @@ void us_stream_loop(us_stream_s *stream) {
 			drm_ctx.queue = us_queue_init(cap->run->n_bufs);
 			drm_ctx.stream = stream;
 			drm_ctx.stop = &threads_stop;
-			US_THREAD_CREATE(drm_ctx.tid, _drm_thread, &drm_ctx);
+			US_THREAD_CREATE(drm_ctx.tid, _drm_thread, &drm_ctx); // cppcheck-suppress assertWithSideEffect
 		}
 #		endif
 
