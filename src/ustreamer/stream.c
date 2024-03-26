@@ -204,7 +204,7 @@ void us_stream_loop(us_stream_s *stream) {
 		uint slowdown_count = 0;
 		while (!atomic_load(&run->stop) && !atomic_load(&threads_stop)) {
 			us_capture_hwbuf_s *hw;
-			switch (us_capture_grab_buffer(cap, &hw)) {
+			switch (us_capture_hwbuf_grab(cap, &hw)) {
 				case -2: continue; // Broken frame
 				case -1: goto close; // Error
 				default: break; // Grabbed on >= 0
@@ -224,19 +224,19 @@ void us_stream_loop(us_stream_s *stream) {
 			us_gpio_set_stream_online(true);
 #			endif
 
-			us_capture_buffer_incref(hw); // JPEG
+			us_capture_hwbuf_incref(hw); // JPEG
 			us_queue_put(jpeg_ctx.queue, hw, 0);
 			if (run->h264 != NULL) {
-				us_capture_buffer_incref(hw); // H264
+				us_capture_hwbuf_incref(hw); // H264
 				us_queue_put(h264_ctx.queue, hw, 0);
 			}
 			if (stream->raw_sink != NULL) {
-				us_capture_buffer_incref(hw); // RAW
+				us_capture_hwbuf_incref(hw); // RAW
 				us_queue_put(raw_ctx.queue, hw, 0);
 			}
 #			ifdef WITH_V4P
 			if (stream->v4p) {
-				us_capture_buffer_incref(hw); // DRM
+				us_capture_hwbuf_incref(hw); // DRM
 				us_queue_put(drm_ctx.queue, hw, 0);
 			}
 #			endif
@@ -339,7 +339,7 @@ static void *_releaser_thread(void *v_ctx) {
 		}
 
 		US_MUTEX_LOCK(*ctx->mutex);
-		const int released = us_capture_release_buffer(ctx->cap, hw);
+		const int released = us_capture_hwbuf_release(ctx->cap, hw);
 		US_MUTEX_UNLOCK(*ctx->mutex);
 		if (released < 0) {
 			goto done;
@@ -364,7 +364,7 @@ static void *_jpeg_thread(void *v_ctx) {
 		us_encoder_job_s *const ready_job = ready_wr->job;
 
 		if (ready_job->hw != NULL) {
-			us_capture_buffer_decref(ready_job->hw);
+			us_capture_hwbuf_decref(ready_job->hw);
 			ready_job->hw = NULL;
 			if (ready_wr->job_failed) {
 				// pass
@@ -388,7 +388,7 @@ static void *_jpeg_thread(void *v_ctx) {
 		const bool update_required = (stream->jpeg_sink != NULL && us_memsink_server_check(stream->jpeg_sink, NULL));
 		if (!update_required && !_stream_has_jpeg_clients_cached(stream)) {
 			US_LOG_VERBOSE("JPEG: Passed encoding because nobody is watching");
-			us_capture_buffer_decref(hw);
+			us_capture_hwbuf_decref(hw);
 			continue;
 		}
 
@@ -397,7 +397,7 @@ static void *_jpeg_thread(void *v_ctx) {
 			fluency_passed += 1;
 			US_LOG_VERBOSE("JPEG: Passed %u frames for fluency: now=%.03Lf, grab_after=%.03Lf",
 				fluency_passed, now_ts, grab_after_ts);
-			us_capture_buffer_decref(hw);
+			us_capture_hwbuf_decref(hw);
 			continue;
 		}
 		fluency_passed = 0;
@@ -428,13 +428,13 @@ static void *_h264_thread(void *v_ctx) {
 		}
 
 		if (!us_memsink_server_check(h264->sink, NULL)) {
-			us_capture_buffer_decref(hw);
+			us_capture_hwbuf_decref(hw);
 			US_LOG_VERBOSE("H264: Passed encoding because nobody is watching");
 			continue;
 		}
 
 		if (hw->raw.grab_ts < grab_after_ts) {
-			us_capture_buffer_decref(hw);
+			us_capture_hwbuf_decref(hw);
 			US_LOG_VERBOSE("H264: Passed encoding for FPS limit: %u", h264->enc->run->fps_limit);
 			continue;
 		}
@@ -452,7 +452,7 @@ static void *_h264_thread(void *v_ctx) {
 		const ldf frame_interval = (ldf)1 / h264->enc->run->fps_limit;
 		grab_after_ts = hw->raw.grab_ts + frame_interval - 0.01;
 
-		us_capture_buffer_decref(hw);
+		us_capture_hwbuf_decref(hw);
 	}
 	return NULL;
 }
@@ -468,13 +468,13 @@ static void *_raw_thread(void *v_ctx) {
 		}
 
 		if (!us_memsink_server_check(ctx->stream->raw_sink, NULL)) {
-			us_capture_buffer_decref(hw);
+			us_capture_hwbuf_decref(hw);
 			US_LOG_VERBOSE("RAW: Passed publishing because nobody is watching");
 			continue;
 		}
 
 		us_memsink_server_put(ctx->stream->raw_sink, &hw->raw, false);
-		us_capture_buffer_decref(hw);
+		us_capture_hwbuf_decref(hw);
 	}
 	return NULL;
 }
@@ -497,7 +497,7 @@ static void *_drm_thread(void *v_ctx) {
 				while (!atomic_load(ctx->stop) && us_get_now_monotonic() < m_next_ts) { \
 					us_capture_hwbuf_s *m_pass_hw = _get_latest_hw(ctx->queue); \
 					if (m_pass_hw != NULL) { \
-						us_capture_buffer_decref(m_pass_hw); \
+						us_capture_hwbuf_decref(m_pass_hw); \
 					} \
 				} \
 			}
@@ -506,7 +506,7 @@ static void *_drm_thread(void *v_ctx) {
 
 		while (!atomic_load(ctx->stop)) {
 			CHECK(us_drm_wait_for_vsync(run->drm));
-			US_DELETE(prev_hw, us_capture_buffer_decref);
+			US_DELETE(prev_hw, us_capture_hwbuf_decref);
 
 			us_capture_hwbuf_s *hw = _get_latest_hw(ctx->queue);
 			if (hw == NULL) {
@@ -520,7 +520,7 @@ static void *_drm_thread(void *v_ctx) {
 			}
 
 			CHECK(us_drm_expose_stub(run->drm, run->drm_opened, ctx->stream->cap));
-			us_capture_buffer_decref(hw);
+			us_capture_hwbuf_decref(hw);
 
 			SLOWDOWN;
 		}
@@ -528,7 +528,7 @@ static void *_drm_thread(void *v_ctx) {
 	close:
 		us_drm_close(run->drm);
 		run->drm_opened = -1;
-		US_DELETE(prev_hw, us_capture_buffer_decref);
+		US_DELETE(prev_hw, us_capture_hwbuf_decref);
 		SLOWDOWN;
 
 #		undef SLOWDOWN
@@ -544,7 +544,7 @@ static us_capture_hwbuf_s *_get_latest_hw(us_queue_s *queue) {
 		return NULL;
 	}
 	while (!us_queue_is_empty(queue)) { // Берем только самый свежий кадр
-		us_capture_buffer_decref(hw);
+		us_capture_hwbuf_decref(hw);
 		assert(!us_queue_get(queue, (void**)&hw, 0));
 	}
 	return hw;

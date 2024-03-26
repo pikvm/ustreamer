@@ -132,8 +132,8 @@ int us_capture_parse_io_method(const char *str);
 int us_capture_open(us_capture_s *cap);
 void us_capture_close(us_capture_s *cap);
 
-int us_capture_grab_buffer(us_capture_s *cap, us_capture_hwbuf_s **hw);
-int us_capture_release_buffer(us_capture_s *cap, us_capture_hwbuf_s *hw);
+int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw);
+int us_capture_hwbuf_release(us_capture_s *cap, us_capture_hwbuf_s *hw);
 
-void us_capture_buffer_incref(us_capture_hwbuf_s *hw);
-void us_capture_buffer_decref(us_capture_hwbuf_s *hw);
+void us_capture_hwbuf_incref(us_capture_hwbuf_s *hw);
+void us_capture_hwbuf_decref(us_capture_hwbuf_s *hw);

@@ -299,7 +299,7 @@ void us_capture_close(us_capture_s *cap) {
 	}
 }
 
-int us_capture_grab_buffer(us_capture_s *cap, us_capture_hwbuf_s **hw) {
+int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 	// Это сложная функция, которая делает сразу много всего, чтобы получить новый фрейм.
 	//   - Вызывается _capture_wait_buffer() с select() внутри, чтобы подождать новый фрейм
 	//     или эвент V4L2. Обработка эвентов более приоритетна, чем кадров.
@@ -417,7 +417,7 @@ int us_capture_grab_buffer(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 	return buf.index;
 }
 
-int us_capture_release_buffer(us_capture_s *cap, us_capture_hwbuf_s *hw) {
+int us_capture_hwbuf_release(us_capture_s *cap, us_capture_hwbuf_s *hw) {
 	assert(atomic_load(&hw->refs) == 0);
 	const uint index = hw->buf.index;
 	_D_LOG_DEBUG("Releasing HW buffer=%u ...", index);
@@ -430,11 +430,11 @@ int us_capture_release_buffer(us_capture_s *cap, us_capture_hwbuf_s *hw) {
 	return 0;
 }
 
-void us_capture_buffer_incref(us_capture_hwbuf_s *hw) {
+void us_capture_hwbuf_incref(us_capture_hwbuf_s *hw) {
 	atomic_fetch_add(&hw->refs, 1);
 }
 
-void us_capture_buffer_decref(us_capture_hwbuf_s *hw) {
+void us_capture_hwbuf_decref(us_capture_hwbuf_s *hw) {
 	atomic_fetch_sub(&hw->refs, 1);
 }
 

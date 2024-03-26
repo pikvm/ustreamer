@@ -219,12 +219,12 @@ static void _main_loop(void) {
 			CHECK(us_drm_wait_for_vsync(drm));
 
 			if (prev_hw != NULL) {
-				CHECK(us_capture_release_buffer(cap, prev_hw));
+				CHECK(us_capture_hwbuf_release(cap, prev_hw));
 				prev_hw = NULL;
 			}
 
 			us_capture_hwbuf_s *hw;
-			switch (us_capture_grab_buffer(cap, &hw)) {
+			switch (us_capture_hwbuf_grab(cap, &hw)) {
 				case -2: continue; // Broken frame
 				case -1: goto close; // Any error
 				default: break; // Grabbed on >= 0
@@ -237,7 +237,7 @@ static void _main_loop(void) {
 			}
 
 			CHECK(us_drm_expose_stub(drm, drm_opened, cap));
-			CHECK(us_capture_release_buffer(cap, hw));
+			CHECK(us_capture_hwbuf_release(cap, hw));
 			_slowdown();
 		}
 
