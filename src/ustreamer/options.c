@@ -100,6 +100,10 @@ enum _US_OPT_VALUES {
 	_O_H264_M2M_DEVICE,
 #	undef ADD_SINK
 
+#	ifdef WITH_V4P
+	_O_V4P,
+#	endif
+
 #	ifdef WITH_GPIO
 	_O_GPIO_DEVICE,
 	_O_GPIO_CONSUMER_PREFIX,
@@ -203,6 +207,10 @@ static const struct option _LONG_OPTS[] = {
 	{"sink-rm",					no_argument,		NULL,	_O_JPEG_SINK_RM},
 	{"sink-client-ttl",			required_argument,	NULL,	_O_JPEG_SINK_CLIENT_TTL},
 	{"sink-timeout",			required_argument,	NULL,	_O_JPEG_SINK_TIMEOUT},
+
+#	ifdef WITH_V4P
+	{"v4p",						no_argument,		NULL,	_O_V4P},
+#	endif
 
 #	ifdef WITH_GPIO
 	{"gpio-device",				required_argument,	NULL,	_O_GPIO_DEVICE},
@@ -451,6 +459,10 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 			case _O_H264_GOP:				OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
 			case _O_H264_M2M_DEVICE:		OPT_SET(stream->h264_m2m_path, optarg);
 
+#			ifdef WITH_V4P
+			case _O_V4P:					OPT_SET(stream->v4p, true);
+#			endif
+
 #			ifdef WITH_GPIO
 			case _O_GPIO_DEVICE:			OPT_SET(us_g_gpio.path, optarg);
 			case _O_GPIO_CONSUMER_PREFIX:	OPT_SET(us_g_gpio.consumer_prefix, optarg);
@@ -698,6 +710,12 @@ static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, co
 	SAY("    --h264-bitrate <kbps>  ───────── H264 bitrate in Kbps. Default: %u.\n", stream->h264_bitrate);
 	SAY("    --h264-gop <N>  ──────────────── Interval between keyframes. Default: %u.\n", stream->h264_gop);
 	SAY("    --h264-m2m-device </dev/path>  ─ Path to V4L2 M2M encoder device. Default: auto select.\n");
+#	ifdef WITH_V4P
+	SAY("Passthrough options for PiKVM V4:");
+	SAY("═════════════════════════════════");
+	SAY("    --v4p  ─ Enable HDMI passthrough to OUT2 on the device: https://docs.pikvm.org/pass");
+	SAY("             Default: disabled.\n");
+#	endif
 #	ifdef WITH_GPIO
 	SAY("GPIO options:");
 	SAY("═════════════");

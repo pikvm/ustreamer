@@ -25,10 +25,10 @@
 
 #include <xf86drmMode.h>
 
-#include "../libs/types.h"
-#include "../libs/frame.h"
-#include "../libs/frametext.h"
-#include "../libs/capture.h"
+#include "../types.h"
+#include "../frame.h"
+#include "../frametext.h"
+#include "../capture.h"
 
 
 typedef enum {

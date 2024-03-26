@@ -39,6 +39,9 @@
 #include "../libs/frame.h"
 #include "../libs/memsink.h"
 #include "../libs/capture.h"
+#ifdef WITH_V4P
+#	include "../libs/drm/drm.h"
+#endif
 
 #include "blank.h"
 #include "encoder.h"
@@ -71,12 +74,18 @@ static void *_releaser_thread(void *v_ctx);
 static void *_jpeg_thread(void *v_ctx);
 static void *_h264_thread(void *v_ctx);
 static void *_raw_thread(void *v_ctx);
+#ifdef WITH_V4P
+static void *_drm_thread(void *v_ctx);
+#endif
 
 static us_capture_hwbuf_s *_get_latest_hw(us_queue_s *queue);
 
 static bool _stream_has_jpeg_clients_cached(us_stream_s *stream);
 static bool _stream_has_any_clients_cached(us_stream_s *stream);
 static int _stream_init_loop(us_stream_s *stream);
+#ifdef WITH_V4P
+static void _stream_drm_ensure_no_signal(us_stream_s *stream);
+#endif
 static void _stream_expose_jpeg(us_stream_s *stream, const us_frame_s *frame);
 static void _stream_expose_raw(us_stream_s *stream, const us_frame_s *frame);
 static void _stream_check_suicide(us_stream_s *stream);
@@ -127,6 +136,14 @@ void us_stream_loop(us_stream_s *stream) {
 		run->h264 = us_h264_stream_init(stream->h264_sink, stream->h264_m2m_path, stream->h264_bitrate, stream->h264_gop);
 	}
 
+#	ifdef WITH_V4P
+	if (stream->v4p) {
+		run->drm = us_drm_init();
+		run->drm_opened = -1;
+		US_LOG_INFO("Using passthrough: %s[%s]", run->drm->path, run->drm->port);
+	}
+#	endif
+
 	while (!_stream_init_loop(stream)) {
 		atomic_bool threads_stop;
 		atomic_init(&threads_stop, false);
@@ -168,6 +185,16 @@ void us_stream_loop(us_stream_s *stream) {
 			US_THREAD_CREATE(raw_ctx.tid, _raw_thread, &raw_ctx);
 		}
 
+#		ifdef WITH_V4P
+		_worker_context_s drm_ctx;
+		if (stream->v4p) {
+			drm_ctx.queue = us_queue_init(cap->run->n_bufs);
+			drm_ctx.stream = stream;
+			drm_ctx.stop = &threads_stop;
+			US_THREAD_CREATE(drm_ctx.tid, _drm_thread, &drm_ctx);
+		}
+#		endif
+
 		uint captured_fps_accum = 0;
 		sll captured_fps_ts = 0;
 		uint captured_fps = 0;
@@ -207,6 +234,12 @@ void us_stream_loop(us_stream_s *stream) {
 				us_capture_buffer_incref(hw); // RAW
 				us_queue_put(raw_ctx.queue, hw, 0);
 			}
+#			ifdef WITH_V4P
+			if (stream->v4p) {
+				us_capture_buffer_incref(hw); // DRM
+				us_queue_put(drm_ctx.queue, hw, 0);
+			}
+#			endif
 			us_queue_put(releasers[hw->buf.index].queue, hw, 0); // Plan to release
 
 			// Мы не обновляем здесь состояние синков, потому что это происходит внутри обслуживающих их потоков
@@ -222,6 +255,13 @@ void us_stream_loop(us_stream_s *stream) {
 
 	close:
 		atomic_store(&threads_stop, true);
+
+#		ifdef WITH_V4P
+		if (stream->v4p) {
+			US_THREAD_JOIN(drm_ctx.tid);
+			us_queue_destroy(drm_ctx.queue);
+		}
+#		endif
 
 		if (stream->raw_sink != NULL) {
 			US_THREAD_JOIN(raw_ctx.tid);
@@ -253,6 +293,9 @@ void us_stream_loop(us_stream_s *stream) {
 		}
 	}
 
+#	ifdef WITH_V4P
+	US_DELETE(run->drm, us_drm_destroy);
+#	endif
 	US_DELETE(run->h264, us_h264_stream_destroy);
 }
 
@@ -436,6 +479,59 @@ static void *_raw_thread(void *v_ctx) {
 	return NULL;
 }
 
+static void *_drm_thread(void *v_ctx) {
+	US_THREAD_SETTLE("str_drm");
+	_worker_context_s *ctx = v_ctx;
+	us_stream_runtime_s *run = ctx->stream->run;
+
+	us_capture_hwbuf_s *prev_hw = NULL;
+	while (!atomic_load(ctx->stop)) {
+#		define CHECK(x_arg) if ((x_arg) < 0) { goto close; }
+#		define SLOWDOWN { \
+				ldf m_next_ts = us_get_now_monotonic() + 1; \
+				while (!atomic_load(ctx->stop) && us_get_now_monotonic() < m_next_ts) { \
+					us_capture_hwbuf_s *m_pass_hw = _get_latest_hw(ctx->queue); \
+					if (m_pass_hw != NULL) { \
+						us_capture_buffer_decref(m_pass_hw); \
+					} \
+				} \
+			}
+
+		CHECK(run->drm_opened = us_drm_open(run->drm, ctx->stream->cap));
+
+		while (!atomic_load(ctx->stop)) {
+			CHECK(us_drm_wait_for_vsync(run->drm));
+			US_DELETE(prev_hw, us_capture_buffer_decref);
+
+			us_capture_hwbuf_s *hw = _get_latest_hw(ctx->queue);
+			if (hw == NULL) {
+				continue;
+			}
+
+			if (run->drm_opened == 0) {
+				CHECK(us_drm_expose_dma(run->drm, hw));
+				prev_hw = hw;
+				continue;
+			}
+
+			CHECK(us_drm_expose_stub(run->drm, run->drm_opened, ctx->stream->cap));
+			us_capture_buffer_decref(hw);
+
+			SLOWDOWN;
+		}
+
+	close:
+		us_drm_close(run->drm);
+		run->drm_opened = -1;
+		US_DELETE(prev_hw, us_capture_buffer_decref);
+		SLOWDOWN;
+
+#		undef SLOWDOWN
+#		undef CHECK
+	}
+	return NULL;
+}
+
 static us_capture_hwbuf_s *_get_latest_hw(us_queue_s *queue) {
 	us_capture_hwbuf_s *hw;
 	if (us_queue_get(queue, (void**)&hw, 0.1) < 0) {
@@ -460,7 +556,8 @@ static bool _stream_has_jpeg_clients_cached(us_stream_s *stream) {
 static bool _stream_has_any_clients_cached(us_stream_s *stream) {
 	const us_stream_runtime_s *const run = stream->run;
 	return (
-		_stream_has_jpeg_clients_cached(stream)
+		stream->v4p
+		|| _stream_has_jpeg_clients_cached(stream)
 		|| (run->h264 != NULL && atomic_load(&run->h264->sink->has_clients))
 		|| (stream->raw_sink != NULL && atomic_load(&stream->raw_sink->has_clients))
 	);
@@ -500,9 +597,15 @@ static int _stream_init_loop(us_stream_s *stream) {
 					waiting_reported = true;
 					US_LOG_INFO("Waiting for the capture device ...");
 				}
+#				ifdef WITH_V4P
+				_stream_drm_ensure_no_signal(stream);
+#				endif
 				goto offline_and_retry;
 			case -1:
 				waiting_reported = false;
+#				ifdef WITH_V4P
+				_stream_drm_ensure_no_signal(stream);
+#				endif
 				goto offline_and_retry;
 			default: break;
 		}
@@ -537,6 +640,24 @@ static int _stream_init_loop(us_stream_s *stream) {
 	}
 	return -1;
 }
+
+#ifdef WITH_V4P
+static void _stream_drm_ensure_no_signal(us_stream_s *stream) {
+	us_stream_runtime_s *const run = stream->run;
+	if (!stream->v4p) {
+		return;
+	}
+	if (run->drm_opened <= 0) {
+		us_drm_close(run->drm);
+		run->drm_opened = us_drm_open(run->drm, NULL);
+	}
+	if (run->drm_opened > 0) {
+		if (us_drm_wait_for_vsync(run->drm) == 0) {
+			us_drm_expose_stub(run->drm, US_DRM_STUB_NO_SIGNAL, NULL);
+		}
+	}
+}
+#endif
 
 static void _stream_expose_jpeg(us_stream_s *stream, const us_frame_s *frame) {
 	us_stream_runtime_s *const run = stream->run;

@@ -43,7 +43,7 @@
 #include "../libs/signal.h"
 #include "../libs/options.h"
 
-#include "drm.h"
+#include "../libs/drm/drm.h"
 
 
 enum _OPT_VALUES {
@@ -160,7 +160,6 @@ static void _signal_handler(int signum) {
 
 static void _main_loop(void) {
 	us_drm_s *drm = us_drm_init();
-	drm->port = "HDMI-A-2";
 
 	us_capture_s *cap = us_capture_init();
 	cap->path = "/dev/kvmd-video";
@@ -177,20 +176,17 @@ static void _main_loop(void) {
 	while (!atomic_load(&_g_stop)) {
 #		define CHECK(x_arg) if ((x_arg) < 0) { goto close; }
 
+		if (atomic_load(&_g_ustreamer_online)) {
+			blank_at_ts = 0;
+			US_ONCE({ US_LOG_INFO("DRM: Online stream is active, pausing the service ..."); });
+			goto close;
+		}
+
 		if (drm_opened <= 0) {
 			blank_at_ts = 0;
 			CHECK(drm_opened = us_drm_open(drm, NULL));
 		}
 		assert(drm_opened > 0);
-
-		if (atomic_load(&_g_ustreamer_online)) {
-			blank_at_ts = 0;
-			US_ONCE({ US_LOG_INFO("DRM: Online stream is active, stopping capture ..."); });
-			CHECK(us_drm_wait_for_vsync(drm));
-			CHECK(us_drm_expose_stub(drm, US_DRM_STUB_BUSY, NULL));
-			_slowdown();
-			continue;
-		}
 
 		if (us_capture_open(cap) < 0) {
 			ldf now_ts = us_get_now_monotonic();
@@ -236,14 +232,12 @@ static void _main_loop(void) {
 			if (drm_opened == 0) {
 				CHECK(us_drm_expose_dma(drm, hw));
 				prev_hw = hw;
-			} else {
-				CHECK(us_drm_expose_stub(drm, drm_opened, cap));
-				CHECK(us_capture_release_buffer(cap, hw));
+				continue;
 			}
 
-			if (drm_opened > 0) {
-				_slowdown();
-			}
+			CHECK(us_drm_expose_stub(drm, drm_opened, cap));
+			CHECK(us_capture_release_buffer(cap, hw));
+			_slowdown();
 		}
 
 	close:

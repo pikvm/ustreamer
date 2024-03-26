@@ -37,12 +37,12 @@
 #include <drm_fourcc.h>
 #include <libdrm/drm.h>
 
-#include "../libs/types.h"
-#include "../libs/tools.h"
-#include "../libs/logging.h"
-#include "../libs/frame.h"
-#include "../libs/frametext.h"
-#include "../libs/capture.h"
+#include "../types.h"
+#include "../tools.h"
+#include "../logging.h"
+#include "../frame.h"
+#include "../frametext.h"
+#include "../capture.h"
 
 
 static void _drm_vsync_callback(int fd, uint n_frame, uint sec, uint usec, void *v_buf);
@@ -79,7 +79,7 @@ us_drm_s *us_drm_init(void) {
 	US_CALLOC(drm, 1);
 	// drm->path = "/dev/dri/card0";
 	drm->path = "/dev/dri/by-path/platform-gpu-card";
-	drm->port = "HDMI-A-1";
+	drm->port = "HDMI-A-2"; // OUT2 on PiKVM V4 Plus
 	drm->timeout = 5;
 	drm->run = run;
 	return drm;

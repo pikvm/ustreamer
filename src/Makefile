@@ -12,11 +12,11 @@ _DUMP = ustreamer-dump.bin
 _V4P = ustreamer-v4p.bin
 
 _CFLAGS = -MD -c -std=c17 -Wall -Wextra -D_GNU_SOURCE $(CFLAGS)
-_LDFLAGS = $(LDFLAGS)
 
-_COMMON_LIBS = -lm -ljpeg -pthread -lrt -latomic
+_USTR_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt -latomic -levent -levent_pthreads
+_DUMP_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt -latomic
+_V4P_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt -latomic
 
-_USTR_LIBS = $(_COMMON_LIBS) -levent -levent_pthreads
 _USTR_SRCS = $(shell ls \
 	libs/*.c \
 	ustreamer/*.c \
@@ -27,15 +27,14 @@ _USTR_SRCS = $(shell ls \
 	ustreamer/*.c \
 )
 
-_DUMP_LIBS = $(_COMMON_LIBS)
 _DUMP_SRCS = $(shell ls \
 	libs/*.c \
 	dump/*.c \
 )
 
-_V4P_LIBS = $(_COMMON_LIBS)
 _V4P_SRCS = $(shell ls \
 	libs/*.c \
+	libs/drm/*.c \
 	v4p/*.c \
 )
 
@@ -52,16 +51,16 @@ endef
 
 
 ifneq ($(call optbool,$(WITH_GPIO)),)
-_USTR_LIBS += -lgpiod
 override _CFLAGS += -DWITH_GPIO $(shell pkg-config --atleast-version=2 libgpiod 2> /dev/null && echo -DHAVE_GPIOD2)
-_USTR_SRCS += $(shell ls ustreamer/gpio/*.c)
+override _USTR_LDFLAGS += -lgpiod
+override _USTR_SRCS += $(shell ls ustreamer/gpio/*.c)
 endif
 
 
 ifneq ($(call optbool,$(WITH_SYSTEMD)),)
-_USTR_LIBS += -lsystemd
 override _CFLAGS += -DWITH_SYSTEMD
-_USTR_SRCS += $(shell ls ustreamer/http/systemd/*.c)
+override _USTR_LDFLAGS += -lsystemd
+override _USTR_SRCS += $(shell ls ustreamer/http/systemd/*.c)
 endif
 
 
@@ -73,10 +72,10 @@ endif
 
 WITH_SETPROCTITLE ?= 1
 ifneq ($(call optbool,$(WITH_SETPROCTITLE)),)
-ifeq ($(shell uname -s | tr A-Z a-z),linux)
-_USTR_LIBS += -lbsd
-endif
 override _CFLAGS += -DWITH_SETPROCTITLE
+ifeq ($(shell uname -s | tr A-Z a-z),linux)
+override _USTR_LDFLAGS += -lbsd
+endif
 endif
 
 
@@ -84,8 +83,10 @@ WITH_V4P ?= 0
 ifneq ($(call optbool,$(WITH_V4P)),)
 override _TARGETS += $(_V4P)
 override _OBJS += $(_V4P_SRCS:%.c=$(_BUILD)/%.o)
-override _CFLAGS += $(shell pkg-config --cflags libdrm)
-_V4P_LDFLAGS = $(shell pkg-config --libs libdrm)
+override _CFLAGS += -DWITH_V4P $(shell pkg-config --cflags libdrm)
+override _V4P_LDFLAGS += $(shell pkg-config --libs libdrm)
+override _USTR_SRCS += $(shell ls libs/drm/*.c)
+override _USTR_LDFLAGS += $(shell pkg-config --libs libdrm)
 endif
 
 
@@ -108,17 +109,17 @@ install-strip: install
 
 $(_USTR): $(_USTR_SRCS:%.c=$(_BUILD)/%.o)
 	$(info == LD $@)
-	$(ECHO) $(CC) $^ -o $@ $(_LDFLAGS) $(_USTR_LIBS)
+	$(ECHO) $(CC) $^ -o $@ $(_USTR_LDFLAGS)
 
 
 $(_DUMP): $(_DUMP_SRCS:%.c=$(_BUILD)/%.o)
 	$(info == LD $@)
-	$(ECHO) $(CC) $^ -o $@ $(_LDFLAGS) $(_DUMP_LIBS)
+	$(ECHO) $(CC) $^ -o $@ $(_DUMP_LDFLAGS)
 
 
 $(_V4P): $(_V4P_SRCS:%.c=$(_BUILD)/%.o)
 	$(info == LD $@)
-	$(ECHO) $(CC) $^ -o $@ $(_LDFLAGS) $(_V4P_LDFLAGS) $(_V4P_LIBS)
+	$(ECHO) $(CC) $^ -o $@ $(_V4P_LDFLAGS)
 
 
 $(_BUILD)/%.o: %.c

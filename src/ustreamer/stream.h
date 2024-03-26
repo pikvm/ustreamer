@@ -31,6 +31,9 @@
 #include "../libs/ring.h"
 #include "../libs/memsink.h"
 #include "../libs/capture.h"
+#ifdef WITH_V4P
+#	include "../libs/drm/drm.h"
+#endif
 
 #include "blank.h"
 #include "encoder.h"
@@ -38,7 +41,12 @@
 
 
 typedef struct {
-	us_h264_stream_s	*h264;
+	us_h264_stream_s *h264;
+
+#	ifdef WITH_V4P
+	us_drm_s		*drm;
+	int				drm_opened;
+#	endif
 
 	us_ring_s		*http_jpeg_ring;
 	atomic_bool		http_has_clients;
@@ -67,6 +75,10 @@ typedef struct {
 	uint			h264_bitrate;
 	uint			h264_gop;
 	char			*h264_m2m_path;
+
+#	ifdef WITH_V4P
+	bool			v4p;
+#	endif
 
 	us_stream_runtime_s	*run;
 } us_stream_s;
