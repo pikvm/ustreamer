@@ -177,17 +177,19 @@ static void _main_loop(void) {
 	while (!atomic_load(&_g_stop)) {
 #		define CHECK(x_arg) if ((x_arg) < 0) { goto close; }
 
-		if (atomic_load(&_g_ustreamer_online)) {
-			blank_at_ts = 0;
-			US_ONCE({ US_LOG_INFO("DRM: Online stream is active, pausing the service ..."); });
-			goto close;
-		}
-
 		if (drm_opened <= 0) {
 			blank_at_ts = 0;
 			CHECK(drm_opened = us_drm_open(drm, NULL));
 		}
-		assert(drm_opened > 0);
+
+		if (atomic_load(&_g_ustreamer_online)) {
+			blank_at_ts = 0;
+			US_ONCE({ US_LOG_INFO("DRM: Online stream is active, pausing the service ..."); });
+			CHECK(us_drm_wait_for_vsync(drm));
+			CHECK(us_drm_expose_stub(drm, US_DRM_STUB_BUSY, NULL));
+			_slowdown();
+			continue;
+		}
 
 		if (us_capture_open(cap) < 0) {
 			ldf now_ts = us_get_now_monotonic();

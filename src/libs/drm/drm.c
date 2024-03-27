@@ -337,12 +337,7 @@ int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_capture_s *ca
 			break;
 		};
 		case US_DRM_STUB_BAD_FORMAT:
-			DRAW_MSG(
-				"=== PiKVM ==="
-				"\n \n< UNSUPPORTED CAPTURE FORMAT >"
-				"\n \nIt shouldn't happen ever."
-				"\n \nPlease check the logs and report a bug:"
-				"\n \n- https://github.com/pikvm/pikvm -");
+			DRAW_MSG("=== PiKVM ===\n \n< UNSUPPORTED CAPTURE FORMAT >");
 			break;
 		case US_DRM_STUB_NO_SIGNAL:
 			DRAW_MSG("=== PiKVM ===\n \n< NO SIGNAL >");
