@@ -227,7 +227,7 @@ static void _m2m_encoder_ensure(us_m2m_encoder_s *enc, const us_frame_s *frame) 
 		fmt.fmt.pix_mp.height = run->p_height;
 		fmt.fmt.pix_mp.pixelformat = run->p_input_format;
 		fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
-		fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_JPEG; // libcamera currently has no means to request the right colour space
+		fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_JPEG; // FIXME: Wrong colors
 		fmt.fmt.pix_mp.num_planes = 1;
 		// fmt.fmt.pix_mp.plane_fmt[0].bytesperline = run->p_stride;
 		_E_LOG_DEBUG("Configuring INPUT format ...");
