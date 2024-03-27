@@ -102,11 +102,11 @@ static const char *_http_get_header(struct evhttp_request *request, const char *
 static char *_http_get_client_hostport(struct evhttp_request *request);
 
 
-#define _S_LOG_ERROR(x_msg, ...)	US_LOG_ERROR("HTTP: " x_msg, ##__VA_ARGS__)
-#define _S_LOG_PERROR(x_msg, ...)	US_LOG_PERROR("HTTP: " x_msg, ##__VA_ARGS__)
-#define _S_LOG_INFO(x_msg, ...)		US_LOG_INFO("HTTP: " x_msg, ##__VA_ARGS__)
-#define _S_LOG_VERBOSE(x_msg, ...)	US_LOG_VERBOSE("HTTP: " x_msg, ##__VA_ARGS__)
-#define _S_LOG_DEBUG(x_msg, ...)	US_LOG_DEBUG("HTTP: " x_msg, ##__VA_ARGS__)
+#define _LOG_ERROR(x_msg, ...)	US_LOG_ERROR("HTTP: " x_msg, ##__VA_ARGS__)
+#define _LOG_PERROR(x_msg, ...)	US_LOG_PERROR("HTTP: " x_msg, ##__VA_ARGS__)
+#define _LOG_INFO(x_msg, ...)		US_LOG_INFO("HTTP: " x_msg, ##__VA_ARGS__)
+#define _LOG_VERBOSE(x_msg, ...)	US_LOG_VERBOSE("HTTP: " x_msg, ##__VA_ARGS__)
+#define _LOG_DEBUG(x_msg, ...)	US_LOG_DEBUG("HTTP: " x_msg, ##__VA_ARGS__)
 
 #define _A_EVBUFFER_NEW(x_buf)						assert((x_buf = evbuffer_new()) != NULL)
 #define _A_EVBUFFER_ADD(x_buf, x_data, x_size)		assert(!evbuffer_add(x_buf, x_data, x_size))
@@ -188,7 +188,7 @@ int us_server_listen(us_server_s *server) {
 
 	{
 		if (server->static_path[0] != '\0') {
-			_S_LOG_INFO("Enabling the file server: %s", server->static_path);
+			_LOG_INFO("Enabling the file server: %s", server->static_path);
 			evhttp_set_gencb(run->http, _http_callback_static, (void*)server);
 		} else {
 			assert(!evhttp_set_cb(run->http, "/", _http_callback_root, (void*)server));
@@ -227,11 +227,11 @@ int us_server_listen(us_server_s *server) {
 		US_ASPRINTF(run->auth_token, "Basic %s", encoded_token);
 		free(encoded_token);
 
-		_S_LOG_INFO("Using HTTP basic auth");
+		_LOG_INFO("Using HTTP basic auth");
 	}
 
 	if (server->unix_path[0] != '\0') {
-		_S_LOG_DEBUG("Binding server to UNIX socket '%s' ...", server->unix_path);
+		_LOG_DEBUG("Binding server to UNIX socket '%s' ...", server->unix_path);
 		if ((run->ext_fd = us_evhttp_bind_unix(
 			run->http,
 			server->unix_path,
@@ -240,33 +240,33 @@ int us_server_listen(us_server_s *server) {
 		) {
 			return -1;
 		}
-		_S_LOG_INFO("Listening HTTP on UNIX socket '%s'", server->unix_path);
+		_LOG_INFO("Listening HTTP on UNIX socket '%s'", server->unix_path);
 
 #	ifdef WITH_SYSTEMD
 	} else if (server->systemd) {
-		_S_LOG_DEBUG("Binding HTTP to systemd socket ...");
+		_LOG_DEBUG("Binding HTTP to systemd socket ...");
 		if ((run->ext_fd = us_evhttp_bind_systemd(run->http)) < 0) {
 			return -1;
 		}
-		_S_LOG_INFO("Listening systemd socket ...");
+		_LOG_INFO("Listening systemd socket ...");
 #	endif
 
 	} else {
-		_S_LOG_DEBUG("Binding HTTP to [%s]:%u ...", server->host, server->port);
+		_LOG_DEBUG("Binding HTTP to [%s]:%u ...", server->host, server->port);
 		if (evhttp_bind_socket(run->http, server->host, server->port) < 0) {
-			_S_LOG_PERROR("Can't bind HTTP on [%s]:%u", server->host, server->port)
+			_LOG_PERROR("Can't bind HTTP on [%s]:%u", server->host, server->port)
 			return -1;
 		}
-		_S_LOG_INFO("Listening HTTP on [%s]:%u", server->host, server->port);
+		_LOG_INFO("Listening HTTP on [%s]:%u", server->host, server->port);
 	}
 
 	return 0;
 }
 
 void us_server_loop(us_server_s *server) {
-	_S_LOG_INFO("Starting eventloop ...");
+	_LOG_INFO("Starting eventloop ...");
 	event_base_dispatch(server->run->base);
-	_S_LOG_INFO("Eventloop stopped");
+	_LOG_INFO("Eventloop stopped");
 }
 
 void us_server_loop_break(us_server_s *server) {
@@ -407,18 +407,18 @@ static void _http_callback_static(struct evhttp_request *request, void *v_server
 	}
 
 	if ((fd = open(static_path, O_RDONLY)) < 0) {
-		_S_LOG_PERROR("Can't open found static file %s", static_path);
+		_LOG_PERROR("Can't open found static file %s", static_path);
 		goto not_found;
 	}
 
 	{
 		struct stat st;
 		if (fstat(fd, &st) < 0) {
-			_S_LOG_PERROR("Can't stat() found static file %s", static_path);
+			_LOG_PERROR("Can't stat() found static file %s", static_path);
 			goto not_found;
 		}
 		if (st.st_size > 0 && evbuffer_add_file(buf, fd, 0, st.st_size) < 0) {
-			_S_LOG_ERROR("Can't serve static file %s", static_path);
+			_LOG_ERROR("Can't serve static file %s", static_path);
 			goto not_found;
 		}
 
@@ -599,17 +599,17 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 #			endif
 		}
 
-		_S_LOG_INFO("NEW client (now=%u): %s, id=%" PRIx64,
+		_LOG_INFO("NEW client (now=%u): %s, id=%" PRIx64,
 			run->stream_clients_count, client->hostport, client->id);
 
 		struct bufferevent *const buf_event = evhttp_connection_get_bufferevent(conn);
 		if (server->tcp_nodelay && run->ext_fd >= 0) {
-			_S_LOG_DEBUG("Setting up TCP_NODELAY to the client %s ...", client->hostport);
+			_LOG_DEBUG("Setting up TCP_NODELAY to the client %s ...", client->hostport);
 			const evutil_socket_t fd = bufferevent_getfd(buf_event);
 			assert(fd >= 0);
 			int on = 1;
 			if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (void*)&on, sizeof(on)) != 0) {
-				_S_LOG_PERROR("Can't set TCP_NODELAY to the client %s", client->hostport);
+				_LOG_PERROR("Can't set TCP_NODELAY to the client %s", client->hostport);
 			}
 		}
 		bufferevent_setcb(buf_event, NULL, NULL, _http_callback_stream_error, (void*)client);
@@ -786,7 +786,7 @@ static void _http_callback_stream_error(struct bufferevent *buf_event, short wha
 	}
 
 	char *const reason = us_bufferevent_format_reason(what);
-	_S_LOG_INFO("DEL client (now=%u): %s, id=%" PRIx64 ", %s",
+	_LOG_INFO("DEL client (now=%u): %s, id=%" PRIx64 ", %s",
 		run->stream_clients_count, client->hostport, client->id, reason);
 	free(reason);
 
@@ -942,7 +942,7 @@ static void _http_refresher(int fd, short what, void *v_server) {
 		stream_updated = true;
 		us_ring_consumer_release(ring, ri);
 	} else if (ex->expose_end_ts + 1 < us_get_now_monotonic()) {
-		_S_LOG_DEBUG("Repeating exposed ...");
+		_LOG_DEBUG("Repeating exposed ...");
 		ex->expose_begin_ts = us_get_now_monotonic();
 		ex->expose_cmp_ts = ex->expose_begin_ts;
 		ex->expose_end_ts = ex->expose_begin_ts;
@@ -972,7 +972,7 @@ static void _http_refresher(int fd, short what, void *v_server) {
 static bool _expose_frame(us_server_s *server, const us_frame_s *frame) {
 	us_server_exposed_s *const ex = server->run->exposed;
 
-	_S_LOG_DEBUG("Updating exposed frame (online=%d) ...", frame->online);
+	_LOG_DEBUG("Updating exposed frame (online=%d) ...", frame->online);
 	ex->expose_begin_ts = us_get_now_monotonic();
 
 	if (server->drop_same_frames && frame->online) {
@@ -984,13 +984,13 @@ static bool _expose_frame(us_server_s *server, const us_frame_s *frame) {
 		) {
 			ex->expose_cmp_ts = us_get_now_monotonic();
 			ex->expose_end_ts = ex->expose_cmp_ts;
-			_S_LOG_VERBOSE("Dropped same frame number %u; cmp_time=%.06Lf",
+			_LOG_VERBOSE("Dropped same frame number %u; cmp_time=%.06Lf",
 				ex->dropped, (ex->expose_cmp_ts - ex->expose_begin_ts));
 			ex->dropped += 1;
 			return false; // Not updated
 		} else {
 			ex->expose_cmp_ts = us_get_now_monotonic();
-			_S_LOG_VERBOSE("Passed same frame check (need_drop=%d, maybe_same=%d); cmp_time=%.06Lf",
+			_LOG_VERBOSE("Passed same frame check (need_drop=%d, maybe_same=%d); cmp_time=%.06Lf",
 				need_drop, maybe_same, (ex->expose_cmp_ts - ex->expose_begin_ts));
 		}
 	}
@@ -1007,7 +1007,7 @@ static bool _expose_frame(us_server_s *server, const us_frame_s *frame) {
 	ex->expose_cmp_ts = ex->expose_begin_ts;
 	ex->expose_end_ts = us_get_now_monotonic();
 
-	_S_LOG_VERBOSE("Exposed frame: online=%d, exp_time=%.06Lf",
+	_LOG_VERBOSE("Exposed frame: online=%d, exp_time=%.06Lf",
 		 ex->frame->online, (ex->expose_end_ts - ex->expose_begin_ts));
 	return true; // Updated
 }

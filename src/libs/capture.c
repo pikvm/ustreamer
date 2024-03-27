@@ -111,11 +111,11 @@ static const char *_standard_to_string(v4l2_std_id standard);
 static const char *_io_method_to_string_supported(enum v4l2_memory io_method);
 
 
-#define _D_LOG_ERROR(x_msg, ...)	US_LOG_ERROR("CAP: " x_msg, ##__VA_ARGS__)
-#define _D_LOG_PERROR(x_msg, ...)	US_LOG_PERROR("CAP: " x_msg, ##__VA_ARGS__)
-#define _D_LOG_INFO(x_msg, ...)		US_LOG_INFO("CAP: " x_msg, ##__VA_ARGS__)
-#define _D_LOG_VERBOSE(x_msg, ...)	US_LOG_VERBOSE("CAP: " x_msg, ##__VA_ARGS__)
-#define _D_LOG_DEBUG(x_msg, ...)	US_LOG_DEBUG("CAP: " x_msg, ##__VA_ARGS__)
+#define _LOG_ERROR(x_msg, ...)	US_LOG_ERROR("CAP: " x_msg, ##__VA_ARGS__)
+#define _LOG_PERROR(x_msg, ...)	US_LOG_PERROR("CAP: " x_msg, ##__VA_ARGS__)
+#define _LOG_INFO(x_msg, ...)		US_LOG_INFO("CAP: " x_msg, ##__VA_ARGS__)
+#define _LOG_VERBOSE(x_msg, ...)	US_LOG_VERBOSE("CAP: " x_msg, ##__VA_ARGS__)
+#define _LOG_DEBUG(x_msg, ...)	US_LOG_DEBUG("CAP: " x_msg, ##__VA_ARGS__)
 
 
 us_capture_s *us_capture_init(void) {
@@ -182,20 +182,20 @@ int us_capture_open(us_capture_s *cap) {
 		goto tmp_error;
 	}
 
-	_D_LOG_DEBUG("Opening capture device ...");
+	_LOG_DEBUG("Opening capture device ...");
 	if ((run->fd = open(cap->path, O_RDWR | O_NONBLOCK)) < 0) {
-		_D_LOG_PERROR("Can't capture open device");
+		_LOG_PERROR("Can't capture open device");
 		goto error;
 	}
-	_D_LOG_DEBUG("Capture device fd=%d opened", run->fd);
+	_LOG_DEBUG("Capture device fd=%d opened", run->fd);
 
 	if (cap->dv_timings && cap->persistent) {
-		_D_LOG_DEBUG("Probing DV-timings or QuerySTD ...");
+		_LOG_DEBUG("Probing DV-timings or QuerySTD ...");
 		if (_capture_open_dv_timings(cap, false) < 0) {
 			const int line = __LINE__;
 			if (run->open_error_reported != line) {
 				run->open_error_reported = line;
-				_D_LOG_ERROR("No signal from source");
+				_LOG_ERROR("No signal from source");
 			}
 			goto tmp_error;
 		}
@@ -232,13 +232,13 @@ int us_capture_open(us_capture_s *cap) {
 
 	enum v4l2_buf_type type = run->capture_type;
 	if (us_xioctl(run->fd, VIDIOC_STREAMON, &type) < 0) {
-		_D_LOG_PERROR("Can't start capturing");
+		_LOG_PERROR("Can't start capturing");
 		goto error;
 	}
 	run->streamon = true;
 
 	run->open_error_reported = 0;
-	_D_LOG_INFO("Capturing started");
+	_LOG_INFO("Capturing started");
 	return 0;
 
 tmp_error:
@@ -258,17 +258,17 @@ void us_capture_close(us_capture_s *cap) {
 
 	if (run->streamon) {
 		say = true;
-		_D_LOG_DEBUG("Calling VIDIOC_STREAMOFF ...");
+		_LOG_DEBUG("Calling VIDIOC_STREAMOFF ...");
 		enum v4l2_buf_type type = run->capture_type;
 		if (us_xioctl(run->fd, VIDIOC_STREAMOFF, &type) < 0) {
-			_D_LOG_PERROR("Can't stop capturing");
+			_LOG_PERROR("Can't stop capturing");
 		}
 		run->streamon = false;
 	}
 
 	if (run->bufs != NULL) {
 		say = true;
-		_D_LOG_DEBUG("Releasing HW buffers ...");
+		_LOG_DEBUG("Releasing HW buffers ...");
 		for (uint index = 0; index < run->n_bufs; ++index) {
 			us_capture_hwbuf_s *hw = &run->bufs[index];
 
@@ -277,7 +277,7 @@ void us_capture_close(us_capture_s *cap) {
 			if (cap->io_method == V4L2_MEMORY_MMAP) {
 				if (hw->raw.allocated > 0 && hw->raw.data != NULL) {
 					if (munmap(hw->raw.data, hw->raw.allocated) < 0) {
-						_D_LOG_PERROR("Can't unmap HW buffer=%u", index);
+						_LOG_PERROR("Can't unmap HW buffer=%u", index);
 					}
 				}
 			} else { // V4L2_MEMORY_USERPTR
@@ -295,7 +295,7 @@ void us_capture_close(us_capture_s *cap) {
 	US_CLOSE_FD(run->fd);
 
 	if (say) {
-		_D_LOG_INFO("Capturing stopped");
+		_LOG_INFO("Capturing stopped");
 	}
 }
 
@@ -327,7 +327,7 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 	uint skipped = 0;
 	bool broken = false;
 
-	_D_LOG_DEBUG("Grabbing hw buffer ...");
+	_LOG_DEBUG("Grabbing hw buffer ...");
 
 	do {
 		struct v4l2_buffer new = {0};
@@ -343,7 +343,7 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 
 		if (new_got) {
 			if (new.index >= run->n_bufs) {
-				_D_LOG_ERROR("V4L2 error: grabbed invalid HW buffer=%u, n_bufs=%u", new.index, run->n_bufs);
+				_LOG_ERROR("V4L2 error: grabbed invalid HW buffer=%u, n_bufs=%u", new.index, run->n_bufs);
 				return -1;
 			}
 
@@ -351,7 +351,7 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 #			define FRAME_DATA(x_buf) run->bufs[x_buf.index].raw.data
 
 			if (GRABBED(new)) {
-				_D_LOG_ERROR("V4L2 error: grabbed HW buffer=%u is already used", new.index);
+				_LOG_ERROR("V4L2 error: grabbed HW buffer=%u is already used", new.index);
 				return -1;
 			}
 			GRABBED(new) = true;
@@ -362,9 +362,9 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 
 			broken = !_capture_is_buffer_valid(cap, &new, FRAME_DATA(new));
 			if (broken) {
-				_D_LOG_DEBUG("Releasing HW buffer=%u (broken frame) ...", new.index);
+				_LOG_DEBUG("Releasing HW buffer=%u (broken frame) ...", new.index);
 				if (us_xioctl(run->fd, VIDIOC_QBUF, &new) < 0) {
-					_D_LOG_PERROR("Can't release HW buffer=%u (broken frame)", new.index);
+					_LOG_PERROR("Can't release HW buffer=%u (broken frame)", new.index);
 					return -1;
 				}
 				GRABBED(new) = false;
@@ -373,7 +373,7 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 
 			if (buf_got) {
 				if (us_xioctl(run->fd, VIDIOC_QBUF, &buf) < 0) {
-					_D_LOG_PERROR("Can't release HW buffer=%u (skipped frame)", buf.index);
+					_LOG_PERROR("Can't release HW buffer=%u (skipped frame)", buf.index);
 					return -1;
 				}
 				GRABBED(buf) = false;
@@ -395,7 +395,7 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 					return -2; // If we have only broken frames on this capture session
 				}
 			}
-			_D_LOG_PERROR("Can't grab HW buffer");
+			_LOG_PERROR("Can't grab HW buffer");
 			return -1;
 		}
 	} while (true);
@@ -412,7 +412,7 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 	_v4l2_buffer_copy(&buf, &(*hw)->buf);
 	(*hw)->raw.grab_ts = (ldf)((buf.timestamp.tv_sec * (u64)1000) + (buf.timestamp.tv_usec / 1000)) / 1000;
 
-	_D_LOG_DEBUG("Grabbed HW buffer=%u: bytesused=%u, grab_ts=%.3Lf, latency=%.3Lf, skipped=%u",
+	_LOG_DEBUG("Grabbed HW buffer=%u: bytesused=%u, grab_ts=%.3Lf, latency=%.3Lf, skipped=%u",
 		buf.index, buf.bytesused, (*hw)->raw.grab_ts, us_get_now_monotonic() - (*hw)->raw.grab_ts, skipped);
 	return buf.index;
 }
@@ -420,13 +420,13 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 int us_capture_hwbuf_release(us_capture_s *cap, us_capture_hwbuf_s *hw) {
 	assert(atomic_load(&hw->refs) == 0);
 	const uint index = hw->buf.index;
-	_D_LOG_DEBUG("Releasing HW buffer=%u ...", index);
+	_LOG_DEBUG("Releasing HW buffer=%u ...", index);
 	if (us_xioctl(cap->run->fd, VIDIOC_QBUF, &hw->buf) < 0) {
-		_D_LOG_PERROR("Can't release HW buffer=%u", index);
+		_LOG_PERROR("Can't release HW buffer=%u", index);
 		return -1;
 	}
 	hw->grabbed = false;
-	_D_LOG_DEBUG("HW buffer=%u released", index);
+	_LOG_DEBUG("HW buffer=%u released", index);
 	return 0;
 }
 
@@ -455,7 +455,7 @@ int _capture_wait_buffer(us_capture_s *cap) {
 	timeout.tv_sec = cap->timeout;
 	timeout.tv_usec = 0;
 
-	_D_LOG_DEBUG("Calling select() on video device ...");
+	_LOG_DEBUG("Calling select() on video device ...");
 
 	bool has_read = false;
 	bool has_error = false;
@@ -464,15 +464,15 @@ int _capture_wait_buffer(us_capture_s *cap) {
 		has_read = FD_ISSET(run->fd, &read_fds);
 		has_error = FD_ISSET(run->fd, &error_fds);
 	}
-	_D_LOG_DEBUG("Device select() --> %d; has_read=%d, has_error=%d", selected, has_read, has_error);
+	_LOG_DEBUG("Device select() --> %d; has_read=%d, has_error=%d", selected, has_read, has_error);
 
 	if (selected < 0) {
 		if (errno != EINTR) {
-			_D_LOG_PERROR("Device select() error");
+			_LOG_PERROR("Device select() error");
 		}
 		return -1;
 	} else if (selected == 0) {
-		_D_LOG_ERROR("Device select() timeout");
+		_LOG_ERROR("Device select() timeout");
 		return -1;
 	} else {
 		if (has_error && _capture_consume_event(cap) < 0) {
@@ -485,15 +485,15 @@ int _capture_wait_buffer(us_capture_s *cap) {
 static int _capture_consume_event(us_capture_s *cap) {
 	struct v4l2_event event;
 	if (us_xioctl(cap->run->fd, VIDIOC_DQEVENT, &event) < 0) {
-		_D_LOG_PERROR("Can't consume V4L2 event");
+		_LOG_PERROR("Can't consume V4L2 event");
 		return -1;
 	}
 	switch (event.type) {
 		case V4L2_EVENT_SOURCE_CHANGE:
-			_D_LOG_INFO("Got V4L2_EVENT_SOURCE_CHANGE: Source changed");
+			_LOG_INFO("Got V4L2_EVENT_SOURCE_CHANGE: Source changed");
 			return -1;
 		case V4L2_EVENT_EOS:
-			_D_LOG_INFO("Got V4L2_EVENT_EOS: End of stream");
+			_LOG_INFO("Got V4L2_EVENT_EOS: End of stream");
 			return -1;
 	}
 	return 0;
@@ -516,7 +516,7 @@ bool _capture_is_buffer_valid(us_capture_s *cap, const struct v4l2_buffer *buf, 
 	// For example a VGA (640x480) webcam frame is normally >= 8kByte large,
 	// corrupted frames are smaller.
 	if (buf->bytesused < cap->min_frame_size) {
-		_D_LOG_DEBUG("Dropped too small frame, assuming it was broken: buffer=%u, bytesused=%u",
+		_LOG_DEBUG("Dropped too small frame, assuming it was broken: buffer=%u, bytesused=%u",
 			buf->index, buf->bytesused);
 		return false;
 	}
@@ -532,7 +532,7 @@ bool _capture_is_buffer_valid(us_capture_s *cap, const struct v4l2_buffer *buf, 
 	if (us_is_jpeg(cap->run->format)) {
 		if (buf->bytesused < 125) {
 			// https://stackoverflow.com/questions/2253404/what-is-the-smallest-valid-jpeg-file-size-in-bytes
-			_D_LOG_DEBUG("Discarding invalid frame, too small to be a valid JPEG: bytesused=%u", buf->bytesused);
+			_LOG_DEBUG("Discarding invalid frame, too small to be a valid JPEG: bytesused=%u", buf->bytesused);
 			return false;
 		}
 
@@ -540,7 +540,7 @@ bool _capture_is_buffer_valid(us_capture_s *cap, const struct v4l2_buffer *buf, 
 		const u8 *const eoi_ptr = end_ptr - 2;
 		const u16 eoi_marker = (((u16)(eoi_ptr[0]) << 8) | eoi_ptr[1]);
 		if (eoi_marker != 0xFFD9 && eoi_marker != 0xD900 && eoi_marker != 0x0000) {
-			_D_LOG_DEBUG("Discarding truncated JPEG frame: eoi_marker=0x%04x, bytesused=%u", eoi_marker, buf->bytesused);
+			_LOG_DEBUG("Discarding truncated JPEG frame: eoi_marker=0x%04x, bytesused=%u", eoi_marker, buf->bytesused);
 			return false;
 		}
 	}
@@ -552,47 +552,47 @@ static int _capture_open_check_cap(us_capture_s *cap) {
 	us_capture_runtime_s *const run = cap->run;
 
 	struct v4l2_capability cpb = {0};
-	_D_LOG_DEBUG("Querying device capabilities ...");
+	_LOG_DEBUG("Querying device capabilities ...");
 	if (us_xioctl(run->fd, VIDIOC_QUERYCAP, &cpb) < 0) {
-		_D_LOG_PERROR("Can't query device capabilities");
+		_LOG_PERROR("Can't query device capabilities");
 		return -1;
 	}
 
 	if (cpb.capabilities & V4L2_CAP_VIDEO_CAPTURE) {
 		run->capture_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		run->capture_mplane = false;
-		_D_LOG_INFO("Using capture type: single-planar");
+		_LOG_INFO("Using capture type: single-planar");
 	} else if (cpb.capabilities & V4L2_CAP_VIDEO_CAPTURE_MPLANE) {
 		run->capture_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 		run->capture_mplane = true;
-		_D_LOG_INFO("Using capture type: multi-planar");
+		_LOG_INFO("Using capture type: multi-planar");
 	} else {
-		_D_LOG_ERROR("Video capture is not supported by device");
+		_LOG_ERROR("Video capture is not supported by device");
 		return -1;
 	}
 
 	if (!(cpb.capabilities & V4L2_CAP_STREAMING)) {
-		_D_LOG_ERROR("Device doesn't support streaming IO");
+		_LOG_ERROR("Device doesn't support streaming IO");
 		return -1;
 	}
 
 	if (!run->capture_mplane) {
 		int input = cap->input; // Needs a pointer to int for ioctl()
-		_D_LOG_INFO("Using input channel: %d", input);
+		_LOG_INFO("Using input channel: %d", input);
 		if (us_xioctl(run->fd, VIDIOC_S_INPUT, &input) < 0) {
-			_D_LOG_ERROR("Can't set input channel");
+			_LOG_ERROR("Can't set input channel");
 			return -1;
 		}
 	}
 
 	if (cap->standard != V4L2_STD_UNKNOWN) {
-		_D_LOG_INFO("Using TV standard: %s", _standard_to_string(cap->standard));
+		_LOG_INFO("Using TV standard: %s", _standard_to_string(cap->standard));
 		if (us_xioctl(run->fd, VIDIOC_S_STD, &cap->standard) < 0) {
-			_D_LOG_ERROR("Can't set video standard");
+			_LOG_ERROR("Can't set video standard");
 			return -1;
 		}
 	} else {
-		_D_LOG_DEBUG("Using TV standard: DEFAULT");
+		_LOG_DEBUG("Using TV standard: DEFAULT");
 	}
 	return 0;
 }
@@ -605,7 +605,7 @@ static int _capture_open_dv_timings(us_capture_s *cap, bool apply) {
 	int dv_errno = 0;
 
 	struct v4l2_dv_timings dv = {0};
-	_D_LOG_DEBUG("Querying DV-timings (apply=%u) ...", apply);
+	_LOG_DEBUG("Querying DV-timings (apply=%u) ...", apply);
 	if (us_xioctl(run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv) < 0) {
 		// TC358743 errors here (see in the kernel: drivers/media/i2c/tc358743.c):
 		//   - ENOLINK: No valid signal (SYS_STATUS & MASK_S_TMDS)
@@ -623,18 +623,18 @@ static int _capture_open_dv_timings(us_capture_s *cap, bool apply) {
 		const uint vtot = V4L2_DV_BT_FRAME_HEIGHT(&dv.bt) / (dv.bt.interlaced ? 2 : 1);
 		const uint fps = ((htot * vtot) > 0 ? ((100 * (u64)dv.bt.pixelclock)) / (htot * vtot) : 0);
 		hz = (fps / 100) + (fps % 100) / 100.0;
-		_D_LOG_INFO("Detected DV-timings: %ux%u%s%.02f, pixclk=%llu, vsync=%u, hsync=%u",
+		_LOG_INFO("Detected DV-timings: %ux%u%s%.02f, pixclk=%llu, vsync=%u, hsync=%u",
 			dv.bt.width, dv.bt.height, (dv.bt.interlaced ? "i" : "p"), hz,
 			(ull)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync); // See #11 about %llu
 	} else {
-		_D_LOG_INFO("Detected DV-timings: %ux%u, pixclk=%llu, vsync=%u, hsync=%u",
+		_LOG_INFO("Detected DV-timings: %ux%u, pixclk=%llu, vsync=%u, hsync=%u",
 			dv.bt.width, dv.bt.height,
 			(ull)dv.bt.pixelclock, dv.bt.vsync, dv.bt.hsync);
 	}
 
-	_D_LOG_DEBUG("Applying DV-timings ...");
+	_LOG_DEBUG("Applying DV-timings ...");
 	if (us_xioctl(run->fd, VIDIOC_S_DV_TIMINGS, &dv) < 0) {
-		_D_LOG_PERROR("Failed to apply DV-timings");
+		_LOG_PERROR("Failed to apply DV-timings");
 		return -1;
 	}
 	if (_capture_apply_resolution(cap, dv.bt.width, dv.bt.height, hz) < 0) {
@@ -643,12 +643,12 @@ static int _capture_open_dv_timings(us_capture_s *cap, bool apply) {
 	goto subscribe;
 
 querystd:
-	_D_LOG_DEBUG("Failed to query DV-timings, trying QuerySTD ...");
+	_LOG_DEBUG("Failed to query DV-timings, trying QuerySTD ...");
 	if (us_xioctl(run->fd, VIDIOC_QUERYSTD, &cap->standard) < 0) {
 		if (apply) {
 			char *std_error = us_errno_to_string(errno); // Read the errno first
 			char *dv_error = us_errno_to_string(dv_errno);
-			_D_LOG_ERROR("Failed to query DV-timings (%s) and QuerySTD (%s)", dv_error, std_error);
+			_LOG_ERROR("Failed to query DV-timings (%s) and QuerySTD (%s)", dv_error, std_error);
 			free(dv_error);
 			free(std_error);
 		}
@@ -657,17 +657,17 @@ querystd:
 		goto probe_only;
 	}
 	if (us_xioctl(run->fd, VIDIOC_S_STD, &cap->standard) < 0) {
-		_D_LOG_PERROR("Can't set apply standard: %s", _standard_to_string(cap->standard));
+		_LOG_PERROR("Can't set apply standard: %s", _standard_to_string(cap->standard));
 		return -1;
 	}
-	_D_LOG_DEBUG("Applied new video standard: %s", _standard_to_string(cap->standard));
+	_LOG_DEBUG("Applied new video standard: %s", _standard_to_string(cap->standard));
 
 subscribe:
 	; // Empty statement for the goto label above
 	struct v4l2_event_subscription sub = {.type = V4L2_EVENT_SOURCE_CHANGE};
-	_D_LOG_DEBUG("Subscribing to V4L2_EVENT_SOURCE_CHANGE ...")
+	_LOG_DEBUG("Subscribing to V4L2_EVENT_SOURCE_CHANGE ...")
 	if (us_xioctl(cap->run->fd, VIDIOC_SUBSCRIBE_EVENT, &sub) < 0) {
-		_D_LOG_PERROR("Can't subscribe to V4L2_EVENT_SOURCE_CHANGE");
+		_LOG_PERROR("Can't subscribe to V4L2_EVENT_SOURCE_CHANGE");
 		return -1;
 	}
 
@@ -698,15 +698,15 @@ static int _capture_open_format(us_capture_s *cap, bool first) {
 	}
 
 	// Set format
-	_D_LOG_DEBUG("Probing device format=%s, stride=%u, resolution=%ux%u ...",
+	_LOG_DEBUG("Probing device format=%s, stride=%u, resolution=%ux%u ...",
 		_format_to_string_supported(cap->format), stride, run->width, run->height);
 	if (us_xioctl(run->fd, VIDIOC_S_FMT, &fmt) < 0) {
-		_D_LOG_PERROR("Can't set device format");
+		_LOG_PERROR("Can't set device format");
 		return -1;
 	}
 
 	if (fmt.type != run->capture_type) {
-		_D_LOG_ERROR("Capture format mismatch, please report to the developer");
+		_LOG_ERROR("Capture format mismatch, please report to the developer");
 		return -1;
 	}
 
@@ -716,7 +716,7 @@ static int _capture_open_format(us_capture_s *cap, bool first) {
 	// Check resolution
 	bool retry = false;
 	if (FMT(width) != run->width || FMT(height) != run->height) {
-		_D_LOG_ERROR("Requested resolution=%ux%u is unavailable", run->width, run->height);
+		_LOG_ERROR("Requested resolution=%ux%u is unavailable", run->width, run->height);
 		retry = true;
 	}
 	if (_capture_apply_resolution(cap, FMT(width), FMT(height), run->hz) < 0) {
@@ -725,27 +725,27 @@ static int _capture_open_format(us_capture_s *cap, bool first) {
 	if (first && retry) {
 		return _capture_open_format(cap, false);
 	}
-	_D_LOG_INFO("Using resolution: %ux%u", run->width, run->height);
+	_LOG_INFO("Using resolution: %ux%u", run->width, run->height);
 
 	// Check format
 	if (FMT(pixelformat) != cap->format) {
-		_D_LOG_ERROR("Could not obtain the requested format=%s; driver gave us %s",
+		_LOG_ERROR("Could not obtain the requested format=%s; driver gave us %s",
 			_format_to_string_supported(cap->format),
 			_format_to_string_supported(FMT(pixelformat)));
 
 		char *format_str;
 		if ((format_str = (char*)_format_to_string_nullable(FMT(pixelformat))) != NULL) {
-			_D_LOG_INFO("Falling back to format=%s", format_str);
+			_LOG_INFO("Falling back to format=%s", format_str);
 		} else {
 			char fourcc_str[8];
-			_D_LOG_ERROR("Unsupported format=%s (fourcc)",
+			_LOG_ERROR("Unsupported format=%s (fourcc)",
 				us_fourcc_to_string(FMT(pixelformat), fourcc_str, 8));
 			return -1;
 		}
 	}
 
 	run->format = FMT(pixelformat);
-	_D_LOG_INFO("Using format: %s", _format_to_string_supported(run->format));
+	_LOG_INFO("Using format: %s", _format_to_string_supported(run->format));
 
 	if (cap->format_swap_rgb) {
 		// Userspace workaround for TC358743 RGB/BGR bug:
@@ -756,7 +756,7 @@ static int _capture_open_format(us_capture_s *cap, bool first) {
 			case V4L2_PIX_FMT_BGR24: swapped = V4L2_PIX_FMT_RGB24; break;
 		}
 		if (swapped > 0) {
-			_D_LOG_INFO("Using format swap: %s -> %s",
+			_LOG_INFO("Using format swap: %s -> %s",
 				_format_to_string_supported(run->format),
 				_format_to_string_supported(swapped));
 			run->format = swapped;
@@ -778,18 +778,18 @@ static void _capture_open_hw_fps(us_capture_s *cap) {
 	run->hw_fps = 0;
 
 	struct v4l2_streamparm setfps = {.type = run->capture_type};
-	_D_LOG_DEBUG("Querying HW FPS ...");
+	_LOG_DEBUG("Querying HW FPS ...");
 	if (us_xioctl(run->fd, VIDIOC_G_PARM, &setfps) < 0) {
 		if (errno == ENOTTY) { // Quiet message for TC358743
-			_D_LOG_INFO("Querying HW FPS changing is not supported");
+			_LOG_INFO("Querying HW FPS changing is not supported");
 		} else {
-			_D_LOG_PERROR("Can't query HW FPS changing");
+			_LOG_PERROR("Can't query HW FPS changing");
 		}
 		return;
 	}
 
 	if (!(setfps.parm.capture.capability & V4L2_CAP_TIMEPERFRAME)) {
-		_D_LOG_INFO("Changing HW FPS is not supported");
+		_LOG_INFO("Changing HW FPS is not supported");
 		return;
 	}
 
@@ -801,25 +801,25 @@ static void _capture_open_hw_fps(us_capture_s *cap) {
 	SETFPS_TPF(denominator) = (cap->desired_fps == 0 ? 255 : cap->desired_fps);
 
 	if (us_xioctl(run->fd, VIDIOC_S_PARM, &setfps) < 0) {
-		_D_LOG_PERROR("Can't set HW FPS");
+		_LOG_PERROR("Can't set HW FPS");
 		return;
 	}
 
 	if (SETFPS_TPF(numerator) != 1) {
-		_D_LOG_ERROR("Invalid HW FPS numerator: %u != 1", SETFPS_TPF(numerator));
+		_LOG_ERROR("Invalid HW FPS numerator: %u != 1", SETFPS_TPF(numerator));
 		return;
 	}
 
 	if (SETFPS_TPF(denominator) == 0) { // Не знаю, бывает ли так, но пускай на всякий случай
-		_D_LOG_ERROR("Invalid HW FPS denominator: 0");
+		_LOG_ERROR("Invalid HW FPS denominator: 0");
 		return;
 	}
 
 	run->hw_fps = SETFPS_TPF(denominator);
 	if (cap->desired_fps != run->hw_fps) {
-		_D_LOG_INFO("Using HW FPS: %u -> %u (coerced)", cap->desired_fps, run->hw_fps);
+		_LOG_INFO("Using HW FPS: %u -> %u (coerced)", cap->desired_fps, run->hw_fps);
 	} else {
-		_D_LOG_INFO("Using HW FPS: %u", run->hw_fps);
+		_LOG_INFO("Using HW FPS: %u", run->hw_fps);
 	}
 
 #	undef SETFPS_TPF
@@ -831,11 +831,11 @@ static void _capture_open_jpeg_quality(us_capture_s *cap) {
 	if (us_is_jpeg(run->format)) {
 		struct v4l2_jpegcompression comp = {0};
 		if (us_xioctl(run->fd, VIDIOC_G_JPEGCOMP, &comp) < 0) {
-			_D_LOG_ERROR("Device doesn't support setting of HW encoding quality parameters");
+			_LOG_ERROR("Device doesn't support setting of HW encoding quality parameters");
 		} else {
 			comp.quality = cap->jpeg_quality;
 			if (us_xioctl(run->fd, VIDIOC_S_JPEGCOMP, &comp) < 0) {
-				_D_LOG_ERROR("Can't change MJPEG quality for JPEG source with HW pass-through encoder");
+				_LOG_ERROR("Can't change MJPEG quality for JPEG source with HW pass-through encoder");
 			} else {
 				quality = cap->jpeg_quality;
 			}
@@ -845,7 +845,7 @@ static void _capture_open_jpeg_quality(us_capture_s *cap) {
 }
 
 static int _capture_open_io_method(us_capture_s *cap) {
-	_D_LOG_INFO("Using IO method: %s", _io_method_to_string_supported(cap->io_method));
+	_LOG_INFO("Using IO method: %s", _io_method_to_string_supported(cap->io_method));
 	switch (cap->io_method) {
 		case V4L2_MEMORY_MMAP: return _capture_open_io_method_mmap(cap);
 		case V4L2_MEMORY_USERPTR: return _capture_open_io_method_userptr(cap);
@@ -862,20 +862,20 @@ static int _capture_open_io_method_mmap(us_capture_s *cap) {
 		.type = run->capture_type,
 		.memory = V4L2_MEMORY_MMAP,
 	};
-	_D_LOG_DEBUG("Requesting %u device buffers for MMAP ...", req.count);
+	_LOG_DEBUG("Requesting %u device buffers for MMAP ...", req.count);
 	if (us_xioctl(run->fd, VIDIOC_REQBUFS, &req) < 0) {
-		_D_LOG_PERROR("Device '%s' doesn't support MMAP method", cap->path);
+		_LOG_PERROR("Device '%s' doesn't support MMAP method", cap->path);
 		return -1;
 	}
 
 	if (req.count < 1) {
-		_D_LOG_ERROR("Insufficient buffer memory: %u", req.count);
+		_LOG_ERROR("Insufficient buffer memory: %u", req.count);
 		return -1;
 	} else {
-		_D_LOG_INFO("Requested %u device buffers, got %u", cap->n_bufs, req.count);
+		_LOG_INFO("Requested %u device buffers, got %u", cap->n_bufs, req.count);
 	}
 
-	_D_LOG_DEBUG("Allocating device buffers ...");
+	_LOG_DEBUG("Allocating device buffers ...");
 
 	US_CALLOC(run->bufs, req.count);
 
@@ -890,9 +890,9 @@ static int _capture_open_io_method_mmap(us_capture_s *cap) {
 			buf.length = VIDEO_MAX_PLANES;
 		}
 
-		_D_LOG_DEBUG("Calling us_xioctl(VIDIOC_QUERYBUF) for device buffer=%u ...", run->n_bufs);
+		_LOG_DEBUG("Calling us_xioctl(VIDIOC_QUERYBUF) for device buffer=%u ...", run->n_bufs);
 		if (us_xioctl(run->fd, VIDIOC_QUERYBUF, &buf) < 0) {
-			_D_LOG_PERROR("Can't VIDIOC_QUERYBUF");
+			_LOG_PERROR("Can't VIDIOC_QUERYBUF");
 			return -1;
 		}
 
@@ -901,13 +901,13 @@ static int _capture_open_io_method_mmap(us_capture_s *cap) {
 		const uz buf_size = (run->capture_mplane ? buf.m.planes[0].length : buf.length);
 		const off_t buf_offset = (run->capture_mplane ? buf.m.planes[0].m.mem_offset : buf.m.offset);
 
-		_D_LOG_DEBUG("Mapping device buffer=%u ...", run->n_bufs);
+		_LOG_DEBUG("Mapping device buffer=%u ...", run->n_bufs);
 		if ((hw->raw.data = mmap(
 			NULL, buf_size,
 			PROT_READ | PROT_WRITE, MAP_SHARED,
 			run->fd, buf_offset
 		)) == MAP_FAILED) {
-			_D_LOG_PERROR("Can't map device buffer=%u", run->n_bufs);
+			_LOG_PERROR("Can't map device buffer=%u", run->n_bufs);
 			return -1;
 		}
 		assert(hw->raw.data != NULL);
@@ -930,20 +930,20 @@ static int _capture_open_io_method_userptr(us_capture_s *cap) {
 		.type = run->capture_type,
 		.memory = V4L2_MEMORY_USERPTR,
 	};
-	_D_LOG_DEBUG("Requesting %u device buffers for USERPTR ...", req.count);
+	_LOG_DEBUG("Requesting %u device buffers for USERPTR ...", req.count);
 	if (us_xioctl(run->fd, VIDIOC_REQBUFS, &req) < 0) {
-		_D_LOG_PERROR("Device '%s' doesn't support USERPTR method", cap->path);
+		_LOG_PERROR("Device '%s' doesn't support USERPTR method", cap->path);
 		return -1;
 	}
 
 	if (req.count < 1) {
-		_D_LOG_ERROR("Insufficient buffer memory: %u", req.count);
+		_LOG_ERROR("Insufficient buffer memory: %u", req.count);
 		return -1;
 	} else {
-		_D_LOG_INFO("Requested %u device buffers, got %u", cap->n_bufs, req.count);
+		_LOG_INFO("Requested %u device buffers, got %u", cap->n_bufs, req.count);
 	}
 
-	_D_LOG_DEBUG("Allocating device buffers ...");
+	_LOG_DEBUG("Allocating device buffers ...");
 
 	US_CALLOC(run->bufs, req.count);
 
@@ -983,9 +983,9 @@ static int _capture_open_queue_buffers(us_capture_s *cap) {
 			buf.length = run->bufs[index].raw.allocated;
 		}
 
-		_D_LOG_DEBUG("Calling us_xioctl(VIDIOC_QBUF) for buffer=%u ...", index);
+		_LOG_DEBUG("Calling us_xioctl(VIDIOC_QBUF) for buffer=%u ...", index);
 		if (us_xioctl(run->fd, VIDIOC_QBUF, &buf) < 0) {
-			_D_LOG_PERROR("Can't VIDIOC_QBUF");
+			_LOG_PERROR("Can't VIDIOC_QBUF");
 			return -1;
 		}
 	}
@@ -1000,9 +1000,9 @@ static int _capture_open_export_to_dma(us_capture_s *cap) {
 			.type = run->capture_type,
 			.index = index,
 		};
-		_D_LOG_DEBUG("Exporting device buffer=%u to DMA ...", index);
+		_LOG_DEBUG("Exporting device buffer=%u to DMA ...", index);
 		if (us_xioctl(run->fd, VIDIOC_EXPBUF, &exp) < 0) {
-			_D_LOG_PERROR("Can't export device buffer=%u to DMA", index);
+			_LOG_PERROR("Can't export device buffer=%u to DMA", index);
 			goto error;
 		}
 		run->bufs[index].dma_fd = exp.fd;
@@ -1023,7 +1023,7 @@ static int _capture_apply_resolution(us_capture_s *cap, uint width, uint height,
 		width == 0 || width > US_VIDEO_MAX_WIDTH
 		|| height == 0 || height > US_VIDEO_MAX_HEIGHT
 	) {
-		_D_LOG_ERROR("Requested forbidden resolution=%ux%u: min=1x1, max=%ux%u",
+		_LOG_ERROR("Requested forbidden resolution=%ux%u: min=1x1, max=%ux%u",
 			width, height, US_VIDEO_MAX_WIDTH, US_VIDEO_MAX_HEIGHT);
 		return -1;
 	}
@@ -1099,7 +1099,7 @@ static int _capture_query_control(
 
 	if (us_xioctl(cap->run->fd, VIDIOC_QUERYCTRL, query) < 0 || query->flags & V4L2_CTRL_FLAG_DISABLED) {
 		if (!quiet) {
-			_D_LOG_ERROR("Changing control %s is unsupported", name);
+			_LOG_ERROR("Changing control %s is unsupported", name);
 		}
 		return -1;
 	}
@@ -1112,7 +1112,7 @@ static void _capture_set_control(
 
 	if (value < query->minimum || value > query->maximum || value % query->step != 0) {
 		if (!quiet) {
-			_D_LOG_ERROR("Invalid value %d of control %s: min=%d, max=%d, default=%d, step=%u",
+			_LOG_ERROR("Invalid value %d of control %s: min=%d, max=%d, default=%d, step=%u",
 				value, name, query->minimum, query->maximum, query->default_value, query->step);
 		}
 		return;
@@ -1124,10 +1124,10 @@ static void _capture_set_control(
 	};
 	if (us_xioctl(cap->run->fd, VIDIOC_S_CTRL, &ctl) < 0) {
 		if (!quiet) {
-			_D_LOG_PERROR("Can't set control %s", name);
+			_LOG_PERROR("Can't set control %s", name);
 		}
 	} else if (!quiet) {
-		_D_LOG_INFO("Applying control %s: %d", name, ctl.value);
+		_LOG_INFO("Applying control %s: %d", name, ctl.value);
 	}
 }
 

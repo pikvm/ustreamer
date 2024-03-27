@@ -58,11 +58,11 @@ static const char *_connector_type_to_string(u32 type);
 static float _get_refresh_rate(const drmModeModeInfo *mode);
 
 
-#define _D_LOG_ERROR(x_msg, ...)	US_LOG_ERROR("DRM: " x_msg, ##__VA_ARGS__)
-#define _D_LOG_PERROR(x_msg, ...)	US_LOG_PERROR("DRM: " x_msg, ##__VA_ARGS__)
-#define _D_LOG_INFO(x_msg, ...)		US_LOG_INFO("DRM: " x_msg, ##__VA_ARGS__)
-#define _D_LOG_VERBOSE(x_msg, ...)	US_LOG_VERBOSE("DRM: " x_msg, ##__VA_ARGS__)
-#define _D_LOG_DEBUG(x_msg, ...)	US_LOG_DEBUG("DRM: " x_msg, ##__VA_ARGS__)
+#define _LOG_ERROR(x_msg, ...)	US_LOG_ERROR("DRM: " x_msg, ##__VA_ARGS__)
+#define _LOG_PERROR(x_msg, ...)	US_LOG_PERROR("DRM: " x_msg, ##__VA_ARGS__)
+#define _LOG_INFO(x_msg, ...)		US_LOG_INFO("DRM: " x_msg, ##__VA_ARGS__)
+#define _LOG_VERBOSE(x_msg, ...)	US_LOG_VERBOSE("DRM: " x_msg, ##__VA_ARGS__)
+#define _LOG_DEBUG(x_msg, ...)	US_LOG_DEBUG("DRM: " x_msg, ##__VA_ARGS__)
 
 
 us_drm_s *us_drm_init(void) {
@@ -102,13 +102,13 @@ int us_drm_open(us_drm_s *drm, const us_capture_s *cap) {
 		default: goto error;
 	}
 
-	_D_LOG_INFO("Configuring DRM device for %s ...", (cap == NULL ? "STUB" : "DMA"));
+	_LOG_INFO("Configuring DRM device for %s ...", (cap == NULL ? "STUB" : "DMA"));
 
 	if ((run->fd = open(drm->path, O_RDWR | O_CLOEXEC | O_NONBLOCK)) < 0) {
-		_D_LOG_PERROR("Can't open DRM device");
+		_LOG_PERROR("Can't open DRM device");
 		goto error;
 	}
-	_D_LOG_DEBUG("DRM device fd=%d opened", run->fd);
+	_LOG_DEBUG("DRM device fd=%d opened", run->fd);
 
 	int stub = 0; // Open the real device with DMA
 	if (cap == NULL) {
@@ -117,18 +117,18 @@ int us_drm_open(us_drm_s *drm, const us_capture_s *cap) {
 		stub = US_DRM_STUB_BAD_FORMAT;
 		char fourcc_str[8];
 		us_fourcc_to_string(cap->run->format, fourcc_str, 8);
-		_D_LOG_ERROR("Input format %s is not supported, forcing to STUB ...", fourcc_str);
+		_LOG_ERROR("Input format %s is not supported, forcing to STUB ...", fourcc_str);
 	}
 
 #	define CHECK_CAP(x_cap) { \
-			_D_LOG_DEBUG("Checking %s ...", #x_cap); \
+			_LOG_DEBUG("Checking %s ...", #x_cap); \
 			u64 m_check; \
 			if (drmGetCap(run->fd, x_cap, &m_check) < 0) { \
-				_D_LOG_PERROR("Can't check " #x_cap); \
+				_LOG_PERROR("Can't check " #x_cap); \
 				goto error; \
 			} \
 			if (!m_check) { \
-				_D_LOG_ERROR(#x_cap " is not supported"); \
+				_LOG_ERROR(#x_cap " is not supported"); \
 				goto error; \
 			} \
 		}
@@ -149,7 +149,7 @@ int us_drm_open(us_drm_s *drm, const us_capture_s *cap) {
 	if ((stub == 0) && (width != run->mode.hdisplay || height < run->mode.vdisplay)) {
 		// We'll try to show something instead of nothing if height != vdisplay
 		stub = US_DRM_STUB_BAD_RESOLUTION;
-		_D_LOG_ERROR("There is no appropriate modes for the capture, forcing to STUB ...");
+		_LOG_ERROR("There is no appropriate modes for the capture, forcing to STUB ...");
 	}
 
 	if (_drm_init_buffers(drm, (stub > 0 ? NULL : cap)) < 0) {
@@ -157,16 +157,16 @@ int us_drm_open(us_drm_s *drm, const us_capture_s *cap) {
 	}
 
 	run->saved_crtc = drmModeGetCrtc(run->fd, run->crtc_id);
-	_D_LOG_DEBUG("Setting up CRTC ...");
+	_LOG_DEBUG("Setting up CRTC ...");
 	if (drmModeSetCrtc(run->fd, run->crtc_id, run->bufs[0].id, 0, 0, &run->conn_id, 1, &run->mode) < 0) {
-		_D_LOG_PERROR("Can't set CRTC");
+		_LOG_PERROR("Can't set CRTC");
 		goto error;
 	}
 
 	run->opened_for_stub = (stub > 0);
 	run->exposing_dma_fd = -1;
 	run->unplugged_reported = false;
-	_D_LOG_INFO("Opened for %s ...", (run->opened_for_stub ? "STUB" : "DMA"));
+	_LOG_INFO("Opened for %s ...", (run->opened_for_stub ? "STUB" : "DMA"));
 	return stub;
 
 error:
@@ -175,7 +175,7 @@ error:
 
 unplugged:
 	if (!run->unplugged_reported) {
-		_D_LOG_ERROR("Display is not plugged");
+		_LOG_ERROR("Display is not plugged");
 		run->unplugged_reported = true;
 	}
 	us_drm_close(drm);
@@ -194,33 +194,33 @@ void us_drm_close(us_drm_s *drm) {
 	}
 
 	if (run->saved_crtc != NULL) {
-		_D_LOG_DEBUG("Restoring CRTC ...");
+		_LOG_DEBUG("Restoring CRTC ...");
 		if (drmModeSetCrtc(run->fd,
 			run->saved_crtc->crtc_id, run->saved_crtc->buffer_id,
 			run->saved_crtc->x, run->saved_crtc->y,
 			&run->conn_id, 1, &run->saved_crtc->mode
 		) < 0 && errno != ENOENT) {
-			_D_LOG_PERROR("Can't restore CRTC");
+			_LOG_PERROR("Can't restore CRTC");
 		}
 		drmModeFreeCrtc(run->saved_crtc);
 		run->saved_crtc = NULL;
 	}
 
 	if (run->bufs != NULL) {
-		_D_LOG_DEBUG("Releasing buffers ...");
+		_LOG_DEBUG("Releasing buffers ...");
 		for (uint n_buf = 0; n_buf < run->n_bufs; ++n_buf) {
 			us_drm_buffer_s *const buf = &run->bufs[n_buf];
 			if (buf->fb_added && drmModeRmFB(run->fd, buf->id) < 0) {
-				_D_LOG_PERROR("Can't remove buffer=%u", n_buf);
+				_LOG_PERROR("Can't remove buffer=%u", n_buf);
 			}
 			if (buf->dumb_created) {
 				struct drm_mode_destroy_dumb destroy = {.handle = buf->handle};
 				if (drmIoctl(run->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy) < 0) {
-					_D_LOG_PERROR("Can't destroy dumb buffer=%u", n_buf);
+					_LOG_PERROR("Can't destroy dumb buffer=%u", n_buf);
 				}
 			}
 			if (buf->data != NULL && munmap(buf->data, buf->allocated)) {
-				_D_LOG_PERROR("Can't unmap buffer=%u", n_buf);
+				_LOG_PERROR("Can't unmap buffer=%u", n_buf);
 			}
 		}
 		US_DELETE(run->bufs, free);
@@ -237,7 +237,7 @@ void us_drm_close(us_drm_s *drm) {
 	run->stub_n_buf = 0;
 
 	if (say) {
-		_D_LOG_INFO("Closed");
+		_LOG_INFO("Closed");
 	}
 }
 
@@ -276,13 +276,13 @@ int us_drm_wait_for_vsync(us_drm_s *drm) {
 	FD_ZERO(&fds);
 	FD_SET(run->fd, &fds);
 
-	_D_LOG_DEBUG("Calling select() for VSync ...");
+	_LOG_DEBUG("Calling select() for VSync ...");
 	const int result = select(run->fd + 1, &fds, NULL, NULL, &timeout);
 	if (result < 0) {
-		_D_LOG_PERROR("Can't select(%d) device for VSync", run->fd);
+		_LOG_PERROR("Can't select(%d) device for VSync", run->fd);
 		return -1;
 	} else if (result == 0) {
-		_D_LOG_ERROR("Device timeout while waiting VSync");
+		_LOG_ERROR("Device timeout while waiting VSync");
 		return -1;
 	}
 
@@ -290,9 +290,9 @@ int us_drm_wait_for_vsync(us_drm_s *drm) {
 		.version = DRM_EVENT_CONTEXT_VERSION,
 		.page_flip_handler = _drm_vsync_callback,
 	};
-	_D_LOG_DEBUG("Handling DRM event (maybe VSync) ...");
+	_LOG_DEBUG("Handling DRM event (maybe VSync) ...");
 	if (drmHandleEvent(run->fd, &ctx) < 0) {
-		_D_LOG_PERROR("Can't handle DRM event");
+		_LOG_PERROR("Can't handle DRM event");
 		return -1;
 	}
 	return 0;
@@ -306,7 +306,7 @@ static void _drm_vsync_callback(int fd, uint n_frame, uint sec, uint usec, void 
 	us_drm_buffer_s *const buf = v_buf;
 	*buf->ctx.has_vsync = true;
 	*buf->ctx.exposing_dma_fd = -1;
-	_D_LOG_DEBUG("Got VSync signal");
+	_LOG_DEBUG("Got VSync signal");
 }
 
 int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_capture_s *cap) {
@@ -355,18 +355,18 @@ int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_capture_s *ca
 
 	run->has_vsync = false;
 
-	_D_LOG_DEBUG("Copying STUB frame ...")
+	_LOG_DEBUG("Copying STUB frame ...")
 	memcpy(buf->data, run->ft->frame->data, US_MIN(run->ft->frame->used, buf->allocated));
 
-	_D_LOG_DEBUG("Exposing STUB framebuffer n_buf=%u ...", run->stub_n_buf);
+	_LOG_DEBUG("Exposing STUB framebuffer n_buf=%u ...", run->stub_n_buf);
 	const int retval = drmModePageFlip(
 		run->fd, run->crtc_id, buf->id,
 		DRM_MODE_PAGE_FLIP_EVENT | DRM_MODE_PAGE_FLIP_ASYNC,
 		buf);
 	if (retval < 0) {
-		_D_LOG_PERROR("Can't expose STUB framebuffer n_buf=%u ...", run->stub_n_buf);
+		_LOG_PERROR("Can't expose STUB framebuffer n_buf=%u ...", run->stub_n_buf);
 	}
-	_D_LOG_DEBUG("Exposed STUB framebuffer n_buf=%u", run->stub_n_buf);
+	_LOG_DEBUG("Exposed STUB framebuffer n_buf=%u", run->stub_n_buf);
 
 	run->stub_n_buf = (run->stub_n_buf + 1) % run->n_bufs;
 	return retval;
@@ -388,15 +388,15 @@ int us_drm_expose_dma(us_drm_s *drm, const us_capture_hwbuf_s *hw) {
 
 	run->has_vsync = false;
 
-	_D_LOG_DEBUG("Exposing DMA framebuffer n_buf=%u ...", hw->buf.index);
+	_LOG_DEBUG("Exposing DMA framebuffer n_buf=%u ...", hw->buf.index);
 	const int retval = drmModePageFlip(
 		run->fd, run->crtc_id, buf->id,
 		DRM_MODE_PAGE_FLIP_EVENT | DRM_MODE_PAGE_FLIP_ASYNC,
 		buf);
 	if (retval < 0) {
-		_D_LOG_PERROR("Can't expose DMA framebuffer n_buf=%u ...", run->stub_n_buf);
+		_LOG_PERROR("Can't expose DMA framebuffer n_buf=%u ...", run->stub_n_buf);
 	}
-	_D_LOG_DEBUG("Exposed DMA framebuffer n_buf=%u", run->stub_n_buf);
+	_LOG_DEBUG("Exposed DMA framebuffer n_buf=%u", run->stub_n_buf);
 	run->exposing_dma_fd = hw->dma_fd;
 	return retval;
 }
@@ -405,35 +405,35 @@ static int _drm_check_status(us_drm_s *drm) {
 	us_drm_runtime_s *run = drm->run;
 
 	if (run->status_fd < 0) {
-		_D_LOG_DEBUG("Trying to find status file ...");
+		_LOG_DEBUG("Trying to find status file ...");
 		struct stat st;
 		if (stat(drm->path, &st) < 0) {
-			_D_LOG_PERROR("Can't stat() DRM device");
+			_LOG_PERROR("Can't stat() DRM device");
 			goto error;
 		}
 		const uint mi = minor(st.st_rdev);
-		_D_LOG_DEBUG("DRM device minor(st_rdev)=%u", mi);
+		_LOG_DEBUG("DRM device minor(st_rdev)=%u", mi);
 
 		char path[128];
 		US_SNPRINTF(path, 127, "/sys/class/drm/card%u-%s/status", mi, drm->port);
-		_D_LOG_DEBUG("Opening status file %s ...", path);
+		_LOG_DEBUG("Opening status file %s ...", path);
 		if ((run->status_fd = open(path, O_RDONLY | O_CLOEXEC)) < 0) {
-			_D_LOG_PERROR("Can't open status file: %s", path);
+			_LOG_PERROR("Can't open status file: %s", path);
 			goto error;
 		}
-		_D_LOG_DEBUG("Status file fd=%d opened", run->status_fd);
+		_LOG_DEBUG("Status file fd=%d opened", run->status_fd);
 	}
 
 	char status_ch;
 	if (read(run->status_fd, &status_ch, 1) != 1) {
-		_D_LOG_PERROR("Can't read status file");
+		_LOG_PERROR("Can't read status file");
 		goto error;
 	}
 	if (lseek(run->status_fd, 0, SEEK_SET) != 0) {
-		_D_LOG_PERROR("Can't rewind status file");
+		_LOG_PERROR("Can't rewind status file");
 		goto error;
 	}
-	_D_LOG_DEBUG("Current display status: %c", status_ch);
+	_LOG_DEBUG("Current display status: %c", status_ch);
 	return (status_ch == 'd' ? -2 : 0);
 
 error:
@@ -444,12 +444,12 @@ error:
 static void _drm_ensure_dpms_power(us_drm_s *drm, bool on) {
 	us_drm_runtime_s *const run = drm->run;
 	if (run->dpms_id > 0 && run->dpms_state != (int)on) {
-		_D_LOG_INFO("Changing DPMS power mode: %d -> %u ...", run->dpms_state, on);
+		_LOG_INFO("Changing DPMS power mode: %d -> %u ...", run->dpms_state, on);
 		if (drmModeConnectorSetProperty(
 			run->fd, run->conn_id, run->dpms_id,
 			(on ? DRM_MODE_DPMS_ON : DRM_MODE_DPMS_OFF)
 		) < 0) {
-			_D_LOG_PERROR("Can't set DPMS power=%u (ignored)", on);
+			_LOG_PERROR("Can't set DPMS power=%u (ignored)", on);
 		}
 	}
 	run->dpms_state = (int)on;
@@ -461,7 +461,7 @@ static int _drm_init_buffers(us_drm_s *drm, const us_capture_s *cap) {
 	const uint n_bufs = (cap == NULL ? 4 : cap->run->n_bufs);
 	const char *name = (cap == NULL ? "STUB" : "DMA");
 
-	_D_LOG_DEBUG("Initializing %u %s buffers ...", n_bufs, name);
+	_LOG_DEBUG("Initializing %u %s buffers ...", n_bufs, name);
 
 	uint format = DRM_FORMAT_RGB888;
 
@@ -484,7 +484,7 @@ static int _drm_init_buffers(us_drm_s *drm, const us_capture_s *cap) {
 				.bpp = 24,
 			};
 			if (drmIoctl(run->fd, DRM_IOCTL_MODE_CREATE_DUMB, &create) < 0) {
-				_D_LOG_PERROR("Can't create %s buffer=%u", name, n_buf);
+				_LOG_PERROR("Can't create %s buffer=%u", name, n_buf);
 				return -1;
 			}
 			buf->handle = create.handle;
@@ -492,7 +492,7 @@ static int _drm_init_buffers(us_drm_s *drm, const us_capture_s *cap) {
 
 			struct drm_mode_map_dumb map = {.handle = create.handle};
 			if (drmIoctl(run->fd, DRM_IOCTL_MODE_MAP_DUMB, &map) < 0) {
-				_D_LOG_PERROR("Can't prepare dumb buffer=%u to mapping", n_buf);
+				_LOG_PERROR("Can't prepare dumb buffer=%u to mapping", n_buf);
 				return -1;
 			}
 			if ((buf->data = mmap(
@@ -500,7 +500,7 @@ static int _drm_init_buffers(us_drm_s *drm, const us_capture_s *cap) {
 				PROT_READ | PROT_WRITE, MAP_SHARED,
 				run->fd, map.offset
 			)) == MAP_FAILED) {
-				_D_LOG_PERROR("Can't map buffer=%u", n_buf);
+				_LOG_PERROR("Can't map buffer=%u", n_buf);
 				return -1;
 			}
 			memset(buf->data, 0, create.size);
@@ -511,7 +511,7 @@ static int _drm_init_buffers(us_drm_s *drm, const us_capture_s *cap) {
 
 		} else {
 			if (drmPrimeFDToHandle(run->fd, cap->run->bufs[n_buf].dma_fd, &buf->handle) < 0) {
-				_D_LOG_PERROR("Can't import DMA buffer=%u from capture device", n_buf);
+				_LOG_PERROR("Can't import DMA buffer=%u from capture device", n_buf);
 				return -1;
 			}
 			handles[0] = buf->handle;
@@ -528,7 +528,7 @@ static int _drm_init_buffers(us_drm_s *drm, const us_capture_s *cap) {
 			run->mode.hdisplay, run->mode.vdisplay, format,
 			handles, strides, offsets, &buf->id, 0
 		)) {
-			_D_LOG_PERROR("Can't setup buffer=%u", n_buf);
+			_LOG_PERROR("Can't setup buffer=%u", n_buf);
 			return -1;
 		}
 		buf->fb_added = true;
@@ -541,22 +541,22 @@ static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz) {
 
 	run->crtc_id = 0;
 
-	_D_LOG_DEBUG("Trying to find the appropriate sink ...");
+	_LOG_DEBUG("Trying to find the appropriate sink ...");
 
 	drmModeRes *res = drmModeGetResources(run->fd);
 	if (res == NULL) {
-		_D_LOG_PERROR("Can't get resources info");
+		_LOG_PERROR("Can't get resources info");
 		goto done;
 	}
 	if (res->count_connectors <= 0) {
-		_D_LOG_ERROR("Can't find any connectors");
+		_LOG_ERROR("Can't find any connectors");
 		goto done;
 	}
 
 	for (int ci = 0; ci < res->count_connectors; ++ci) {
 		drmModeConnector *conn = drmModeGetConnector(run->fd, res->connectors[ci]);
 		if (conn == NULL) {
-			_D_LOG_PERROR("Can't get connector index=%d", ci);
+			_LOG_PERROR("Can't get connector index=%d", ci);
 			goto done;
 		}
 
@@ -568,37 +568,37 @@ static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz) {
 			drmModeFreeConnector(conn);
 			continue;
 		}
-		_D_LOG_INFO("Using connector %s: conn_type=%d, conn_type_id=%d",
+		_LOG_INFO("Using connector %s: conn_type=%d, conn_type_id=%d",
 			drm->port, conn->connector_type, conn->connector_type_id);
 
 		if (conn->connection != DRM_MODE_CONNECTED) {
-			_D_LOG_ERROR("Connector for port %s has !DRM_MODE_CONNECTED", drm->port);
+			_LOG_ERROR("Connector for port %s has !DRM_MODE_CONNECTED", drm->port);
 			drmModeFreeConnector(conn);
 			goto done;
 		}
 
 		drmModeModeInfo *best;
 		if ((best = _find_best_mode(conn, width, height, hz)) == NULL) {
-			_D_LOG_ERROR("Can't find any appropriate display modes");
+			_LOG_ERROR("Can't find any appropriate display modes");
 			drmModeFreeConnector(conn);
 			goto unplugged;
 		}
-		_D_LOG_INFO("Using best mode: %ux%up%.02f",
+		_LOG_INFO("Using best mode: %ux%up%.02f",
 			best->hdisplay, best->vdisplay, _get_refresh_rate(best));
 
 		if ((run->dpms_id = _find_dpms(run->fd, conn)) > 0) {
-			_D_LOG_INFO("Using DPMS: id=%u", run->dpms_id);
+			_LOG_INFO("Using DPMS: id=%u", run->dpms_id);
 		} else {
-			_D_LOG_INFO("Using DPMS: None");
+			_LOG_INFO("Using DPMS: None");
 		}
 
 		u32 taken_crtcs = 0; // Unused here
 		if ((run->crtc_id = _find_crtc(run->fd, res, conn, &taken_crtcs)) == 0) {
-			_D_LOG_ERROR("Can't find CRTC");
+			_LOG_ERROR("Can't find CRTC");
 			drmModeFreeConnector(conn);
 			goto done;
 		}
-		_D_LOG_INFO("Using CRTC: id=%u", run->crtc_id);
+		_LOG_INFO("Using CRTC: id=%u", run->crtc_id);
 
 		run->conn_id = conn->connector_id;
 		memcpy(&run->mode, best, sizeof(drmModeModeInfo));
