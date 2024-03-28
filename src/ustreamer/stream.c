@@ -609,15 +609,9 @@ static int _stream_init_loop(us_stream_s *stream) {
 					waiting_reported = true;
 					US_LOG_INFO("Waiting for the capture device ...");
 				}
-#				ifdef WITH_V4P
-				_stream_drm_ensure_no_signal(stream);
-#				endif
 				goto offline_and_retry;
 			default:
 				waiting_reported = false;
-#				ifdef WITH_V4P
-				_stream_drm_ensure_no_signal(stream);
-#				endif
 				goto offline_and_retry;
 		}
 		us_encoder_open(stream->enc, stream->cap);
@@ -645,6 +639,10 @@ static int _stream_init_loop(us_stream_s *stream) {
 					us_h264_stream_process(run->h264, run->blank->raw, true);
 				}
 				_stream_expose_raw(stream, run->blank->raw);
+
+#				ifdef WITH_V4P
+				_stream_drm_ensure_no_signal(stream);
+#				endif
 			}
 			usleep(100 * 1000);
 		}
