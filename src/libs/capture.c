@@ -185,7 +185,7 @@ int us_capture_open(us_capture_s *cap) {
 
 	_LOG_DEBUG("Opening capture device ...");
 	if ((run->fd = open(cap->path, O_RDWR | O_NONBLOCK)) < 0) {
-		_LOG_PERROR("Can't capture open device");
+		_LOG_PERROR("Can't open capture device");
 		goto error;
 	}
 	_LOG_DEBUG("Capture device fd=%d opened", run->fd);
