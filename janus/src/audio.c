@@ -32,6 +32,7 @@
 #include <opus/opus.h>
 
 #include "uslibs/types.h"
+#include "uslibs/errors.h"
 #include "uslibs/tools.h"
 #include "uslibs/array.h"
 #include "uslibs/ring.h"
@@ -185,12 +186,12 @@ int us_audio_get_encoded(us_audio_s *audio, u8 *data, uz *size, u64 *pts) {
 	}
 	const int ri = us_ring_consumer_acquire(audio->enc_ring, 0.1);
 	if (ri < 0) {
-		return -2;
+		return US_ERROR_NO_DATA;
 	}
 	const _enc_buffer_s *const buf = audio->enc_ring->items[ri];
 	if (*size < buf->used) {
 		us_ring_consumer_release(audio->enc_ring, ri);
-		return -3;
+		return US_ERROR_NO_DATA;
 	}
 	memcpy(data, buf->data, buf->used);
 	*size = buf->used;

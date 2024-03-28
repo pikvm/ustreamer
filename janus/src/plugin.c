@@ -37,6 +37,7 @@
 
 #include "uslibs/types.h"
 #include "uslibs/const.h"
+#include "uslibs/errors.h"
 #include "uslibs/tools.h"
 #include "uslibs/threading.h"
 #include "uslibs/list.h"
@@ -178,7 +179,7 @@ static void *_video_sink_thread(void *arg) {
 				if (ri >= 0 && frame->key) {
 					atomic_store(&_g_key_required, false);
 				}
-			} else if (waited != -2) {
+			} else if (waited != US_ERROR_NO_DATA) {
 				goto close_memsink;
 			}
 		}

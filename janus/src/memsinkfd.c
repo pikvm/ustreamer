@@ -27,6 +27,7 @@
 #include <linux/videodev2.h>
 
 #include "uslibs/types.h"
+#include "uslibs/errors.h"
 #include "uslibs/tools.h"
 #include "uslibs/frame.h"
 #include "uslibs/memsinksh.h"
@@ -54,7 +55,7 @@ int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s *mem, u64 last_id) {
 		}
 		usleep(1000); // lock_polling
 	} while (now_ts < deadline_ts);
-	return -2;
+	return US_ERROR_NO_DATA;
 }
 
 int us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, us_frame_s *frame, u64 *frame_id, bool key_required) {

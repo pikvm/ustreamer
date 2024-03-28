@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 #include <stdatomic.h>
+#include <limits.h>
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
@@ -31,6 +32,7 @@
 #include <pthread.h>
 
 #include "../libs/types.h"
+#include "../libs/errors.h"
 #include "../libs/tools.h"
 #include "../libs/threading.h"
 #include "../libs/process.h"
@@ -205,9 +207,9 @@ void us_stream_loop(us_stream_s *stream) {
 		while (!atomic_load(&run->stop) && !atomic_load(&threads_stop)) {
 			us_capture_hwbuf_s *hw;
 			switch (us_capture_hwbuf_grab(cap, &hw)) {
-				case -2: continue; // Broken frame
-				case -1: goto close; // Error
-				default: break; // Grabbed on >= 0
+				case 0 ... INT_MAX: break; // Grabbed buffer number
+				case US_ERROR_NO_DATA: continue; // Broken frame
+				default: goto close; // Any error
 			}
 
 			const sll now_sec_ts = us_floor_ms(us_get_now_monotonic());
@@ -600,7 +602,9 @@ static int _stream_init_loop(us_stream_s *stream) {
 			|| run->h264 != NULL
 		);
 		switch (us_capture_open(stream->cap)) {
-			case -2:
+			case 0: break;
+			case US_ERROR_NO_DEVICE:
+			case US_ERROR_NO_DATA:
 				if (!waiting_reported) {
 					waiting_reported = true;
 					US_LOG_INFO("Waiting for the capture device ...");
@@ -609,13 +613,12 @@ static int _stream_init_loop(us_stream_s *stream) {
 				_stream_drm_ensure_no_signal(stream);
 #				endif
 				goto offline_and_retry;
-			case -1:
+			default:
 				waiting_reported = false;
 #				ifdef WITH_V4P
 				_stream_drm_ensure_no_signal(stream);
 #				endif
 				goto offline_and_retry;
-			default: break;
 		}
 		us_encoder_open(stream->enc, stream->cap);
 		return 0;

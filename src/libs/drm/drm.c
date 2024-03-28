@@ -38,6 +38,7 @@
 #include <libdrm/drm.h>
 
 #include "../types.h"
+#include "../errors.h"
 #include "../tools.h"
 #include "../logging.h"
 #include "../frame.h"
@@ -98,7 +99,7 @@ int us_drm_open(us_drm_s *drm, const us_capture_s *cap) {
 
 	switch (_drm_check_status(drm)) {
 		case 0: break;
-		case -2: goto unplugged;
+		case US_ERROR_NO_DEVICE: goto unplugged;
 		default: goto error;
 	}
 
@@ -143,7 +144,7 @@ int us_drm_open(us_drm_s *drm, const us_capture_s *cap) {
 	const uint hz = (stub > 0 ? 0 : cap->run->hz);
 	switch (_drm_find_sink(drm, width, height, hz)) {
 		case 0: break;
-		case -2: goto unplugged;
+		case US_ERROR_NO_DEVICE: goto unplugged;
 		default: goto error;
 	}
 	if ((stub == 0) && (width != run->mode.hdisplay || height < run->mode.vdisplay)) {
@@ -179,7 +180,7 @@ unplugged:
 		run->unplugged_reported = true;
 	}
 	us_drm_close(drm);
-	return -2;
+	return US_ERROR_NO_DEVICE;
 }
 
 void us_drm_close(us_drm_s *drm) {
@@ -245,7 +246,7 @@ int us_drm_dpms_power_off(us_drm_s *drm) {
 	assert(drm->run->fd >= 0);
 	switch (_drm_check_status(drm)) {
 		case 0: break;
-		case -2: return 0; // Unplugged, nice
+		case US_ERROR_NO_DEVICE: return 0; // Unplugged, nice
 		// Во время переключения DPMS монитор моргает один раз состоянием disconnected,
 		// а потом почему-то снова оказывается connected. Так что просто считаем,
 		// что отсоединенный монитор на этом этапе - это нормально.
@@ -262,7 +263,7 @@ int us_drm_wait_for_vsync(us_drm_s *drm) {
 
 	switch (_drm_check_status(drm)) {
 		case 0: break;
-		case -2: return -2;
+		case US_ERROR_NO_DEVICE: return US_ERROR_NO_DEVICE;
 		default: return -1;
 	}
 	_drm_ensure_dpms_power(drm, true);
@@ -317,7 +318,7 @@ int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_capture_s *ca
 
 	switch (_drm_check_status(drm)) {
 		case 0: break;
-		case -2: return -2;
+		case US_ERROR_NO_DEVICE: return US_ERROR_NO_DEVICE;
 		default: return -1;
 	}
 	_drm_ensure_dpms_power(drm, true);
@@ -381,7 +382,7 @@ int us_drm_expose_dma(us_drm_s *drm, const us_capture_hwbuf_s *hw) {
 
 	switch (_drm_check_status(drm)) {
 		case 0: break;
-		case -2: return -2;
+		case US_ERROR_NO_DEVICE: return US_ERROR_NO_DEVICE;
 		default: return -1;
 	}
 	_drm_ensure_dpms_power(drm, true);
@@ -434,7 +435,7 @@ static int _drm_check_status(us_drm_s *drm) {
 		goto error;
 	}
 	_LOG_DEBUG("Current display status: %c", status_ch);
-	return (status_ch == 'd' ? -2 : 0);
+	return (status_ch == 'd' ? US_ERROR_NO_DEVICE : 0);
 
 error:
 	US_CLOSE_FD(run->status_fd);
@@ -613,7 +614,7 @@ done:
 
 unplugged:
 	drmModeFreeResources(res);
-	return -2;
+	return US_ERROR_NO_DEVICE;
 }
 
 static drmModeModeInfo *_find_best_mode(drmModeConnector *conn, uint width, uint height, float hz) {

@@ -41,6 +41,7 @@
 #include <linux/v4l2-controls.h>
 
 #include "types.h"
+#include "errors.h"
 #include "tools.h"
 #include "array.h"
 #include "logging.h"
@@ -179,7 +180,7 @@ int us_capture_open(us_capture_s *cap) {
 			run->open_error_reported = -errno; // Don't confuse it with __LINE__
 			US_LOG_PERROR("No access to capture device");
 		}
-		goto tmp_error;
+		goto error_no_device;
 	}
 
 	_LOG_DEBUG("Opening capture device ...");
@@ -197,7 +198,7 @@ int us_capture_open(us_capture_s *cap) {
 				run->open_error_reported = line;
 				_LOG_ERROR("No signal from source");
 			}
-			goto tmp_error;
+			goto error_no_signal;
 		}
 	}
 
@@ -241,9 +242,13 @@ int us_capture_open(us_capture_s *cap) {
 	_LOG_INFO("Capturing started");
 	return 0;
 
-tmp_error:
+error_no_device:
 	us_capture_close(cap);
-	return -2;
+	return US_ERROR_NO_DEVICE;
+
+error_no_signal:
+	us_capture_close(cap);
+	return US_ERROR_NO_DATA;
 
 error:
 	run->open_error_reported = 0;
@@ -305,7 +310,7 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 	//     или эвент V4L2. Обработка эвентов более приоритетна, чем кадров.
 	//   - Если есть новые фреймы, то пропустить их все, пока не закончатся и вернуть
 	//     самый-самый свежий, содержащий при этом валидные данные.
-	//   - Если таковых не нашлось, вернуть -2.
+	//   - Если таковых не нашлось, вернуть US_ERROR_NO_DATA.
 	//   - Ошибка -1 возвращается при любых сбоях.
 
 	if (_capture_wait_buffer(cap) < 0) {
@@ -392,7 +397,7 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 				if (buf_got) {
 					break; // Process any latest valid frame
 				} else if (broken) {
-					return -2; // If we have only broken frames on this capture session
+					return US_ERROR_NO_DATA; // If we have only broken frames on this capture session
 				}
 			}
 			_LOG_PERROR("Can't grab HW buffer");

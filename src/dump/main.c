@@ -31,6 +31,7 @@
 #include <assert.h>
 
 #include "../libs/const.h"
+#include "../libs/errors.h"
 #include "../libs/tools.h"
 #include "../libs/logging.h"
 #include "../libs/frame.h"
@@ -234,8 +235,8 @@ static int _dump_sink(
 
 	while (!_g_stop) {
 		bool key_requested;
-		const int error = us_memsink_client_get(sink, frame, &key_requested, key_required);
-		if (error == 0) {
+		const int got = us_memsink_client_get(sink, frame, &key_requested, key_required);
+		if (got == 0) {
 			key_required = false;
 
 			const long double now = us_get_now_monotonic();
@@ -275,7 +276,7 @@ static int _dump_sink(
 			if (interval_us > 0) {
 				usleep(interval_us);
 			}
-		} else if (error == -2) {
+		} else if (got == US_ERROR_NO_DATA) {
 			usleep(1000);
 		} else {
 			goto error;

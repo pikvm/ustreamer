@@ -33,6 +33,7 @@
 #include <sys/mman.h>
 
 #include "types.h"
+#include "errors.h"
 #include "tools.h"
 #include "logging.h"
 #include "frame.h"
@@ -168,7 +169,7 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key
 	if (frame->used > sink->data_size) {
 		US_LOG_ERROR("%s-sink: Can't put frame: is too big (%zu > %zu)",
 			sink->name, frame->used, sink->data_size);
-		return 0; // -2
+		return 0;
 	}
 
 	if (us_flock_timedwait_monotonic(sink->fd, 1) == 0) {
@@ -213,7 +214,7 @@ int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_reque
 
 	if (us_flock_timedwait_monotonic(sink->fd, sink->timeout) < 0) {
 		if (errno == EWOULDBLOCK) {
-			return -2;
+			return US_ERROR_NO_DATA;
 		}
 		US_LOG_PERROR("%s-sink: Can't lock memory", sink->name);
 		return -1;
@@ -222,7 +223,7 @@ int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_reque
 	int retval = 0;
 
 	if (sink->mem->magic != US_MEMSINK_MAGIC) {
-		retval = -2; // Not updated
+		retval = US_ERROR_NO_DATA; // Not updated
 		goto done;
 	}
 	if (sink->mem->version != US_MEMSINK_VERSION) {
@@ -236,7 +237,7 @@ int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_reque
 	sink->mem->last_client_ts = us_get_now_monotonic();
 
 	if (sink->mem->id == sink->last_readed_id) {
-		retval = -2; // Not updated
+		retval = US_ERROR_NO_DATA; // Not updated
 		goto done;
 	}
 

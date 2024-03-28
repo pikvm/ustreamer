@@ -20,46 +20,8 @@
 *****************************************************************************/
 
 
-#include "tc358743.h"
+#pragma once
 
-#include <unistd.h>
-#include <fcntl.h>
-
-#include <linux/videodev2.h>
-#include <linux/v4l2-controls.h>
-
-#include "types.h"
-#include "tools.h"
-#include "xioctl.h"
-
-
-#ifndef V4L2_CID_USER_TC358743_BASE
-#	define V4L2_CID_USER_TC358743_BASE (V4L2_CID_USER_BASE + 0x1080)
-#endif
-#ifndef TC358743_CID_AUDIO_PRESENT
-#	define TC358743_CID_AUDIO_PRESENT (V4L2_CID_USER_TC358743_BASE + 1)
-#endif
-#ifndef TC358743_CID_AUDIO_SAMPLING_RATE
-#	define TC358743_CID_AUDIO_SAMPLING_RATE (V4L2_CID_USER_TC358743_BASE + 0)
-#endif
-
-
-int us_tc358743_xioctl_get_audio_hz(int fd, uint *audio_hz) {
-	*audio_hz = 0;
-
-	struct v4l2_control ctl = {.id = TC358743_CID_AUDIO_PRESENT};
-	if (us_xioctl(fd, VIDIOC_G_CTRL, &ctl) < 0) {
-		return -1;
-	}
-	if (!ctl.value) {
-		return 0; // No audio
-	}
-
-	US_MEMSET_ZERO(ctl);
-	ctl.id = TC358743_CID_AUDIO_SAMPLING_RATE;
-	if (us_xioctl(fd, VIDIOC_G_CTRL, &ctl) < 0) {
-		return -1;
-	}
-	*audio_hz = ctl.value;
-	return 0;
-}
+#define US_ERROR_COMMON		-1
+#define US_ERROR_NO_DEVICE	-2
+#define US_ERROR_NO_DATA	-3

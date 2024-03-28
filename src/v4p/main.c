@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdatomic.h>
+#include <limits.h>
 #include <string.h>
 #include <unistd.h>
 #include <getopt.h>
@@ -36,6 +37,7 @@
 #include <sys/stat.h>
 
 #include "../libs/types.h"
+#include "../libs/errors.h"
 #include "../libs/const.h"
 #include "../libs/tools.h"
 #include "../libs/logging.h"
@@ -227,9 +229,9 @@ static void _main_loop(void) {
 
 			us_capture_hwbuf_s *hw;
 			switch (us_capture_hwbuf_grab(cap, &hw)) {
-				case -2: continue; // Broken frame
-				case -1: goto close; // Any error
-				default: break; // Grabbed on >= 0
+				case 0 ... INT_MAX: break; // Grabbed buffer number
+				case US_ERROR_NO_DATA: continue; // Broken frame
+				default: goto close; // Any error
 			}
 
 			if (drm_opened == 0) {

@@ -14,6 +14,7 @@
 #include <Python.h>
 
 #include "uslibs/types.h"
+#include "uslibs/errors.h"
 #include "uslibs/tools.h"
 #include "uslibs/frame.h"
 #include "uslibs/memsinksh.h"
@@ -175,9 +176,9 @@ static int _wait_frame(_MemsinkObject *self) {
 		if (PyErr_CheckSignals() < 0) {
 			return -1;
 		}
-
 	} while (now_ts < deadline_ts);
-	return -2;
+
+	return US_ERROR_NO_DATA;
 }
 
 static PyObject *_MemsinkObject_wait_frame(_MemsinkObject *self, PyObject *args, PyObject *kwargs) {
@@ -194,7 +195,7 @@ static PyObject *_MemsinkObject_wait_frame(_MemsinkObject *self, PyObject *args,
 
 	switch (_wait_frame(self)) {
 		case 0: break;
-		case -2: Py_RETURN_NONE;
+		case US_ERROR_NO_DATA: Py_RETURN_NONE;
 		default: return NULL;
 	}
 
