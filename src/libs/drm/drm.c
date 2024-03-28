@@ -166,7 +166,7 @@ int us_drm_open(us_drm_s *drm, const us_capture_s *cap) {
 
 	run->opened_for_stub = (stub > 0);
 	run->exposing_dma_fd = -1;
-	run->unplugged_reported = false;
+	run->unplugged_once = 0;
 	_LOG_INFO("Opened for %s ...", (run->opened_for_stub ? "STUB" : "DMA"));
 	return stub;
 
@@ -175,10 +175,9 @@ error:
 	return -1;
 
 unplugged:
-	if (!run->unplugged_reported) {
+	US_ONCE_FOR(run->unplugged_once, __LINE__, {
 		_LOG_ERROR("Display is not plugged");
-		run->unplugged_reported = true;
-	}
+	});
 	us_drm_close(drm);
 	return US_ERROR_NO_DEVICE;
 }

@@ -176,10 +176,9 @@ int us_capture_open(us_capture_s *cap) {
 	us_capture_runtime_s *const run = cap->run;
 
 	if (access(cap->path, R_OK | W_OK) < 0) {
-		if (run->open_error_reported != -errno) {
-			run->open_error_reported = -errno; // Don't confuse it with __LINE__
+		US_ONCE_FOR(run->open_error_once, -errno, {
 			US_LOG_PERROR("No access to capture device");
-		}
+		});
 		goto error_no_device;
 	}
 
@@ -193,11 +192,9 @@ int us_capture_open(us_capture_s *cap) {
 	if (cap->dv_timings && cap->persistent) {
 		_LOG_DEBUG("Probing DV-timings or QuerySTD ...");
 		if (_capture_open_dv_timings(cap, false) < 0) {
-			const int line = __LINE__;
-			if (run->open_error_reported != line) {
-				run->open_error_reported = line;
+			US_ONCE_FOR(run->open_error_once, __LINE__, {
 				_LOG_ERROR("No signal from source");
-			}
+			});
 			goto error_no_signal;
 		}
 	}
@@ -238,7 +235,7 @@ int us_capture_open(us_capture_s *cap) {
 	}
 	run->streamon = true;
 
-	run->open_error_reported = 0;
+	run->open_error_once = 0;
 	_LOG_INFO("Capturing started");
 	return 0;
 
@@ -251,7 +248,7 @@ error_no_signal:
 	return US_ERROR_NO_DATA;
 
 error:
-	run->open_error_reported = 0;
+	run->open_error_once = 0;
 	us_capture_close(cap);
 	return -1;
 }

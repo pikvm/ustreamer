@@ -576,7 +576,7 @@ static bool _stream_has_any_clients_cached(us_stream_s *stream) {
 static int _stream_init_loop(us_stream_s *stream) {
 	us_stream_runtime_s *const run = stream->run;
 
-	bool waiting_reported = false;
+	int once = 0;
 	while (!atomic_load(&stream->run->stop)) {
 #		ifdef WITH_GPIO
 		us_gpio_set_stream_online(false);
@@ -605,13 +605,10 @@ static int _stream_init_loop(us_stream_s *stream) {
 			case 0: break;
 			case US_ERROR_NO_DEVICE:
 			case US_ERROR_NO_DATA:
-				if (!waiting_reported) {
-					waiting_reported = true;
-					US_LOG_INFO("Waiting for the capture device ...");
-				}
+				US_ONCE({ US_LOG_INFO("Waiting for the capture device ..."); });
 				goto offline_and_retry;
 			default:
-				waiting_reported = false;
+				once = 0;
 				goto offline_and_retry;
 		}
 		us_encoder_open(stream->enc, stream->cap);

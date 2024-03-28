@@ -67,7 +67,7 @@ typedef struct {
 	bool			has_vsync;
 	int				exposing_dma_fd;
 	uint			stub_n_buf;
-	bool			unplugged_reported;
+	int				unplugged_once;
 	us_frametext_s	*ft;
 } us_drm_runtime_s;
 
