@@ -199,6 +199,8 @@ int us_capture_open(us_capture_s *cap) {
 		}
 	}
 
+	US_LOG_INFO("Using V4L2 device: %s", cap->path);
+
 	if (_capture_open_check_cap(cap) < 0) {
 		goto error;
 	}

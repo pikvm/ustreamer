@@ -95,14 +95,30 @@ void us_m2m_encoder_destroy(us_m2m_encoder_s *enc) {
 int us_m2m_encoder_compress(us_m2m_encoder_s *enc, const us_frame_s *src, us_frame_s *dest, bool force_key) {
 	us_m2m_encoder_runtime_s *const run = enc->run;
 
-	us_frame_encoding_begin(src, dest, (enc->output_format == V4L2_PIX_FMT_MJPEG ? V4L2_PIX_FMT_JPEG : enc->output_format));
+	const ldf now_ts = us_get_now_monotonic();
+	uint dest_format = enc->output_format;
+	switch (enc->output_format) {
+		case V4L2_PIX_FMT_JPEG:
+			force_key = false;
+			// fall through
+		case V4L2_PIX_FMT_MJPEG:
+			dest_format = V4L2_PIX_FMT_JPEG;
+			break;
+		case V4L2_PIX_FMT_H264:
+			force_key = (
+				force_key
+				|| run->last_online != src->online
+				|| run->last_encode_ts + 0.5 < now_ts
+			);
+			break;
+	}
+
+	us_frame_encoding_begin(src, dest, dest_format);
 
 	_m2m_encoder_ensure(enc, src);
 	if (!run->ready) { // Already prepared but failed
 		return -1;
 	}
-
-	force_key = (enc->output_format == V4L2_PIX_FMT_H264 && (force_key || run->last_online != src->online));
 
 	_LOG_DEBUG("Compressing new frame; force_key=%d ...", force_key);
 
@@ -118,6 +134,7 @@ int us_m2m_encoder_compress(us_m2m_encoder_s *enc, const us_frame_s *src, us_fra
 		dest->used, dest->encode_end_ts - dest->encode_begin_ts, force_key);
 
 	run->last_online = src->online;
+	run->last_encode_ts = now_ts;
 	return 0;
 }
 

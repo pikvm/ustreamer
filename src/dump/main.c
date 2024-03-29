@@ -223,7 +223,7 @@ static int _dump_sink(
 	us_frame_s *frame = us_frame_init();
 	us_memsink_s *sink = NULL;
 
-	if ((sink = us_memsink_init("input", sink_name, false, 0, false, 0, sink_timeout)) == NULL) {
+	if ((sink = us_memsink_init_opened("input", sink_name, false, 0, false, 0, sink_timeout)) == NULL) {
 		goto error;
 	}
 

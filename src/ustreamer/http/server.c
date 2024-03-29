@@ -473,12 +473,12 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		enc_quality
 	);
 
-	if (stream->run->h264 != NULL) {
+	if (stream->h264_sink != NULL) {
 		_A_EVBUFFER_ADD_PRINTF(buf,
 			" \"h264\": {\"bitrate\": %u, \"gop\": %u, \"online\": %s},",
 			stream->h264_bitrate,
 			stream->h264_gop,
-			us_bool_to_string(atomic_load(&stream->run->h264->online))
+			us_bool_to_string(atomic_load(&stream->run->http_h264_online))
 		);
 	}
 

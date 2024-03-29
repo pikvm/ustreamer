@@ -50,7 +50,7 @@ typedef struct {
 } us_memsink_s;
 
 
-us_memsink_s *us_memsink_init(
+us_memsink_s *us_memsink_init_opened(
 	const char *name, const char *obj, bool server,
 	mode_t mode, bool rm, uint client_ttl, uint timeout);
 

@@ -513,7 +513,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 
 #	define ADD_SINK(x_label, x_prefix) { \
 			if (x_prefix##_name && x_prefix##_name[0] != '\0') { \
-				options->x_prefix = us_memsink_init( \
+				options->x_prefix = us_memsink_init_opened( \
 					x_label, \
 					x_prefix##_name, \
 					true, \

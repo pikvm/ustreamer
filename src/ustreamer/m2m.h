@@ -47,6 +47,7 @@ typedef struct {
 
 	bool	ready;
 	int		last_online;
+	ldf		last_encode_ts;
 } us_m2m_encoder_runtime_s;
 
 typedef struct {

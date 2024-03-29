@@ -29,6 +29,7 @@
 #include "../libs/types.h"
 #include "../libs/queue.h"
 #include "../libs/ring.h"
+#include "../libs/frame.h"
 #include "../libs/memsink.h"
 #include "../libs/capture.h"
 #ifdef WITH_V4P
@@ -37,11 +38,15 @@
 
 #include "blank.h"
 #include "encoder.h"
-#include "h264.h"
+#include "m2m.h"
 
 
 typedef struct {
-	us_h264_stream_s *h264;
+	us_m2m_encoder_s	*h264_enc;
+	us_frame_s			*h264_tmp_src;
+	us_frame_s			*h264_dest;
+	bool				h264_key_requested;
+	atomic_bool			http_h264_online;
 
 	us_ring_s		*http_jpeg_ring;
 	atomic_bool		http_has_clients;
