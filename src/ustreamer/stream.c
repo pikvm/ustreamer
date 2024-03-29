@@ -555,7 +555,9 @@ static int _stream_init_loop(us_stream_s *stream) {
 			stream->enc->type == US_ENCODER_TYPE_M2M_VIDEO
 			|| stream->enc->type == US_ENCODER_TYPE_M2M_IMAGE
 			|| run->h264 != NULL
+#			ifdef WITH_V4P
 			|| stream->drm != NULL
+#			endif
 		);
 		switch (us_capture_open(stream->cap)) {
 			case 0: break;
