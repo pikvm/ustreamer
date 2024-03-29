@@ -189,7 +189,7 @@ void us_stream_loop(us_stream_s *stream) {
 
 #		ifdef WITH_V4P
 		_worker_context_s drm_ctx;
-		if (stream->v4p) {
+		if (run->drm != NULL) {
 			drm_ctx.queue = us_queue_init(cap->run->n_bufs);
 			drm_ctx.stream = stream;
 			drm_ctx.stop = &threads_stop;
@@ -237,7 +237,7 @@ void us_stream_loop(us_stream_s *stream) {
 				us_queue_put(raw_ctx.queue, hw, 0);
 			}
 #			ifdef WITH_V4P
-			if (stream->v4p) {
+			if (run->drm != NULL) {
 				us_capture_hwbuf_incref(hw); // DRM
 				us_queue_put(drm_ctx.queue, hw, 0);
 			}
@@ -259,7 +259,7 @@ void us_stream_loop(us_stream_s *stream) {
 		atomic_store(&threads_stop, true);
 
 #		ifdef WITH_V4P
-		if (stream->v4p) {
+		if (run->drm != NULL) {
 			US_THREAD_JOIN(drm_ctx.tid);
 			us_queue_destroy(drm_ctx.queue);
 		}
@@ -564,12 +564,12 @@ static bool _stream_has_jpeg_clients_cached(us_stream_s *stream) {
 static bool _stream_has_any_clients_cached(us_stream_s *stream) {
 	const us_stream_runtime_s *const run = stream->run;
 	return (
-#		ifdef WITH_V4P
-		stream->v4p ||
-#		endif
 		_stream_has_jpeg_clients_cached(stream)
 		|| (run->h264 != NULL && atomic_load(&run->h264->sink->has_clients))
 		|| (stream->raw_sink != NULL && atomic_load(&stream->raw_sink->has_clients))
+#		ifdef WITH_V4P
+		|| (run->drm != NULL)
+#		endif
 	);
 }
 
@@ -600,6 +600,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 			stream->enc->type == US_ENCODER_TYPE_M2M_VIDEO
 			|| stream->enc->type == US_ENCODER_TYPE_M2M_IMAGE
 			|| run->h264 != NULL
+			|| run->drm != NULL
 		);
 		switch (us_capture_open(stream->cap)) {
 			case 0: break;
@@ -651,7 +652,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 static void _stream_drm_ensure_no_signal(us_stream_s *stream) {
 	us_stream_runtime_s *const run = stream->run;
 
-	if (!stream->v4p) {
+	if (run->drm == NULL) {
 		return;
 	}
 
