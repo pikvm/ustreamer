@@ -43,12 +43,6 @@
 typedef struct {
 	us_h264_stream_s *h264;
 
-#	ifdef WITH_V4P
-	us_drm_s		*drm;
-	int				drm_opened;
-	ldf				drm_blank_at_ts;
-#	endif
-
 	us_ring_s		*http_jpeg_ring;
 	atomic_bool		http_has_clients;
 	atomic_uint		http_snapshot_requested;
@@ -78,7 +72,7 @@ typedef struct {
 	char			*h264_m2m_path;
 
 #	ifdef WITH_V4P
-	bool			v4p;
+	us_drm_s		*drm;
 #	endif
 
 	us_stream_runtime_s	*run;

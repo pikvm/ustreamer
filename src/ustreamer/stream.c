@@ -138,14 +138,6 @@ void us_stream_loop(us_stream_s *stream) {
 		run->h264 = us_h264_stream_init(stream->h264_sink, stream->h264_m2m_path, stream->h264_bitrate, stream->h264_gop);
 	}
 
-#	ifdef WITH_V4P
-	if (stream->v4p) {
-		run->drm = us_drm_init();
-		run->drm_opened = -1;
-		US_LOG_INFO("Using passthrough: %s[%s]", run->drm->path, run->drm->port);
-	}
-#	endif
-
 	while (!_stream_init_loop(stream)) {
 		atomic_bool threads_stop;
 		atomic_init(&threads_stop, false);
@@ -177,7 +169,7 @@ void us_stream_loop(us_stream_s *stream) {
 		CREATE_WORKER((run->h264 != NULL), h264_ctx, _h264_thread, cap->run->n_bufs);
 		CREATE_WORKER((stream->raw_sink != NULL), raw_ctx, _raw_thread, 2);
 #		ifdef WITH_V4P
-		CREATE_WORKER((run->drm != NULL), drm_ctx, _drm_thread, cap->run->n_bufs); // cppcheck-suppress assertWithSideEffect
+		CREATE_WORKER((stream->drm != NULL), drm_ctx, _drm_thread, cap->run->n_bufs); // cppcheck-suppress assertWithSideEffect
 #		endif
 #		undef CREATE_WORKER
 
@@ -267,9 +259,6 @@ void us_stream_loop(us_stream_s *stream) {
 		}
 	}
 
-#	ifdef WITH_V4P
-	US_DELETE(run->drm, us_drm_destroy);
-#	endif
 	US_DELETE(run->h264, us_h264_stream_destroy);
 }
 
@@ -453,11 +442,10 @@ static void *_raw_thread(void *v_ctx) {
 static void *_drm_thread(void *v_ctx) {
 	US_THREAD_SETTLE("str_drm");
 	_worker_context_s *ctx = v_ctx;
-	us_stream_runtime_s *run = ctx->stream->run;
+	us_stream_s *stream = ctx->stream;
 
 	// Close previously opened DRM for a stub
-	us_drm_close(run->drm);
-	run->drm_opened = -1;
+	us_drm_close(stream->drm);
 
 	us_capture_hwbuf_s *prev_hw = NULL;
 	while (!atomic_load(ctx->stop)) {
@@ -472,10 +460,10 @@ static void *_drm_thread(void *v_ctx) {
 				} \
 			}
 
-		CHECK(run->drm_opened = us_drm_open(run->drm, ctx->stream->cap));
+		CHECK(us_drm_open(stream->drm, ctx->stream->cap));
 
 		while (!atomic_load(ctx->stop)) {
-			CHECK(us_drm_wait_for_vsync(run->drm));
+			CHECK(us_drm_wait_for_vsync(stream->drm));
 			US_DELETE(prev_hw, us_capture_hwbuf_decref);
 
 			us_capture_hwbuf_s *hw = _get_latest_hw(ctx->queue);
@@ -483,21 +471,20 @@ static void *_drm_thread(void *v_ctx) {
 				continue;
 			}
 
-			if (run->drm_opened == 0) {
-				CHECK(us_drm_expose_dma(run->drm, hw));
+			if (stream->drm->run->opened == 0) {
+				CHECK(us_drm_expose_dma(stream->drm, hw));
 				prev_hw = hw;
 				continue;
 			}
 
-			CHECK(us_drm_expose_stub(run->drm, run->drm_opened, ctx->stream->cap));
+			CHECK(us_drm_expose_stub(stream->drm, stream->drm->run->opened, ctx->stream->cap));
 			us_capture_hwbuf_decref(hw);
 
 			SLOWDOWN;
 		}
 
 	close:
-		us_drm_close(run->drm);
-		run->drm_opened = -1;
+		us_drm_close(stream->drm);
 		US_DELETE(prev_hw, us_capture_hwbuf_decref);
 		SLOWDOWN;
 
@@ -536,7 +523,7 @@ static bool _stream_has_any_clients_cached(us_stream_s *stream) {
 		|| (run->h264 != NULL && atomic_load(&run->h264->sink->has_clients))
 		|| (stream->raw_sink != NULL && atomic_load(&stream->raw_sink->has_clients))
 #		ifdef WITH_V4P
-		|| (run->drm != NULL)
+		|| (stream->drm != NULL)
 #		endif
 	);
 }
@@ -568,7 +555,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 			stream->enc->type == US_ENCODER_TYPE_M2M_VIDEO
 			|| stream->enc->type == US_ENCODER_TYPE_M2M_IMAGE
 			|| run->h264 != NULL
-			|| run->drm != NULL
+			|| stream->drm != NULL
 		);
 		switch (us_capture_open(stream->cap)) {
 			case 0: break;
@@ -618,37 +605,21 @@ static int _stream_init_loop(us_stream_s *stream) {
 
 #ifdef WITH_V4P
 static void _stream_drm_ensure_no_signal(us_stream_s *stream) {
-	us_stream_runtime_s *const run = stream->run;
-
-	if (run->drm == NULL) {
+	if (stream->drm == NULL) {
 		return;
 	}
-
-#	define CHECK(x_arg) if ((x_arg) < 0) { goto close; }
-	if (run->drm_opened <= 0) {
-		us_drm_close(run->drm);
-		run->drm_blank_at_ts = 0;
-		CHECK(run->drm_opened = us_drm_open(run->drm, NULL));
+	if (stream->drm->run->opened <= 0) {
+		us_drm_close(stream->drm);
+		if (us_drm_open(stream->drm, NULL) < 0) {
+			goto close;
+		}
 	}
-
-	ldf now_ts = us_get_now_monotonic();
-	if (run->drm_blank_at_ts == 0) {
-		run->drm_blank_at_ts = now_ts + 5;
-	}
-
-	if (now_ts <= run->drm_blank_at_ts) {
-		CHECK(us_drm_wait_for_vsync(run->drm));
-		CHECK(us_drm_expose_stub(run->drm, US_DRM_STUB_NO_SIGNAL, NULL));
-	} else {
-		// US_ONCE({ US_LOG_INFO("DRM: Turning off the display by timeout ..."); });
-		CHECK(us_drm_dpms_power_off(run->drm));
+	if (us_drm_ensure_no_signal(stream->drm) < 0) {
+		goto close;
 	}
 	return;
-#	undef CHECK
-
 close:
-	us_drm_close(run->drm);
-	run->drm_opened = -1;
+	us_drm_close(stream->drm);
 }
 #endif
 

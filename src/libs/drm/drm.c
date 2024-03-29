@@ -72,6 +72,7 @@ us_drm_s *us_drm_init(void) {
 	run->fd = -1;
 	run->status_fd = -1;
 	run->dpms_state = -1;
+	run->opened = -1;
 	run->has_vsync = true;
 	run->exposing_dma_fd = -1;
 	run->ft = us_frametext_init();
@@ -82,6 +83,7 @@ us_drm_s *us_drm_init(void) {
 	drm->path = "/dev/dri/by-path/platform-gpu-card";
 	drm->port = "HDMI-A-2"; // OUT2 on PiKVM V4 Plus
 	drm->timeout = 5;
+	drm->blank_after = 5;
 	drm->run = run;
 	return drm;
 }
@@ -96,6 +98,8 @@ int us_drm_open(us_drm_s *drm, const us_capture_s *cap) {
 	us_drm_runtime_s *const run = drm->run;
 
 	assert(run->fd < 0);
+
+	_LOG_INFO("Using passthrough: %s[%s]", drm->path, drm->port);
 
 	switch (_drm_check_status(drm)) {
 		case 0: break;
@@ -164,22 +168,24 @@ int us_drm_open(us_drm_s *drm, const us_capture_s *cap) {
 		goto error;
 	}
 
-	run->opened_for_stub = (stub > 0);
+	_LOG_INFO("Opened for %s ...", (stub > 0 ? "STUB" : "DMA"));
 	run->exposing_dma_fd = -1;
-	run->unplugged_once = 0;
-	_LOG_INFO("Opened for %s ...", (run->opened_for_stub ? "STUB" : "DMA"));
-	return stub;
+	run->blank_at_ts = 0;
+	run->opened = stub;
+	run->once = 0;
+	return run->opened;
 
 error:
 	us_drm_close(drm);
-	return -1;
+	return run->opened; // -1 after us_drm_close()
 
 unplugged:
-	US_ONCE_FOR(run->unplugged_once, __LINE__, {
+	US_ONCE_FOR(run->once, __LINE__, {
 		_LOG_ERROR("Display is not plugged");
 	});
 	us_drm_close(drm);
-	return US_ERROR_NO_DEVICE;
+	run->opened = US_ERROR_NO_DEVICE;
+	return run->opened;
 }
 
 void us_drm_close(us_drm_s *drm) {
@@ -233,12 +239,41 @@ void us_drm_close(us_drm_s *drm) {
 
 	run->crtc_id = 0;
 	run->dpms_state = -1;
+	run->opened = -1;
 	run->has_vsync = true;
 	run->stub_n_buf = 0;
 
 	if (say) {
 		_LOG_INFO("Closed");
 	}
+}
+
+int us_drm_ensure_no_signal(us_drm_s *drm) {
+	us_drm_runtime_s *const run = drm->run;
+
+	assert(run->fd >= 0);
+	assert(run->opened > 0);
+
+	const ldf now_ts = us_get_now_monotonic();
+	if (run->blank_at_ts == 0) {
+		run->blank_at_ts = now_ts + drm->blank_after;
+	}
+	const ldf saved_ts = run->blank_at_ts; // us_drm*() rewrites it to 0
+
+	int retval;
+	if (now_ts <= run->blank_at_ts) {
+		retval = us_drm_wait_for_vsync(drm);
+		if (retval == 0) {
+			retval = us_drm_expose_stub(drm, US_DRM_STUB_NO_SIGNAL, NULL);
+		}
+	} else {
+		US_ONCE_FOR(run->once, __LINE__, {
+			_LOG_INFO("Turning off the display by timeout ...");
+		});
+		retval = us_drm_dpms_power_off(drm);
+	}
+	run->blank_at_ts = saved_ts;
+	return retval;
 }
 
 int us_drm_dpms_power_off(us_drm_s *drm) {
@@ -259,6 +294,7 @@ int us_drm_wait_for_vsync(us_drm_s *drm) {
 	us_drm_runtime_s *const run = drm->run;
 
 	assert(run->fd >= 0);
+	run->blank_at_ts = 0;
 
 	switch (_drm_check_status(drm)) {
 		case 0: break;
@@ -313,7 +349,8 @@ int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_capture_s *ca
 	us_drm_runtime_s *const run = drm->run;
 
 	assert(run->fd >= 0);
-	assert(run->opened_for_stub);
+	assert(run->opened > 0);
+	run->blank_at_ts = 0;
 
 	switch (_drm_check_status(drm)) {
 		case 0: break;
@@ -377,7 +414,8 @@ int us_drm_expose_dma(us_drm_s *drm, const us_capture_hwbuf_s *hw) {
 	us_drm_buffer_s *const buf = &run->bufs[hw->buf.index];
 
 	assert(run->fd >= 0);
-	assert(!run->opened_for_stub);
+	assert(run->opened == 0);
+	run->blank_at_ts = 0;
 
 	switch (_drm_check_status(drm)) {
 		case 0: break;

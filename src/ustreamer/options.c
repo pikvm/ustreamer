@@ -270,6 +270,9 @@ void us_options_destroy(us_options_s *options) {
 	US_DELETE(options->jpeg_sink, us_memsink_destroy);
 	US_DELETE(options->raw_sink, us_memsink_destroy);
 	US_DELETE(options->h264_sink, us_memsink_destroy);
+#	ifdef WITH_V4P
+	US_DELETE(options->drm, us_drm_destroy);
+#	endif
 
 	for (unsigned index = 0; index < options->argc; ++index) {
 		free(options->argv_copy[index]);
@@ -463,7 +466,10 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 			case _O_H264_M2M_DEVICE:		OPT_SET(stream->h264_m2m_path, optarg);
 
 #			ifdef WITH_V4P
-			case _O_V4P:					OPT_SET(stream->v4p, true);
+			case _O_V4P:
+				options->drm = us_drm_init();
+				stream->drm = options->drm;
+				break;
 #			endif
 
 #			ifdef WITH_GPIO

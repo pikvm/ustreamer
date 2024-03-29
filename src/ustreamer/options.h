@@ -40,6 +40,9 @@
 #include "../libs/memsink.h"
 #include "../libs/options.h"
 #include "../libs/capture.h"
+#ifdef WITH_V4P
+#	include "../libs/drm/drm.h"
+#endif
 
 #include "encoder.h"
 #include "stream.h"
@@ -56,6 +59,9 @@ typedef struct {
 	us_memsink_s	*jpeg_sink;
 	us_memsink_s	*raw_sink;
 	us_memsink_s	*h264_sink;
+#	ifdef WITH_V4P
+	us_drm_s		*drm;
+#	endif
 } us_options_s;
 
 

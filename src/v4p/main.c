@@ -174,18 +174,14 @@ static void _main_loop(void) {
 	cap->dma_required = true;
 
 	int once = 0;
-	ldf blank_at_ts = 0;
-	int drm_opened = -1;
 	while (!atomic_load(&_g_stop)) {
 #		define CHECK(x_arg) if ((x_arg) < 0) { goto close; }
 
-		if (drm_opened <= 0) {
-			blank_at_ts = 0;
-			CHECK(drm_opened = us_drm_open(drm, NULL));
+		if (drm->run->opened <= 0) {
+			CHECK(us_drm_open(drm, NULL));
 		}
 
 		if (atomic_load(&_g_ustreamer_online)) {
-			blank_at_ts = 0;
 			US_ONCE({ US_LOG_INFO("DRM: Online stream is active, pausing the service ..."); });
 			CHECK(us_drm_wait_for_vsync(drm));
 			CHECK(us_drm_expose_stub(drm, US_DRM_STUB_BUSY, NULL));
@@ -194,25 +190,14 @@ static void _main_loop(void) {
 		}
 
 		if (us_capture_open(cap) < 0) {
-			ldf now_ts = us_get_now_monotonic();
-			if (blank_at_ts == 0) {
-				blank_at_ts = now_ts + 5;
-			}
-			if (now_ts <= blank_at_ts) {
-				CHECK(us_drm_wait_for_vsync(drm));
-				CHECK(us_drm_expose_stub(drm, US_DRM_STUB_NO_SIGNAL, NULL));
-			} else {
-				US_ONCE({ US_LOG_INFO("DRM: Turning off the display by timeout ..."); });
-				CHECK(us_drm_dpms_power_off(drm));
-			}
+			CHECK(us_drm_ensure_no_signal(drm));
 			_slowdown();
 			continue;
 		}
 
 		once = 0;
-		blank_at_ts = 0;
 		us_drm_close(drm);
-		CHECK(drm_opened = us_drm_open(drm, cap));
+		CHECK(us_drm_open(drm, cap));
 
 		us_capture_hwbuf_s *prev_hw = NULL;
 		while (!atomic_load(&_g_stop)) {
@@ -234,23 +219,20 @@ static void _main_loop(void) {
 				default: goto close; // Any error
 			}
 
-			if (drm_opened == 0) {
+			if (drm->run->opened == 0) {
 				CHECK(us_drm_expose_dma(drm, hw));
 				prev_hw = hw;
 				continue;
 			}
 
-			CHECK(us_drm_expose_stub(drm, drm_opened, cap));
+			CHECK(us_drm_expose_stub(drm, drm->run->opened, cap));
 			CHECK(us_capture_hwbuf_release(cap, hw));
 			_slowdown();
 		}
 
 	close:
 		us_drm_close(drm);
-		drm_opened = -1;
-
 		us_capture_close(cap);
-
 		_slowdown();
 
 #		undef CHECK
