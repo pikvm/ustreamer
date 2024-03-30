@@ -22,6 +22,8 @@
 
 #include "fpsi.h"
 
+#include <stdatomic.h>
+
 #include <pthread.h>
 
 #include "types.h"
@@ -36,33 +38,47 @@ us_fpsi_s *us_fpsi_init(const char *name, bool with_meta) {
 	US_CALLOC(fpsi, 1);
 	fpsi->name = us_strdup(name);
 	fpsi->with_meta = with_meta;
-	US_MUTEX_INIT(fpsi->mutex);
+	atomic_init(&fpsi->ts, 0);
+	atomic_init(&fpsi->current, 0);
+	if (with_meta) {
+		US_MUTEX_INIT(fpsi->mutex);
+	}
 	return fpsi;
 }
 
 void us_fpsi_destroy(us_fpsi_s *fpsi) {
-	US_MUTEX_DESTROY(fpsi->mutex);
+	if (fpsi->with_meta) {
+		US_MUTEX_DESTROY(fpsi->mutex);
+	}
 	free(fpsi->name);
 	free(fpsi);
 }
 
 void us_fpsi_bump(us_fpsi_s *fpsi, const us_frame_s *frame) {
-	US_MUTEX_LOCK(fpsi->mutex);
-	const sll now_sec_ts = us_floor_ms(us_get_now_monotonic());
-	if (fpsi->ts != now_sec_ts) {
-		US_LOG_PERF_FPS("FPS: %s: %u", fpsi->name, fpsi->accum);
-		fpsi->current = fpsi->accum;
-		fpsi->accum = 0;
-		fpsi->ts = now_sec_ts;
-	}
-	++fpsi->accum;
 	if (frame != NULL) {
 		assert(fpsi->with_meta);
-		US_FRAME_COPY_META(frame, &fpsi->meta);
 	} else {
 		assert(!fpsi->with_meta);
 	}
-	US_MUTEX_UNLOCK(fpsi->mutex);
+
+	if (fpsi->with_meta) {
+		US_MUTEX_LOCK(fpsi->mutex);
+	}
+
+	const sll now_sec_ts = us_floor_ms(us_get_now_monotonic());
+	if (atomic_load(&fpsi->ts) != now_sec_ts) {
+		US_LOG_PERF_FPS("FPS: %s: %u", fpsi->name, fpsi->accum);
+		atomic_store(&fpsi->current, fpsi->accum);
+		atomic_store(&fpsi->ts, now_sec_ts);
+		fpsi->accum = 0;
+	}
+	++fpsi->accum;
+
+	if (fpsi->with_meta) {
+		assert(frame != NULL);
+		US_FRAME_COPY_META(frame, &fpsi->meta);
+		US_MUTEX_UNLOCK(fpsi->mutex);
+	}
 }
 
 uint us_fpsi_get(us_fpsi_s *fpsi, us_fpsi_meta_s *meta) {
@@ -71,12 +87,18 @@ uint us_fpsi_get(us_fpsi_s *fpsi, us_fpsi_meta_s *meta) {
 	} else {
 		assert(!fpsi->with_meta);
 	}
-	US_MUTEX_LOCK(fpsi->mutex);
-	const sll now_sec_ts = us_floor_ms(us_get_now_monotonic());
-	const uint current = (fpsi->ts == now_sec_ts ? fpsi->current : 0);
-	if (meta != NULL) {
-		US_FRAME_COPY_META(&fpsi->meta, meta);
+
+	if (fpsi->with_meta) {
+		US_MUTEX_LOCK(fpsi->mutex);
 	}
-	US_MUTEX_UNLOCK(fpsi->mutex);
+
+	const sll now_sec_ts = us_floor_ms(us_get_now_monotonic());
+	const uint current = (atomic_load(&fpsi->ts) == now_sec_ts ? fpsi->current : 0);
+
+	if (fpsi->with_meta) {
+		assert(meta != NULL);
+		US_FRAME_COPY_META(&fpsi->meta, meta);
+		US_MUTEX_UNLOCK(fpsi->mutex);
+	}
 	return current;
 }

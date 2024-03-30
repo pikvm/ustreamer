@@ -22,6 +22,8 @@
 
 #pragma once
 
+#include <stdatomic.h>
+
 #include <pthread.h>
 
 #include "types.h"
@@ -36,8 +38,8 @@ typedef struct {
 	char			*name;
 	bool			with_meta;
 	uint			accum;
-	ldf				ts;
-	uint			current;
+	atomic_llong	ts;
+	atomic_uint		current;
 	us_fpsi_meta_s	meta;
 	pthread_mutex_t	mutex;
 } us_fpsi_s;
