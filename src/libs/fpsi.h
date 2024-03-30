@@ -47,5 +47,4 @@ us_fpsi_s *us_fpsi_init(const char *name, bool with_meta);
 void us_fpsi_destroy(us_fpsi_s *fpsi);
 
 void us_fpsi_bump(us_fpsi_s *fpsi, const us_frame_s *frame);
-void us_fpsi_reset(us_fpsi_s *fpsi, const us_frame_s *meta);
 uint us_fpsi_get(us_fpsi_s *fpsi, us_fpsi_meta_s *meta);

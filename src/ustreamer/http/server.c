@@ -814,7 +814,6 @@ static void _http_send_stream(us_server_s *server, bool stream_updated, bool fra
 	us_server_runtime_s *const run = server->run;
 	us_server_exposed_s *const ex = run->exposed;
 
-	bool has_clients = false;
 	bool queued = false;
 
 	US_LIST_ITERATE(run->stream_clients, client, { // cppcheck-suppress constStatement
@@ -845,15 +844,11 @@ static void _http_send_stream(us_server_s *server, bool stream_updated, bool fra
 			} else if (stream_updated) { // Для dual
 				client->updated_prev = false;
 			}
-
-			has_clients = true;
 		}
 	});
 
 	if (queued) {
 		us_fpsi_bump(ex->queued_fpsi, NULL);
-	} else if (!has_clients) {
-		us_fpsi_reset(ex->queued_fpsi, NULL);
 	}
 }
 

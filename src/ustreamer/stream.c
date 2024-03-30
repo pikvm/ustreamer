@@ -125,7 +125,7 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 	stream->run = run;
 
 	us_blank_draw(run->blank, "< NO SIGNAL >", cap->width, cap->height);
-	us_fpsi_reset(http->captured_fpsi, run->blank->raw);
+	us_fpsi_bump(http->captured_fpsi, run->blank->raw);
 	return stream;
 }
 
@@ -465,16 +465,19 @@ static void *_drm_thread(void *v_ctx) {
 			}
 
 			CHECK(us_drm_expose_stub(stream->drm, stream->drm->run->opened, ctx->stream->cap));
-			us_fpsi_bump(stream->run->http->drm_fpsi, NULL);
 			us_capture_hwbuf_decref(hw);
+
+			us_fpsi_bump(stream->run->http->drm_fpsi, NULL);
 
 			SLOWDOWN;
 		}
 
 	close:
-		atomic_store(&stream->run->http->drm_live, false);
 		us_drm_close(stream->drm);
 		US_DELETE(prev_hw, us_capture_hwbuf_decref);
+
+		atomic_store(&stream->run->http->drm_live, false);
+
 		SLOWDOWN;
 
 #		undef SLOWDOWN
@@ -570,7 +573,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 					height = stream->cap->height;
 				}
 				us_blank_draw(run->blank, "< NO SIGNAL >", width, height);
-				us_fpsi_reset(run->http->captured_fpsi, run->blank->raw);
+				us_fpsi_bump(run->http->captured_fpsi, run->blank->raw);
 
 				_stream_expose_jpeg(stream, run->blank->jpeg);
 				_stream_expose_raw(stream, run->blank->raw);
@@ -591,6 +594,7 @@ static void _stream_drm_ensure_no_signal(us_stream_s *stream) {
 	if (stream->drm == NULL) {
 		return;
 	}
+	atomic_store(&stream->run->http->drm_live, false);
 	if (stream->drm->run->opened <= 0) {
 		us_drm_close(stream->drm);
 		if (us_drm_open(stream->drm, NULL) < 0) {
@@ -634,6 +638,7 @@ static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *fr
 	if (stream->h264_sink == NULL) {
 		return;
 	}
+
 	bool online = false;
 	if (us_is_jpeg(frame->format)) {
 		if (us_unjpeg(frame, run->h264_tmp_src, true) < 0) {
@@ -641,6 +646,7 @@ static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *fr
 		}
 		frame = run->h264_tmp_src;
 	}
+
 	if (run->h264_key_requested) {
 		US_LOG_INFO("H264: Requested keyframe by a sink client");
 		run->h264_key_requested = false;
@@ -649,6 +655,7 @@ static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *fr
 	if (!us_m2m_encoder_compress(run->h264_enc, frame, run->h264_dest, force_key)) {
 		online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
 	}
+
 done:
 	atomic_store(&run->http->h264_online, online);
 	us_fpsi_bump(run->http->h264_fpsi, NULL);
@@ -659,6 +666,7 @@ static void _stream_check_suicide(us_stream_s *stream) {
 		return;
 	}
 	us_stream_runtime_s *const run = stream->run;
+
 	const ldf now_ts = us_get_now_monotonic();
 	const ull http_last_request_ts = atomic_load(&run->http->last_request_ts); // Seconds
 	if (_stream_has_any_clients_cached(stream)) {
