@@ -125,7 +125,7 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 	stream->run = run;
 
 	us_blank_draw(run->blank, "< NO SIGNAL >", cap->width, cap->height);
-	us_fpsi_bump(http->captured_fpsi, run->blank->raw);
+	us_fpsi_bump(http->captured_fpsi, run->blank->raw, true);
 	return stream;
 }
 
@@ -200,7 +200,7 @@ void us_stream_loop(us_stream_s *stream) {
 				default: goto close; // Any error
 			}
 
-			us_fpsi_bump(run->http->captured_fpsi, &hw->raw);
+			us_fpsi_bump(run->http->captured_fpsi, &hw->raw, false);
 
 #			ifdef WITH_GPIO
 			us_gpio_set_stream_online(true);
@@ -460,14 +460,14 @@ static void *_drm_thread(void *v_ctx) {
 				CHECK(us_drm_expose_dma(stream->drm, hw));
 				prev_hw = hw;
 				atomic_store(&stream->run->http->drm_live, true);
-				us_fpsi_bump(stream->run->http->drm_fpsi, NULL);
+				us_fpsi_bump(stream->run->http->drm_fpsi, NULL, false);
 				continue;
 			}
 
 			CHECK(us_drm_expose_stub(stream->drm, stream->drm->run->opened, ctx->stream->cap));
 			us_capture_hwbuf_decref(hw);
 
-			us_fpsi_bump(stream->run->http->drm_fpsi, NULL);
+			us_fpsi_bump(stream->run->http->drm_fpsi, NULL, false);
 
 			SLOWDOWN;
 		}
@@ -573,7 +573,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 					height = stream->cap->height;
 				}
 				us_blank_draw(run->blank, "< NO SIGNAL >", width, height);
-				us_fpsi_bump(run->http->captured_fpsi, run->blank->raw);
+				us_fpsi_bump(run->http->captured_fpsi, run->blank->raw, true);
 
 				_stream_expose_jpeg(stream, run->blank->jpeg);
 				_stream_expose_raw(stream, run->blank->raw);
@@ -604,7 +604,7 @@ static void _stream_drm_ensure_no_signal(us_stream_s *stream) {
 	if (us_drm_ensure_no_signal(stream->drm) < 0) {
 		goto close;
 	}
-	us_fpsi_bump(stream->run->http->drm_fpsi, NULL);
+	us_fpsi_bump(stream->run->http->drm_fpsi, NULL, false);
 	return;
 close:
 	us_drm_close(stream->drm);
@@ -655,10 +655,10 @@ static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *fr
 	if (!us_m2m_encoder_compress(run->h264_enc, frame, run->h264_dest, force_key)) {
 		online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
 	}
+	us_fpsi_bump(run->http->h264_fpsi, NULL, false);
 
 done:
 	atomic_store(&run->http->h264_online, online);
-	us_fpsi_bump(run->http->h264_fpsi, NULL);
 }
 
 static void _stream_check_suicide(us_stream_s *stream) {

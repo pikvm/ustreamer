@@ -251,7 +251,7 @@ static int _dump_sink(
 			US_LOG_DEBUG("       stride=%u, grab_ts=%.3Lf, encode_begin_ts=%.3Lf, encode_end_ts=%.3Lf",
 				frame->stride, frame->grab_ts, frame->encode_begin_ts, frame->encode_end_ts);
 
-			us_fpsi_bump(fpsi, NULL);
+			us_fpsi_bump(fpsi, NULL, false);
 
 			if (ctx->v_output != NULL) {
 				ctx->write(ctx->v_output, frame);

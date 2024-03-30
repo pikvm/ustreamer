@@ -54,7 +54,7 @@ void us_fpsi_destroy(us_fpsi_s *fpsi) {
 	free(fpsi);
 }
 
-void us_fpsi_bump(us_fpsi_s *fpsi, const us_frame_s *frame) {
+void us_fpsi_bump(us_fpsi_s *fpsi, const us_frame_s *frame, bool noop) {
 	if (frame != NULL) {
 		assert(fpsi->with_meta);
 	} else {
@@ -72,7 +72,9 @@ void us_fpsi_bump(us_fpsi_s *fpsi, const us_frame_s *frame) {
 		atomic_store(&fpsi->ts, now_sec_ts);
 		fpsi->accum = 0;
 	}
-	++fpsi->accum;
+	if (!noop) {
+		++fpsi->accum;
+	}
 
 	if (fpsi->with_meta) {
 		assert(frame != NULL);

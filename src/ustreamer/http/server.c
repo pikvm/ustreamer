@@ -644,7 +644,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	us_server_s *const server = client->server;
 	us_server_exposed_s *const ex = server->run->exposed;
 
-	us_fpsi_bump(client->fpsi, NULL);
+	us_fpsi_bump(client->fpsi, NULL, false);
 
 	struct evbuffer *buf;
 	_A_EVBUFFER_NEW(buf);
@@ -815,6 +815,7 @@ static void _http_send_stream(us_server_s *server, bool stream_updated, bool fra
 	us_server_exposed_s *const ex = run->exposed;
 
 	bool queued = false;
+	bool has_clients = true;
 
 	US_LIST_ITERATE(run->stream_clients, client, { // cppcheck-suppress constStatement
 		struct evhttp_connection *const conn = evhttp_request_get_connection(client->request);
@@ -844,11 +845,14 @@ static void _http_send_stream(us_server_s *server, bool stream_updated, bool fra
 			} else if (stream_updated) { // Для dual
 				client->updated_prev = false;
 			}
+			has_clients = true;
 		}
 	});
 
 	if (queued) {
-		us_fpsi_bump(ex->queued_fpsi, NULL);
+		us_fpsi_bump(ex->queued_fpsi, NULL, false);
+	} else if (!has_clients) {
+		us_fpsi_bump(ex->queued_fpsi, NULL, true);
 	}
 }
 
