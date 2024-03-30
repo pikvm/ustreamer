@@ -25,9 +25,9 @@
 #include <assert.h>
 
 
-#define US_LIST_STRUCT(...) \
-	__VA_ARGS__ *prev; \
-	__VA_ARGS__ *next;
+#define US_LIST_DECLARE \
+	void *prev; \
+	void *next;
 
 #define US_LIST_ITERATE(x_first, x_item, ...) { \
 		for (__typeof__(x_first) x_item = x_first; x_item;) { \
@@ -42,7 +42,7 @@
 			x_first = x_item; \
 		} else { \
 			__typeof__(x_first) m_last = x_first; \
-			for (; m_last->next; m_last = m_last->next); \
+			for (; m_last->next != NULL; m_last = m_last->next); \
 			x_item->prev = m_last; \
 			m_last->next = x_item; \
 		} \
@@ -57,10 +57,12 @@
 		if (x_item->prev == NULL) { \
 			x_first = x_item->next; \
 		} else { \
-			x_item->prev->next = x_item->next; \
+			__typeof__(x_first) m_prev = x_item->prev; \
+			m_prev->next = x_item->next; \
 		} \
 		if (x_item->next != NULL) { \
-			x_item->next->prev = x_item->prev; \
+			__typeof__(x_first) m_next = x_item->next; \
+			m_next->prev = x_item->prev; \
 		} \
 	}
 

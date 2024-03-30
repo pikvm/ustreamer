@@ -36,7 +36,7 @@
 #include "../stream.h"
 
 
-typedef struct us_stream_client_sx {
+typedef struct {
 	struct us_server_sx		*server;
 	struct evhttp_request	*request;
 
@@ -54,15 +54,15 @@ typedef struct us_stream_client_sx {
 
 	us_fps_s *fps;
 
-	US_LIST_STRUCT(struct us_stream_client_sx);
+	US_LIST_DECLARE;
 } us_stream_client_s;
 
-typedef struct us_snapshot_client_sx {
+typedef struct {
 	struct us_server_sx		*server;
 	struct evhttp_request	*request;
 	ldf						request_ts;
 
-	US_LIST_STRUCT(struct us_snapshot_client_sx);
+	US_LIST_DECLARE;
 } us_snapshot_client_s;
 
 typedef struct {

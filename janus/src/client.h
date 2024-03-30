@@ -34,7 +34,7 @@
 #include "rtp.h"
 
 
-typedef struct us_janus_client_sx {
+typedef struct {
 	janus_callbacks			*gw;
 	janus_plugin_session	*session;
 	atomic_bool				transmit;
@@ -48,7 +48,7 @@ typedef struct us_janus_client_sx {
 	us_ring_s				*video_ring;
 	us_ring_s				*audio_ring;
 
-    US_LIST_STRUCT(struct us_janus_client_sx);
+    US_LIST_DECLARE;
 } us_janus_client_s;
 
 
