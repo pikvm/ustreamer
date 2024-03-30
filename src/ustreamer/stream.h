@@ -43,7 +43,13 @@
 
 
 typedef struct {
+#	ifdef WITH_V4P
+	atomic_bool		drm_live;
+	us_fpsi_s		*drm_fpsi;
+#	endif
+
 	atomic_bool		h264_online;
+	us_fpsi_s		*h264_fpsi;
 
 	us_ring_s		*jpeg_ring;
 	atomic_bool		has_clients;

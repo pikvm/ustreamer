@@ -97,7 +97,12 @@ static void _stream_check_suicide(us_stream_s *stream);
 us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 	us_stream_http_s *http;
 	US_CALLOC(http, 1);
+#	ifdef WITH_V4P
+	atomic_init(&http->drm_live, false);
+	http->drm_fpsi = us_fpsi_init("DRM", false);
+#	endif
 	atomic_init(&http->h264_online, false);
+	http->h264_fpsi = us_fpsi_init("H264", false);
 	US_RING_INIT_WITH_ITEMS(http->jpeg_ring, 4, us_frame_init);
 	atomic_init(&http->has_clients, false);
 	atomic_init(&http->snapshot_requested, 0);
@@ -127,6 +132,10 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 void us_stream_destroy(us_stream_s *stream) {
 	us_fpsi_destroy(stream->run->http->captured_fpsi);
 	US_RING_DELETE_WITH_ITEMS(stream->run->http->jpeg_ring, us_frame_destroy);
+	us_fpsi_destroy(stream->run->http->h264_fpsi);
+#	ifdef WITH_V4P
+	us_fpsi_destroy(stream->run->http->drm_fpsi);
+#	endif
 	us_blank_destroy(stream->run->blank);
 	free(stream->run->http);
 	free(stream->run);
@@ -450,16 +459,20 @@ static void *_drm_thread(void *v_ctx) {
 			if (stream->drm->run->opened == 0) {
 				CHECK(us_drm_expose_dma(stream->drm, hw));
 				prev_hw = hw;
+				atomic_store(&stream->run->http->drm_live, true);
+				us_fpsi_bump(stream->run->http->drm_fpsi, NULL);
 				continue;
 			}
 
 			CHECK(us_drm_expose_stub(stream->drm, stream->drm->run->opened, ctx->stream->cap));
+			us_fpsi_bump(stream->run->http->drm_fpsi, NULL);
 			us_capture_hwbuf_decref(hw);
 
 			SLOWDOWN;
 		}
 
 	close:
+		atomic_store(&stream->run->http->drm_live, false);
 		us_drm_close(stream->drm);
 		US_DELETE(prev_hw, us_capture_hwbuf_decref);
 		SLOWDOWN;
@@ -587,6 +600,7 @@ static void _stream_drm_ensure_no_signal(us_stream_s *stream) {
 	if (us_drm_ensure_no_signal(stream->drm) < 0) {
 		goto close;
 	}
+	us_fpsi_bump(stream->run->http->drm_fpsi, NULL);
 	return;
 close:
 	us_drm_close(stream->drm);
@@ -637,6 +651,7 @@ static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *fr
 	}
 done:
 	atomic_store(&run->http->h264_online, online);
+	us_fpsi_bump(run->http->h264_fpsi, NULL);
 }
 
 static void _stream_check_suicide(us_stream_s *stream) {

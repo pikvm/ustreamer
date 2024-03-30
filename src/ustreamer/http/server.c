@@ -476,12 +476,23 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		enc_quality
 	);
 
+#	ifdef WITH_V4P
+	if (stream->drm != NULL) {
+		_A_EVBUFFER_ADD_PRINTF(buf,
+			" \"drm\": {\"live\": %s, \"fps\": %u},",
+			us_bool_to_string(atomic_load(&stream->run->http->drm_live)),
+			us_fpsi_get(stream->run->http->drm_fpsi, NULL)
+		);
+	}
+#	endif
+
 	if (stream->h264_sink != NULL) {
 		_A_EVBUFFER_ADD_PRINTF(buf,
-			" \"h264\": {\"bitrate\": %u, \"gop\": %u, \"online\": %s},",
+			" \"h264\": {\"bitrate\": %u, \"gop\": %u, \"online\": %s, \"fps\": %u},",
 			stream->h264_bitrate,
 			stream->h264_gop,
-			us_bool_to_string(atomic_load(&stream->run->http->h264_online))
+			us_bool_to_string(atomic_load(&stream->run->http->h264_online)),
+			us_fpsi_get(stream->run->http->h264_fpsi, NULL)
 		);
 	}
 
