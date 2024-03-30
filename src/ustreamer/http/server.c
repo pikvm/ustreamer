@@ -279,7 +279,7 @@ void us_server_loop_break(us_server_s *server) {
 static int _http_preprocess_request(struct evhttp_request *request, us_server_s *server) {
 	const us_server_runtime_s *const run = server->run;
 
-	atomic_store(&server->stream->run->http_last_request_ts, us_get_now_monotonic());
+	atomic_store(&server->stream->run->http->last_request_ts, us_get_now_monotonic());
 
 	if (server->allow_origin[0] != '\0') {
 		const char *const cors_headers = _http_get_header(request, "Access-Control-Request-Headers");
@@ -481,7 +481,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 			" \"h264\": {\"bitrate\": %u, \"gop\": %u, \"online\": %s},",
 			stream->h264_bitrate,
 			stream->h264_gop,
-			us_bool_to_string(atomic_load(&stream->run->http_h264_online))
+			us_bool_to_string(atomic_load(&stream->run->http->h264_online))
 		);
 	}
 
@@ -504,7 +504,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 	}
 
 	us_fpsi_meta_s captured_meta;
-	const uint captured_fps = us_fpsi_get(stream->run->http_captured_fpsi, &captured_meta);
+	const uint captured_fps = us_fpsi_get(stream->run->http->captured_fpsi, &captured_meta);
 	_A_EVBUFFER_ADD_PRINTF(buf,
 		" \"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
 		" \"online\": %s, \"desired_fps\": %u, \"captured_fps\": %u},"
@@ -551,7 +551,7 @@ static void _http_callback_snapshot(struct evhttp_request *request, void *v_serv
 	client->request = request;
 	client->request_ts = us_get_now_monotonic();
 
-	atomic_fetch_add(&server->stream->run->http_snapshot_requested, 1);
+	atomic_fetch_add(&server->stream->run->http->snapshot_requested, 1);
 	US_LIST_APPEND(server->run->snapshot_clients, client);
 }
 
@@ -600,7 +600,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		US_LIST_APPEND_C(run->stream_clients, client, run->stream_clients_count);
 
 		if (run->stream_clients_count == 1) {
-			atomic_store(&server->stream->run->http_has_clients, true);
+			atomic_store(&server->stream->run->http->has_clients, true);
 #			ifdef WITH_GPIO
 			us_gpio_set_has_http_clients(true);
 #			endif
@@ -779,7 +779,7 @@ static void _http_callback_stream_error(struct bufferevent *buf_event, short wha
 	US_LIST_REMOVE_C(run->stream_clients, client, run->stream_clients_count);
 
 	if (run->stream_clients_count == 0) {
-		atomic_store(&server->stream->run->http_has_clients, false);
+		atomic_store(&server->stream->run->http->has_clients, false);
 #		ifdef WITH_GPIO
 		us_gpio_set_has_http_clients(false);
 #		endif
@@ -861,12 +861,12 @@ static void _http_send_snapshot(us_server_s *server) {
 		}
 
 	us_fpsi_meta_s captured_meta;
-	us_fpsi_get(server->stream->run->http_captured_fpsi, &captured_meta);
+	us_fpsi_get(server->stream->run->http->captured_fpsi, &captured_meta);
 
 	US_LIST_ITERATE(server->run->snapshot_clients, client, { // cppcheck-suppress constStatement
 		struct evhttp_request *request = client->request;
 
-		const bool has_fresh_snapshot = (atomic_load(&server->stream->run->http_snapshot_requested) == 0);
+		const bool has_fresh_snapshot = (atomic_load(&server->stream->run->http->snapshot_requested) == 0);
 		const bool timed_out = (client->request_ts + US_MAX((uint)1, server->stream->error_delay * 3) < us_get_now_monotonic());
 
 		if (has_fresh_snapshot || timed_out) {
@@ -921,7 +921,7 @@ static void _http_refresher(int fd, short what, void *v_server) {
 
 	us_server_s *server = v_server;
 	us_server_exposed_s *ex = server->run->exposed;
-	us_ring_s *const ring = server->stream->run->http_jpeg_ring;
+	us_ring_s *const ring = server->stream->run->http->jpeg_ring;
 
 	bool stream_updated = false;
 	bool frame_updated = false;

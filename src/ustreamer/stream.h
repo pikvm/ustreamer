@@ -43,28 +43,32 @@
 
 
 typedef struct {
+	atomic_bool		h264_online;
+
+	us_ring_s		*jpeg_ring;
+	atomic_bool		has_clients;
+	atomic_uint		snapshot_requested;
+	atomic_ullong	last_request_ts; // Seconds
+	us_fpsi_s		*captured_fpsi;
+} us_stream_http_s;
+
+typedef struct {
+	us_stream_http_s	*http;
+
 	us_m2m_encoder_s	*h264_enc;
 	us_frame_s			*h264_tmp_src;
 	us_frame_s			*h264_dest;
 	bool				h264_key_requested;
-	atomic_bool			http_h264_online;
 
-	us_ring_s		*http_jpeg_ring;
-	atomic_bool		http_has_clients;
-	atomic_uint		http_snapshot_requested;
-	atomic_ullong	http_last_request_ts; // Seconds
-	us_fpsi_s		*http_captured_fpsi;
+	us_blank_s			*blank;
 
-	us_blank_s		*blank;
-
-	atomic_bool		stop;
+	atomic_bool			stop;
 } us_stream_runtime_s;
 
 typedef struct {
 	us_capture_s	*cap;
 	us_encoder_s	*enc;
 
-	int				last_as_blank;
 	bool			slowdown;
 	uint			error_delay;
 	uint			exit_on_no_clients;

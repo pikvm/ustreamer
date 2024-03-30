@@ -95,16 +95,20 @@ static void _stream_check_suicide(us_stream_s *stream);
 
 
 us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
+	us_stream_http_s *http;
+	US_CALLOC(http, 1);
+	atomic_init(&http->h264_online, false);
+	US_RING_INIT_WITH_ITEMS(http->jpeg_ring, 4, us_frame_init);
+	atomic_init(&http->has_clients, false);
+	atomic_init(&http->snapshot_requested, 0);
+	atomic_init(&http->last_request_ts, 0);
+	http->captured_fpsi = us_fpsi_init("STREAM-CAPTURED", true);
+
 	us_stream_runtime_s *run;
 	US_CALLOC(run, 1);
-	atomic_init(&run->http_h264_online, false);
-	US_RING_INIT_WITH_ITEMS(run->http_jpeg_ring, 4, us_frame_init);
-	atomic_init(&run->http_has_clients, false);
-	atomic_init(&run->http_snapshot_requested, 0);
-	atomic_init(&run->http_last_request_ts, 0);
-	run->http_captured_fpsi = us_fpsi_init("STREAM-CAPTURED", true);
 	atomic_init(&run->stop, false);
 	run->blank = us_blank_init();
+	run->http = http;
 
 	us_stream_s *stream;
 	US_CALLOC(stream, 1);
@@ -116,14 +120,15 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 	stream->run = run;
 
 	us_blank_draw(run->blank, "< NO SIGNAL >", cap->width, cap->height);
-	us_fpsi_reset(run->http_captured_fpsi, run->blank->raw);
+	us_fpsi_reset(http->captured_fpsi, run->blank->raw);
 	return stream;
 }
 
 void us_stream_destroy(us_stream_s *stream) {
+	us_fpsi_destroy(stream->run->http->captured_fpsi);
+	US_RING_DELETE_WITH_ITEMS(stream->run->http->jpeg_ring, us_frame_destroy);
 	us_blank_destroy(stream->run->blank);
-	us_fpsi_destroy(stream->run->http_captured_fpsi);
-	US_RING_DELETE_WITH_ITEMS(stream->run->http_jpeg_ring, us_frame_destroy);
+	free(stream->run->http);
 	free(stream->run);
 	free(stream);
 }
@@ -132,7 +137,7 @@ void us_stream_loop(us_stream_s *stream) {
 	us_stream_runtime_s *const run = stream->run;
 	us_capture_s *const cap = stream->cap;
 
-	atomic_store(&run->http_last_request_ts, us_get_now_monotonic());
+	atomic_store(&run->http->last_request_ts, us_get_now_monotonic());
 
 	if (stream->h264_sink != NULL) {
 		run->h264_enc = us_m2m_h264_encoder_init("H264", stream->h264_m2m_path, stream->h264_bitrate, stream->h264_gop);
@@ -186,7 +191,7 @@ void us_stream_loop(us_stream_s *stream) {
 				default: goto close; // Any error
 			}
 
-			us_fpsi_bump(run->http_captured_fpsi, &hw->raw);
+			us_fpsi_bump(run->http->captured_fpsi, &hw->raw);
 
 #			ifdef WITH_GPIO
 			us_gpio_set_stream_online(true);
@@ -307,8 +312,8 @@ static void *_jpeg_thread(void *v_ctx) {
 				// pass
 			} else if (ready_wr->job_timely) {
 				_stream_expose_jpeg(stream, ready_job->dest);
-				if (atomic_load(&stream->run->http_snapshot_requested) > 0) { // Process real snapshots
-					atomic_fetch_sub(&stream->run->http_snapshot_requested, 1);
+				if (atomic_load(&stream->run->http->snapshot_requested) > 0) { // Process real snapshots
+					atomic_fetch_sub(&stream->run->http->snapshot_requested, 1);
 				}
 				US_LOG_PERF("JPEG: ##### Encoded JPEG exposed; worker=%s, latency=%.3Lf",
 					ready_wr->name, us_get_now_monotonic() - ready_job->dest->grab_ts);
@@ -481,8 +486,8 @@ static us_capture_hwbuf_s *_get_latest_hw(us_queue_s *queue) {
 static bool _stream_has_jpeg_clients_cached(us_stream_s *stream) {
 	const us_stream_runtime_s *const run = stream->run;
 	return (
-		atomic_load(&run->http_has_clients)
-		|| (atomic_load(&run->http_snapshot_requested) > 0)
+		atomic_load(&run->http->has_clients)
+		|| (atomic_load(&run->http->snapshot_requested) > 0)
 		|| (stream->jpeg_sink != NULL && atomic_load(&stream->jpeg_sink->has_clients))
 	);
 }
@@ -552,7 +557,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 					height = stream->cap->height;
 				}
 				us_blank_draw(run->blank, "< NO SIGNAL >", width, height);
-				us_fpsi_reset(run->http_captured_fpsi, run->blank->raw);
+				us_fpsi_reset(run->http->captured_fpsi, run->blank->raw);
 
 				_stream_expose_jpeg(stream, run->blank->jpeg);
 				_stream_expose_raw(stream, run->blank->raw);
@@ -591,14 +596,14 @@ close:
 static void _stream_expose_jpeg(us_stream_s *stream, const us_frame_s *frame) {
 	us_stream_runtime_s *const run = stream->run;
 	int ri;
-	while ((ri = us_ring_producer_acquire(run->http_jpeg_ring, 0)) < 0) {
+	while ((ri = us_ring_producer_acquire(run->http->jpeg_ring, 0)) < 0) {
 		if (atomic_load(&run->stop)) {
 			return;
 		}
 	}
-	us_frame_s *const dest = run->http_jpeg_ring->items[ri];
+	us_frame_s *const dest = run->http->jpeg_ring->items[ri];
 	us_frame_copy(frame, dest);
-	us_ring_producer_release(run->http_jpeg_ring, ri);
+	us_ring_producer_release(run->http->jpeg_ring, ri);
 	if (stream->jpeg_sink != NULL) {
 		us_memsink_server_put(stream->jpeg_sink, dest, NULL);
 	}
@@ -631,7 +636,7 @@ static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *fr
 		online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
 	}
 done:
-	atomic_store(&run->http_h264_online, online);
+	atomic_store(&run->http->h264_online, online);
 }
 
 static void _stream_check_suicide(us_stream_s *stream) {
@@ -640,13 +645,13 @@ static void _stream_check_suicide(us_stream_s *stream) {
 	}
 	us_stream_runtime_s *const run = stream->run;
 	const ldf now_ts = us_get_now_monotonic();
-	const ull http_last_request_ts = atomic_load(&run->http_last_request_ts); // Seconds
+	const ull http_last_request_ts = atomic_load(&run->http->last_request_ts); // Seconds
 	if (_stream_has_any_clients_cached(stream)) {
-		atomic_store(&run->http_last_request_ts, now_ts);
+		atomic_store(&run->http->last_request_ts, now_ts);
 	} else if (http_last_request_ts + stream->exit_on_no_clients < now_ts) {
 		US_LOG_INFO("No requests or HTTP/sink clients found in last %u seconds, exiting ...",
 			stream->exit_on_no_clients);
 		us_process_suicide();
-		atomic_store(&run->http_last_request_ts, now_ts);
+		atomic_store(&run->http->last_request_ts, now_ts);
 	}
 }
