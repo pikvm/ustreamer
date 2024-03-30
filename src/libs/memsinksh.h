@@ -23,33 +23,23 @@
 #pragma once
 
 #include "types.h"
+#include "frame.h"
 
 
 #define US_MEMSINK_MAGIC	((u64)0xCAFEBABECAFEBABE)
-#define US_MEMSINK_VERSION	((u32)6)
+#define US_MEMSINK_VERSION	((u32)7)
 
 
 typedef struct {
 	u64		magic;
 	u32		version;
-
 	u64		id;
-
 	uz		used;
-	uint	width;
-	uint	height;
-	uint	format;
-	uint	stride;
-	bool	online;
-	bool	key;
-	uint	gop;
-
-	ldf		grab_ts;
-	ldf		encode_begin_ts;
-	ldf		encode_end_ts;
 
 	ldf		last_client_ts;
 	bool	key_requested;
+
+	US_FRAME_META_DECLARE;
 } us_memsink_shared_s;
 
 

@@ -26,26 +26,30 @@
 #include "tools.h"
 
 
+#define US_FRAME_META_DECLARE \
+	uint	width; \
+	uint	height; \
+	uint	format; \
+	uint	stride; \
+	/* Stride is a bytesperline in V4L2 */ \
+	/* https://www.kernel.org/doc/html/v4.14/media/uapi/v4l/pixfmt-v4l2.html */ \
+	/* https://medium.com/@oleg.shipitko/what-does-stride-mean-in-image-processing-bba158a72bcd */ \
+	bool	online; \
+	bool	key; \
+	uint	gop; \
+	\
+	ldf		grab_ts; \
+	ldf		encode_begin_ts; \
+	ldf		encode_end_ts;
+
+
 typedef struct {
 	u8		*data;
 	uz		used;
 	uz		allocated;
 	int		dma_fd;
 
-	uint	width;
-	uint	height;
-	uint	format;
-	uint	stride;
-	// Stride is a bytesperline in V4L2
-	// https://www.kernel.org/doc/html/v4.14/media/uapi/v4l/pixfmt-v4l2.html
-	// https://medium.com/@oleg.shipitko/what-does-stride-mean-in-image-processing-bba158a72bcd
-	bool	online;
-	bool	key;
-	uint	gop;
-
-	ldf		grab_ts;
-	ldf		encode_begin_ts;
-	ldf		encode_end_ts;
+	US_FRAME_META_DECLARE;
 } us_frame_s;
 
 
