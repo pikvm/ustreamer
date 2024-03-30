@@ -36,7 +36,7 @@
 #include "../libs/logging.h"
 #include "../libs/frame.h"
 #include "../libs/memsink.h"
-#include "../libs/fps.h"
+#include "../libs/fpsi.h"
 #include "../libs/signal.h"
 #include "../libs/options.h"
 
@@ -222,7 +222,7 @@ static int _dump_sink(
 	const useconds_t interval_us = interval * 1000000;
 
 	us_frame_s *frame = us_frame_init();
-	us_fps_s *fps = us_fps_init("SINK");
+	us_fpsi_s *fpsi = us_fpsi_init("SINK", false);
 	us_memsink_s *sink = NULL;
 
 	if ((sink = us_memsink_init_opened("input", sink_name, false, 0, false, 0, sink_timeout)) == NULL) {
@@ -251,7 +251,7 @@ static int _dump_sink(
 			US_LOG_DEBUG("       stride=%u, grab_ts=%.3Lf, encode_begin_ts=%.3Lf, encode_end_ts=%.3Lf",
 				frame->stride, frame->grab_ts, frame->encode_begin_ts, frame->encode_end_ts);
 
-			us_fps_bump(fps);
+			us_fpsi_bump(fpsi, NULL);
 
 			if (ctx->v_output != NULL) {
 				ctx->write(ctx->v_output, frame);
@@ -278,7 +278,7 @@ static int _dump_sink(
 
 error:
 	US_DELETE(sink, us_memsink_destroy);
-	us_fps_destroy(fps);
+	us_fpsi_destroy(fpsi);
 	us_frame_destroy(frame);
 	US_LOG_INFO("Bye-bye");
 	return retval;

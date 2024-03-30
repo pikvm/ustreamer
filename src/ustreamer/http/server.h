@@ -31,7 +31,7 @@
 #include "../../libs/types.h"
 #include "../../libs/frame.h"
 #include "../../libs/list.h"
-#include "../../libs/fps.h"
+#include "../../libs/fpsi.h"
 #include "../encoder.h"
 #include "../stream.h"
 
@@ -52,7 +52,7 @@ typedef struct {
 	bool	need_first_frame;
 	bool	updated_prev;
 
-	us_fps_s *fps;
+	us_fpsi_s *fpsi;
 
 	US_LIST_DECLARE;
 } us_stream_client_s;
@@ -67,7 +67,7 @@ typedef struct {
 
 typedef struct {
 	us_frame_s	*frame;
-	us_fps_s	*queued_fps;
+	us_fpsi_s	*queued_fpsi;
 	uint		dropped;
 	ldf			expose_begin_ts;
 	ldf			expose_cmp_ts;

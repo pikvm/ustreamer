@@ -54,30 +54,30 @@ typedef struct {
 
 
 #define US_FRAME_COPY_META(x_src, x_dest) { \
-		x_dest->width = x_src->width; \
-		x_dest->height = x_src->height; \
-		x_dest->format = x_src->format; \
-		x_dest->stride = x_src->stride; \
-		x_dest->online = x_src->online; \
-		x_dest->key = x_src->key; \
-		x_dest->gop = x_src->gop; \
+		(x_dest)->width = (x_src)->width; \
+		(x_dest)->height = (x_src)->height; \
+		(x_dest)->format = (x_src)->format; \
+		(x_dest)->stride = (x_src)->stride; \
+		(x_dest)->online = (x_src)->online; \
+		(x_dest)->key = (x_src)->key; \
+		(x_dest)->gop = (x_src)->gop; \
 		\
-		x_dest->grab_ts = x_src->grab_ts; \
-		x_dest->encode_begin_ts = x_src->encode_begin_ts; \
-		x_dest->encode_end_ts = x_src->encode_end_ts; \
+		(x_dest)->grab_ts = (x_src)->grab_ts; \
+		(x_dest)->encode_begin_ts = (x_src)->encode_begin_ts; \
+		(x_dest)->encode_end_ts = (x_src)->encode_end_ts; \
 	}
 
 #define US_FRAME_COMPARE_GEOMETRY(x_a, x_b) ( \
 		/* Compare the used size and significant meta (no timings) */ \
-		x_a->used == x_b->used \
+		(x_a)->used == (x_b)->used \
 		\
-		&& x_a->width == x_b->width \
-		&& x_a->height == x_b->height \
-		&& x_a->format == x_b->format \
-		&& x_a->stride == x_b->stride \
-		&& x_a->online == x_b->online \
-		&& x_a->key == x_b->key \
-		&& x_a->gop == x_b->gop \
+		&& (x_a)->width == (x_b)->width \
+		&& (x_a)->height == (x_b)->height \
+		&& (x_a)->format == (x_b)->format \
+		&& (x_a)->stride == (x_b)->stride \
+		&& (x_a)->online == (x_b)->online \
+		&& (x_a)->key == (x_b)->key \
+		&& (x_a)->gop == (x_b)->gop \
 	)
 
 

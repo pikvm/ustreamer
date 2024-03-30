@@ -120,7 +120,7 @@ us_server_s *us_server_init(us_stream_s *stream) {
 	us_server_exposed_s *exposed;
 	US_CALLOC(exposed, 1);
 	exposed->frame = us_frame_init();
-	exposed->queued_fps = us_fps_init("MJPEG-QUEUED");
+	exposed->queued_fpsi = us_fpsi_init("MJPEG-QUEUED", false);
 
 	us_server_runtime_s *run;
 	US_CALLOC(run, 1);
@@ -169,7 +169,7 @@ void us_server_destroy(us_server_s *server) {
 	});
 
 	US_LIST_ITERATE(run->stream_clients, client, { // cppcheck-suppress constStatement
-		us_fps_destroy(client->fps);
+		us_fpsi_destroy(client->fpsi);
 		free(client->key);
 		free(client->hostport);
 		free(client);
@@ -177,7 +177,7 @@ void us_server_destroy(us_server_s *server) {
 
 	US_DELETE(run->auth_token, free);
 
-	us_fps_destroy(run->exposed->queued_fps);
+	us_fpsi_destroy(run->exposed->queued_fpsi);
 	us_frame_destroy(run->exposed->frame);
 	free(run->exposed);
 	free(server->run);
@@ -503,21 +503,18 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		_A_EVBUFFER_ADD_PRINTF(buf, "},");
 	}
 
-	uint width;
-	uint height;
-	bool online;
-	uint captured_fps;
-	us_stream_get_capture_state(stream, &width, &height, &online, &captured_fps);
+	us_fpsi_meta_s captured_meta;
+	const uint captured_fps = us_fpsi_get(stream->run->http_captured_fpsi, &captured_meta);
 	_A_EVBUFFER_ADD_PRINTF(buf,
 		" \"source\": {\"resolution\": {\"width\": %u, \"height\": %u},"
 		" \"online\": %s, \"desired_fps\": %u, \"captured_fps\": %u},"
 		" \"stream\": {\"queued_fps\": %u, \"clients\": %u, \"clients_stat\": {",
-		(server->fake_width ? server->fake_width : width),
-		(server->fake_height ? server->fake_height : height),
-		us_bool_to_string(online),
+		(server->fake_width ? server->fake_width : captured_meta.width),
+		(server->fake_height ? server->fake_height : captured_meta.height),
+		us_bool_to_string(captured_meta.online),
 		stream->cap->desired_fps,
 		captured_fps,
-		us_fps_get(ex->queued_fps),
+		us_fpsi_get(ex->queued_fpsi, NULL),
 		run->stream_clients_count
 	);
 
@@ -526,7 +523,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 			"\"%" PRIx64 "\": {\"fps\": %u, \"extra_headers\": %s, \"advance_headers\": %s,"
 			" \"dual_final_frames\": %s, \"zero_data\": %s, \"key\": \"%s\"}%s",
 			client->id,
-			us_fps_get(client->fps),
+			us_fpsi_get(client->fpsi, NULL),
 			us_bool_to_string(client->extra_headers),
 			us_bool_to_string(client->advance_headers),
 			us_bool_to_string(client->dual_final_frames),
@@ -596,7 +593,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		{
 			char *name;
 			US_ASPRINTF(name, "MJPEG-CLIENT-%" PRIx64, client->id);
-			client->fps = us_fps_init(name);
+			client->fpsi = us_fpsi_init(name, false);
 			free(name);
 		}
 
@@ -636,7 +633,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	us_server_s *const server = client->server;
 	us_server_exposed_s *const ex = server->run->exposed;
 
-	us_fps_bump(client->fps);
+	us_fpsi_bump(client->fpsi, NULL);
 
 	struct evbuffer *buf;
 	_A_EVBUFFER_NEW(buf);
@@ -739,7 +736,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				ex->dropped,
 				ex->frame->width,
 				ex->frame->height,
-				us_fps_get(client->fps),
+				us_fpsi_get(client->fpsi, NULL),
 				ex->frame->grab_ts,
 				ex->frame->encode_begin_ts,
 				ex->frame->encode_end_ts,
@@ -796,7 +793,7 @@ static void _http_callback_stream_error(struct bufferevent *buf_event, short wha
 	struct evhttp_connection *conn = evhttp_request_get_connection(client->request);
 	US_DELETE(conn, evhttp_connection_free);
 
-	us_fps_destroy(client->fps);
+	us_fpsi_destroy(client->fpsi);
 	free(client->key);
 	free(client->hostport);
 	free(client);
@@ -843,9 +840,9 @@ static void _http_send_stream(us_server_s *server, bool stream_updated, bool fra
 	});
 
 	if (queued) {
-		us_fps_bump(ex->queued_fps);
+		us_fpsi_bump(ex->queued_fpsi, NULL);
 	} else if (!has_clients) {
-		us_fps_reset(ex->queued_fps);
+		us_fpsi_reset(ex->queued_fpsi, NULL);
 	}
 }
 
@@ -862,11 +859,9 @@ static void _http_send_snapshot(us_server_s *server) {
 			US_SNPRINTF(header_buf, 255, "%u", x_value); \
 			_A_ADD_HEADER(request, x_key, header_buf); \
 		}
-	uint width;
-	uint height;
-	uint captured_fps; // Unused
-	bool online;
-	us_stream_get_capture_state(server->stream, &width, &height, &online, &captured_fps);
+
+	us_fpsi_meta_s captured_meta;
+	us_fpsi_get(server->stream->run->http_captured_fpsi, &captured_meta);
 
 	US_LIST_ITERATE(server->run->snapshot_clients, client, { // cppcheck-suppress constStatement
 		struct evhttp_request *request = client->request;
@@ -876,10 +871,10 @@ static void _http_send_snapshot(us_server_s *server) {
 
 		if (has_fresh_snapshot || timed_out) {
 			us_frame_s *frame = ex->frame;
-			if (!online) {
+			if (!captured_meta.online) {
 				if (blank == NULL) {
 					blank = us_blank_init();
-					us_blank_draw(blank, "< NO SIGNAL >", width, height);
+					us_blank_draw(blank, "< NO SIGNAL >", captured_meta.width, captured_meta.height);
 				}
 				frame = blank->jpeg;
 			}

@@ -22,22 +22,30 @@
 
 #pragma once
 
-#include <stdatomic.h>
+#include <pthread.h>
 
 #include "types.h"
+#include "frame.h"
 
 
 typedef struct {
-	char		*name;
-	uint		accum;
-	ldf			ts;
-	atomic_uint	current;
-} us_fps_s;
+	US_FRAME_META_DECLARE;
+} us_fpsi_meta_s;
+
+typedef struct {
+	char			*name;
+	bool			with_meta;
+	uint			accum;
+	ldf				ts;
+	uint			current;
+	us_fpsi_meta_s	meta;
+	pthread_mutex_t	mutex;
+} us_fpsi_s;
 
 
-us_fps_s *us_fps_init(const char *name);
-void us_fps_destroy(us_fps_s *fps);
+us_fpsi_s *us_fpsi_init(const char *name, bool with_meta);
+void us_fpsi_destroy(us_fpsi_s *fpsi);
 
-void us_fps_bump(us_fps_s *fps);
-void us_fps_reset(us_fps_s *fps);
-uint us_fps_get(us_fps_s *fps);
+void us_fpsi_bump(us_fpsi_s *fpsi, const us_frame_s *frame);
+void us_fpsi_reset(us_fpsi_s *fpsi, const us_frame_s *meta);
+uint us_fpsi_get(us_fpsi_s *fpsi, us_fpsi_meta_s *meta);

@@ -32,6 +32,7 @@
 #include "../libs/frame.h"
 #include "../libs/memsink.h"
 #include "../libs/capture.h"
+#include "../libs/fpsi.h"
 #ifdef WITH_V4P
 #	include "../libs/drm/drm.h"
 #endif
@@ -52,7 +53,7 @@ typedef struct {
 	atomic_bool		http_has_clients;
 	atomic_uint		http_snapshot_requested;
 	atomic_ullong	http_last_request_ts; // Seconds
-	atomic_ullong	http_capture_state; // Bits
+	us_fpsi_s		*http_captured_fpsi;
 
 	us_blank_s		*blank;
 
@@ -89,5 +90,3 @@ void us_stream_destroy(us_stream_s *stream);
 
 void us_stream_loop(us_stream_s *stream);
 void us_stream_loop_break(us_stream_s *stream);
-
-void us_stream_get_capture_state(us_stream_s *stream, uint *width, uint *height, bool *online, uint *captured_fps);

@@ -42,7 +42,7 @@
 #include "../libs/memsink.h"
 #include "../libs/capture.h"
 #include "../libs/unjpeg.h"
-#include "../libs/fps.h"
+#include "../libs/fpsi.h"
 #ifdef WITH_V4P
 #	include "../libs/drm/drm.h"
 #endif
@@ -71,8 +71,6 @@ typedef struct {
 	atomic_bool	*stop;
 } _worker_context_s;
 
-
-static void _stream_set_capture_state(us_stream_s *stream, uint width, uint height, bool online, uint captured_fps);
 
 static void *_releaser_thread(void *v_ctx);
 static void *_jpeg_thread(void *v_ctx);
@@ -104,7 +102,7 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 	atomic_init(&run->http_has_clients, false);
 	atomic_init(&run->http_snapshot_requested, 0);
 	atomic_init(&run->http_last_request_ts, 0);
-	atomic_init(&run->http_capture_state, 0);
+	run->http_captured_fpsi = us_fpsi_init("STREAM-CAPTURED", true);
 	atomic_init(&run->stop, false);
 	run->blank = us_blank_init();
 
@@ -118,12 +116,13 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 	stream->run = run;
 
 	us_blank_draw(run->blank, "< NO SIGNAL >", cap->width, cap->height);
-	_stream_set_capture_state(stream, cap->width, cap->height, false, 0);
+	us_fpsi_reset(run->http_captured_fpsi, run->blank->raw);
 	return stream;
 }
 
 void us_stream_destroy(us_stream_s *stream) {
 	us_blank_destroy(stream->run->blank);
+	us_fpsi_destroy(stream->run->http_captured_fpsi);
 	US_RING_DELETE_WITH_ITEMS(stream->run->http_jpeg_ring, us_frame_destroy);
 	free(stream->run);
 	free(stream);
@@ -176,8 +175,6 @@ void us_stream_loop(us_stream_s *stream) {
 #		endif
 #		undef CREATE_WORKER
 
-		us_fps_s *fps = us_fps_init("CAP");
-
 		US_LOG_INFO("Capturing ...");
 
 		uint slowdown_count = 0;
@@ -189,8 +186,7 @@ void us_stream_loop(us_stream_s *stream) {
 				default: goto close; // Any error
 			}
 
-			us_fps_bump(fps);
-			_stream_set_capture_state(stream, cap->run->width, cap->run->height, true, us_fps_get(fps));
+			us_fpsi_bump(run->http_captured_fpsi, &hw->raw);
 
 #			ifdef WITH_GPIO
 			us_gpio_set_stream_online(true);
@@ -221,8 +217,6 @@ void us_stream_loop(us_stream_s *stream) {
 		}
 
 	close:
-		us_fps_destroy(fps);
-
 		atomic_store(&threads_stop, true);
 
 #		define DELETE_WORKER(x_ctx) if (x_ctx != NULL) { \
@@ -262,24 +256,6 @@ void us_stream_loop(us_stream_s *stream) {
 
 void us_stream_loop_break(us_stream_s *stream) {
 	atomic_store(&stream->run->stop, true);
-}
-
-void us_stream_get_capture_state(us_stream_s *stream, uint *width, uint *height, bool *online, uint *captured_fps) {
-	const u64 state = atomic_load(&stream->run->http_capture_state);
-	*width = state & 0xFFFF;
-	*height = (state >> 16) & 0xFFFF;
-	*captured_fps = (state >> 32) & 0xFFFF;
-	*online = (state >> 48) & 1;
-}
-
-void _stream_set_capture_state(us_stream_s *stream, uint width, uint height, bool online, uint captured_fps) {
-	const u64 state = (
-		(u64)(width & 0xFFFF)
-		| ((u64)(height & 0xFFFF) << 16)
-		| ((u64)(captured_fps & 0xFFFF) << 32)
-		| ((u64)(online ? 1 : 0) << 48)
-	);
-	atomic_store(&stream->run->http_capture_state, state);
 }
 
 static void *_releaser_thread(void *v_ctx) {
@@ -576,8 +552,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 					height = stream->cap->height;
 				}
 				us_blank_draw(run->blank, "< NO SIGNAL >", width, height);
-
-				_stream_set_capture_state(stream, width, height, false, 0);
+				us_fpsi_reset(run->http_captured_fpsi, run->blank->raw);
 
 				_stream_expose_jpeg(stream, run->blank->jpeg);
 				_stream_expose_raw(stream, run->blank->raw);
