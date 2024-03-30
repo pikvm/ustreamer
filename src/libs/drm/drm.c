@@ -99,14 +99,13 @@ int us_drm_open(us_drm_s *drm, const us_capture_s *cap) {
 
 	assert(run->fd < 0);
 
-	_LOG_INFO("Using passthrough: %s[%s]", drm->path, drm->port);
-
 	switch (_drm_check_status(drm)) {
 		case 0: break;
 		case US_ERROR_NO_DEVICE: goto unplugged;
 		default: goto error;
 	}
 
+	_LOG_INFO("Using passthrough: %s[%s]", drm->path, drm->port);
 	_LOG_INFO("Configuring DRM device for %s ...", (cap == NULL ? "STUB" : "DMA"));
 
 	if ((run->fd = open(drm->path, O_RDWR | O_CLOEXEC | O_NONBLOCK)) < 0) {
