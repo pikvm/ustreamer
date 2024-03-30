@@ -31,6 +31,7 @@
 #include "../../libs/types.h"
 #include "../../libs/frame.h"
 #include "../../libs/list.h"
+#include "../../libs/fps.h"
 #include "../encoder.h"
 #include "../stream.h"
 
@@ -50,9 +51,8 @@ typedef struct us_stream_client_sx {
 	bool	need_initial;
 	bool	need_first_frame;
 	bool	updated_prev;
-	uint	fps_accum;
-	sll		fps_ts;
-	uint	fps;
+
+	us_fps_s *fps;
 
 	US_LIST_STRUCT(struct us_stream_client_sx);
 } us_stream_client_s;
@@ -67,8 +67,7 @@ typedef struct us_snapshot_client_sx {
 
 typedef struct {
 	us_frame_s	*frame;
-	uint		captured_fps;
-	uint		queued_fps;
+	us_fps_s	*queued_fps;
 	uint		dropped;
 	ldf			expose_begin_ts;
 	ldf			expose_cmp_ts;

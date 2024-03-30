@@ -42,6 +42,7 @@
 #include "../libs/memsink.h"
 #include "../libs/capture.h"
 #include "../libs/unjpeg.h"
+#include "../libs/fps.h"
 #ifdef WITH_V4P
 #	include "../libs/drm/drm.h"
 #endif
@@ -175,9 +176,7 @@ void us_stream_loop(us_stream_s *stream) {
 #		endif
 #		undef CREATE_WORKER
 
-		uint captured_fps_accum = 0;
-		sll captured_fps_ts = 0;
-		uint captured_fps = 0;
+		us_fps_s *fps = us_fps_init("CAP");
 
 		US_LOG_INFO("Capturing ...");
 
@@ -190,16 +189,9 @@ void us_stream_loop(us_stream_s *stream) {
 				default: goto close; // Any error
 			}
 
-			const sll now_sec_ts = us_floor_ms(us_get_now_monotonic());
-			if (now_sec_ts != captured_fps_ts) {
-				captured_fps = captured_fps_accum;
-				captured_fps_accum = 0;
-				captured_fps_ts = now_sec_ts;
-				US_LOG_PERF_FPS("A new second has come; captured_fps=%u", captured_fps);
-			}
-			captured_fps_accum += 1;
+			us_fps_bump(fps);
+			_stream_set_capture_state(stream, cap->run->width, cap->run->height, true, us_fps_get(fps));
 
-			_stream_set_capture_state(stream, cap->run->width, cap->run->height, true, captured_fps);
 #			ifdef WITH_GPIO
 			us_gpio_set_stream_online(true);
 #			endif
@@ -229,6 +221,8 @@ void us_stream_loop(us_stream_s *stream) {
 		}
 
 	close:
+		us_fps_destroy(fps);
+
 		atomic_store(&threads_stop, true);
 
 #		define DELETE_WORKER(x_ctx) if (x_ctx != NULL) { \

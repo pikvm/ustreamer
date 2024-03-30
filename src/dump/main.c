@@ -36,6 +36,7 @@
 #include "../libs/logging.h"
 #include "../libs/frame.h"
 #include "../libs/memsink.h"
+#include "../libs/fps.h"
 #include "../libs/signal.h"
 #include "../libs/options.h"
 
@@ -221,15 +222,12 @@ static int _dump_sink(
 	const useconds_t interval_us = interval * 1000000;
 
 	us_frame_s *frame = us_frame_init();
+	us_fps_s *fps = us_fps_init("SINK");
 	us_memsink_s *sink = NULL;
 
 	if ((sink = us_memsink_init_opened("input", sink_name, false, 0, false, 0, sink_timeout)) == NULL) {
 		goto error;
 	}
-
-	unsigned fps = 0;
-	unsigned fps_accum = 0;
-	long long fps_second = 0;
 
 	long double last_ts = 0;
 
@@ -240,7 +238,6 @@ static int _dump_sink(
 			key_required = false;
 
 			const long double now = us_get_now_monotonic();
-			const long long now_second = us_floor_ms(now);
 
 			char fourcc_str[8];
 			US_LOG_VERBOSE("Frame: %s - %ux%u -- online=%d, key=%d, kr=%d, gop=%u, latency=%.3Lf, backlog=%.3Lf, size=%zu",
@@ -254,13 +251,7 @@ static int _dump_sink(
 			US_LOG_DEBUG("       stride=%u, grab_ts=%.3Lf, encode_begin_ts=%.3Lf, encode_end_ts=%.3Lf",
 				frame->stride, frame->grab_ts, frame->encode_begin_ts, frame->encode_end_ts);
 
-			if (now_second != fps_second) {
-				fps = fps_accum;
-				fps_accum = 0;
-				fps_second = now_second;
-				US_LOG_PERF_FPS("A new second has come; captured_fps=%u", fps);
-			}
-			fps_accum += 1;
+			us_fps_bump(fps);
 
 			if (ctx->v_output != NULL) {
 				ctx->write(ctx->v_output, frame);
@@ -287,6 +278,7 @@ static int _dump_sink(
 
 error:
 	US_DELETE(sink, us_memsink_destroy);
+	us_fps_destroy(fps);
 	us_frame_destroy(frame);
 	US_LOG_INFO("Bye-bye");
 	return retval;

@@ -120,6 +120,7 @@ us_server_s *us_server_init(us_stream_s *stream) {
 	us_server_exposed_s *exposed;
 	US_CALLOC(exposed, 1);
 	exposed->frame = us_frame_init();
+	exposed->queued_fps = us_fps_init("MJPEG-QUEUED");
 
 	us_server_runtime_s *run;
 	US_CALLOC(run, 1);
@@ -168,6 +169,7 @@ void us_server_destroy(us_server_s *server) {
 	});
 
 	US_LIST_ITERATE(run->stream_clients, client, { // cppcheck-suppress constStatement
+		us_fps_destroy(client->fps);
 		free(client->key);
 		free(client->hostport);
 		free(client);
@@ -175,6 +177,7 @@ void us_server_destroy(us_server_s *server) {
 
 	US_DELETE(run->auth_token, free);
 
+	us_fps_destroy(run->exposed->queued_fps);
 	us_frame_destroy(run->exposed->frame);
 	free(run->exposed);
 	free(server->run);
@@ -514,7 +517,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		us_bool_to_string(online),
 		stream->cap->desired_fps,
 		captured_fps,
-		ex->queued_fps,
+		us_fps_get(ex->queued_fps),
 		run->stream_clients_count
 	);
 
@@ -523,7 +526,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 			"\"%" PRIx64 "\": {\"fps\": %u, \"extra_headers\": %s, \"advance_headers\": %s,"
 			" \"dual_final_frames\": %s, \"zero_data\": %s, \"key\": \"%s\"}%s",
 			client->id,
-			client->fps,
+			us_fps_get(client->fps),
 			us_bool_to_string(client->extra_headers),
 			us_bool_to_string(client->advance_headers),
 			us_bool_to_string(client->dual_final_frames),
@@ -590,6 +593,13 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 		client->hostport = _http_get_client_hostport(request);
 		client->id = us_get_now_id();
 
+		{
+			char *name;
+			US_ASPRINTF(name, "MJPEG-CLIENT-%" PRIx64, client->id);
+			client->fps = us_fps_init(name);
+			free(name);
+		}
+
 		US_LIST_APPEND_C(run->stream_clients, client, run->stream_clients_count);
 
 		if (run->stream_clients_count == 1) {
@@ -626,15 +636,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	us_server_s *const server = client->server;
 	us_server_exposed_s *const ex = server->run->exposed;
 
-	const ldf now_ts = us_get_now_monotonic();
-	const sll now_sec_ts = us_floor_ms(now_ts);
-
-	if (now_sec_ts != client->fps_ts) {
-		client->fps = client->fps_accum;
-		client->fps_accum = 0;
-		client->fps_ts = now_sec_ts;
-	}
-	client->fps_accum += 1;
+	us_fps_bump(client->fps);
 
 	struct evbuffer *buf;
 	_A_EVBUFFER_NEW(buf);
@@ -716,6 +718,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			us_get_now_real(),
 			(client->extra_headers ? "" : RN)
 		);
+		const ldf now_ts = us_get_now_monotonic();
 		if (client->extra_headers) {
 			_A_EVBUFFER_ADD_PRINTF(buf,
 				"X-UStreamer-Online: %s" RN
@@ -736,7 +739,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				ex->dropped,
 				ex->frame->width,
 				ex->frame->height,
-				client->fps,
+				us_fps_get(client->fps),
 				ex->frame->grab_ts,
 				ex->frame->encode_begin_ts,
 				ex->frame->encode_end_ts,
@@ -793,6 +796,7 @@ static void _http_callback_stream_error(struct bufferevent *buf_event, short wha
 	struct evhttp_connection *conn = evhttp_request_get_connection(client->request);
 	US_DELETE(conn, evhttp_connection_free);
 
+	us_fps_destroy(client->fps);
 	free(client->key);
 	free(client->hostport);
 	free(client);
@@ -839,17 +843,9 @@ static void _http_send_stream(us_server_s *server, bool stream_updated, bool fra
 	});
 
 	if (queued) {
-		static uint queued_fps_accum = 0;
-		static sll queued_fps_ts = 0;
-		const sll now_sec_ts = us_floor_ms(us_get_now_monotonic());
-		if (now_sec_ts != queued_fps_ts) {
-			ex->queued_fps = queued_fps_accum;
-			queued_fps_accum = 0;
-			queued_fps_ts = now_sec_ts;
-		}
-		queued_fps_accum += 1;
+		us_fps_bump(ex->queued_fps);
 	} else if (!has_clients) {
-		ex->queued_fps = 0;
+		us_fps_reset(ex->queued_fps);
 	}
 }
 
