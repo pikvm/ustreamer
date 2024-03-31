@@ -38,48 +38,41 @@ us_fpsi_s *us_fpsi_init(const char *name, bool with_meta) {
 	US_CALLOC(fpsi, 1);
 	fpsi->name = us_strdup(name);
 	fpsi->with_meta = with_meta;
-	atomic_init(&fpsi->ts, 0);
-	atomic_init(&fpsi->current, 0);
-	if (with_meta) {
-		US_MUTEX_INIT(fpsi->mutex);
-	}
+	atomic_init(&fpsi->state_sec_ts, 0);
+	atomic_init(&fpsi->state, 0);
 	return fpsi;
 }
 
 void us_fpsi_destroy(us_fpsi_s *fpsi) {
-	if (fpsi->with_meta) {
-		US_MUTEX_DESTROY(fpsi->mutex);
-	}
 	free(fpsi->name);
 	free(fpsi);
 }
 
-void us_fpsi_bump(us_fpsi_s *fpsi, const us_frame_s *frame, bool noop) {
+void us_fpsi_bump(us_fpsi_s *fpsi, const us_frame_s *frame, bool noop_accum) {
 	if (frame != NULL) {
 		assert(fpsi->with_meta);
 	} else {
 		assert(!fpsi->with_meta);
 	}
 
-	if (fpsi->with_meta) {
-		US_MUTEX_LOCK(fpsi->mutex);
-	}
-
 	const sll now_sec_ts = us_floor_ms(us_get_now_monotonic());
-	if (atomic_load(&fpsi->ts) != now_sec_ts) {
+	if (atomic_load(&fpsi->state_sec_ts) != now_sec_ts) {
 		US_LOG_PERF_FPS("FPS: %s: %u", fpsi->name, fpsi->accum);
-		atomic_store(&fpsi->current, fpsi->accum);
-		atomic_store(&fpsi->ts, now_sec_ts);
+
+		// Fast mutex-less store method
+		ull state = (ull)fpsi->accum & 0xFFFF;
+		if (fpsi->with_meta) {
+			assert(frame != NULL);
+			state |= (ull)(frame->width & 0xFFFF) << 16;
+			state |= (ull)(frame->height & 0xFFFF) << 32;
+			state |= (ull)(frame->online ? 1 : 0) << 48;
+		}
+		atomic_store(&fpsi->state, state); // Сначала инфа
+		atomic_store(&fpsi->state_sec_ts, now_sec_ts); // Потом время, это важно
 		fpsi->accum = 0;
 	}
-	if (!noop) {
+	if (!noop_accum) {
 		++fpsi->accum;
-	}
-
-	if (fpsi->with_meta) {
-		assert(frame != NULL);
-		US_FRAME_COPY_META(frame, &fpsi->meta);
-		US_MUTEX_UNLOCK(fpsi->mutex);
 	}
 }
 
@@ -90,17 +83,24 @@ uint us_fpsi_get(us_fpsi_s *fpsi, us_fpsi_meta_s *meta) {
 		assert(!fpsi->with_meta);
 	}
 
-	if (fpsi->with_meta) {
-		US_MUTEX_LOCK(fpsi->mutex);
-	}
-
+	// Между чтением инфы и времени может быть гонка,
+	// но это неважно. Если время свежее, до данные тоже
+	// будут свежмими, обратный случай не так важен.
 	const sll now_sec_ts = us_floor_ms(us_get_now_monotonic());
-	const uint current = (atomic_load(&fpsi->ts) == now_sec_ts ? fpsi->current : 0);
+	const sll state_sec_ts = atomic_load(&fpsi->state_sec_ts); // Сначала время
+	const ull state = atomic_load(&fpsi->state); // Потом инфа
 
+	uint current = state & 0xFFFF;
 	if (fpsi->with_meta) {
 		assert(meta != NULL);
-		US_FRAME_COPY_META(&fpsi->meta, meta);
-		US_MUTEX_UNLOCK(fpsi->mutex);
+		meta->width = (state >> 16) & 0xFFFF;
+		meta->height = (state >> 32) & 0xFFFF;
+		meta->online = (state >> 48) & 1;
+	}
+
+	if (state_sec_ts != now_sec_ts && (state_sec_ts + 1) != now_sec_ts) {
+		// Только текущая или прошлая секунда
+		current = 0;
 	}
 	return current;
 }

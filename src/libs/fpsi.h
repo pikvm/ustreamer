@@ -24,29 +24,27 @@
 
 #include <stdatomic.h>
 
-#include <pthread.h>
-
 #include "types.h"
 #include "frame.h"
 
 
 typedef struct {
-	US_FRAME_META_DECLARE;
+	uint	width;
+	uint	height;
+	bool	online;
 } us_fpsi_meta_s;
 
 typedef struct {
 	char			*name;
 	bool			with_meta;
 	uint			accum;
-	atomic_llong	ts;
-	atomic_uint		current;
-	us_fpsi_meta_s	meta;
-	pthread_mutex_t	mutex;
+	atomic_llong	state_sec_ts;
+	atomic_ullong	state;
 } us_fpsi_s;
 
 
 us_fpsi_s *us_fpsi_init(const char *name, bool with_meta);
 void us_fpsi_destroy(us_fpsi_s *fpsi);
 
-void us_fpsi_bump(us_fpsi_s *fpsi, const us_frame_s *frame, bool noop);
+void us_fpsi_bump(us_fpsi_s *fpsi, const us_frame_s *frame, bool noop_accum);
 uint us_fpsi_get(us_fpsi_s *fpsi, us_fpsi_meta_s *meta);
