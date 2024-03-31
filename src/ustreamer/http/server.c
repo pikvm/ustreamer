@@ -478,21 +478,25 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 
 #	ifdef WITH_V4P
 	if (stream->drm != NULL) {
+		us_fpsi_meta_s meta;
+		const uint fps = us_fpsi_get(stream->run->http->drm_fpsi, &meta);
 		_A_EVBUFFER_ADD_PRINTF(buf,
 			" \"drm\": {\"live\": %s, \"fps\": %u},",
-			us_bool_to_string(atomic_load(&stream->run->http->drm_live)),
-			us_fpsi_get(stream->run->http->drm_fpsi, NULL)
+			us_bool_to_string(meta.online),
+			fps
 		);
 	}
 #	endif
 
 	if (stream->h264_sink != NULL) {
+		us_fpsi_meta_s meta;
+		const uint fps = us_fpsi_get(stream->run->http->h264_fpsi, &meta);
 		_A_EVBUFFER_ADD_PRINTF(buf,
 			" \"h264\": {\"bitrate\": %u, \"gop\": %u, \"online\": %s, \"fps\": %u},",
 			stream->h264_bitrate,
 			stream->h264_gop,
-			us_bool_to_string(atomic_load(&stream->run->http->h264_online)),
-			us_fpsi_get(stream->run->http->h264_fpsi, NULL)
+			us_bool_to_string(meta.online),
+			fps
 		);
 	}
 
@@ -644,7 +648,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	us_server_s *const server = client->server;
 	us_server_exposed_s *const ex = server->run->exposed;
 
-	us_fpsi_bump(client->fpsi, NULL, false);
+	us_fpsi_update(client->fpsi, true, NULL);
 
 	struct evbuffer *buf;
 	_A_EVBUFFER_NEW(buf);
@@ -850,9 +854,9 @@ static void _http_send_stream(us_server_s *server, bool stream_updated, bool fra
 	});
 
 	if (queued) {
-		us_fpsi_bump(ex->queued_fpsi, NULL, false);
+		us_fpsi_update(ex->queued_fpsi, true, NULL);
 	} else if (!has_clients) {
-		us_fpsi_bump(ex->queued_fpsi, NULL, true);
+		us_fpsi_update(ex->queued_fpsi, false, NULL);
 	}
 }
 

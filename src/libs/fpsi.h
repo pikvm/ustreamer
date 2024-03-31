@@ -46,5 +46,6 @@ typedef struct {
 us_fpsi_s *us_fpsi_init(const char *name, bool with_meta);
 void us_fpsi_destroy(us_fpsi_s *fpsi);
 
-void us_fpsi_bump(us_fpsi_s *fpsi, const us_frame_s *frame, bool noop_accum);
+void us_fpsi_frame_to_meta(const us_frame_s *frame, us_fpsi_meta_s *meta);
+void us_fpsi_update(us_fpsi_s *fpsi, bool bump, const us_fpsi_meta_s *meta);
 uint us_fpsi_get(us_fpsi_s *fpsi, us_fpsi_meta_s *meta);

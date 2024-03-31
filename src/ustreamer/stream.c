@@ -98,11 +98,9 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 	us_stream_http_s *http;
 	US_CALLOC(http, 1);
 #	ifdef WITH_V4P
-	atomic_init(&http->drm_live, false);
-	http->drm_fpsi = us_fpsi_init("DRM", false);
+	http->drm_fpsi = us_fpsi_init("DRM", true);
 #	endif
-	atomic_init(&http->h264_online, false);
-	http->h264_fpsi = us_fpsi_init("H264", false);
+	http->h264_fpsi = us_fpsi_init("H264", true);
 	US_RING_INIT_WITH_ITEMS(http->jpeg_ring, 4, us_frame_init);
 	atomic_init(&http->has_clients, false);
 	atomic_init(&http->snapshot_requested, 0);
@@ -125,7 +123,9 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 	stream->run = run;
 
 	us_blank_draw(run->blank, "< NO SIGNAL >", cap->width, cap->height);
-	us_fpsi_bump(http->captured_fpsi, run->blank->raw, true);
+	us_fpsi_meta_s meta = {0};
+	us_fpsi_frame_to_meta(run->blank->raw, &meta);
+	us_fpsi_update(http->captured_fpsi, false, &meta);
 	return stream;
 }
 
@@ -200,7 +200,9 @@ void us_stream_loop(us_stream_s *stream) {
 				default: goto close; // Any error
 			}
 
-			us_fpsi_bump(run->http->captured_fpsi, &hw->raw, false);
+			us_fpsi_meta_s meta = {0};
+			us_fpsi_frame_to_meta(&hw->raw, &meta);
+			us_fpsi_update(run->http->captured_fpsi, true, &meta);
 
 #			ifdef WITH_GPIO
 			us_gpio_set_stream_online(true);
@@ -459,15 +461,16 @@ static void *_drm_thread(void *v_ctx) {
 			if (stream->drm->run->opened == 0) {
 				CHECK(us_drm_expose_dma(stream->drm, hw));
 				prev_hw = hw;
-				atomic_store(&stream->run->http->drm_live, true);
-				us_fpsi_bump(stream->run->http->drm_fpsi, NULL, false);
+				us_fpsi_meta_s meta = {.online = true}; // Online means live video
+				us_fpsi_update(stream->run->http->drm_fpsi, true, &meta);
 				continue;
 			}
 
 			CHECK(us_drm_expose_stub(stream->drm, stream->drm->run->opened, ctx->stream->cap));
 			us_capture_hwbuf_decref(hw);
 
-			us_fpsi_bump(stream->run->http->drm_fpsi, NULL, false);
+			us_fpsi_meta_s meta = {.online = false};
+			us_fpsi_update(stream->run->http->drm_fpsi, true, &meta);
 
 			SLOWDOWN;
 		}
@@ -475,9 +478,8 @@ static void *_drm_thread(void *v_ctx) {
 	close:
 		us_drm_close(stream->drm);
 		US_DELETE(prev_hw, us_capture_hwbuf_decref);
-
-		atomic_store(&stream->run->http->drm_live, false);
-
+		us_fpsi_meta_s meta = {.online = false};
+		us_fpsi_update(stream->run->http->drm_fpsi, false, &meta);
 		SLOWDOWN;
 
 #		undef SLOWDOWN
@@ -573,7 +575,10 @@ static int _stream_init_loop(us_stream_s *stream) {
 					height = stream->cap->height;
 				}
 				us_blank_draw(run->blank, "< NO SIGNAL >", width, height);
-				us_fpsi_bump(run->http->captured_fpsi, run->blank->raw, true);
+
+				us_fpsi_meta_s meta = {0};
+				us_fpsi_frame_to_meta(run->blank->raw, &meta);
+				us_fpsi_update(run->http->captured_fpsi, false, &meta);
 
 				_stream_expose_jpeg(stream, run->blank->jpeg);
 				_stream_expose_raw(stream, run->blank->raw);
@@ -594,7 +599,8 @@ static void _stream_drm_ensure_no_signal(us_stream_s *stream) {
 	if (stream->drm == NULL) {
 		return;
 	}
-	atomic_store(&stream->run->http->drm_live, false);
+
+	const us_fpsi_meta_s meta = {.online = false};
 	if (stream->drm->run->opened <= 0) {
 		us_drm_close(stream->drm);
 		if (us_drm_open(stream->drm, NULL) < 0) {
@@ -604,9 +610,12 @@ static void _stream_drm_ensure_no_signal(us_stream_s *stream) {
 	if (us_drm_ensure_no_signal(stream->drm) < 0) {
 		goto close;
 	}
-	us_fpsi_bump(stream->run->http->drm_fpsi, NULL, false);
+
+	us_fpsi_update(stream->run->http->drm_fpsi, true, &meta);
 	return;
+
 close:
+	us_fpsi_update(stream->run->http->drm_fpsi, false, &meta);
 	us_drm_close(stream->drm);
 }
 #endif
@@ -639,26 +648,25 @@ static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *fr
 		return;
 	}
 
-	bool online = false;
+	us_fpsi_meta_s meta = {.online = false};
+
 	if (us_is_jpeg(frame->format)) {
 		if (us_unjpeg(frame, run->h264_tmp_src, true) < 0) {
 			goto done;
 		}
 		frame = run->h264_tmp_src;
 	}
-
 	if (run->h264_key_requested) {
 		US_LOG_INFO("H264: Requested keyframe by a sink client");
 		run->h264_key_requested = false;
 		force_key = true;
 	}
 	if (!us_m2m_encoder_compress(run->h264_enc, frame, run->h264_dest, force_key)) {
-		online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
+		meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
 	}
-	us_fpsi_bump(run->http->h264_fpsi, NULL, false);
 
 done:
-	atomic_store(&run->http->h264_online, online);
+	us_fpsi_update(run->http->h264_fpsi, meta.online, &meta);
 }
 
 static void _stream_check_suicide(us_stream_s *stream) {

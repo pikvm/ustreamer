@@ -48,8 +48,14 @@ void us_fpsi_destroy(us_fpsi_s *fpsi) {
 	free(fpsi);
 }
 
-void us_fpsi_bump(us_fpsi_s *fpsi, const us_frame_s *frame, bool noop_accum) {
-	if (frame != NULL) {
+void us_fpsi_frame_to_meta(const us_frame_s *frame, us_fpsi_meta_s *meta) {
+	meta->width = frame->width;
+	meta->height = frame->height;
+	meta->online = frame->online;
+}
+
+void us_fpsi_update(us_fpsi_s *fpsi, bool bump, const us_fpsi_meta_s *meta) {
+	if (meta != NULL) {
 		assert(fpsi->with_meta);
 	} else {
 		assert(!fpsi->with_meta);
@@ -62,16 +68,16 @@ void us_fpsi_bump(us_fpsi_s *fpsi, const us_frame_s *frame, bool noop_accum) {
 		// Fast mutex-less store method
 		ull state = (ull)fpsi->accum & 0xFFFF;
 		if (fpsi->with_meta) {
-			assert(frame != NULL);
-			state |= (ull)(frame->width & 0xFFFF) << 16;
-			state |= (ull)(frame->height & 0xFFFF) << 32;
-			state |= (ull)(frame->online ? 1 : 0) << 48;
+			assert(meta != NULL);
+			state |= (ull)(meta->width & 0xFFFF) << 16;
+			state |= (ull)(meta->height & 0xFFFF) << 32;
+			state |= (ull)(meta->online ? 1 : 0) << 48;
 		}
 		atomic_store(&fpsi->state, state); // Сначала инфа
 		atomic_store(&fpsi->state_sec_ts, now_sec_ts); // Потом время, это важно
 		fpsi->accum = 0;
 	}
-	if (!noop_accum) {
+	if (bump) {
 		++fpsi->accum;
 	}
 }
