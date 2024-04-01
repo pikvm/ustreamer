@@ -95,7 +95,6 @@ void us_m2m_encoder_destroy(us_m2m_encoder_s *enc) {
 int us_m2m_encoder_compress(us_m2m_encoder_s *enc, const us_frame_s *src, us_frame_s *dest, bool force_key) {
 	us_m2m_encoder_runtime_s *const run = enc->run;
 
-	const ldf now_ts = us_get_now_monotonic();
 	uint dest_format = enc->output_format;
 	switch (enc->output_format) {
 		case V4L2_PIX_FMT_JPEG:
@@ -108,7 +107,7 @@ int us_m2m_encoder_compress(us_m2m_encoder_s *enc, const us_frame_s *src, us_fra
 			force_key = (
 				force_key
 				|| run->last_online != src->online
-				|| run->last_encode_ts + 0.5 < now_ts
+				|| run->last_encode_ts + 0.5 < us_get_now_monotonic()
 			);
 			break;
 	}
@@ -134,7 +133,7 @@ int us_m2m_encoder_compress(us_m2m_encoder_s *enc, const us_frame_s *src, us_fra
 		dest->used, dest->encode_end_ts - dest->encode_begin_ts, force_key);
 
 	run->last_online = src->online;
-	run->last_encode_ts = now_ts;
+	run->last_encode_ts = dest->encode_end_ts;
 	return 0;
 }
 

@@ -610,7 +610,6 @@ static void _stream_drm_ensure_no_signal(us_stream_s *stream) {
 	if (us_drm_ensure_no_signal(stream->drm) < 0) {
 		goto close;
 	}
-
 	us_fpsi_update(stream->run->http->drm_fpsi, true, &meta);
 	return;
 
@@ -643,13 +642,12 @@ static void _stream_expose_raw(us_stream_s *stream, const us_frame_s *frame) {
 }
 
 static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *frame, bool force_key) {
-	us_stream_runtime_s *run = stream->run;
 	if (stream->h264_sink == NULL) {
 		return;
 	}
+	us_stream_runtime_s *run = stream->run;
 
 	us_fpsi_meta_s meta = {.online = false};
-
 	if (us_is_jpeg(frame->format)) {
 		if (us_unjpeg(frame, run->h264_tmp_src, true) < 0) {
 			goto done;
