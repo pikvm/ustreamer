@@ -34,7 +34,7 @@ static const struct {
 	{"M2M-MJPEG",	US_ENCODER_TYPE_M2M_VIDEO},
 	{"M2M-JPEG",	US_ENCODER_TYPE_M2M_IMAGE},
 	{"OMX",			US_ENCODER_TYPE_M2M_IMAGE},
-	{"NOOP",		US_ENCODER_TYPE_NOOP},
+	{"NOOP",		US_ENCODER_TYPE_CPU},
 };
 
 
@@ -129,10 +129,6 @@ void us_encoder_open(us_encoder_s *enc, us_capture_s *cap) {
 				_ER(m2ms[_ER(n_m2ms)]) = us_m2m_jpeg_encoder_init(name, enc->m2m_path, quality);
 			}
 		}
-
-	} else if (type == US_ENCODER_TYPE_NOOP) {
-		n_workers = 1;
-		quality = 0;
 	}
 
 	goto ok;
@@ -142,9 +138,7 @@ void us_encoder_open(us_encoder_s *enc, us_capture_s *cap) {
 		quality = cap->jpeg_quality;
 
 	ok:
-		if (type == US_ENCODER_TYPE_NOOP) {
-			US_LOG_INFO("Using JPEG NOOP encoder");
-		} else if (quality == 0) {
+		if (quality == 0) {
 			US_LOG_INFO("Using JPEG quality: encoder default");
 		} else {
 			US_LOG_INFO("Using JPEG quality: %u%%", quality);
@@ -221,13 +215,6 @@ static bool _worker_run_job(us_worker_s *wr) {
 		if (us_m2m_encoder_compress(_ER(m2ms[wr->number]), src, dest, false) < 0) {
 			goto error;
 		}
-
-	} else if (_ER(type) == US_ENCODER_TYPE_NOOP) {
-		US_LOG_VERBOSE("Compressing JPEG using NOOP (do nothing): worker=%s, buffer=%u",
-			wr->name, job->hw->buf.index);
-		us_frame_encoding_begin(src, dest, V4L2_PIX_FMT_JPEG);
-		usleep(5000); // Просто чтобы работала логика desired_fps
-		dest->encode_end_ts = us_get_now_monotonic(); // us_frame_encoding_end()
 
 	} else {
 		assert(0 && "Unknown encoder type");

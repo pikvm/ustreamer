@@ -44,14 +44,13 @@
 #include "encoders/hw/encoder.h"
 
 
-#define ENCODER_TYPES_STR "CPU, HW, M2M-VIDEO, M2M-IMAGE, NOOP"
+#define ENCODER_TYPES_STR "CPU, HW, M2M-VIDEO, M2M-IMAGE"
 
 typedef enum {
 	US_ENCODER_TYPE_CPU,
 	US_ENCODER_TYPE_HW,
 	US_ENCODER_TYPE_M2M_VIDEO,
 	US_ENCODER_TYPE_M2M_IMAGE,
-	US_ENCODER_TYPE_NOOP,
 } us_encoder_type_e;
 
 typedef struct {

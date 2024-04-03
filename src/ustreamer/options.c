@@ -651,8 +651,7 @@ static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, co
 	SAY("                                             * CPU  ──────── Software MJPEG encoding (default);");
 	SAY("                                             * HW  ───────── Use pre-encoded MJPEG frames directly from camera hardware;");
 	SAY("                                             * M2M-VIDEO  ── GPU-accelerated MJPEG encoding using V4L2 M2M video interface;");
-	SAY("                                             * M2M-IMAGE  ── GPU-accelerated JPEG encoding using V4L2 M2M image interface;");
-	SAY("                                             * NOOP  ─────── Don't compress MJPEG stream (do nothing).\n");
+	SAY("                                             * M2M-IMAGE  ── GPU-accelerated JPEG encoding using V4L2 M2M image interface.\n");
 	SAY("    -g|--glitched-resolutions <WxH,...>  ─ It doesn't do anything. Still here for compatibility.\n");
 	SAY("    -k|--blank <path>  ─────────────────── It doesn't do anything. Still here for compatibility.\n");
 	SAY("    -K|--last-as-blank <sec>  ──────────── It doesn't do anything. Still here for compatibility.\n");
