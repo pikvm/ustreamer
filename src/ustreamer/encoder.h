@@ -22,29 +22,18 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <stdbool.h>
-#include <strings.h>
-#include <assert.h>
-
 #include <pthread.h>
-#include <linux/videodev2.h>
 
-#include "../libs/tools.h"
-#include "../libs/array.h"
-#include "../libs/threading.h"
-#include "../libs/logging.h"
+#include "../libs/types.h"
 #include "../libs/frame.h"
 #include "../libs/capture.h"
 
 #include "workers.h"
 #include "m2m.h"
 
-#include "encoders/cpu/encoder.h"
-#include "encoders/hw/encoder.h"
-
 
 #define ENCODER_TYPES_STR "CPU, HW, M2M-VIDEO, M2M-IMAGE"
+
 
 typedef enum {
 	US_ENCODER_TYPE_CPU,
@@ -55,11 +44,11 @@ typedef enum {
 
 typedef struct {
 	us_encoder_type_e	type;
-	unsigned			quality;
+	uint				quality;
 	bool				cpu_forced;
 	pthread_mutex_t		mutex;
 
-	unsigned			n_m2ms;
+	uint				n_m2ms;
 	us_m2m_encoder_s	**m2ms;
 
 	us_workers_pool_s	*pool;
@@ -67,7 +56,7 @@ typedef struct {
 
 typedef struct {
 	us_encoder_type_e	type;
-	unsigned			n_workers;
+	uint				n_workers;
 	char				*m2m_path;
 
 	us_encoder_runtime_s *run;
@@ -89,4 +78,4 @@ const char *us_encoder_type_to_string(us_encoder_type_e type);
 void us_encoder_open(us_encoder_s *enc, us_capture_s *cap);
 void us_encoder_close(us_encoder_s *enc);
 
-void us_encoder_get_runtime_params(us_encoder_s *enc, us_encoder_type_e *type, unsigned *quality);
+void us_encoder_get_runtime_params(us_encoder_s *enc, us_encoder_type_e *type, uint *quality);
