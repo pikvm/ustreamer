@@ -313,23 +313,23 @@ static void *_jpeg_thread(void *v_ctx) {
 	uint fluency_passed = 0;
 
 	while (!atomic_load(ctx->stop)) {
-		us_worker_s *const ready_wr = us_workers_pool_wait(stream->enc->run->pool);
-		us_encoder_job_s *const ready_job = ready_wr->job;
+		us_worker_s *const wr = us_workers_pool_wait(stream->enc->run->pool);
+		us_encoder_job_s *const job = wr->job;
 
-		if (ready_job->hw != NULL) {
-			us_capture_hwbuf_decref(ready_job->hw);
-			ready_job->hw = NULL;
-			if (ready_wr->job_failed) {
+		if (job->hw != NULL) {
+			us_capture_hwbuf_decref(job->hw);
+			job->hw = NULL;
+			if (wr->job_failed) {
 				// pass
-			} else if (ready_wr->job_timely) {
-				_stream_expose_jpeg(stream, ready_job->dest);
+			} else if (wr->job_timely) {
+				_stream_expose_jpeg(stream, job->dest);
 				if (atomic_load(&stream->run->http->snapshot_requested) > 0) { // Process real snapshots
 					atomic_fetch_sub(&stream->run->http->snapshot_requested, 1);
 				}
 				US_LOG_PERF("JPEG: ##### Encoded JPEG exposed; worker=%s, latency=%.3Lf",
-					ready_wr->name, us_get_now_monotonic() - ready_job->dest->grab_ts);
+					wr->name, us_get_now_monotonic() - job->dest->grab_ts);
 			} else {
-				US_LOG_PERF("JPEG: ----- Encoded JPEG dropped; worker=%s", ready_wr->name);
+				US_LOG_PERF("JPEG: ----- Encoded JPEG dropped; worker=%s", wr->name);
 			}
 		}
 
@@ -355,13 +355,13 @@ static void *_jpeg_thread(void *v_ctx) {
 		}
 		fluency_passed = 0;
 
-		const ldf fluency_delay = us_workers_pool_get_fluency_delay(stream->enc->run->pool, ready_wr);
+		const ldf fluency_delay = us_workers_pool_get_fluency_delay(stream->enc->run->pool, wr);
 		grab_after_ts = now_ts + fluency_delay;
 		US_LOG_VERBOSE("JPEG: Fluency: delay=%.03Lf, grab_after=%.03Lf", fluency_delay, grab_after_ts);
 
-		ready_job->hw = hw;
-		us_workers_pool_assign(stream->enc->run->pool, ready_wr);
-		US_LOG_DEBUG("JPEG: Assigned new frame in buffer=%d to worker=%s", hw->buf.index, ready_wr->name);
+		job->hw = hw;
+		us_workers_pool_assign(stream->enc->run->pool, wr);
+		US_LOG_DEBUG("JPEG: Assigned new frame in buffer=%d to worker=%s", hw->buf.index, wr->name);
 	}
 	return NULL;
 }
