@@ -125,7 +125,7 @@ void us_encoder_open(us_encoder_s *enc, us_capture_s *cap) {
 	}
 
 	if (type == US_ENCODER_TYPE_HW) {
-		if (us_is_jpeg(cr->format) {
+		if (us_is_jpeg(cr->format)) {
 			quality = cr->jpeg_quality;
 			n_workers = 1;
 		} else {
