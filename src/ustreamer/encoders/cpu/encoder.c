@@ -40,7 +40,10 @@ static void _jpeg_set_dest_frame(j_compress_ptr jpeg, us_frame_s *frame);
 static void _jpeg_write_scanlines_yuv(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_rgb24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
+#ifndef JCS_EXTENSIONS
+#warning JCS_EXT_BGR is not supported, please use libjpeg-turbo
 static void _jpeg_write_scanlines_bgr24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
+#endif
 
 static void _jpeg_init_destination(j_compress_ptr jpeg);
 static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
@@ -67,6 +70,9 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned q
 		case V4L2_PIX_FMT_YUYV:
 		case V4L2_PIX_FMT_YVYU:
 		case V4L2_PIX_FMT_UYVY: jpeg.in_color_space = JCS_YCbCr; break;
+#		ifdef JCS_EXTENSIONS
+		case V4L2_PIX_FMT_BGR24: jpeg.in_color_space = JCS_EXT_BGR; break;
+#		endif
 		default: jpeg.in_color_space = JCS_RGB; break;
 	}
 
@@ -82,7 +88,13 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned q
 		case V4L2_PIX_FMT_UYVY:		_jpeg_write_scanlines_yuv(&jpeg, src); break;
 		case V4L2_PIX_FMT_RGB565:	_jpeg_write_scanlines_rgb565(&jpeg, src); break;
 		case V4L2_PIX_FMT_RGB24:	_jpeg_write_scanlines_rgb24(&jpeg, src); break;
-		case V4L2_PIX_FMT_BGR24:	_jpeg_write_scanlines_bgr24(&jpeg, src); break;
+		case V4L2_PIX_FMT_BGR24:
+#			ifdef JCS_EXTENSIONS
+			_jpeg_write_scanlines_rgb24(&jpeg, src); // Use native JCS_EXT_BGR
+#			else
+			_jpeg_write_scanlines_bgr24(&jpeg, src);
+#			endif
+			break;
 		default: assert(0 && "Unsupported input format for CPU encoder"); return;
 	}
 
@@ -196,6 +208,7 @@ static void _jpeg_write_scanlines_rgb24(struct jpeg_compress_struct *jpeg, const
 	}
 }
 
+#ifndef JCS_EXTENSIONS
 static void _jpeg_write_scanlines_bgr24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
 	uint8_t *line_buf;
 	US_CALLOC(line_buf, frame->width * 3);
@@ -222,6 +235,7 @@ static void _jpeg_write_scanlines_bgr24(struct jpeg_compress_struct *jpeg, const
 
 	free(line_buf);
 }
+#endif
 
 #define JPEG_OUTPUT_BUFFER_SIZE ((size_t)4096)
 
