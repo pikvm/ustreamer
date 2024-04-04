@@ -22,31 +22,26 @@
 
 #pragma once
 
-#include <stdbool.h>
 #include <stdatomic.h>
-
-#include <sys/types.h>
 
 #include <pthread.h>
 
-#include "../libs/tools.h"
-#include "../libs/threading.h"
-#include "../libs/logging.h"
+#include "../libs/types.h"
 
 
 typedef struct us_worker_sx {
-	pthread_t		tid;
-	unsigned		number;
-	char			*name;
+	pthread_t	tid;
+	uint		number;
+	char		*name;
 
-	long double		last_job_time;
+	ldf			last_job_time;
 
 	pthread_mutex_t	has_job_mutex;
 	void			*job;
 	atomic_bool		has_job;
 	bool			job_timely;
 	bool			job_failed;
-	long double		job_start_ts;
+	ldf				job_start_ts;
 	pthread_cond_t	has_job_cond;
 
 	struct us_worker_sx		*prev_wr;
@@ -61,20 +56,20 @@ typedef bool (*us_workers_pool_run_job_f)(us_worker_s *wr);
 
 typedef struct us_workers_pool_sx {
 	const char		*name;
-	long double		desired_interval;
+	ldf				desired_interval;
 
 	us_workers_pool_job_destroy_f	job_destroy;
 	us_workers_pool_run_job_f		run_job;
 
-	unsigned		n_workers;
+	uint			n_workers;
 	us_worker_s		*workers;
 	us_worker_s		*oldest_wr;
 	us_worker_s		*latest_wr;
 
-	long double		approx_job_time;
+	ldf				approx_job_time;
 
 	pthread_mutex_t	free_workers_mutex;
-	unsigned		free_workers;
+	uint			free_workers;
 	pthread_cond_t	free_workers_cond;
 
 	atomic_bool		stop;
@@ -82,7 +77,7 @@ typedef struct us_workers_pool_sx {
 
 
 us_workers_pool_s *us_workers_pool_init(
-	const char *name, const char *wr_prefix, unsigned n_workers, long double desired_interval,
+	const char *name, const char *wr_prefix, uint n_workers, ldf desired_interval,
 	us_workers_pool_job_init_f job_init, void *job_init_arg,
 	us_workers_pool_job_destroy_f job_destroy,
 	us_workers_pool_run_job_f run_job);
@@ -92,4 +87,4 @@ void us_workers_pool_destroy(us_workers_pool_s *pool);
 us_worker_s *us_workers_pool_wait(us_workers_pool_s *pool);
 void us_workers_pool_assign(us_workers_pool_s *pool, us_worker_s *ready_wr/*, void *job*/);
 
-long double us_workers_pool_get_fluency_delay(us_workers_pool_s *pool, const us_worker_s *ready_wr);
+ldf us_workers_pool_get_fluency_delay(us_workers_pool_s *pool, const us_worker_s *ready_wr);
