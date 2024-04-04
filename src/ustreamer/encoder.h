@@ -45,7 +45,6 @@ typedef enum {
 typedef struct {
 	us_encoder_type_e	type;
 	uint				quality;
-	bool				cpu_forced;
 	pthread_mutex_t		mutex;
 
 	uint				n_m2ms;

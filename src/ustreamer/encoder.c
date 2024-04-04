@@ -115,10 +115,9 @@ void us_encoder_open(us_encoder_s *enc, us_capture_s *cap) {
 
 	assert(run->pool == NULL);
 
-	us_encoder_type_e type = (run->cpu_forced ? US_ENCODER_TYPE_CPU : enc->type);
+	us_encoder_type_e type = enc->type;
 	uint quality = cap->jpeg_quality;
 	uint n_workers = US_MIN(enc->n_workers, cr->n_bufs);
-	bool cpu_forced = false;
 
 	if (us_is_jpeg(cr->format) && type != US_ENCODER_TYPE_HW) {
 		US_LOG_INFO("Switching to HW encoder: the input is (M)JPEG ...");
@@ -126,12 +125,14 @@ void us_encoder_open(us_encoder_s *enc, us_capture_s *cap) {
 	}
 
 	if (type == US_ENCODER_TYPE_HW) {
-		if (!us_is_jpeg(cr->format)) {
+		if (us_is_jpeg(cr->format) {
+			quality = cr->jpeg_quality;
+			n_workers = 1;
+		} else {
 			US_LOG_INFO("Switching to CPU encoder: the input format is not (M)JPEG ...");
-			goto use_cpu;
+			type = US_ENCODER_TYPE_CPU;
+			quality = cap->jpeg_quality;
 		}
-		quality = cr->jpeg_quality;
-		n_workers = 1;
 
 	} else if (type == US_ENCODER_TYPE_M2M_VIDEO || type == US_ENCODER_TYPE_M2M_IMAGE) {
 		US_LOG_DEBUG("Preparing M2M-%s encoder ...", (type == US_ENCODER_TYPE_M2M_VIDEO ? "VIDEO" : "IMAGE"));
@@ -150,13 +151,6 @@ void us_encoder_open(us_encoder_s *enc, us_capture_s *cap) {
 		}
 	}
 
-	goto ok;
-
-use_cpu:
-	type = US_ENCODER_TYPE_CPU;
-	quality = cap->jpeg_quality;
-
-ok:
 	if (quality == 0) {
 		US_LOG_INFO("Using JPEG quality: encoder default");
 	} else {
@@ -166,9 +160,6 @@ ok:
 	US_MUTEX_LOCK(run->mutex);
 	run->type = type;
 	run->quality = quality;
-	if (cpu_forced) {
-		run->cpu_forced = true;
-	}
 	US_MUTEX_UNLOCK(run->mutex);
 
 	const ldf desired_interval = (
@@ -243,14 +234,9 @@ static bool _worker_run_job(us_worker_s *wr) {
 		job->dest->encode_end_ts - job->dest->encode_begin_ts,
 		wr->name,
 		job->hw->buf.index);
-
 	return true;
 
 error:
 	US_LOG_ERROR("Compression failed: worker=%s, buffer=%u", wr->name, job->hw->buf.index);
-	US_LOG_ERROR("Error while compressing buffer, falling back to CPU");
-	US_MUTEX_LOCK(run->mutex);
-	run->cpu_forced = true;
-	US_MUTEX_UNLOCK(run->mutex);
 	return false;
 }
