@@ -115,7 +115,6 @@ us_worker_s *us_workers_pool_wait(us_workers_pool_s *pool) {
 	if (pool->oldest_wr && !atomic_load(&pool->oldest_wr->has_job)) {
 		ready_wr = pool->oldest_wr;
 		ready_wr->job_timely = true;
-		pool->oldest_wr = pool->oldest_wr->next_wr;
 	} else {
 		for (uint index = 0; index < pool->n_workers; ++index) {
 			us_worker_s *const wr = &pool->workers[index];
@@ -136,6 +135,9 @@ us_worker_s *us_workers_pool_wait(us_workers_pool_s *pool) {
 }
 
 void us_workers_pool_assign(us_workers_pool_s *pool, us_worker_s *ready_wr/*, void *job*/) {
+	if (pool->oldest_wr == ready_wr) {
+		pool->oldest_wr = pool->oldest_wr->next_wr;
+	}
 	if (pool->oldest_wr == NULL) {
 		pool->oldest_wr = ready_wr;
 		pool->latest_wr = pool->oldest_wr;
