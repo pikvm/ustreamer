@@ -64,6 +64,8 @@
 			__typeof__(x_first) m_next = x_item->next; \
 			m_next->prev = x_item->prev; \
 		} \
+		x_item->prev = NULL; \
+		x_item->next = NULL; \
 	}
 
 #define US_LIST_REMOVE_C(x_first, x_item, x_count) { \
