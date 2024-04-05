@@ -27,6 +27,7 @@
 #include <pthread.h>
 
 #include "../libs/types.h"
+#include "../libs/list.h"
 
 
 typedef struct us_worker_sx {
@@ -44,10 +45,9 @@ typedef struct us_worker_sx {
 	ldf				job_start_ts;
 	pthread_cond_t	has_job_cond;
 
-	struct us_worker_sx		*prev_wr;
-	struct us_worker_sx		*next_wr;
-
 	struct us_workers_pool_sx	*pool;
+
+	US_LIST_DECLARE;
 } us_worker_s;
 
 typedef void *(*us_workers_pool_job_init_f)(void *arg);
@@ -63,8 +63,7 @@ typedef struct us_workers_pool_sx {
 
 	uint			n_workers;
 	us_worker_s		*workers;
-	us_worker_s		*oldest_wr;
-	us_worker_s		*latest_wr;
+	ldf				job_timely_ts;
 
 	ldf				approx_job_time;
 
@@ -85,6 +84,6 @@ us_workers_pool_s *us_workers_pool_init(
 void us_workers_pool_destroy(us_workers_pool_s *pool);
 
 us_worker_s *us_workers_pool_wait(us_workers_pool_s *pool);
-void us_workers_pool_assign(us_workers_pool_s *pool, us_worker_s *ready_wr/*, void *job*/);
+void us_workers_pool_assign(us_workers_pool_s *pool, us_worker_s *ready_wr);
 
 ldf us_workers_pool_get_fluency_delay(us_workers_pool_s *pool, const us_worker_s *ready_wr);
