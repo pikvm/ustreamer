@@ -46,6 +46,7 @@
 			x_item->prev = m_last; \
 			m_last->next = x_item; \
 		} \
+		x_item->next = NULL; \
 	}
 
 #define US_LIST_APPEND_C(x_first, x_item, x_count) { \
