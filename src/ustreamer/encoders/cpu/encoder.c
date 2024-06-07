@@ -26,7 +26,7 @@
 
 
 #include "encoder.h"
-
+#include "../../../libs/logging.h"
 
 typedef struct {
 	struct jpeg_destination_mgr mgr; // Default manager
@@ -38,6 +38,7 @@ typedef struct {
 static void _jpeg_set_dest_frame(j_compress_ptr jpeg, us_frame_s *frame);
 
 static void _jpeg_write_scanlines_yuv(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
+static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_rgb24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 #ifndef JCS_EXTENSIONS
@@ -69,9 +70,13 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned q
 	switch (src->format) {
 		case V4L2_PIX_FMT_YUYV:
 		case V4L2_PIX_FMT_YVYU:
-		case V4L2_PIX_FMT_UYVY: jpeg.in_color_space = JCS_YCbCr; break;
+		case V4L2_PIX_FMT_UYVY:
+		case V4L2_PIX_FMT_YUV410:
+		case V4L2_PIX_FMT_YVU410: 
+		case V4L2_PIX_FMT_YUV420:
+		case V4L2_PIX_FMT_YVU420: jpeg.in_color_space = JCS_YCbCr; break;
 #		ifdef JCS_EXTENSIONS
-		case V4L2_PIX_FMT_BGR24: jpeg.in_color_space = JCS_EXT_BGR; break;
+		case V4L2_PIX_FMT_BGR24:  jpeg.in_color_space = JCS_EXT_BGR; break;
 #		endif
 		default: jpeg.in_color_space = JCS_RGB; break;
 	}
@@ -85,7 +90,11 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned q
 		// https://www.fourcc.org/yuv.php
 		case V4L2_PIX_FMT_YUYV:
 		case V4L2_PIX_FMT_YVYU:
-		case V4L2_PIX_FMT_UYVY:		_jpeg_write_scanlines_yuv(&jpeg, src); break;
+		case V4L2_PIX_FMT_UYVY:		_jpeg_write_scanlines_yuv(&jpeg, src); break;	
+		case V4L2_PIX_FMT_YUV410:
+		case V4L2_PIX_FMT_YVU410:	
+		case V4L2_PIX_FMT_YUV420:
+		case V4L2_PIX_FMT_YVU420:	_jpeg_write_scanlines_yuv_planar(&jpeg, src); break;
 		case V4L2_PIX_FMT_RGB565:	_jpeg_write_scanlines_rgb565(&jpeg, src); break;
 		case V4L2_PIX_FMT_RGB24:	_jpeg_write_scanlines_rgb24(&jpeg, src); break;
 		case V4L2_PIX_FMT_BGR24:
@@ -159,6 +168,64 @@ static void _jpeg_write_scanlines_yuv(struct jpeg_compress_struct *jpeg, const u
 			data += (is_odd_pixel ? 4 : 0);
 		}
 		data += padding;
+
+		JSAMPROW scanlines[1] = {line_buf};
+		jpeg_write_scanlines(jpeg, scanlines, 1);
+	}
+
+	free(line_buf);
+}
+
+static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
+	uint8_t *line_buf;
+	US_CALLOC(line_buf, frame->width * 3);
+
+	US_LOG_DEBUG("Using Planar Encoder");
+	const unsigned padding = us_frame_get_padding(frame);
+	const uint image_size = frame->width * frame->height;
+	const uint chroma_array_size = (frame->used - image_size) / 2;
+	const uint chroma_matrix_order = (image_size / chroma_array_size) == 16 ? 4 : 2;
+	US_LOG_DEBUG("Planar data: Image Size %u, Chroma Array Size %u, Chroma Matrix Order %u", image_size, chroma_array_size, chroma_matrix_order);
+	const uint8_t *data = frame->data;
+	const uint8_t *chroma1_data = frame->data + image_size;
+	const uint8_t *chroma2_data = frame->data + image_size + chroma_array_size;
+
+	while (jpeg->next_scanline < frame->height) {
+		uint8_t *ptr = line_buf;
+
+		for (unsigned x = 0; x < frame->width; ++x) {
+			// See also: https://www.kernel.org/doc/html/v4.8/media/uapi/v4l/pixfmt-yuv420.html
+			uint8_t y = data[x], u, v;
+			uint chroma_position = x / chroma_matrix_order;
+
+			switch (frame->format) {
+				case V4L2_PIX_FMT_YUV420:
+				case V4L2_PIX_FMT_YUV410:
+					u = chroma1_data[chroma_position];
+					v = chroma2_data[chroma_position];
+					break;
+				case V4L2_PIX_FMT_YVU420:
+				case V4L2_PIX_FMT_YVU410:
+					u = chroma2_data[chroma_position];
+					v = chroma1_data[chroma_position];
+					break;
+				default:
+					assert(0 && "Unsupported pixel format");
+					return; // Makes linter happy
+			}
+
+			ptr[0] = y;
+			ptr[1] = u;
+			ptr[2] = v;
+			ptr += 3;
+		}		
+
+		data += frame->width + padding;
+
+		if( jpeg->next_scanline > 0 && jpeg->next_scanline % chroma_matrix_order == 0 ){
+			chroma1_data += (frame->width + padding) / chroma_matrix_order;
+			chroma2_data += (frame->width + padding) / chroma_matrix_order;		
+		}
 
 		JSAMPROW scanlines[1] = {line_buf};
 		jpeg_write_scanlines(jpeg, scanlines, 1);

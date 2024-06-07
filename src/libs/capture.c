@@ -72,6 +72,10 @@ static const struct {
 	{"BGR24",	V4L2_PIX_FMT_BGR24},
 	{"MJPEG",	V4L2_PIX_FMT_MJPEG},
 	{"JPEG",	V4L2_PIX_FMT_JPEG},
+	{"YU12",    V4L2_PIX_FMT_YUV420},
+	{"YV12",    V4L2_PIX_FMT_YVU420},
+	{"YVU9",	V4L2_PIX_FMT_YVU410},
+	{"YUV9",	V4L2_PIX_FMT_YUV410}
 };
 
 static const struct {
@@ -416,8 +420,10 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 	_v4l2_buffer_copy(&buf, &(*hw)->buf);
 	(*hw)->raw.grab_ts = (ldf)((buf.timestamp.tv_sec * (u64)1000) + (buf.timestamp.tv_usec / 1000)) / 1000;
 
-	_LOG_DEBUG("Grabbed HW buffer=%u: bytesused=%u, grab_ts=%.3Lf, latency=%.3Lf, skipped=%u",
-		buf.index, buf.bytesused, (*hw)->raw.grab_ts, us_get_now_monotonic() - (*hw)->raw.grab_ts, skipped);
+	_LOG_DEBUG("Grabbed HW buffer=%u: bytesused=%u, length=%u, grab_ts=%.3Lf, latency=%.3Lf, skipped=%u, "
+		"width=%u, height=%u, stride=%u",
+		buf.index, buf.bytesused, buf.length, (*hw)->raw.grab_ts, us_get_now_monotonic() - (*hw)->raw.grab_ts, skipped,
+		(*hw)->raw.width, (*hw)->raw.height, (*hw)->raw.stride);
 	return buf.index;
 }
 
