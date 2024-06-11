@@ -377,7 +377,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 			case _O_RESOLUTION:			OPT_RESOLUTION("--resolution", cap->width, cap->height, true);
 #			pragma GCC diagnostic ignored "-Wsign-compare"
 #			pragma GCC diagnostic push
-			case _O_FORMAT:				OPT_PARSE_ENUM("pixel format", cap->format, us_capture_parse_format, US_FORMATS_STR);
+			case _O_FORMAT:				OPT_PARSE_ENUM("pixel format", cap->format, us_capture_parse_format, US_FORMATS_STR " " US_FORMATS2_STR);
 #			pragma GCC diagnostic pop
 			case _O_FORMAT_SWAP_RGB:	OPT_SET(cap->format_swap_rgb, true);
 			case _O_TV_STANDARD:		OPT_PARSE_ENUM("TV standard", cap->standard, us_capture_parse_standard, US_STANDARDS_STR);
@@ -621,7 +621,9 @@ static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, co
 	SAY("    -i|--input <N>  ────────────────────── Input channel. Default: %u.\n", cap->input);
 	SAY("    -r|--resolution <WxH>  ─────────────── Initial image resolution. Default: %ux%u.\n", cap->width, cap->height);
 	SAY("    -m|--format <fmt>  ─────────────────── Image format.");
-	SAY("                                           Available: %s; default: YUYV.\n", US_FORMATS_STR);
+	SAY("                                           Available: %s", US_FORMATS_STR);
+	SAY("                                                      %s;", US_FORMATS2_STR);
+	SAY("                                           Default: YUYV.\n");
 	SAY("       --format-swap-rgb  ──────────────── Enable R-G-B order swapping: RGB to BGR and vice versa.");
 	SAY("                                           Default: disabled.\n");
 	SAY("    -a|--tv-standard <std>  ────────────── Force TV standard.");
