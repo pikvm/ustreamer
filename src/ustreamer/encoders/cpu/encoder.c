@@ -71,8 +71,6 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned q
 		case V4L2_PIX_FMT_YUYV:
 		case V4L2_PIX_FMT_YVYU:
 		case V4L2_PIX_FMT_UYVY:
-		case V4L2_PIX_FMT_YUV410:
-		case V4L2_PIX_FMT_YVU410: 
 		case V4L2_PIX_FMT_YUV420:
 		case V4L2_PIX_FMT_YVU420: jpeg.in_color_space = JCS_YCbCr; break;
 #		ifdef JCS_EXTENSIONS
@@ -91,8 +89,6 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned q
 		case V4L2_PIX_FMT_YUYV:
 		case V4L2_PIX_FMT_YVYU:
 		case V4L2_PIX_FMT_UYVY:		_jpeg_write_scanlines_yuv(&jpeg, src); break;	
-		case V4L2_PIX_FMT_YUV410:
-		case V4L2_PIX_FMT_YVU410:	
 		case V4L2_PIX_FMT_YUV420:
 		case V4L2_PIX_FMT_YVU420:	_jpeg_write_scanlines_yuv_planar(&jpeg, src); break;
 		case V4L2_PIX_FMT_RGB565:	_jpeg_write_scanlines_rgb565(&jpeg, src); break;
@@ -200,12 +196,10 @@ static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, 
 
 			switch (frame->format) {
 				case V4L2_PIX_FMT_YUV420:
-				case V4L2_PIX_FMT_YUV410:
 					u = chroma1_data[chroma_position];
 					v = chroma2_data[chroma_position];
 					break;
 				case V4L2_PIX_FMT_YVU420:
-				case V4L2_PIX_FMT_YVU410:
 					u = chroma2_data[chroma_position];
 					v = chroma1_data[chroma_position];
 					break;
