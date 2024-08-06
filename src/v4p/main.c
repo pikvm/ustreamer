@@ -161,7 +161,7 @@ static void _signal_handler(int signum) {
 }
 
 static void _main_loop(void) {
-	us_drm_s *drm = us_drm_init();
+	us_drm_s *drm = us_drm_init(NULL);
 
 	us_capture_s *cap = us_capture_init();
 	cap->path = "/dev/kvmd-video";

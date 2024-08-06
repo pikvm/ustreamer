@@ -84,7 +84,7 @@ typedef struct {
 } us_drm_s;
 
 
-us_drm_s *us_drm_init(void);
+us_drm_s *us_drm_init(const char* port_name);
 void us_drm_destroy(us_drm_s *drm);
 
 int us_drm_open(us_drm_s *drm, const us_capture_s *cap);

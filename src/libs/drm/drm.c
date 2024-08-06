@@ -66,7 +66,7 @@ static float _get_refresh_rate(const drmModeModeInfo *mode);
 #define _LOG_DEBUG(x_msg, ...)	US_LOG_DEBUG("DRM: " x_msg, ##__VA_ARGS__)
 
 
-us_drm_s *us_drm_init(void) {
+us_drm_s *us_drm_init(const char* port) {
 	us_drm_runtime_s *run;
 	US_CALLOC(run, 1);
 	run->fd = -1;
@@ -81,7 +81,11 @@ us_drm_s *us_drm_init(void) {
 	US_CALLOC(drm, 1);
 	// drm->path = "/dev/dri/card0";
 	drm->path = "/dev/dri/by-path/platform-gpu-card";
-	drm->port = "HDMI-A-2"; // OUT2 on PiKVM V4 Plus
+	if (port == NULL) {
+		port = "HDMI-A-2"; // OUT2 on PiKVM V4 Plus
+	}
+	US_CALLOC(drm->port, strlen(port) + 1);
+	strcpy(drm->port, port);
 	drm->timeout = 5;
 	drm->blank_after = 5;
 	drm->run = run;
@@ -91,6 +95,7 @@ us_drm_s *us_drm_init(void) {
 void us_drm_destroy(us_drm_s *drm) {
 	us_frametext_destroy(drm->run->ft);
 	US_DELETE(drm->run, free);
+	US_DELETE(drm->port, free);
 	US_DELETE(drm, free); // cppcheck-suppress uselessAssignmentPtrArg
 }
 

@@ -103,6 +103,7 @@ enum _US_OPT_VALUES {
 
 #	ifdef WITH_V4P
 	_O_V4P,
+	_O_V4P_PORT_NAME,
 #	endif
 
 #	ifdef WITH_GPIO
@@ -212,6 +213,7 @@ static const struct option _LONG_OPTS[] = {
 
 #	ifdef WITH_V4P
 	{"v4p",						no_argument,		NULL,	_O_V4P},
+	{"v4p-port-name",			required_argument,	NULL,	_O_V4P_PORT_NAME},
 #	endif
 
 #	ifdef WITH_GPIO
@@ -367,6 +369,11 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 	char *process_name_prefix = NULL;
 #	endif
 
+#   ifdef WITH_V4P
+	char *v4p_port_name = NULL;
+	bool v4p_enable = false;
+#   endif
+
 	char short_opts[128];
 	us_build_short_options(_LONG_OPTS, short_opts, 128);
 
@@ -466,10 +473,8 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 			case _O_H264_M2M_DEVICE:		OPT_SET(stream->h264_m2m_path, optarg);
 
 #			ifdef WITH_V4P
-			case _O_V4P:
-				options->drm = us_drm_init();
-				stream->drm = options->drm;
-				break;
+			case _O_V4P_PORT_NAME:		    OPT_SET(v4p_port_name, optarg);
+			case _O_V4P:                    OPT_SET(v4p_enable, true);
 #			endif
 
 #			ifdef WITH_GPIO
@@ -508,6 +513,13 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 			default:	return -1;
 		}
 	}
+
+#   ifdef WITH_V4P
+	if (v4p_enable) {
+		options->drm = us_drm_init(v4p_port_name);
+		stream->drm = options->drm;
+	}
+#   endif
 
 	US_LOG_INFO("Starting PiKVM uStreamer %s ...", US_VERSION);
 
