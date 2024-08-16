@@ -353,7 +353,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 		}
 
 #	define ADD_SINK(x_prefix) \
-		char *x_prefix##_name = NULL; \
+		const char *x_prefix##_name = NULL; \
 		mode_t x_prefix##_mode = 0660; \
 		bool x_prefix##_rm = false; \
 		unsigned x_prefix##_client_ttl = 10; \
@@ -364,7 +364,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 #	undef ADD_SINK
 
 #	ifdef WITH_SETPROCTITLE
-	char *process_name_prefix = NULL;
+	const char *process_name_prefix = NULL;
 #	endif
 
 	char short_opts[128];

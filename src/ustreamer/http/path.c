@@ -40,7 +40,7 @@ char *us_simplify_request_path(const char *str) {
 	char pre1; // The one before
 	char pre2; // The one before that
 	char *simplified;
-	char *start;
+	const char *start;
 	char *out;
 	char *slash;
 
