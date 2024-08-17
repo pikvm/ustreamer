@@ -17,8 +17,8 @@ _LINTERS_IMAGE ?= ustreamer-linters
 
 
 # =====
-ifeq (, $(shell which pkg-config))
-	$(error "No pkg-config found in $(PATH)")
+ifeq (__not_found__,$(shell which pkg-config 2>/dev/null || echo "__not_found__"))
+$(error "No pkg-config found in $(PATH)")
 endif
 
 
