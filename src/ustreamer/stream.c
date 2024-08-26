@@ -23,6 +23,7 @@
 #include "stream.h"
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdatomic.h>
 #include <limits.h>
 #include <unistd.h>
@@ -43,6 +44,7 @@
 #include "../libs/capture.h"
 #include "../libs/unjpeg.h"
 #include "../libs/fpsi.h"
+#include "../libs/x264.h"
 #ifdef WITH_V4P
 #	include "../libs/drm/drm.h"
 #endif
@@ -51,6 +53,7 @@
 #include "encoder.h"
 #include "workers.h"
 #include "m2m.h"
+#include "libx264.h"
 #ifdef WITH_GPIO
 #	include "gpio/gpio.h"
 #endif
@@ -71,7 +74,7 @@ typedef struct {
 	atomic_bool	*stop;
 } _worker_context_s;
 
-
+us_libx264_encoder_s libx264_enc;
 static void *_releaser_thread(void *v_ctx);
 static void *_jpeg_thread(void *v_ctx);
 static void *_raw_thread(void *v_ctx);
@@ -147,11 +150,11 @@ void us_stream_loop(us_stream_s *stream) {
 	us_capture_s *const cap = stream->cap;
 
 	atomic_store(&run->http->last_request_ts, us_get_now_monotonic());
-
 	if (stream->h264_sink != NULL) {
-		run->h264_enc = us_m2m_h264_encoder_init("H264", stream->h264_m2m_path, stream->h264_bitrate, stream->h264_gop);
+		us_libx264_encoder_init(&libx264_enc, stream->cap->width, stream->cap->height);
 		run->h264_tmp_src = us_frame_init();
 		run->h264_dest = us_frame_init();
+		run->h264_enc = us_m2m_h264_encoder_init("H264", stream->h264_m2m_path, stream->h264_bitrate, stream->h264_gop);
 	}
 
 	while (!_stream_init_loop(stream)) {
@@ -659,9 +662,13 @@ static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *fr
 		run->h264_key_requested = false;
 		force_key = true;
 	}
-	if (!us_m2m_encoder_compress(run->h264_enc, frame, run->h264_dest, force_key)) {
+	/*if (!us_m2m_encoder_compress(run->h264_enc, frame, run->h264_dest, force_key)) {
 		meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
-	}
+	}*/
+	if (!us_libx264_encoder_compress(&libx264_enc, frame, run->h264_dest, force_key)) ;//{
+		//meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
+	//}
+	
 
 done:
 	us_fpsi_update(run->http->h264_fpsi, meta.online, &meta);
