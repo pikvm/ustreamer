@@ -31,15 +31,19 @@
 #include "workers.h"
 #include "m2m.h"
 
-
+#ifndef WITH_LIBX264
 #define ENCODER_TYPES_STR "CPU, HW, M2M-VIDEO, M2M-IMAGE"
-
-
+#else
+#define ENCODER_TYPES_STR "CPU, HW, M2M-VIDEO, M2M-IMAGE, LIBX264-VIDEO"
+#endif
 typedef enum {
 	US_ENCODER_TYPE_CPU,
 	US_ENCODER_TYPE_HW,
 	US_ENCODER_TYPE_M2M_VIDEO,
 	US_ENCODER_TYPE_M2M_IMAGE,
+#ifdef WITH_LIBX264
+	US_ENCODER_TYPE_LIBX264_VIDEO,
+#endif
 } us_encoder_type_e;
 
 typedef struct {

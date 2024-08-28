@@ -461,7 +461,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 			ADD_SINK("raw", raw_sink, RAW_SINK)
 			ADD_SINK("h264", h264_sink, H264_SINK)
 #			undef ADD_SINK
-			case _O_H264_BITRATE:			OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 25, 20000, 0);
+			case _O_H264_BITRATE:			OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 25, 100000, 0);
 			case _O_H264_GOP:				OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
 			case _O_H264_M2M_DEVICE:		OPT_SET(stream->h264_m2m_path, optarg);
 
@@ -607,6 +607,12 @@ static void _features(void) {
 #	else
 	puts("- HAS_PDEATHSIG");
 #	endif
+
+#	ifdef WITH_LIBX264
+	puts("+ WITH_LIBX264");
+#	else
+	puts("- WITH_LIBX264");
+#	endif
 }
 
 static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, const us_stream_s *stream, const us_server_s *server) {
@@ -651,7 +657,10 @@ static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, co
 	SAY("                                             * CPU  ──────── Software MJPEG encoding (default);");
 	SAY("                                             * HW  ───────── Use pre-encoded MJPEG frames directly from camera hardware;");
 	SAY("                                             * M2M-VIDEO  ── GPU-accelerated MJPEG encoding using V4L2 M2M video interface;");
-	SAY("                                             * M2M-IMAGE  ── GPU-accelerated JPEG encoding using V4L2 M2M image interface.\n");
+	SAY("                                             * M2M-IMAGE  ── GPU-accelerated JPEG encoding using V4L2 M2M image interface.");
+#	ifdef WITH_LIBX264
+	SAY("                                             * LIBX264-VIDEO  ── Software H.264 encoding using libx264.\n");
+#	endif
 	SAY("    -g|--glitched-resolutions <WxH,...>  ─ It doesn't do anything. Still here for compatibility.\n");
 	SAY("    -k|--blank <path>  ─────────────────── It doesn't do anything. Still here for compatibility.\n");
 	SAY("    -K|--last-as-blank <sec>  ──────────── It doesn't do anything. Still here for compatibility.\n");
