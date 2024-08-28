@@ -9,6 +9,6 @@ typedef struct {
 	x264_nal_t *nal;
 } us_libx264_encoder_s;
 
-void us_libx264_encoder_init(us_libx264_encoder_s *enc, int frame_width, int frame_height, uint h264_bitrate, uint h264_gop);
+void us_libx264_encoder_init(us_libx264_encoder_s *enc, uint frame_format, int frame_width, int frame_height, uint h264_bitrate, uint h264_gop);
 int us_libx264_encoder_compress(us_libx264_encoder_s *enc, const us_frame_s *src, us_frame_s *dest, bool force_key);
 void us_libx264_encoder_destroy(us_libx264_encoder_s *enc);
