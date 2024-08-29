@@ -124,7 +124,6 @@ void us_libx264_encoder_destroy(us_libx264_encoder_s *enc){
 		x264_encoder_close(enc->handle);
 	}
 	if(enc->picture_in){
-		x264_picture_clean(enc->picture_in);
 		free(enc->picture_in);
 	}
 	if(enc->param){
