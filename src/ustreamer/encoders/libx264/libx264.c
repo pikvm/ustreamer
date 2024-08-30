@@ -1,7 +1,7 @@
 
 #include <stdint.h>
 #include <linux/videodev2.h>
-#include "../../../libs/x264.h"
+#include <x264.h>
 #include "../../../libs/frame.h"
 #include "../../../libs/logging.h"
 

@@ -45,7 +45,7 @@
 #include "../libs/unjpeg.h"
 #include "../libs/fpsi.h"
 #ifdef WITH_LIBX264
-#	include "../libs/x264.h"
+#	include <x264.h>
 #endif
 #ifdef WITH_V4P
 #	include "../libs/drm/drm.h"
@@ -55,9 +55,9 @@
 #include "encoder.h"
 #include "workers.h"
 #include "m2m.h"
-//#ifdef WITH_LIBX264
+#ifdef WITH_LIBX264
 #	include "encoders/libx264/libx264.h"
-//#endif
+#endif
 #ifdef WITH_GPIO
 #	include "gpio/gpio.h"
 #endif

@@ -34,7 +34,7 @@
 #include "../libs/capture.h"
 #include "../libs/fpsi.h"
 #ifdef WITH_LIBX264
-#	include "../libs/x264.h"
+#	include <x264.h>
 #endif
 #ifdef WITH_V4P
 #	include "../libs/drm/drm.h"

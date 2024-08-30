@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include "../../../libs/x264.h"
+#include <x264.h>
 #include "../../../libs/frame.h"
 typedef struct {
 	x264_param_t *param;
