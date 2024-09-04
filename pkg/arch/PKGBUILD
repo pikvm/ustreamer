@@ -10,7 +10,7 @@ url="https://github.com/pikvm/ustreamer"
 license=(GPL)
 arch=(i686 x86_64 armv6h armv7h aarch64)
 depends=(libjpeg libevent libbsd libgpiod systemd)
-makedepends=(gcc make systemd)
+makedepends=(gcc make pkgconf systemd)
 source=(${pkgname}::"git+https://github.com/pikvm/ustreamer#commit=v${pkgver}")
 md5sums=(SKIP)
 
