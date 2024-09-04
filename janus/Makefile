@@ -1,5 +1,3 @@
-include ../lib.mk
-
 R_DESTDIR ?=
 PREFIX ?= /usr/local
 
@@ -17,6 +15,11 @@ _LDFLAGS = -shared -lm -pthread -lrt -ljansson -lopus -lasound -lspeexdsp $(shel
 _SRCS = $(shell ls src/uslibs/*.c src/*.c)
 
 _BUILD = build
+
+
+define optbool
+$(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
+endef
 
 
 WITH_PTHREAD_NP ?= 1

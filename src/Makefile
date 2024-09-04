@@ -1,5 +1,3 @@
-include ../lib.mk
-
 R_DESTDIR ?=
 PREFIX ?= /usr/local
 
@@ -45,6 +43,11 @@ _BUILD = build
 
 _TARGETS = $(_USTR) $(_DUMP)
 _OBJS = $(_USTR_SRCS:%.c=$(_BUILD)/%.o) $(_DUMP_SRCS:%.c=$(_BUILD)/%.o)
+
+
+define optbool
+$(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
+endef
 
 
 ifneq ($(call optbool,$(WITH_GPIO)),)
