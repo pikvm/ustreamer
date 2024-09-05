@@ -119,6 +119,7 @@ typedef struct {
 	uint				timeout;
 	us_controls_s 		ctl;
 	us_capture_runtime_s *run;
+    bool                allow_truncated_frames;
 } us_capture_s;
 
 
