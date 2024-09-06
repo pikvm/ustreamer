@@ -115,11 +115,11 @@ typedef struct {
 	bool				dma_required;
 	uint				desired_fps;
 	uz					min_frame_size;
+	bool				allow_truncated_frames;
 	bool				persistent;
 	uint				timeout;
 	us_controls_s 		ctl;
 	us_capture_runtime_s *run;
-    bool                allow_truncated_frames;
 } us_capture_s;
 
 

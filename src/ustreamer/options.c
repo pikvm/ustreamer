@@ -32,6 +32,7 @@ enum _US_OPT_VALUES {
 	_O_IO_METHOD = 'I',
 	_O_DESIRED_FPS = 'f',
 	_O_MIN_FRAME_SIZE = 'z',
+	_O_ALLOW_TRUNCATED_FRAMES = 'T',
 	_O_PERSISTENT = 'n',
 	_O_DV_TIMINGS = 't',
 	_O_BUFFERS = 'b',
@@ -56,7 +57,6 @@ enum _US_OPT_VALUES {
 
 	_O_HELP = 'h',
 	_O_VERSION = 'v',
-    _O_ALLOW_TRUNCATED_FRAMES = 'T',
 
 	// Longs only
 
@@ -143,6 +143,7 @@ static const struct option _LONG_OPTS[] = {
 	{"io-method",				required_argument,	NULL,	_O_IO_METHOD},
 	{"desired-fps",				required_argument,	NULL,	_O_DESIRED_FPS},
 	{"min-frame-size",			required_argument,	NULL,	_O_MIN_FRAME_SIZE},
+	{"allow-truncated-frames",	no_argument,		NULL,	_O_ALLOW_TRUNCATED_FRAMES},
 	{"persistent",				no_argument,		NULL,	_O_PERSISTENT},
 	{"dv-timings",				no_argument,		NULL,	_O_DV_TIMINGS},
 	{"buffers",					required_argument,	NULL,	_O_BUFFERS},
@@ -238,7 +239,6 @@ static const struct option _LONG_OPTS[] = {
 	{"debug",					no_argument,		NULL,	_O_DEBUG},
 	{"force-log-colors",		no_argument,		NULL,	_O_FORCE_LOG_COLORS},
 	{"no-log-colors",			no_argument,		NULL,	_O_NO_LOG_COLORS},
-    {"allow-truncated-frames",	no_argument,		NULL,	_O_ALLOW_TRUNCATED_FRAMES},
 
 	{"help",					no_argument,		NULL,	_O_HELP},
 	{"version",					no_argument,		NULL,	_O_VERSION},
@@ -386,6 +386,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 			case _O_IO_METHOD:			OPT_PARSE_ENUM("IO method", cap->io_method, us_capture_parse_io_method, US_IO_METHODS_STR);
 			case _O_DESIRED_FPS:		OPT_NUMBER("--desired-fps", cap->desired_fps, 0, US_VIDEO_MAX_FPS, 0);
 			case _O_MIN_FRAME_SIZE:		OPT_NUMBER("--min-frame-size", cap->min_frame_size, 1, 8192, 0);
+			case _O_ALLOW_TRUNCATED_FRAMES:	OPT_SET(cap->allow_truncated_frames, true);
 			case _O_PERSISTENT:			OPT_SET(cap->persistent, true);
 			case _O_DV_TIMINGS:			OPT_SET(cap->dv_timings, true);
 			case _O_BUFFERS:			OPT_NUMBER("--buffers", cap->n_bufs, 1, 32, 0);
@@ -501,7 +502,6 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 			case _O_DEBUG:				OPT_SET(us_g_log_level, US_LOG_LEVEL_DEBUG);
 			case _O_FORCE_LOG_COLORS:	OPT_SET(us_g_log_colored, true);
 			case _O_NO_LOG_COLORS:		OPT_SET(us_g_log_colored, false);
-            case _O_ALLOW_TRUNCATED_FRAMES:OPT_SET(cap->allow_truncated_frames, true);
 
 			case _O_HELP:		_help(stdout, cap, enc, stream, server); return 1;
 			case _O_VERSION:	puts(US_VERSION); return 1;
@@ -635,6 +635,8 @@ static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, co
 	SAY("    -f|--desired-fps <N>  ──────────────── Desired FPS. Default: maximum possible.\n");
 	SAY("    -z|--min-frame-size <N>  ───────────── Drop frames smaller then this limit. Useful if the device");
 	SAY("                                           produces small-sized garbage frames. Default: %zu bytes.\n", cap->min_frame_size);
+	SAY("    -T|--allow-truncated-frames  ───────── Allows to handle truncated frames. Useful if the device");
+	SAY("                                           produces incorrect but still acceptable frames. Default: disabled.\n");
 	SAY("    -n|--persistent  ───────────────────── Don't re-initialize device on timeout. Default: disabled.\n");
 	SAY("    -t|--dv-timings  ───────────────────── Enable DV-timings querying and events processing");
 	SAY("                                           to automatic resolution change. Default: disabled.\n");
