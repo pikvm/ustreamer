@@ -56,6 +56,7 @@ enum _US_OPT_VALUES {
 
 	_O_HELP = 'h',
 	_O_VERSION = 'v',
+    _O_ALLOW_TRUNCATED_FRAMES = 'T',
 
 	// Longs only
 
@@ -237,6 +238,7 @@ static const struct option _LONG_OPTS[] = {
 	{"debug",					no_argument,		NULL,	_O_DEBUG},
 	{"force-log-colors",		no_argument,		NULL,	_O_FORCE_LOG_COLORS},
 	{"no-log-colors",			no_argument,		NULL,	_O_NO_LOG_COLORS},
+    {"allow-truncated-frames",	no_argument,		NULL,	_O_ALLOW_TRUNCATED_FRAMES},
 
 	{"help",					no_argument,		NULL,	_O_HELP},
 	{"version",					no_argument,		NULL,	_O_VERSION},
@@ -499,6 +501,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 			case _O_DEBUG:				OPT_SET(us_g_log_level, US_LOG_LEVEL_DEBUG);
 			case _O_FORCE_LOG_COLORS:	OPT_SET(us_g_log_colored, true);
 			case _O_NO_LOG_COLORS:		OPT_SET(us_g_log_colored, false);
+            case _O_ALLOW_TRUNCATED_FRAMES:OPT_SET(cap->allow_truncated_frames, true);
 
 			case _O_HELP:		_help(stdout, cap, enc, stream, server); return 1;
 			case _O_VERSION:	puts(US_VERSION); return 1;
