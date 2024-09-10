@@ -50,13 +50,13 @@ char *us_rtpa_make_sdp(us_rtpa_s *rtpa) {
 		"m=audio 1 RTP/SAVPF %u" RN
 		"c=IN IP4 0.0.0.0" RN
 		"a=rtpmap:%u OPUS/48000/2" RN
-		// "a=fmtp:%u useinbandfec=1" RN
+		"a=fmtp:%u sprop-stereo=1" RN // useinbandfec=1
 		"a=rtcp-fb:%u nack" RN
 		"a=rtcp-fb:%u nack pli" RN
 		"a=rtcp-fb:%u goog-remb" RN
 		"a=ssrc:%" PRIu32 " cname:ustreamer" RN
 		"a=sendonly" RN,
-		pl, pl, pl, pl, pl, // pl,
+		pl, pl, pl, pl, pl, pl,
 		rtpa->rtp->ssrc
 	);
 	return sdp;
