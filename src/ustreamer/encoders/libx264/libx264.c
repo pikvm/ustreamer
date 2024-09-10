@@ -84,8 +84,8 @@ int us_libx264_encoder_compress(us_libx264_encoder_s *enc, const us_frame_s *src
 		enc->picture_in->img.plane[2]=src->data + num / 2 * 3;
 		break;
 	case V4L2_PIX_FMT_RGB24:
-		if(RGB24ToI420(src->data, src->width * 3, enc->picture_in->img.plane[0], src->width,enc->picture_in->img.plane[1], src->width / 2, 
-			enc->picture_in->img.plane[2], src->width / 2, src->width, src->height)){
+		if(RGB24ToI420(src->data, src->width * 3, enc->picture_in->img.plane[0], src->width,enc->picture_in->img.plane[2], src->width / 2, 
+			enc->picture_in->img.plane[1], src->width / 2, src->width, src->height)){
         	US_LOG_ERROR("H264 Encoder libx264: RGB24ToI420 failed!");
 			}
 		break;
