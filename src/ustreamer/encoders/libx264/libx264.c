@@ -18,12 +18,13 @@ void us_libx264_encoder_init(us_libx264_encoder_s *enc, int frame_width, int fra
     enc->param = (x264_param_t *)malloc(sizeof(x264_param_t));
     x264_param_default(enc->param);
 	x264_param_default_preset(enc->param, "ultrafast", "zerolatency");
-    enc->param->i_threads = X264_SYNC_LOOKAHEAD_AUTO;
+    enc->param->i_threads = 2;
+	enc->param->b_sliced_threads=0;
     enc->param->i_width = frame_width;
     enc->param->i_height = frame_height;
     enc->param->i_fps_num = 30;
     enc->param->i_fps_den = 1;
-    enc->param->i_log_level = X264_LOG_INFO;//X264_LOG_DEBUG,X264_LOG_NONE
+    enc->param->i_log_level = X264_LOG_NONE;//X264_LOG_DEBUG,X264_LOG_NONE
 	enc->param->b_repeat_headers = 1; 
 	enc->param->rc.b_mb_tree=0;
 	enc->param->rc.i_rc_method = X264_RC_ABR;

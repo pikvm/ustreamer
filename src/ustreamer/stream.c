@@ -669,7 +669,7 @@ static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *fr
 		frame = run->h264_tmp_src;
 	}
 	if (run->h264_key_requested) {
-		US_LOG_INFO("H264: Requested keyframe by a sink client");
+		US_LOG_VERBOSE("H264: Requested keyframe by a sink client");
 		run->h264_key_requested = false;
 		force_key = true;
 	}
