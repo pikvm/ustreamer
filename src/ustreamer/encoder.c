@@ -228,8 +228,11 @@ static bool _worker_run_job(us_worker_s *wr) {
 		}
 #ifdef WITH_LIBX264
 	}else if (run->type == US_ENCODER_TYPE_LIBX264_VIDEO) {
-		US_LOG_VERBOSE("Compressing RAW or JPEG using LIBX264: worker=%s, buffer=%u",
+		US_LOG_VERBOSE("Compressing RAW or JPEG to H.264 using LIBX264: worker=%s, buffer=%u",
 			wr->name, job->hw->buf.index);
+		US_LOG_VERBOSE("Compressing JPEG using CPU: worker=%s, buffer=%u",
+			wr->name, job->hw->buf.index);
+		us_cpu_encoder_compress(src, dest, run->quality);
 #endif		
 	} else {
 		assert(0 && "Unknown encoder type");
