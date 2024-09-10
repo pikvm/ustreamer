@@ -2,11 +2,11 @@
 #include <stdint.h>
 #include <linux/videodev2.h>
 #include <x264.h>
+#include <libyuv.h>
 #include "../../../libs/frame.h"
 #include "../../../libs/logging.h"
 
 #include "libx264.h"
-
 
 void us_libx264_encoder_init(us_libx264_encoder_s *enc, int frame_width, int frame_height, uint h264_bitrate, uint h264_gop);
 int us_libx264_encoder_compress(us_libx264_encoder_s *enc, const us_frame_s *src, us_frame_s *dest, bool force_key);
@@ -49,8 +49,8 @@ int us_libx264_encoder_compress(us_libx264_encoder_s *enc, const us_frame_s *src
 			US_LOG_INFO("H264 Encoder libx264: Input V4L2 format: V4L2_PIX_FMT_YUV420, use CSP X264_CSP_I420");
 			break;
 		case V4L2_PIX_FMT_RGB24:
-			enc->param->i_csp = X264_CSP_RGB;
-			US_LOG_INFO("H264 Encoder libx264: Input V4L2 format: V4L2_PIX_FMT_RGB24, use CSP X264_CSP_RGB");
+			enc->param->i_csp = X264_CSP_I420;
+			US_LOG_INFO("H264 Encoder libx264: Input V4L2 format: V4L2_PIX_FMT_RGB24, use X264_CSP_I420 after RGB24ToI420");
 			break;
 		default:
 			US_LOG_ERROR("H264 Encoder libx264: Input V4L2 format: unknown, use CSP X264_CSP_NONE");
@@ -84,9 +84,10 @@ int us_libx264_encoder_compress(us_libx264_encoder_s *enc, const us_frame_s *src
 		enc->picture_in->img.plane[2]=src->data + num / 2 * 3;
 		break;
 	case V4L2_PIX_FMT_RGB24:
-		enc->picture_in->img.plane[0]=src->data;
-		enc->picture_in->img.plane[1]=src->data + num;
-		enc->picture_in->img.plane[2]=src->data + num*2;
+		if(RGB24ToI420(src->data, src->width * 3, enc->picture_in->img.plane[0], src->width,enc->picture_in->img.plane[1], src->width / 2, 
+			enc->picture_in->img.plane[2], src->width / 2, src->width, src->height)){
+        	US_LOG_ERROR("H264 Encoder libx264: RGB24ToI420 failed!");
+			}
 		break;
 	default:
 		US_LOG_ERROR("H264 Encoder libx264: Unsupported color space, now exit ...");
