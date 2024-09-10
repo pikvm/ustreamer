@@ -2,7 +2,7 @@
 
 [µStreamer](https://github.com/pikvm/ustreamer) 是一个轻量快速的 MJPEG 视频流服务，可将 V4L2 设备上的 MJPEG 视频流传输到网络。主流浏览器以及 mplayer、VLC 等大多数视频播放器都支持这种视频格式。它是 [PiKVM](https://github.com/pikvm/pikvm) 项目的一部分，旨在以尽可能高的分辨率和帧率通过网络传输 VGA 或 HDMI 的视频数据。
 
-此分支作者建立了基于 [PiKVM](https://github.com/pikvm/pikvm) 项目的 [One-KVM](https://github.com/mofeng-git/One-KVM)，该项目旨在将 PiKVM 的功能扩展到其他平台，如 X86、ARM等。故作者对 [µStreamer](https://github.com/pikvm/ustreamer) 进行了**分支**和**修改**：**添加 libx264 视频编码器**，以支持树莓派以外平台的 H.264 视频编码。
+此分支作者建立了基于 [PiKVM](https://github.com/pikvm/pikvm) 项目的 [One-KVM](https://github.com/mofeng-git/One-KVM)，该项目旨在将 PiKVM 的功能扩展到其他平台，如 X86、ARM。故作者对 [µStreamer](https://github.com/pikvm/ustreamer) 进行了**分支**和**修改**：**添加 libx264 视频编码器**，以支持树莓派以外平台的 H.264 视频编码。
 
 
 ### 编译
@@ -27,7 +27,7 @@ apt install libx264-dev libyuv-dev
 
 
 ```bash
-git clone --depth=1 https://github.com/pikvm/ustreamer
+git clone --depth=1 https://github.com/mofeng-git/ustreamer
 cd ustreamer
 make
 #make WITH_PYTHON=1 WITH_JANUS=1 WITH_LIBX264=1
