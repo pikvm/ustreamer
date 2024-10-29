@@ -129,6 +129,11 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 	return stream;
 }
 
+void us_stream_update_blank(us_stream_s *stream, us_capture_s *cap)
+{
+	us_blank_draw(stream->run->blank, "< NO SIGNAL >", cap->width, cap->height);
+}
+
 void us_stream_destroy(us_stream_s *stream) {
 	us_fpsi_destroy(stream->run->http->captured_fpsi);
 	US_RING_DELETE_WITH_ITEMS(stream->run->http->jpeg_ring, us_frame_destroy);
