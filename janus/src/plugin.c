@@ -230,12 +230,12 @@ static void *_audio_thread(void *arg) {
 			continue;
 		}
 
-		uint audio_hz = 0;
+		uint audio_hz = 44100;
 		us_audio_s *audio = NULL;
 
-		if (_check_tc358743_audio(&audio_hz) < 0) {
+		/*if (_check_tc358743_audio(&audio_hz) < 0) {
 			goto close_audio;
-		}
+		}*/
 		if (audio_hz == 0) {
 			US_ONCE({ US_JLOG_INFO("audio", "No audio presented from the host"); });
 			goto close_audio;
@@ -248,9 +248,9 @@ static void *_audio_thread(void *arg) {
 		once = 0;
 
 		while (!_STOP && _HAS_WATCHERS && _HAS_LISTENERS) {
-			if (_check_tc358743_audio(&audio_hz) < 0 || audio->pcm_hz != audio_hz) {
+			/*if (_check_tc358743_audio(&audio_hz) < 0 || audio->pcm_hz != audio_hz) {
 				goto close_audio;
-			}
+			}*/
 			uz size = US_RTP_DATAGRAM_SIZE - US_RTP_HEADER_SIZE;
 			u8 data[size];
 			u64 pts;
