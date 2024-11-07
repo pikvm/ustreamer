@@ -129,8 +129,7 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 	return stream;
 }
 
-void us_stream_update_blank(us_stream_s *stream, us_capture_s *cap)
-{
+void us_stream_update_blank(us_stream_s *stream, us_capture_s *cap) {
 	us_blank_draw(stream->run->blank, "< NO SIGNAL >", cap->width, cap->height);
 }
 
