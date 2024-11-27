@@ -448,7 +448,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 			json_t *const m_result = json_object(); \
 			json_object_set_new(m_result, "status", json_string(x_status)); \
 			if (x_payload != NULL) { \
-				json_object_set_new(m_result, x_status, x_payload); \
+				json_object_set(m_result, x_status, x_payload); \
 			} \
 			json_object_set_new(m_event, "result", m_result); \
 			_g_gw->push_event(session, create(), transaction, m_event, x_jsep); \
