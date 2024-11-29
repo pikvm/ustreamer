@@ -406,17 +406,13 @@ static void _plugin_hangup_media(janus_plugin_session *session) { _set_transmit(
 static struct janus_plugin_result *_plugin_handle_message(
 	janus_plugin_session *session, char *transaction, json_t *msg, json_t *jsep) {
 
-	assert(transaction != NULL);
-
-#	define FREE_MSG_JSEP { \
-			US_DELETE(msg, json_decref); \
-			US_DELETE(jsep, json_decref); \
-		}
+	janus_plugin_result_type result_type = JANUS_PLUGIN_OK;
+	char *result_msg = NULL;
 
 	if (session == NULL || msg == NULL) {
-		free(transaction);
-		FREE_MSG_JSEP;
-		return janus_plugin_result_new(JANUS_PLUGIN_ERROR, (msg ? "No session" : "No message"), NULL);
+		result_type = JANUS_PLUGIN_ERROR;
+		result_msg = (msg ? "No session" : "No message");
+		goto done;
 	}
 
 #	define PUSH_ERROR(x_error, x_reason) { \
@@ -425,20 +421,20 @@ static struct janus_plugin_result *_plugin_handle_message(
 			json_object_set_new(m_event, "ustreamer", json_string("event")); \
 			json_object_set_new(m_event, "error_code", json_integer(x_error)); \
 			json_object_set_new(m_event, "error", json_string(x_reason)); \
-			_g_gw->push_event(session, create(), transaction, m_event, NULL); \
+			_g_gw->push_event(session, create(), NULL, m_event, NULL); \
 			json_decref(m_event); \
 		}
 
 	json_t *const request = json_object_get(msg, "request");
 	if (request == NULL) {
 		PUSH_ERROR(400, "Request missing");
-		goto ok_wait;
+		goto done;
 	}
 
 	const char *const request_str = json_string_value(request);
 	if (request_str == NULL) {
 		PUSH_ERROR(400, "Request not a string");
-		goto ok_wait;
+		goto done;
 	}
 	// US_JLOG_INFO("main", "Message: %s", request_str);
 
@@ -451,7 +447,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 				json_object_set(m_result, x_status, x_payload); \
 			} \
 			json_object_set_new(m_event, "result", m_result); \
-			_g_gw->push_event(session, create(), transaction, m_event, x_jsep); \
+			_g_gw->push_event(session, create(), NULL, m_event, x_jsep); \
 			json_decref(m_event); \
 		}
 
@@ -542,13 +538,17 @@ static struct janus_plugin_result *_plugin_handle_message(
 		PUSH_ERROR(405, "Not implemented");
 	}
 
-ok_wait:
-	FREE_MSG_JSEP;
-	return janus_plugin_result_new(JANUS_PLUGIN_OK_WAIT, NULL, NULL);
+done:
+	US_DELETE(transaction, free);
+	US_DELETE(msg, json_decref);
+	US_DELETE(jsep, json_decref);
+
+	return janus_plugin_result_new(
+		result_type, result_msg,
+		(result_type == JANUS_PLUGIN_OK ? json_pack("{sb}", "ok", 1) : NULL));
 
 #	undef PUSH_STATUS
 #	undef PUSH_ERROR
-#	undef FREE_MSG_JSEP
 }
 
 static void _plugin_incoming_rtcp(janus_plugin_session *handle, janus_plugin_rtcp *packet) {
