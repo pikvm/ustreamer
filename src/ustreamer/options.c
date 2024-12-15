@@ -494,7 +494,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 #			ifdef WITH_SETPROCTITLE
 			case _O_PROCESS_NAME_PREFIX:	OPT_SET(process_name_prefix, optarg);
 #			endif
-			case _O_NOTIFY_PARENT:			OPT_SET(server->notify_parent, true);
+			case _O_NOTIFY_PARENT:			OPT_SET(stream->notify_parent, true);
 
 			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", us_g_log_level, US_LOG_LEVEL_INFO, US_LOG_LEVEL_DEBUG, 0);
 			case _O_PERF:				OPT_SET(us_g_log_level, US_LOG_LEVEL_PERF);

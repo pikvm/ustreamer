@@ -20,33 +20,22 @@
 *****************************************************************************/
 
 
-#include "uri.h"
+#pragma once
 
-#include <event2/util.h>
+#include <sys/stat.h>
+
 #include <event2/http.h>
 #include <event2/keyvalq_struct.h>
 
 #include "../../libs/types.h"
 
 
-bool us_uri_get_true(struct evkeyvalq *params, const char *key) {
-	const char *value_str = evhttp_find_header(params, key);
-	if (value_str != NULL) {
-		if (
-			value_str[0] == '1'
-			|| !evutil_ascii_strcasecmp(value_str, "true")
-			|| !evutil_ascii_strcasecmp(value_str, "yes")
-		) {
-			return true;
-		}
-	}
-	return false;
-}
+evutil_socket_t us_evhttp_bind_unix(struct evhttp *http, const char *path, bool rm, mode_t mode);
 
-char *us_uri_get_string(struct evkeyvalq *params, const char *key) {
-	const char *const value_str = evhttp_find_header(params, key);
-	if (value_str != NULL) {
-		return evhttp_encode_uri(value_str);
-	}
-	return NULL;
-}
+const char *us_evhttp_get_header(struct evhttp_request *request, const char *key);
+char *us_evhttp_get_hostport(struct evhttp_request *request);
+
+bool us_evkeyvalq_get_true(struct evkeyvalq *params, const char *key);
+char *us_evkeyvalq_get_string(struct evkeyvalq *params, const char *key);
+
+char *us_bufferevent_format_reason(short what);

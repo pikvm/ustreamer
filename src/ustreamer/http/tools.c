@@ -20,7 +20,7 @@
 *****************************************************************************/
 
 
-#include "unix.h"
+#include "tools.h"
 
 #include <string.h>
 #include <unistd.h>
@@ -33,6 +33,8 @@
 
 #include <event2/http.h>
 #include <event2/util.h>
+#include <event2/keyvalq_struct.h>
+#include <event2/bufferevent.h>
 
 #include "../../libs/types.h"
 #include "../../libs/tools.h"
@@ -78,4 +80,95 @@ evutil_socket_t us_evhttp_bind_unix(struct evhttp *http, const char *path, bool 
 		return -1;
 	}
 	return fd;
+}
+
+const char *us_evhttp_get_header(struct evhttp_request *request, const char *key) {
+	return evhttp_find_header(evhttp_request_get_input_headers(request), key);
+}
+
+char *us_evhttp_get_hostport(struct evhttp_request *request) {
+	char *addr = NULL;
+	unsigned short port = 0;
+	struct evhttp_connection *conn = evhttp_request_get_connection(request);
+	if (conn != NULL) {
+		char *peer;
+		evhttp_connection_get_peer(conn, &peer, &port);
+		addr = us_strdup(peer);
+	}
+
+	const char *xff = us_evhttp_get_header(request, "X-Forwarded-For");
+	if (xff != NULL) {
+		US_DELETE(addr, free);
+		assert((addr = strndup(xff, 1024)) != NULL);
+		for (uint index = 0; addr[index]; ++index) {
+			if (addr[index] == ',') {
+				addr[index] = '\0';
+				break;
+			}
+		}
+	}
+
+	if (addr == NULL) {
+		addr = us_strdup("???");
+	}
+
+	char *hostport;
+	US_ASPRINTF(hostport, "[%s]:%u", addr, port);
+	free(addr);
+	return hostport;
+}
+
+bool us_evkeyvalq_get_true(struct evkeyvalq *params, const char *key) {
+	const char *value_str = evhttp_find_header(params, key);
+	if (value_str != NULL) {
+		if (
+			value_str[0] == '1'
+			|| !evutil_ascii_strcasecmp(value_str, "true")
+			|| !evutil_ascii_strcasecmp(value_str, "yes")
+		) {
+			return true;
+		}
+	}
+	return false;
+}
+
+char *us_evkeyvalq_get_string(struct evkeyvalq *params, const char *key) {
+	const char *const value_str = evhttp_find_header(params, key);
+	if (value_str != NULL) {
+		return evhttp_encode_uri(value_str);
+	}
+	return NULL;
+}
+
+char *us_bufferevent_format_reason(short what) {
+	char *reason;
+	US_CALLOC(reason, 2048);
+
+	// evutil_socket_error_to_string() is not thread-safe
+	char *const perror_str = us_errno_to_string(EVUTIL_SOCKET_ERROR());
+	bool first = true;
+
+	strncat(reason, perror_str, 1023);
+	free(perror_str);
+	strcat(reason, " (");
+
+#	define FILL_REASON(x_bev, x_name) { \
+			if (what & x_bev) { \
+				if (first) { \
+					first = false; \
+				} else { \
+					strcat(reason, ","); \
+				} \
+				strcat(reason, x_name); \
+			} \
+		}
+	FILL_REASON(BEV_EVENT_READING, "reading");
+	FILL_REASON(BEV_EVENT_WRITING, "writing");
+	FILL_REASON(BEV_EVENT_ERROR, "error");
+	FILL_REASON(BEV_EVENT_TIMEOUT, "timeout");
+	FILL_REASON(BEV_EVENT_EOF, "eof"); // cppcheck-suppress unreadVariable
+#	undef FILL_REASON
+
+	strcat(reason, ")");
+	return reason;
 }

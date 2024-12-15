@@ -72,10 +72,6 @@ typedef struct {
 	ldf			expose_begin_ts;
 	ldf			expose_cmp_ts;
 	ldf			expose_end_ts;
-
-	bool		notify_last_online;
-	uint		notify_last_width;
-	uint		notify_last_height;
 } us_server_exposed_s;
 
 typedef struct {
@@ -120,8 +116,6 @@ typedef struct us_server_sx {
 	uint	drop_same_frames;
 	uint	fake_width;
 	uint	fake_height;
-
-	bool	notify_parent;
 
 	us_server_runtime_s *run;
 } us_server_s;
