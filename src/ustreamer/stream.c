@@ -598,8 +598,8 @@ static void _stream_update_captured_fpsi(us_stream_s *stream, const us_frame_s *
 	us_stream_runtime_s *const run = stream->run;
 
 	us_fpsi_meta_s meta = {0};
-	us_fpsi_frame_to_meta(run->blank->raw, &meta);
-	us_fpsi_update(run->http->captured_fpsi, false, &meta);
+	us_fpsi_frame_to_meta(frame, &meta);
+	us_fpsi_update(run->http->captured_fpsi, bump, &meta);
 
 	if (stream->notify_parent && !memcmp(&run->notify_meta, &meta, sizeof(us_fpsi_meta_s))) {
 		memcpy(&run->notify_meta, &meta, sizeof(us_fpsi_meta_s));
