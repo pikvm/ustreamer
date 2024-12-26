@@ -47,7 +47,8 @@
 
 // A number of frames per 1 channel:
 //   - https://github.com/xiph/opus/blob/7b05f44/src/opus_demo.c#L368
-#define _HZ_TO_FRAMES(_hz)	(6 * (_hz) / 50) // 120ms
+// #define _HZ_TO_FRAMES(_hz)	(6 * (_hz) / 50) // 120ms
+#define _HZ_TO_FRAMES(_hz)	((_hz) / 50) // 20ms
 #define _HZ_TO_BUF16(_hz)	(_HZ_TO_FRAMES(_hz) * 2) // One stereo frame = (16bit L) + (16bit R)
 #define _HZ_TO_BUF8(_hz)	(_HZ_TO_BUF16(_hz) * sizeof(s16))
 
