@@ -13,9 +13,9 @@ _V4P = ustreamer-v4p.bin
 
 _CFLAGS = -MD -c -std=c17 -Wall -Wextra -D_GNU_SOURCE $(CFLAGS)
 
-_USTR_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt -latomic -levent -levent_pthreads
-_DUMP_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt -latomic
-_V4P_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt -latomic
+_USTR_LDFLAGS = $(LDFLAGS) -Wl,-Bstatic -ljpeg -pthread -lrt -latomic -levent -levent_pthreads -Wl,-Bdynamic -lm
+_DUMP_LDFLAGS = $(LDFLAGS) -Wl,-Bstatic -ljpeg -pthread -lrt -latomic -Wl,-Bdynamic -lm
+_V4P_LDFLAGS = $(LDFLAGS) -Wl,-Bstatic -ljpeg -pthread -lrt -latomic -Wl,-Bdynamic -lm
 
 _USTR_SRCS = $(shell ls \
 	libs/*.c \
@@ -52,7 +52,7 @@ endef
 
 ifneq ($(call optbool,$(WITH_GPIO)),)
 override _CFLAGS += -DWITH_GPIO $(shell pkg-config --atleast-version=2 libgpiod 2> /dev/null && echo -DHAVE_GPIOD2)
-override _USTR_LDFLAGS += -lgpiod
+override _USTR_LDFLAGS += -Wl,-Bstatic -lgpiod -Wl,-Bdynamic
 override _USTR_SRCS += $(shell ls ustreamer/gpio/*.c)
 endif
 
@@ -65,7 +65,7 @@ endif
 
 ifneq ($(call optbool,$(WITH_LIBX264)),)
 override _CFLAGS += -DWITH_LIBX264
-override _USTR_LDFLAGS += -lx264 -lyuv
+override _USTR_LDFLAGS += -Wl,-Bstatic -lx264 -lyuv -Wl,-Bdynamic
 override _USTR_SRCS += $(shell ls ustreamer/encoders/libx264/*.c)
 endif
 
