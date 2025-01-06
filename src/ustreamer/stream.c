@@ -128,7 +128,7 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 	stream->h264_gop = 30;
 	stream->run = run;
 
-	us_blank_draw(run->blank, "< NO SIGNAL >", cap->width, cap->height);
+	us_blank_draw(run->blank, "BriLink-Z","Please wait while connecting...", cap->width, cap->height);
 	us_fpsi_meta_s meta = {0};
 	us_fpsi_frame_to_meta(run->blank->raw, &meta);
 	us_fpsi_update(http->captured_fpsi, false, &meta);
@@ -588,7 +588,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 					width = stream->cap->width;
 					height = stream->cap->height;
 				}
-				us_blank_draw(run->blank, "< NO SIGNAL >", width, height);
+				us_blank_draw(run->blank, "BriLink-Z","Please wait while connecting...", width, height);
 
 				us_fpsi_meta_s meta = {0};
 				us_fpsi_frame_to_meta(run->blank->raw, &meta);

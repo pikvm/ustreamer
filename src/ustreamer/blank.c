@@ -36,12 +36,12 @@ us_blank_s *us_blank_init(void) {
 	blank->ft = us_frametext_init();
 	blank->raw = blank->ft->frame;
 	blank->jpeg = us_frame_init();
-	us_blank_draw(blank, "< NO SIGNAL >", 640, 480);
+	us_blank_draw(blank, "BriLink-Z","Please wait while connecting...", 640, 480);
 	return blank;
 }
 
-void us_blank_draw(us_blank_s *blank, const char *text, uint width, uint height) {
-	us_frametext_draw(blank->ft, text, width, height);
+void us_blank_draw(us_blank_s *blank, const char *text1, const char *text2, uint width, uint height) {
+	us_frametext_draw(blank->ft, text1, text2, width, height);
 	us_cpu_encoder_compress(blank->raw, blank->jpeg, 95);
 }
 

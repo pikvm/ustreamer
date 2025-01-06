@@ -36,4 +36,4 @@ typedef struct {
 us_frametext_s *us_frametext_init(void);
 void us_frametext_destroy(us_frametext_s *ft);
 
-void us_frametext_draw(us_frametext_s *ft, const char *text, uint width, uint height);
+void us_frametext_draw(us_frametext_s *ft, const char *text1,const char *text2, uint width, uint height);

@@ -37,4 +37,4 @@ typedef struct {
 us_blank_s *us_blank_init(void);
 void us_blank_destroy(us_blank_s *blank);
 
-void us_blank_draw(us_blank_s *blank, const char *text, uint width, uint height);
+void us_blank_draw(us_blank_s *blank, const char *text1,const char *text2, uint width, uint height);
