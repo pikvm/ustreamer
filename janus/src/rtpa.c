@@ -43,7 +43,7 @@ void us_rtpa_destroy(us_rtpa_s *rtpa) {
 	free(rtpa);
 }
 
-char *us_rtpa_make_sdp(us_rtpa_s *rtpa) {
+char *us_rtpa_make_sdp(us_rtpa_s *rtpa, bool mic) {
 	const uint pl = rtpa->rtp->payload;
 	char *sdp;
 	US_ASPRINTF(sdp,
@@ -55,9 +55,10 @@ char *us_rtpa_make_sdp(us_rtpa_s *rtpa) {
 		"a=rtcp-fb:%u nack pli" RN
 		"a=rtcp-fb:%u goog-remb" RN
 		"a=ssrc:%" PRIu32 " cname:ustreamer" RN
-		"a=sendonly" RN,
+		"a=%s" RN,
 		pl, pl, pl, pl, pl, pl,
-		rtpa->rtp->ssrc
+		rtpa->rtp->ssrc,
+		(mic ? "sendrecv" : "sendonly")
 	);
 	return sdp;
 }

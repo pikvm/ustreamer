@@ -36,5 +36,5 @@ typedef struct {
 us_rtpa_s *us_rtpa_init(us_rtp_callback_f callback);
 void us_rtpa_destroy(us_rtpa_s *rtpa);
 
-char *us_rtpa_make_sdp(us_rtpa_s *rtpa);
+char *us_rtpa_make_sdp(us_rtpa_s *rtpa, bool mic);
 void us_rtpa_wrap(us_rtpa_s *rtpa, const u8 *data, uz size, u32 pts);

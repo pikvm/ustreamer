@@ -458,8 +458,9 @@ static struct janus_plugin_result *_plugin_handle_message(
 		PUSH_STATUS("stopped", NULL, NULL);
 
 	} else if (!strcmp(request_str, "watch")) {
-		bool with_audio = false;
 		uint video_orient = 0;
+		bool with_audio = false;
+		bool with_mic = false;
 		{
 			json_t *const params = json_object_get(msg, "params");
 			if (params != NULL) {
@@ -467,6 +468,12 @@ static struct janus_plugin_result *_plugin_handle_message(
 					json_t *const obj = json_object_get(params, "audio");
 					if (obj != NULL && json_is_boolean(obj)) {
 						with_audio = (_g_rtpa != NULL && json_boolean_value(obj));
+					}
+				}
+				{
+					json_t *const obj = json_object_get(params, "microphone");
+					if (obj != NULL && json_is_boolean(obj)) {
+						with_mic = (with_audio && json_boolean_value(obj)); // FIXME: also check playback
 					}
 				}
 				{
@@ -485,7 +492,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 		{
 			char *sdp;
 			char *const video_sdp = us_rtpv_make_sdp(_g_rtpv);
-			char *const audio_sdp = (with_audio ? us_rtpa_make_sdp(_g_rtpa) : us_strdup(""));
+			char *const audio_sdp = (with_audio ? us_rtpa_make_sdp(_g_rtpa, with_mic) : us_strdup(""));
 			US_ASPRINTF(sdp,
 				"v=0" RN
 				"o=- %" PRIu64 " 1 IN IP4 0.0.0.0" RN
