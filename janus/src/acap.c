@@ -20,7 +20,7 @@
 *****************************************************************************/
 
 
-#include "audio.h"
+#include "acap.h"
 
 #include <stdlib.h>
 #include <stdatomic.h>
@@ -73,44 +73,44 @@ typedef struct {
 static _pcm_buffer_s *_pcm_buffer_init(void);
 static _enc_buffer_s *_enc_buffer_init(void);
 
-static void *_pcm_thread(void *v_audio);
-static void *_encoder_thread(void *v_audio);
+static void *_pcm_thread(void *v_acap);
+static void *_encoder_thread(void *v_acap);
 
 
-bool us_audio_probe(const char *name) {
+bool us_acap_probe(const char *name) {
 	snd_pcm_t *pcm;
 	int err;
-	US_JLOG_INFO("audio", "Probing PCM capture ...");
+	US_JLOG_INFO("acap", "Probing PCM capture ...");
 	if ((err = snd_pcm_open(&pcm, name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
-		_JLOG_PERROR_ALSA(err, "audio", "Can't probe PCM capture");
+		_JLOG_PERROR_ALSA(err, "acap", "Can't probe PCM capture");
 		return false;
 	}
 	snd_pcm_close(pcm);
-	US_JLOG_INFO("audio", "PCM capture is available");
+	US_JLOG_INFO("acap", "PCM capture is available");
 	return true;
 }
 
-us_audio_s *us_audio_init(const char *name, uint pcm_hz) {
-	us_audio_s *audio;
-	US_CALLOC(audio, 1);
-	audio->pcm_hz = pcm_hz;
-	US_RING_INIT_WITH_ITEMS(audio->pcm_ring, 8, _pcm_buffer_init);
-	US_RING_INIT_WITH_ITEMS(audio->enc_ring, 8, _enc_buffer_init);
-	atomic_init(&audio->stop, false);
+us_acap_s *us_acap_init(const char *name, uint pcm_hz) {
+	us_acap_s *acap;
+	US_CALLOC(acap, 1);
+	acap->pcm_hz = pcm_hz;
+	US_RING_INIT_WITH_ITEMS(acap->pcm_ring, 8, _pcm_buffer_init);
+	US_RING_INIT_WITH_ITEMS(acap->enc_ring, 8, _enc_buffer_init);
+	atomic_init(&acap->stop, false);
 
 	int err;
 
 	{
-		if ((err = snd_pcm_open(&audio->pcm, name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
-			audio->pcm = NULL;
-			_JLOG_PERROR_ALSA(err, "audio", "Can't open PCM capture");
+		if ((err = snd_pcm_open(&acap->pcm, name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
+			acap->pcm = NULL;
+			_JLOG_PERROR_ALSA(err, "acap", "Can't open PCM capture");
 			goto error;
 		}
-		assert(!snd_pcm_hw_params_malloc(&audio->pcm_params));
+		assert(!snd_pcm_hw_params_malloc(&acap->pcm_params));
 
 #		define SET_PARAM(_msg, _func, ...) { \
-				if ((err = _func(audio->pcm, audio->pcm_params, ##__VA_ARGS__)) < 0) { \
-					_JLOG_PERROR_ALSA(err, "audio", _msg); \
+				if ((err = _func(acap->pcm, acap->pcm_params, ##__VA_ARGS__)) < 0) { \
+					_JLOG_PERROR_ALSA(err, "acap", _msg); \
 					goto error; \
 				} \
 			}
@@ -119,85 +119,85 @@ us_audio_s *us_audio_init(const char *name, uint pcm_hz) {
 		SET_PARAM("Can't set PCM access type",		snd_pcm_hw_params_set_access, SND_PCM_ACCESS_RW_INTERLEAVED);
 		SET_PARAM("Can't set PCM channels numbre",	snd_pcm_hw_params_set_channels, 2);
 		SET_PARAM("Can't set PCM sampling format",	snd_pcm_hw_params_set_format, SND_PCM_FORMAT_S16_LE);
-		SET_PARAM("Can't set PCM sampling rate",	snd_pcm_hw_params_set_rate_near, &audio->pcm_hz, 0);
-		if (audio->pcm_hz < _MIN_PCM_HZ || audio->pcm_hz > _MAX_PCM_HZ) {
-			US_JLOG_ERROR("audio", "Unsupported PCM freq: %u; should be: %u <= F <= %u",
-				audio->pcm_hz, _MIN_PCM_HZ, _MAX_PCM_HZ);
+		SET_PARAM("Can't set PCM sampling rate",	snd_pcm_hw_params_set_rate_near, &acap->pcm_hz, 0);
+		if (acap->pcm_hz < _MIN_PCM_HZ || acap->pcm_hz > _MAX_PCM_HZ) {
+			US_JLOG_ERROR("acap", "Unsupported PCM freq: %u; should be: %u <= F <= %u",
+				acap->pcm_hz, _MIN_PCM_HZ, _MAX_PCM_HZ);
 			goto error;
 		}
-		audio->pcm_frames = _HZ_TO_FRAMES(audio->pcm_hz);
-		audio->pcm_size = _HZ_TO_BUF8(audio->pcm_hz);
+		acap->pcm_frames = _HZ_TO_FRAMES(acap->pcm_hz);
+		acap->pcm_size = _HZ_TO_BUF8(acap->pcm_hz);
 		SET_PARAM("Can't apply PCM params", snd_pcm_hw_params);
 
 #		undef SET_PARAM
 	}
 
-	if (audio->pcm_hz != _ENCODER_INPUT_HZ) {
-		audio->res = speex_resampler_init(2, audio->pcm_hz, _ENCODER_INPUT_HZ, SPEEX_RESAMPLER_QUALITY_DESKTOP, &err);
+	if (acap->pcm_hz != _ENCODER_INPUT_HZ) {
+		acap->res = speex_resampler_init(2, acap->pcm_hz, _ENCODER_INPUT_HZ, SPEEX_RESAMPLER_QUALITY_DESKTOP, &err);
 		if (err < 0) {
-			audio->res = NULL;
-			_JLOG_PERROR_RES(err, "audio", "Can't create resampler");
+			acap->res = NULL;
+			_JLOG_PERROR_RES(err, "acap", "Can't create resampler");
 			goto error;
 		}
 	}
 
 	{
 		// OPUS_APPLICATION_VOIP, OPUS_APPLICATION_RESTRICTED_LOWDELAY
-		audio->enc = opus_encoder_create(_ENCODER_INPUT_HZ, 2, OPUS_APPLICATION_AUDIO, &err);
+		acap->enc = opus_encoder_create(_ENCODER_INPUT_HZ, 2, OPUS_APPLICATION_AUDIO, &err);
 		assert(err == 0);
-		assert(!opus_encoder_ctl(audio->enc, OPUS_SET_BITRATE(48000)));
-		assert(!opus_encoder_ctl(audio->enc, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_FULLBAND)));
-		assert(!opus_encoder_ctl(audio->enc, OPUS_SET_SIGNAL(OPUS_SIGNAL_MUSIC)));
+		assert(!opus_encoder_ctl(acap->enc, OPUS_SET_BITRATE(48000)));
+		assert(!opus_encoder_ctl(acap->enc, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_FULLBAND)));
+		assert(!opus_encoder_ctl(acap->enc, OPUS_SET_SIGNAL(OPUS_SIGNAL_MUSIC)));
 		// OPUS_SET_INBAND_FEC(1), OPUS_SET_PACKET_LOSS_PERC(10): see rtpa.c
 	}
 
-	US_JLOG_INFO("audio", "Pipeline configured on %uHz; capturing ...", audio->pcm_hz);
-	audio->tids_created = true;
-	US_THREAD_CREATE(audio->enc_tid, _encoder_thread, audio);
-	US_THREAD_CREATE(audio->pcm_tid, _pcm_thread, audio);
+	US_JLOG_INFO("acap", "Pipeline configured on %uHz; capturing ...", acap->pcm_hz);
+	acap->tids_created = true;
+	US_THREAD_CREATE(acap->enc_tid, _encoder_thread, acap);
+	US_THREAD_CREATE(acap->pcm_tid, _pcm_thread, acap);
 
-	return audio;
+	return acap;
 
 	error:
-		us_audio_destroy(audio);
+		us_acap_destroy(acap);
 		return NULL;
 }
 
-void us_audio_destroy(us_audio_s *audio) {
-	if (audio->tids_created) {
-		atomic_store(&audio->stop, true);
-		US_THREAD_JOIN(audio->pcm_tid);
-		US_THREAD_JOIN(audio->enc_tid);
+void us_acap_destroy(us_acap_s *acap) {
+	if (acap->tids_created) {
+		atomic_store(&acap->stop, true);
+		US_THREAD_JOIN(acap->pcm_tid);
+		US_THREAD_JOIN(acap->enc_tid);
 	}
-	US_DELETE(audio->enc, opus_encoder_destroy);
-	US_DELETE(audio->res, speex_resampler_destroy);
-	US_DELETE(audio->pcm, snd_pcm_close);
-	US_DELETE(audio->pcm_params, snd_pcm_hw_params_free);
-	US_RING_DELETE_WITH_ITEMS(audio->enc_ring, free);
-	US_RING_DELETE_WITH_ITEMS(audio->pcm_ring, free);
-	if (audio->tids_created) {
-		US_JLOG_INFO("audio", "Pipeline closed");
+	US_DELETE(acap->enc, opus_encoder_destroy);
+	US_DELETE(acap->res, speex_resampler_destroy);
+	US_DELETE(acap->pcm, snd_pcm_close);
+	US_DELETE(acap->pcm_params, snd_pcm_hw_params_free);
+	US_RING_DELETE_WITH_ITEMS(acap->enc_ring, free);
+	US_RING_DELETE_WITH_ITEMS(acap->pcm_ring, free);
+	if (acap->tids_created) {
+		US_JLOG_INFO("acap", "Pipeline closed");
 	}
-	free(audio);
+	free(acap);
 }
 
-int us_audio_get_encoded(us_audio_s *audio, u8 *data, uz *size, u64 *pts) {
-	if (atomic_load(&audio->stop)) {
+int us_acap_get_encoded(us_acap_s *acap, u8 *data, uz *size, u64 *pts) {
+	if (atomic_load(&acap->stop)) {
 		return -1;
 	}
-	const int ri = us_ring_consumer_acquire(audio->enc_ring, 0.1);
+	const int ri = us_ring_consumer_acquire(acap->enc_ring, 0.1);
 	if (ri < 0) {
 		return US_ERROR_NO_DATA;
 	}
-	const _enc_buffer_s *const buf = audio->enc_ring->items[ri];
+	const _enc_buffer_s *const buf = acap->enc_ring->items[ri];
 	if (*size < buf->used) {
-		us_ring_consumer_release(audio->enc_ring, ri);
+		us_ring_consumer_release(acap->enc_ring, ri);
 		return US_ERROR_NO_DATA;
 	}
 	memcpy(data, buf->data, buf->used);
 	*size = buf->used;
 	*pts = buf->pts;
-	us_ring_consumer_release(audio->enc_ring, ri);
+	us_ring_consumer_release(acap->enc_ring, ri);
 	return 0;
 }
 
@@ -213,83 +213,83 @@ static _enc_buffer_s *_enc_buffer_init(void) {
 	return buf;
 }
 
-static void *_pcm_thread(void *v_audio) {
-	US_THREAD_SETTLE("us_a_pcm");
+static void *_pcm_thread(void *v_acap) {
+	US_THREAD_SETTLE("us_ac_pcm");
 
-	us_audio_s *const audio = v_audio;
+	us_acap_s *const acap = v_acap;
 	u8 in[_MAX_BUF8];
 
-	while (!atomic_load(&audio->stop)) {
-		const int frames = snd_pcm_readi(audio->pcm, in, audio->pcm_frames);
+	while (!atomic_load(&acap->stop)) {
+		const int frames = snd_pcm_readi(acap->pcm, in, acap->pcm_frames);
 		if (frames < 0) {
-			_JLOG_PERROR_ALSA(frames, "audio", "Fatal: Can't capture PCM frames");
+			_JLOG_PERROR_ALSA(frames, "acap", "Fatal: Can't capture PCM frames");
 			break;
-		} else if (frames < (int)audio->pcm_frames) {
-			US_JLOG_ERROR("audio", "Fatal: Too few PCM frames captured");
+		} else if (frames < (int)acap->pcm_frames) {
+			US_JLOG_ERROR("acap", "Fatal: Too few PCM frames captured");
 			break;
 		}
 
-		const int ri = us_ring_producer_acquire(audio->pcm_ring, 0);
+		const int ri = us_ring_producer_acquire(acap->pcm_ring, 0);
 		if (ri >= 0) {
-			_pcm_buffer_s *const out = audio->pcm_ring->items[ri];
-			memcpy(out->data, in, audio->pcm_size);
-			us_ring_producer_release(audio->pcm_ring, ri);
+			_pcm_buffer_s *const out = acap->pcm_ring->items[ri];
+			memcpy(out->data, in, acap->pcm_size);
+			us_ring_producer_release(acap->pcm_ring, ri);
 		} else {
-			US_JLOG_ERROR("audio", "PCM ring is full");
+			US_JLOG_ERROR("acap", "PCM ring is full");
 		}
 	}
 
-	atomic_store(&audio->stop, true);
+	atomic_store(&acap->stop, true);
 	return NULL;
 }
 
-static void *_encoder_thread(void *v_audio) {
+static void *_encoder_thread(void *v_acap) {
 	US_THREAD_SETTLE("us_a_enc");
 
-	us_audio_s *const audio = v_audio;
+	us_acap_s *const acap = v_acap;
 	s16 in_res[_MAX_BUF16];
 
-	while (!atomic_load(&audio->stop)) {
-		const int in_ri = us_ring_consumer_acquire(audio->pcm_ring, 0.1);
+	while (!atomic_load(&acap->stop)) {
+		const int in_ri = us_ring_consumer_acquire(acap->pcm_ring, 0.1);
 		if (in_ri < 0) {
 			continue;
 		}
-		_pcm_buffer_s *const in = audio->pcm_ring->items[in_ri];
+		_pcm_buffer_s *const in = acap->pcm_ring->items[in_ri];
 
 		s16 *in_ptr;
-		if (audio->res != NULL) {
-			assert(audio->pcm_hz != _ENCODER_INPUT_HZ);
-			u32 in_count = audio->pcm_frames;
+		if (acap->res != NULL) {
+			assert(acap->pcm_hz != _ENCODER_INPUT_HZ);
+			u32 in_count = acap->pcm_frames;
 			u32 out_count = _HZ_TO_FRAMES(_ENCODER_INPUT_HZ);
-			speex_resampler_process_interleaved_int(audio->res, in->data, &in_count, in_res, &out_count);
+			speex_resampler_process_interleaved_int(acap->res, in->data, &in_count, in_res, &out_count);
 			in_ptr = in_res;
 		} else {
-			assert(audio->pcm_hz == _ENCODER_INPUT_HZ);
+			assert(acap->pcm_hz == _ENCODER_INPUT_HZ);
 			in_ptr = in->data;
 		}
 
-		const int out_ri = us_ring_producer_acquire(audio->enc_ring, 0);
+		const int out_ri = us_ring_producer_acquire(acap->enc_ring, 0);
 		if (out_ri < 0) {
-			US_JLOG_ERROR("audio", "OPUS encoder queue is full");
-			us_ring_consumer_release(audio->pcm_ring, in_ri);
+			US_JLOG_ERROR("acap", "OPUS encoder queue is full");
+			us_ring_consumer_release(acap->pcm_ring, in_ri);
 			continue;
 		}
-		_enc_buffer_s *const out = audio->enc_ring->items[out_ri];
+		_enc_buffer_s *const out = acap->enc_ring->items[out_ri];
 
-		const int size = opus_encode(audio->enc, in_ptr, _HZ_TO_FRAMES(_ENCODER_INPUT_HZ), out->data, US_ARRAY_LEN(out->data));
-		us_ring_consumer_release(audio->pcm_ring, in_ri);
+		const int size = opus_encode(acap->enc, in_ptr, _HZ_TO_FRAMES(_ENCODER_INPUT_HZ), out->data, US_ARRAY_LEN(out->data));
+		us_ring_consumer_release(acap->pcm_ring, in_ri);
 
 		if (size >= 0) {
 			out->used = size;
-			out->pts = audio->pts;
+			out->pts = acap->pts;
 			// https://datatracker.ietf.org/doc/html/rfc7587#section-4.2
-			audio->pts += _HZ_TO_FRAMES(_ENCODER_INPUT_HZ);
+			acap->pts += _HZ_TO_FRAMES(_ENCODER_INPUT_HZ);
 		} else {
-			_JLOG_PERROR_OPUS(size, "audio", "Fatal: Can't encode PCM frame to OPUS");
+			_JLOG_PERROR_OPUS(size, "acap", "Fatal: Can't encode PCM frame to OPUS");
 		}
-		us_ring_producer_release(audio->enc_ring, out_ri);
+		us_ring_producer_release(acap->enc_ring, out_ri);
 	}
 
-	atomic_store(&audio->stop, true);
+	atomic_store(&acap->stop, true);
 	return NULL;
 }

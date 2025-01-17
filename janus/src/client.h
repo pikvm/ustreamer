@@ -38,15 +38,15 @@ typedef struct {
 	janus_callbacks			*gw;
 	janus_plugin_session	*session;
 	atomic_bool				transmit;
-	atomic_bool				transmit_audio;
+	atomic_bool				transmit_acap;
 	atomic_uint				video_orient;
 
 	pthread_t				video_tid;
-	pthread_t				audio_tid;
+	pthread_t				acap_tid;
 	atomic_bool				stop;
 
 	us_ring_s				*video_ring;
-	us_ring_s				*audio_ring;
+	us_ring_s				*acap_ring;
 
     US_LIST_DECLARE;
 } us_janus_client_s;

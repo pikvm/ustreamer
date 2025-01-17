@@ -26,7 +26,7 @@
 typedef struct {
 	char	*video_sink_name;
 
-	char	*audio_dev_name;
+	char	*acap_dev_name;
 	char	*tc358743_dev_path;
 } us_config_s;
 

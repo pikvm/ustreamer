@@ -48,7 +48,7 @@
 #include "const.h"
 #include "logging.h"
 #include "client.h"
-#include "audio.h"
+#include "acap.h"
 #include "rtp.h"
 #include "rtpv.h"
 #include "rtpa.h"
@@ -69,11 +69,11 @@ static pthread_t		_g_video_rtp_tid;
 static atomic_bool		_g_video_rtp_tid_created = false;
 static pthread_t		_g_video_sink_tid;
 static atomic_bool		_g_video_sink_tid_created = false;
-static pthread_t		_g_audio_tid;
-static atomic_bool		_g_audio_tid_created = false;
+static pthread_t		_g_acap_tid;
+static atomic_bool		_g_acap_tid_created = false;
 
 static pthread_mutex_t	_g_video_lock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t	_g_audio_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t	_g_acap_lock = PTHREAD_MUTEX_INITIALIZER;
 static atomic_bool		_g_ready = false;
 static atomic_bool		_g_stop = false;
 static atomic_bool		_g_has_watchers = false;
@@ -84,11 +84,11 @@ static atomic_bool		_g_key_required = false;
 #define _LOCK_VIDEO		US_MUTEX_LOCK(_g_video_lock)
 #define _UNLOCK_VIDEO	US_MUTEX_UNLOCK(_g_video_lock)
 
-#define _LOCK_AUDIO		US_MUTEX_LOCK(_g_audio_lock)
-#define _UNLOCK_AUDIO	US_MUTEX_UNLOCK(_g_audio_lock)
+#define _LOCK_ACAP		US_MUTEX_LOCK(_g_acap_lock)
+#define _UNLOCK_ACAP	US_MUTEX_UNLOCK(_g_acap_lock)
 
-#define _LOCK_ALL		{ _LOCK_VIDEO; _LOCK_AUDIO; }
-#define _UNLOCK_ALL		{ _UNLOCK_AUDIO; _UNLOCK_VIDEO; }
+#define _LOCK_ALL		{ _LOCK_VIDEO; _LOCK_ACAP; }
+#define _UNLOCK_ALL		{ _UNLOCK_ACAP; _UNLOCK_VIDEO; }
 
 #define _READY			atomic_load(&_g_ready)
 #define _STOP			atomic_load(&_g_stop)
@@ -198,15 +198,15 @@ static void *_video_sink_thread(void *arg) {
 	return NULL;
 }
 
-static int _check_tc358743_audio(uint *audio_hz) {
+static int _check_tc358743_acap(uint *hz) {
 	int fd;
 	if ((fd = open(_g_config->tc358743_dev_path, O_RDWR)) < 0) {
-		US_JLOG_PERROR("audio", "Can't open TC358743 V4L2 device");
+		US_JLOG_PERROR("acap", "Can't open TC358743 V4L2 device");
 		return -1;
 	}
-	const int checked = us_tc358743_xioctl_get_audio_hz(fd, audio_hz);
+	const int checked = us_tc358743_xioctl_get_audio_hz(fd, hz);
 	if (checked < 0) {
-		US_JLOG_PERROR("audio", "Can't check TC358743 audio state (%d)", checked);
+		US_JLOG_PERROR("acap", "Can't check TC358743 audio state (%d)", checked);
 		close(fd);
 		return -1;
 	}
@@ -214,12 +214,12 @@ static int _check_tc358743_audio(uint *audio_hz) {
 	return 0;
 }
 
-static void *_audio_thread(void *arg) {
+static void *_acap_thread(void *arg) {
 	(void)arg;
-	US_THREAD_SETTLE("us_audio");
-	atomic_store(&_g_audio_tid_created, true);
+	US_THREAD_SETTLE("us_acap");
+	atomic_store(&_g_acap_tid_created, true);
 
-	assert(_g_config->audio_dev_name != NULL);
+	assert(_g_config->acap_dev_name != NULL);
 	assert(_g_config->tc358743_dev_path != NULL);
 
 	int once = 0;
@@ -230,42 +230,42 @@ static void *_audio_thread(void *arg) {
 			continue;
 		}
 
-		uint audio_hz = 0;
-		us_audio_s *audio = NULL;
+		uint hz = 0;
+		us_acap_s *acap = NULL;
 
-		if (_check_tc358743_audio(&audio_hz) < 0) {
-			goto close_audio;
+		if (_check_tc358743_acap(&hz) < 0) {
+			goto close_acap;
 		}
-		if (audio_hz == 0) {
-			US_ONCE({ US_JLOG_INFO("audio", "No audio presented from the host"); });
-			goto close_audio;
+		if (hz == 0) {
+			US_ONCE({ US_JLOG_INFO("acap", "No audio presented from the host"); });
+			goto close_acap;
 		}
-		US_ONCE({ US_JLOG_INFO("audio", "Detected host audio"); });
-		if ((audio = us_audio_init(_g_config->audio_dev_name, audio_hz)) == NULL) {
-			goto close_audio;
+		US_ONCE({ US_JLOG_INFO("acap", "Detected host audio"); });
+		if ((acap = us_acap_init(_g_config->acap_dev_name, hz)) == NULL) {
+			goto close_acap;
 		}
 
 		once = 0;
 
 		while (!_STOP && _HAS_WATCHERS && _HAS_LISTENERS) {
-			if (_check_tc358743_audio(&audio_hz) < 0 || audio->pcm_hz != audio_hz) {
-				goto close_audio;
+			if (_check_tc358743_acap(&hz) < 0 || acap->pcm_hz != hz) {
+				goto close_acap;
 			}
 			uz size = US_RTP_DATAGRAM_SIZE - US_RTP_HEADER_SIZE;
 			u8 data[size];
 			u64 pts;
-			const int result = us_audio_get_encoded(audio, data, &size, &pts);
+			const int result = us_acap_get_encoded(acap, data, &size, &pts);
 			if (result == 0) {
-				_LOCK_AUDIO;
+				_LOCK_ACAP;
 				us_rtpa_wrap(_g_rtpa, data, size, pts);
-				_UNLOCK_AUDIO;
+				_UNLOCK_ACAP;
 			} else if (result == -1) {
-				goto close_audio;
+				goto close_acap;
 			}
 		}
 
-	close_audio:
-		US_DELETE(audio, us_audio_destroy);
+	close_acap:
+		US_DELETE(acap, us_acap_destroy);
 		sleep(1); // error_delay
 	}
 	return NULL;
@@ -292,9 +292,9 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 
 	US_RING_INIT_WITH_ITEMS(_g_video_ring, 64, us_frame_init);
 	_g_rtpv = us_rtpv_init(_relay_rtp_clients);
-	if (_g_config->audio_dev_name != NULL && us_audio_probe(_g_config->audio_dev_name)) {
+	if (_g_config->acap_dev_name != NULL && us_acap_probe(_g_config->acap_dev_name)) {
 		_g_rtpa = us_rtpa_init(_relay_rtp_clients);
-		US_THREAD_CREATE(_g_audio_tid, _audio_thread, NULL);
+		US_THREAD_CREATE(_g_acap_tid, _acap_thread, NULL);
 	}
 	US_THREAD_CREATE(_g_video_rtp_tid, _video_rtp_thread, NULL);
 	US_THREAD_CREATE(_g_video_sink_tid, _video_sink_thread, NULL);
@@ -310,7 +310,7 @@ static void _plugin_destroy(void) {
 #	define JOIN(_tid) { if (atomic_load(&_tid##_created)) { US_THREAD_JOIN(_tid); } }
 	JOIN(_g_video_sink_tid);
 	JOIN(_g_video_rtp_tid);
-	JOIN(_g_audio_tid);
+	JOIN(_g_acap_tid);
 #	undef JOIN
 
 	US_LIST_ITERATE(_g_clients, client, {
@@ -351,7 +351,7 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 			found = true;
 		} else {
 			has_watchers = (has_watchers || atomic_load(&client->transmit));
-			has_listeners = (has_listeners || atomic_load(&client->transmit_audio));
+			has_listeners = (has_listeners || atomic_load(&client->transmit_acap));
 		}
 	});
 	if (!found) {
@@ -459,21 +459,21 @@ static struct janus_plugin_result *_plugin_handle_message(
 
 	} else if (!strcmp(request_str, "watch")) {
 		uint video_orient = 0;
-		bool with_audio = false;
-		bool with_mic = false;
+		bool with_acap = false;
+		bool with_aplay = false;
 		{
 			json_t *const params = json_object_get(msg, "params");
 			if (params != NULL) {
 				{
 					json_t *const obj = json_object_get(params, "audio");
 					if (obj != NULL && json_is_boolean(obj)) {
-						with_audio = (_g_rtpa != NULL && json_boolean_value(obj));
+						with_acap = (_g_rtpa != NULL && json_boolean_value(obj));
 					}
 				}
 				{
 					json_t *const obj = json_object_get(params, "microphone");
 					if (obj != NULL && json_is_boolean(obj)) {
-						with_mic = (with_audio && json_boolean_value(obj)); // FIXME: also check playback
+						with_aplay = (with_acap && json_boolean_value(obj)); // FIXME: also check playback
 					}
 				}
 				{
@@ -492,7 +492,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 		{
 			char *sdp;
 			char *const video_sdp = us_rtpv_make_sdp(_g_rtpv);
-			char *const audio_sdp = (with_audio ? us_rtpa_make_sdp(_g_rtpa, with_mic) : us_strdup(""));
+			char *const audio_sdp = (with_acap ? us_rtpa_make_sdp(_g_rtpa, with_aplay) : us_strdup(""));
 			US_ASPRINTF(sdp,
 				"v=0" RN
 				"o=- %" PRIu64 " 1 IN IP4 0.0.0.0" RN
@@ -523,17 +523,17 @@ static struct janus_plugin_result *_plugin_handle_message(
 			bool has_listeners = false;
 			US_LIST_ITERATE(_g_clients, client, {
 				if (client->session == session) {
-					atomic_store(&client->transmit_audio, with_audio);
+					atomic_store(&client->transmit_acap, with_acap);
 					atomic_store(&client->video_orient, video_orient);
 				}
-				has_listeners = (has_listeners || atomic_load(&client->transmit_audio));
+				has_listeners = (has_listeners || atomic_load(&client->transmit_acap));
 			});
 			atomic_store(&_g_has_listeners, has_listeners);
 			_UNLOCK_ALL;
 		}
 
 	} else if (!strcmp(request_str, "features")) {
-		json_t *const features = json_pack("{sb}", "audio", (_g_rtpa != NULL));
+		json_t *const features = json_pack("{sbsb}", "audio", (_g_rtpa != NULL), "microphone", false);
 		PUSH_STATUS("features", features, NULL);
 		json_decref(features);
 

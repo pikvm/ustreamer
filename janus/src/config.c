@@ -62,7 +62,7 @@ us_config_s *us_config_init(const char *config_dir_path) {
 		US_JLOG_ERROR("config", "Missing config value: video.sink (ex. memsink.object)");
 		goto error;
 	}
-	if ((config->audio_dev_name = _get_value(jcfg, "audio", "device")) != NULL) {
+	if ((config->acap_dev_name = _get_value(jcfg, "audio", "device")) != NULL) {
 		if ((config->tc358743_dev_path = _get_value(jcfg, "audio", "tc358743")) == NULL) {
 			US_JLOG_INFO("config", "Missing config value: audio.tc358743");
 			goto error;
@@ -82,7 +82,7 @@ ok:
 
 void us_config_destroy(us_config_s *config) {
 	US_DELETE(config->video_sink_name, free);
-	US_DELETE(config->audio_dev_name, free);
+	US_DELETE(config->acap_dev_name, free);
 	US_DELETE(config->tc358743_dev_path, free);
 	free(config);
 }

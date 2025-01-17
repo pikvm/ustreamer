@@ -50,12 +50,12 @@ typedef struct {
 	pthread_t		enc_tid;
 	bool			tids_created;
 	atomic_bool		stop;
-} us_audio_s;
+} us_acap_s;
 
 
-bool us_audio_probe(const char *name);
+bool us_acap_probe(const char *name);
 
-us_audio_s *us_audio_init(const char *name, uint pcm_hz);
-void us_audio_destroy(us_audio_s *audio);
+us_acap_s *us_acap_init(const char *name, uint pcm_hz);
+void us_acap_destroy(us_acap_s *acap);
 
-int us_audio_get_encoded(us_audio_s *audio, u8 *data, uz *size, u64 *pts);
+int us_acap_get_encoded(us_acap_s *acap, u8 *data, uz *size, u64 *pts);

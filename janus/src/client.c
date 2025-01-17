@@ -40,7 +40,7 @@
 
 
 static void *_video_thread(void *v_client);
-static void *_audio_thread(void *v_client);
+static void *_acap_thread(void *v_client);
 static void *_common_thread(void *v_client, bool video);
 
 
@@ -50,7 +50,7 @@ us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_sessio
 	client->gw = gw;
 	client->session = session;
 	atomic_init(&client->transmit, false);
-	atomic_init(&client->transmit_audio, false);
+	atomic_init(&client->transmit_acap, false);
 	atomic_init(&client->video_orient, 0);
 
 	atomic_init(&client->stop, false);
@@ -58,8 +58,8 @@ us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_sessio
 	US_RING_INIT_WITH_ITEMS(client->video_ring, 2048, us_rtp_init);
 	US_THREAD_CREATE(client->video_tid, _video_thread, client);
 
-	US_RING_INIT_WITH_ITEMS(client->audio_ring, 64, us_rtp_init);
-	US_THREAD_CREATE(client->audio_tid, _audio_thread, client);
+	US_RING_INIT_WITH_ITEMS(client->acap_ring, 64, us_rtp_init);
+	US_THREAD_CREATE(client->acap_tid, _acap_thread, client);
 
 	return client;
 }
@@ -70,8 +70,8 @@ void us_janus_client_destroy(us_janus_client_s *client) {
 	US_THREAD_JOIN(client->video_tid);
 	US_RING_DELETE_WITH_ITEMS(client->video_ring, us_rtp_destroy);
 
-	US_THREAD_JOIN(client->audio_tid);
-	US_RING_DELETE_WITH_ITEMS(client->audio_ring, us_rtp_destroy);
+	US_THREAD_JOIN(client->acap_tid);
+	US_RING_DELETE_WITH_ITEMS(client->acap_ring, us_rtp_destroy);
 
 	free(client);
 }
@@ -79,13 +79,13 @@ void us_janus_client_destroy(us_janus_client_s *client) {
 void us_janus_client_send(us_janus_client_s *client, const us_rtp_s *rtp) {
 	if (
 		atomic_load(&client->transmit)
-		&& (rtp->video || atomic_load(&client->transmit_audio))
+		&& (rtp->video || atomic_load(&client->transmit_acap))
 	) {
-		us_ring_s *const ring = (rtp->video ? client->video_ring : client->audio_ring);
+		us_ring_s *const ring = (rtp->video ? client->video_ring : client->acap_ring);
 		const int ri = us_ring_producer_acquire(ring, 0);
 		if (ri < 0) {
 			US_JLOG_ERROR("client", "Session %p %s ring is full",
-				client->session, (rtp->video ? "video" : "audio"));
+				client->session, (rtp->video ? "video" : "acap"));
 			return;
 		}
 		memcpy(ring->items[ri], rtp, sizeof(us_rtp_s));
@@ -98,14 +98,14 @@ static void *_video_thread(void *v_client) {
 	return _common_thread(v_client, true);
 }
 
-static void *_audio_thread(void *v_client) {
-	US_THREAD_SETTLE("us_c_audio");
+static void *_acap_thread(void *v_client) {
+	US_THREAD_SETTLE("us_c_acap");
 	return _common_thread(v_client, false);
 }
 
 static void *_common_thread(void *v_client, bool video) {
 	us_janus_client_s *const client = v_client;
-	us_ring_s *const ring = (video ? client->video_ring : client->audio_ring);
+	us_ring_s *const ring = (video ? client->video_ring : client->acap_ring);
 	assert(ring != NULL); // Audio may be NULL
 
 	while (!atomic_load(&client->stop)) {
@@ -119,7 +119,7 @@ static void *_common_thread(void *v_client, bool video) {
 
 		if (
 			atomic_load(&client->transmit)
-			&& (video || atomic_load(&client->transmit_audio))
+			&& (video || atomic_load(&client->transmit_acap))
 		) {
 			janus_plugin_rtp packet = {
 				.video = rtp.video,
