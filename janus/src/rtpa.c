@@ -33,7 +33,7 @@ us_rtpa_s *us_rtpa_init(us_rtp_callback_f callback) {
 	us_rtpa_s *rtpa;
 	US_CALLOC(rtpa, 1);
 	rtpa->rtp = us_rtp_init();
-	us_rtp_assign(rtpa->rtp, US_RTP_AUDIO_PAYLOAD, false);
+	us_rtp_assign(rtpa->rtp, US_RTP_OPUS_PAYLOAD, false);
 	rtpa->callback = callback;
 	return rtpa;
 }
@@ -49,14 +49,16 @@ char *us_rtpa_make_sdp(us_rtpa_s *rtpa, bool mic) {
 	US_ASPRINTF(sdp,
 		"m=audio 1 RTP/SAVPF %u" RN
 		"c=IN IP4 0.0.0.0" RN
-		"a=rtpmap:%u OPUS/48000/2" RN
+		"a=rtpmap:%u OPUS/%u/%u" RN
 		"a=fmtp:%u sprop-stereo=1" RN // useinbandfec=1
 		"a=rtcp-fb:%u nack" RN
 		"a=rtcp-fb:%u nack pli" RN
 		"a=rtcp-fb:%u goog-remb" RN
 		"a=ssrc:%" PRIu32 " cname:ustreamer" RN
 		"a=%s" RN,
-		pl, pl, pl, pl, pl, pl,
+		pl, pl,
+		US_RTP_OPUS_HZ, US_RTP_OPUS_CH,
+		pl, pl, pl, pl,
 		rtpa->rtp->ssrc,
 		(mic ? "sendrecv" : "sendonly")
 	);
