@@ -39,6 +39,7 @@
 #include "uslibs/threading.h"
 
 #include "rtp.h"
+#include "au.h"
 #include "logging.h"
 
 
@@ -46,32 +47,6 @@
 #define _JLOG_PERROR_RES(_err, _prefix, _msg, ...)	US_JLOG_ERROR(_prefix, _msg ": %s", ##__VA_ARGS__, speex_resampler_strerror(_err))
 #define _JLOG_PERROR_OPUS(_err, _prefix, _msg, ...)	US_JLOG_ERROR(_prefix, _msg ": %s", ##__VA_ARGS__, opus_strerror(_err))
 
-// A number of frames per 1 channel:
-//   - https://github.com/xiph/opus/blob/7b05f44/src/opus_demo.c#L368
-// #define _HZ_TO_FRAMES(_hz)	(6 * (_hz) / 50) // 120ms
-#define _HZ_TO_FRAMES(_hz)	((_hz) / 50) // 20ms
-#define _HZ_TO_BUF16(_hz)	(_HZ_TO_FRAMES(_hz) * US_RTP_OPUS_CH) // ... * 2: One stereo frame = (16bit L) + (16bit R)
-#define _HZ_TO_BUF8(_hz)	(_HZ_TO_BUF16(_hz) * sizeof(s16))
-
-#define _MIN_PCM_HZ			8000
-#define _MAX_PCM_HZ			192000
-#define _MAX_BUF16			_HZ_TO_BUF16(_MAX_PCM_HZ)
-#define _MAX_BUF8			_HZ_TO_BUF8(_MAX_PCM_HZ)
-
-
-typedef struct {
-	s16		data[_MAX_BUF16];
-} _pcm_buffer_s;
-
-typedef struct {
-	u8		data[US_RTP_PAYLOAD_SIZE];
-	uz		used;
-	u64		pts;
-} _enc_buffer_s;
-
-
-static _pcm_buffer_s *_pcm_buffer_init(void);
-static _enc_buffer_s *_enc_buffer_init(void);
 
 static void *_pcm_thread(void *v_acap);
 static void *_encoder_thread(void *v_acap);
@@ -94,8 +69,8 @@ us_acap_s *us_acap_init(const char *name, uint pcm_hz) {
 	us_acap_s *acap;
 	US_CALLOC(acap, 1);
 	acap->pcm_hz = pcm_hz;
-	US_RING_INIT_WITH_ITEMS(acap->pcm_ring, 8, _pcm_buffer_init);
-	US_RING_INIT_WITH_ITEMS(acap->enc_ring, 8, _enc_buffer_init);
+	US_RING_INIT_WITH_ITEMS(acap->pcm_ring, 8, us_au_pcm_init);
+	US_RING_INIT_WITH_ITEMS(acap->enc_ring, 8, us_au_encoded_init);
 	atomic_init(&acap->stop, false);
 
 	int err;
@@ -120,13 +95,13 @@ us_acap_s *us_acap_init(const char *name, uint pcm_hz) {
 		SET_PARAM("Can't set PCM channels number",	snd_pcm_hw_params_set_channels, US_RTP_OPUS_CH);
 		SET_PARAM("Can't set PCM sampling format",	snd_pcm_hw_params_set_format, SND_PCM_FORMAT_S16_LE);
 		SET_PARAM("Can't set PCM sampling rate",	snd_pcm_hw_params_set_rate_near, &acap->pcm_hz, 0);
-		if (acap->pcm_hz < _MIN_PCM_HZ || acap->pcm_hz > _MAX_PCM_HZ) {
+		if (acap->pcm_hz < US_AU_MIN_PCM_HZ || acap->pcm_hz > US_AU_MAX_PCM_HZ) {
 			US_JLOG_ERROR("acap", "Unsupported PCM freq: %u; should be: %u <= F <= %u",
-				acap->pcm_hz, _MIN_PCM_HZ, _MAX_PCM_HZ);
+				acap->pcm_hz, US_AU_MIN_PCM_HZ, US_AU_MAX_PCM_HZ);
 			goto error;
 		}
-		acap->pcm_frames = _HZ_TO_FRAMES(acap->pcm_hz);
-		acap->pcm_size = _HZ_TO_BUF8(acap->pcm_hz);
+		acap->pcm_frames = US_AU_HZ_TO_FRAMES(acap->pcm_hz);
+		acap->pcm_size = US_AU_HZ_TO_BUF8(acap->pcm_hz);
 		SET_PARAM("Can't apply PCM params", snd_pcm_hw_params);
 
 #		undef SET_PARAM
@@ -175,8 +150,8 @@ void us_acap_destroy(us_acap_s *acap) {
 	US_DELETE(acap->res, speex_resampler_destroy);
 	US_DELETE(acap->pcm, snd_pcm_close);
 	US_DELETE(acap->pcm_params, snd_pcm_hw_params_free);
-	US_RING_DELETE_WITH_ITEMS(acap->enc_ring, free);
-	US_RING_DELETE_WITH_ITEMS(acap->pcm_ring, free);
+	US_RING_DELETE_WITH_ITEMS(acap->enc_ring, us_au_encoded_destroy);
+	US_RING_DELETE_WITH_ITEMS(acap->pcm_ring, us_au_pcm_destroy);
 	if (acap->tids_created) {
 		US_JLOG_INFO("acap", "Pipeline closed");
 	}
@@ -191,7 +166,7 @@ int us_acap_get_encoded(us_acap_s *acap, u8 *data, uz *size, u64 *pts) {
 	if (ri < 0) {
 		return US_ERROR_NO_DATA;
 	}
-	const _enc_buffer_s *const buf = acap->enc_ring->items[ri];
+	const us_au_encoded_s *const buf = acap->enc_ring->items[ri];
 	if (*size < buf->used) {
 		us_ring_consumer_release(acap->enc_ring, ri);
 		return US_ERROR_NO_DATA;
@@ -203,23 +178,11 @@ int us_acap_get_encoded(us_acap_s *acap, u8 *data, uz *size, u64 *pts) {
 	return 0;
 }
 
-static _pcm_buffer_s *_pcm_buffer_init(void) {
-	_pcm_buffer_s *buf;
-	US_CALLOC(buf, 1);
-	return buf;
-}
-
-static _enc_buffer_s *_enc_buffer_init(void) {
-	_enc_buffer_s *buf;
-	US_CALLOC(buf, 1);
-	return buf;
-}
-
 static void *_pcm_thread(void *v_acap) {
 	US_THREAD_SETTLE("us_ac_pcm");
 
 	us_acap_s *const acap = v_acap;
-	u8 in[_MAX_BUF8];
+	u8 in[US_AU_MAX_BUF8];
 
 	while (!atomic_load(&acap->stop)) {
 		const int frames = snd_pcm_readi(acap->pcm, in, acap->pcm_frames);
@@ -233,7 +196,7 @@ static void *_pcm_thread(void *v_acap) {
 
 		const int ri = us_ring_producer_acquire(acap->pcm_ring, 0);
 		if (ri >= 0) {
-			_pcm_buffer_s *const out = acap->pcm_ring->items[ri];
+			us_au_pcm_s *const out = acap->pcm_ring->items[ri];
 			memcpy(out->data, in, acap->pcm_size);
 			us_ring_producer_release(acap->pcm_ring, ri);
 		} else {
@@ -249,20 +212,20 @@ static void *_encoder_thread(void *v_acap) {
 	US_THREAD_SETTLE("us_a_enc");
 
 	us_acap_s *const acap = v_acap;
-	s16 in_res[_MAX_BUF16];
+	s16 in_res[US_AU_MAX_BUF16];
 
 	while (!atomic_load(&acap->stop)) {
 		const int in_ri = us_ring_consumer_acquire(acap->pcm_ring, 0.1);
 		if (in_ri < 0) {
 			continue;
 		}
-		_pcm_buffer_s *const in = acap->pcm_ring->items[in_ri];
+		us_au_pcm_s *const in = acap->pcm_ring->items[in_ri];
 
 		s16 *in_ptr;
 		if (acap->res != NULL) {
 			assert(acap->pcm_hz != US_RTP_OPUS_HZ);
 			u32 in_count = acap->pcm_frames;
-			u32 out_count = _HZ_TO_FRAMES(US_RTP_OPUS_HZ);
+			u32 out_count = US_AU_HZ_TO_FRAMES(US_RTP_OPUS_HZ);
 			speex_resampler_process_interleaved_int(acap->res, in->data, &in_count, in_res, &out_count);
 			in_ptr = in_res;
 		} else {
@@ -276,16 +239,16 @@ static void *_encoder_thread(void *v_acap) {
 			us_ring_consumer_release(acap->pcm_ring, in_ri);
 			continue;
 		}
-		_enc_buffer_s *const out = acap->enc_ring->items[out_ri];
+		us_au_encoded_s *const out = acap->enc_ring->items[out_ri];
 
-		const int size = opus_encode(acap->enc, in_ptr, _HZ_TO_FRAMES(US_RTP_OPUS_HZ), out->data, US_ARRAY_LEN(out->data));
+		const int size = opus_encode(acap->enc, in_ptr, US_AU_HZ_TO_FRAMES(US_RTP_OPUS_HZ), out->data, US_ARRAY_LEN(out->data));
 		us_ring_consumer_release(acap->pcm_ring, in_ri);
 
 		if (size >= 0) {
 			out->used = size;
 			out->pts = acap->pts;
 			// https://datatracker.ietf.org/doc/html/rfc7587#section-4.2
-			acap->pts += _HZ_TO_FRAMES(US_RTP_OPUS_HZ);
+			acap->pts += US_AU_HZ_TO_FRAMES(US_RTP_OPUS_HZ);
 		} else {
 			_JLOG_PERROR_OPUS(size, "acap", "Fatal: Can't encode PCM frame to OPUS");
 		}
