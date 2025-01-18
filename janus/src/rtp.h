@@ -29,6 +29,9 @@
 #define US_RTP_DATAGRAM_SIZE	1200
 #define US_RTP_HEADER_SIZE		12
 
+#define US_RTP_VIDEO_PAYLOAD	96
+#define US_RTP_AUDIO_PAYLOAD	111
+
 
 typedef struct {
 	uint	payload;

@@ -33,7 +33,7 @@ us_rtpa_s *us_rtpa_init(us_rtp_callback_f callback) {
 	us_rtpa_s *rtpa;
 	US_CALLOC(rtpa, 1);
 	rtpa->rtp = us_rtp_init();
-	us_rtp_assign(rtpa->rtp, 111, false);
+	us_rtp_assign(rtpa->rtp, US_RTP_AUDIO_PAYLOAD, false);
 	rtpa->callback = callback;
 	return rtpa;
 }
