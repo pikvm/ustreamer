@@ -25,6 +25,7 @@
 #include <inttypes.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <assert.h>
 
 #include <sys/mman.h>
@@ -292,79 +293,100 @@ static void *_aplay_thread(void *arg) {
 	assert(_g_config->aplay_dev_name != NULL);
 
 	int once = 0;
-	snd_pcm_t *dev = NULL;
-	bool skip = false;
 
 	while (!_STOP) {
-		usleep(US_AU_FRAME_MS * 1000 / 4);
+		snd_pcm_t *dev = NULL;
+		bool skip = true;
 
-		us_au_pcm_s mixed = {0};
-		_LOCK_APLAY;
-		US_LIST_ITERATE(_g_clients, client, {
-			us_au_pcm_s last = {0};
-			do {
-				const int ri = us_ring_consumer_acquire(client->aplay_pcm_ring, 0);
-				if (ri >= 0) {
-					const us_au_pcm_s *pcm = client->aplay_pcm_ring->items[ri];
-					memcpy(&last, pcm, sizeof(us_au_pcm_s));
-					us_ring_consumer_release(client->aplay_pcm_ring, ri);
+		while (!_STOP) {
+			usleep((US_AU_FRAME_MS / 4) * 1000);
+
+			us_au_pcm_s mixed = {0};
+			_LOCK_APLAY;
+			US_LIST_ITERATE(_g_clients, client, {
+				us_au_pcm_s last = {0};
+				do {
+					const int ri = us_ring_consumer_acquire(client->aplay_pcm_ring, 0);
+					if (ri >= 0) {
+						const us_au_pcm_s *pcm = client->aplay_pcm_ring->items[ri];
+						memcpy(&last, pcm, sizeof(us_au_pcm_s));
+						us_ring_consumer_release(client->aplay_pcm_ring, ri);
+					} else {
+						break;
+					}
+				} while (skip && !_STOP);
+				us_au_pcm_mix(&mixed, &last);
+				// US_JLOG_INFO("++++++", "mixed %p", client);
+			});
+			_UNLOCK_APLAY;
+			// US_JLOG_INFO("++++++", "--------------");
+
+			if (skip) {
+				static uint skipped = 0;
+				if (skipped < (1000 / (US_AU_FRAME_MS / 4))) {
+					++skipped;
+					continue;
 				} else {
-					break;
+					skipped = 0;
 				}
-			} while (skip && !_STOP);
-			us_au_pcm_mix(&mixed, &last);
-			// US_JLOG_INFO("++++++", "mixed %p", client);
-		});
-		_UNLOCK_APLAY;
-		// US_JLOG_INFO("++++++", "--------------");
+			}
 
-		if (!_HAS_WATCHERS || !_HAS_LISTENERS || !_HAS_SPEAKERS) {
-			skip = true;
-			continue;
-		}
-
-		if (dev == NULL) {
-			int err = snd_pcm_open(&dev, _g_config->aplay_dev_name, SND_PCM_STREAM_PLAYBACK, 0);
-			if (err < 0) {
-				US_ONCE({ US_JLOG_ERROR("aplay", "Can't open PCM playback: %s", snd_strerror(err)); });
+			if (!_HAS_WATCHERS || !_HAS_LISTENERS || !_HAS_SPEAKERS) {
 				goto close_aplay;
 			}
 
-			err = snd_pcm_set_params(
-				dev,
-				SND_PCM_FORMAT_S16_LE, SND_PCM_ACCESS_RW_INTERLEAVED,
-				US_RTP_OPUS_CH, US_RTP_OPUS_HZ,
-				1 /* soft resample */, 50000 /* 50000 = 0.05sec */
-			);
-			if (err < 0) {
-				US_ONCE({ US_JLOG_ERROR("aplay", "Can't configure PCM playback: %s", snd_strerror(err)); });
-				goto close_aplay;
+			if (dev == NULL) {
+				int err = snd_pcm_open(&dev, _g_config->aplay_dev_name, SND_PCM_STREAM_PLAYBACK, 0);
+				if (err < 0) {
+					US_ONCE({ US_JLOG_PERROR_ALSA(err, "aplay", "Can't open PCM playback"); });
+					goto close_aplay;
+				}
+
+				err = snd_pcm_set_params(dev, SND_PCM_FORMAT_S16_LE, SND_PCM_ACCESS_RW_INTERLEAVED,
+					US_RTP_OPUS_CH, US_RTP_OPUS_HZ, 1 /* soft resample */, 50000 /* 50000 = 0.05sec */
+				);
+				if (err < 0) {
+					US_ONCE({ US_JLOG_PERROR_ALSA(err, "aplay", "Can't configure PCM playback"); });
+					goto close_aplay;
+				}
+
+				US_JLOG_INFO("aplay", "Playback opened, playing ...");
+				once = 0;
 			}
 
-			US_JLOG_INFO("aplay", "Playback opened, playing ...");
+			if (dev != NULL && mixed.frames > 0) {
+				snd_pcm_sframes_t frames = snd_pcm_writei(dev, mixed.data, mixed.frames);
+				if (frames < 0) {
+					frames = snd_pcm_recover(dev, frames, 1);
+				} else {
+					if (once != 0) {
+						US_JLOG_INFO("aplay", "Playing resumed (snd_pcm_writei) ...");
+					}
+					once = 0;
+					skip = false;
+				}
+				if (frames < 0) {
+					US_ONCE({ US_JLOG_PERROR_ALSA(frames, "aplay", "Can't play to PCM playback"); });
+					if (frames == -ENODEV) {
+						goto close_aplay;
+					}
+					skip = true;
+				} else {
+					if (once != 0) {
+						US_JLOG_INFO("aplay", "Playing resumed (snd_pcm_recover) ...");
+					}
+					once = 0;
+					skip = false;
+				}
+			}
 		}
 
-		if (dev != NULL && mixed.frames > 0) {
-			snd_pcm_sframes_t frames = snd_pcm_writei(dev, mixed.data, mixed.frames);
-			if (frames < 0) {
-				frames = snd_pcm_recover(dev, frames, 1);
-			} else {
-				skip = false;
-			}
-			if (frames < 0) {
-				US_ONCE({ US_JLOG_ERROR("aplay", "Can't play to PCM: %s", snd_strerror(frames)); });
-				skip = true;
-			} else {
-				skip = false;
-			}
-		}
-
-		continue;
 	close_aplay:
-		US_DELETE(dev, snd_pcm_close);
+		if (dev != NULL) {
+			US_DELETE(dev, snd_pcm_close);
+			US_JLOG_INFO("aplay", "Playback closed");
+		}
 	}
-
-	US_DELETE(dev, snd_pcm_close);
 	return NULL;
 }
 
@@ -372,6 +394,14 @@ static void _relay_rtp_clients(const us_rtp_s *rtp) {
 	US_LIST_ITERATE(_g_clients, client, {
 		us_janus_client_send(client, rtp);
 	});
+}
+
+static void _alsa_quiet(const char *file, int line, const char *func, int err, const char *fmt, ...) {
+	(void)file;
+	(void)line;
+	(void)func;
+	(void)err;
+	(void)fmt;
 }
 
 static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
@@ -386,6 +416,8 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 		return -1;
 	}
 	_g_gw = gw;
+
+	snd_lib_error_set_handler(_alsa_quiet);
 
 	US_RING_INIT_WITH_ITEMS(_g_video_ring, 64, us_frame_init);
 	_g_rtpv = us_rtpv_init(_relay_rtp_clients);

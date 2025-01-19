@@ -253,7 +253,7 @@ static void *_aplay_thread(void *v_client) {
 			out->frames = frames;
 		} else {
 			out->frames = 0;
-			US_JLOG_ERROR("aplay", "Fatal: Can't decode OPUS to PCM frame: %s", opus_strerror(frames));
+			US_JLOG_PERROR_OPUS(frames, "aplay", "Fatal: Can't decode OPUS to PCM frame");
 		}
 		us_ring_producer_release(client->aplay_pcm_ring, out_ri);
 	}

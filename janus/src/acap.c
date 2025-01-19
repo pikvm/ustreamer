@@ -43,11 +43,6 @@
 #include "logging.h"
 
 
-#define _JLOG_PERROR_ALSA(_err, _prefix, _msg, ...)	US_JLOG_ERROR(_prefix, _msg ": %s", ##__VA_ARGS__, snd_strerror(_err))
-#define _JLOG_PERROR_RES(_err, _prefix, _msg, ...)	US_JLOG_ERROR(_prefix, _msg ": %s", ##__VA_ARGS__, speex_resampler_strerror(_err))
-#define _JLOG_PERROR_OPUS(_err, _prefix, _msg, ...)	US_JLOG_ERROR(_prefix, _msg ": %s", ##__VA_ARGS__, opus_strerror(_err))
-
-
 static void *_pcm_thread(void *v_acap);
 static void *_encoder_thread(void *v_acap);
 
@@ -57,7 +52,7 @@ bool us_acap_probe(const char *name) {
 	int err;
 	US_JLOG_INFO("acap", "Probing PCM capture ...");
 	if ((err = snd_pcm_open(&dev, name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
-		_JLOG_PERROR_ALSA(err, "acap", "Can't probe PCM capture");
+		US_JLOG_PERROR_ALSA(err, "acap", "Can't probe PCM capture");
 		return false;
 	}
 	snd_pcm_close(dev);
@@ -78,14 +73,14 @@ us_acap_s *us_acap_init(const char *name, uint pcm_hz) {
 	{
 		if ((err = snd_pcm_open(&acap->dev, name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
 			acap->dev = NULL;
-			_JLOG_PERROR_ALSA(err, "acap", "Can't open PCM capture");
+			US_JLOG_PERROR_ALSA(err, "acap", "Can't open PCM capture");
 			goto error;
 		}
 		assert(!snd_pcm_hw_params_malloc(&acap->dev_params));
 
 #		define SET_PARAM(_msg, _func, ...) { \
 				if ((err = _func(acap->dev, acap->dev_params, ##__VA_ARGS__)) < 0) { \
-					_JLOG_PERROR_ALSA(err, "acap", _msg); \
+					US_JLOG_PERROR_ALSA(err, "acap", _msg); \
 					goto error; \
 				} \
 			}
@@ -111,7 +106,7 @@ us_acap_s *us_acap_init(const char *name, uint pcm_hz) {
 		acap->res = speex_resampler_init(US_RTP_OPUS_CH, acap->pcm_hz, US_RTP_OPUS_HZ, SPEEX_RESAMPLER_QUALITY_DESKTOP, &err);
 		if (err < 0) {
 			acap->res = NULL;
-			_JLOG_PERROR_RES(err, "acap", "Can't create resampler");
+			US_JLOG_PERROR_RES(err, "acap", "Can't create resampler");
 			goto error;
 		}
 	}
@@ -128,7 +123,7 @@ us_acap_s *us_acap_init(const char *name, uint pcm_hz) {
 		// OPUS_SET_INBAND_FEC(1), OPUS_SET_PACKET_LOSS_PERC(10): see rtpa.c
 	}
 
-	US_JLOG_INFO("acap", "Pipeline configured on %uHz; capturing ...", acap->pcm_hz);
+	US_JLOG_INFO("acap", "Capture configured on %uHz; capturing ...", acap->pcm_hz);
 	acap->tids_created = true;
 	US_THREAD_CREATE(acap->enc_tid, _encoder_thread, acap);
 	US_THREAD_CREATE(acap->pcm_tid, _pcm_thread, acap);
@@ -153,7 +148,7 @@ void us_acap_destroy(us_acap_s *acap) {
 	US_RING_DELETE_WITH_ITEMS(acap->enc_ring, us_au_encoded_destroy);
 	US_RING_DELETE_WITH_ITEMS(acap->pcm_ring, us_au_pcm_destroy);
 	if (acap->tids_created) {
-		US_JLOG_INFO("acap", "Pipeline closed");
+		US_JLOG_INFO("acap", "Capture closed");
 	}
 	free(acap);
 }
@@ -187,7 +182,7 @@ static void *_pcm_thread(void *v_acap) {
 	while (!atomic_load(&acap->stop)) {
 		const int frames = snd_pcm_readi(acap->dev, in, acap->pcm_frames);
 		if (frames < 0) {
-			_JLOG_PERROR_ALSA(frames, "acap", "Fatal: Can't capture PCM frames");
+			US_JLOG_PERROR_ALSA(frames, "acap", "Fatal: Can't capture PCM frames");
 			break;
 		} else if (frames < (int)acap->pcm_frames) {
 			US_JLOG_ERROR("acap", "Fatal: Too few PCM frames captured");
@@ -251,7 +246,7 @@ static void *_encoder_thread(void *v_acap) {
 			acap->pts += US_AU_HZ_TO_FRAMES(US_RTP_OPUS_HZ);
 		} else {
 			out->used = 0;
-			_JLOG_PERROR_OPUS(size, "acap", "Fatal: Can't encode PCM frame to OPUS");
+			US_JLOG_PERROR_OPUS(size, "acap", "Fatal: Can't encode PCM frame to OPUS");
 		}
 		us_ring_producer_release(acap->enc_ring, out_ri);
 	}
