@@ -33,7 +33,9 @@
 #include <pthread.h>
 #include <jansson.h>
 #include <janus/plugins/plugin.h>
+#include <janus/rtp.h>
 #include <janus/rtcp.h>
+#include <alsa/asoundlib.h>
 
 #include "uslibs/types.h"
 #include "uslibs/const.h"
@@ -48,13 +50,13 @@
 #include "const.h"
 #include "logging.h"
 #include "client.h"
+#include "au.h"
 #include "acap.h"
 #include "rtp.h"
 #include "rtpv.h"
 #include "rtpa.h"
 #include "memsinkfd.h"
 #include "config.h"
-
 
 static us_config_s		*_g_config = NULL;
 static const useconds_t	_g_watchers_polling = 100000;
@@ -63,7 +65,7 @@ static us_janus_client_s	*_g_clients = NULL;
 static janus_callbacks		*_g_gw = NULL;
 static us_ring_s			*_g_video_ring = NULL;
 static us_rtpv_s			*_g_rtpv = NULL;
-static us_rtpa_s			*_g_rtpa = NULL;
+static us_rtpa_s			*_g_rtpa = NULL; // Also indicates "audio capture is available"
 
 static pthread_t		_g_video_rtp_tid;
 static atomic_bool		_g_video_rtp_tid_created = false;
@@ -71,13 +73,17 @@ static pthread_t		_g_video_sink_tid;
 static atomic_bool		_g_video_sink_tid_created = false;
 static pthread_t		_g_acap_tid;
 static atomic_bool		_g_acap_tid_created = false;
+static pthread_t		_g_aplay_tid;
+static atomic_bool		_g_aplay_tid_created = false;
 
 static pthread_mutex_t	_g_video_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t	_g_acap_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t	_g_aplay_lock = PTHREAD_MUTEX_INITIALIZER;
 static atomic_bool		_g_ready = false;
 static atomic_bool		_g_stop = false;
 static atomic_bool		_g_has_watchers = false;
 static atomic_bool		_g_has_listeners = false;
+static atomic_bool		_g_has_speakers = false;
 static atomic_bool		_g_key_required = false;
 
 
@@ -87,13 +93,19 @@ static atomic_bool		_g_key_required = false;
 #define _LOCK_ACAP		US_MUTEX_LOCK(_g_acap_lock)
 #define _UNLOCK_ACAP	US_MUTEX_UNLOCK(_g_acap_lock)
 
-#define _LOCK_ALL		{ _LOCK_VIDEO; _LOCK_ACAP; }
-#define _UNLOCK_ALL		{ _UNLOCK_ACAP; _UNLOCK_VIDEO; }
+#define _LOCK_APLAY		US_MUTEX_LOCK(_g_aplay_lock)
+#define _UNLOCK_APLAY	US_MUTEX_UNLOCK(_g_aplay_lock)
+
+#define _LOCK_ALL		{ _LOCK_VIDEO; _LOCK_ACAP; _LOCK_APLAY; }
+#define _UNLOCK_ALL		{ _UNLOCK_APLAY; _UNLOCK_ACAP; _UNLOCK_VIDEO; }
 
 #define _READY			atomic_load(&_g_ready)
 #define _STOP			atomic_load(&_g_stop)
 #define _HAS_WATCHERS	atomic_load(&_g_has_watchers)
 #define _HAS_LISTENERS	atomic_load(&_g_has_listeners)
+#define _HAS_SPEAKERS	atomic_load(&_g_has_speakers)
+
+#define _IF_DISABLED(...) { if (!_READY || _STOP) { __VA_ARGS__ } }
 
 
 janus_plugin *create(void);
@@ -101,7 +113,7 @@ janus_plugin *create(void);
 
 static void *_video_rtp_thread(void *arg) {
 	(void)arg;
-	US_THREAD_SETTLE("us_video_rtp");
+	US_THREAD_SETTLE("us_p_rtpv");
 	atomic_store(&_g_video_rtp_tid_created, true);
 
 	while (!_STOP) {
@@ -120,7 +132,7 @@ static void *_video_rtp_thread(void *arg) {
 
 static void *_video_sink_thread(void *arg) {
 	(void)arg;
-	US_THREAD_SETTLE("us_video_sink");
+	US_THREAD_SETTLE("us_p_vsink");
 	atomic_store(&_g_video_sink_tid_created, true);
 
 	us_frame_s *drop = us_frame_init();
@@ -216,11 +228,12 @@ static int _check_tc358743_acap(uint *hz) {
 
 static void *_acap_thread(void *arg) {
 	(void)arg;
-	US_THREAD_SETTLE("us_acap");
+	US_THREAD_SETTLE("us_p_ac");
 	atomic_store(&_g_acap_tid_created, true);
 
 	assert(_g_config->acap_dev_name != NULL);
 	assert(_g_config->tc358743_dev_path != NULL);
+	assert(_g_rtpa != NULL);
 
 	int once = 0;
 
@@ -271,6 +284,90 @@ static void *_acap_thread(void *arg) {
 	return NULL;
 }
 
+static void *_aplay_thread(void *arg) {
+	(void)arg;
+	US_THREAD_SETTLE("us_p_ap");
+	atomic_store(&_g_aplay_tid_created, true);
+
+	assert(_g_config->aplay_dev_name != NULL);
+
+	int once = 0;
+	snd_pcm_t *dev = NULL;
+	bool skip = false;
+
+	while (!_STOP) {
+		usleep(US_AU_FRAME_MS * 1000 / 4);
+
+		us_au_pcm_s mixed = {0};
+		_LOCK_APLAY;
+		US_LIST_ITERATE(_g_clients, client, {
+			us_au_pcm_s last = {0};
+			do {
+				const int ri = us_ring_consumer_acquire(client->aplay_pcm_ring, 0);
+				if (ri >= 0) {
+					const us_au_pcm_s *pcm = client->aplay_pcm_ring->items[ri];
+					memcpy(&last, pcm, sizeof(us_au_pcm_s));
+					us_ring_consumer_release(client->aplay_pcm_ring, ri);
+				} else {
+					break;
+				}
+			} while (skip && !_STOP);
+			us_au_pcm_mix(&mixed, &last);
+			// US_JLOG_INFO("++++++", "mixed %p", client);
+		});
+		_UNLOCK_APLAY;
+		// US_JLOG_INFO("++++++", "--------------");
+
+		if (!_HAS_WATCHERS || !_HAS_LISTENERS || !_HAS_SPEAKERS) {
+			skip = true;
+			continue;
+		}
+
+		if (dev == NULL) {
+			int err = snd_pcm_open(&dev, _g_config->aplay_dev_name, SND_PCM_STREAM_PLAYBACK, 0);
+			if (err < 0) {
+				US_ONCE({ US_JLOG_ERROR("aplay", "Can't open PCM playback: %s", snd_strerror(err)); });
+				goto close_aplay;
+			}
+
+			err = snd_pcm_set_params(
+				dev,
+				SND_PCM_FORMAT_S16_LE, SND_PCM_ACCESS_RW_INTERLEAVED,
+				US_RTP_OPUS_CH, US_RTP_OPUS_HZ,
+				1 /* soft resample */, 50000 /* 50000 = 0.05sec */
+			);
+			if (err < 0) {
+				US_ONCE({ US_JLOG_ERROR("aplay", "Can't configure PCM playback: %s", snd_strerror(err)); });
+				goto close_aplay;
+			}
+
+			US_JLOG_INFO("aplay", "Playback opened, playing ...");
+		}
+
+		if (dev != NULL && mixed.frames > 0) {
+			snd_pcm_sframes_t frames = snd_pcm_writei(dev, mixed.data, mixed.frames);
+			if (frames < 0) {
+				frames = snd_pcm_recover(dev, frames, 1);
+			} else {
+				skip = false;
+			}
+			if (frames < 0) {
+				US_ONCE({ US_JLOG_ERROR("aplay", "Can't play to PCM: %s", snd_strerror(frames)); });
+				skip = true;
+			} else {
+				skip = false;
+			}
+		}
+
+		continue;
+	close_aplay:
+		US_DELETE(dev, snd_pcm_close);
+	}
+
+	US_DELETE(dev, snd_pcm_close);
+	return NULL;
+}
+
 static void _relay_rtp_clients(const us_rtp_s *rtp) {
 	US_LIST_ITERATE(_g_clients, client, {
 		us_janus_client_send(client, rtp);
@@ -295,6 +392,9 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	if (_g_config->acap_dev_name != NULL && us_acap_probe(_g_config->acap_dev_name)) {
 		_g_rtpa = us_rtpa_init(_relay_rtp_clients);
 		US_THREAD_CREATE(_g_acap_tid, _acap_thread, NULL);
+		if (_g_config->aplay_dev_name != NULL) {
+			US_THREAD_CREATE(_g_aplay_tid, _aplay_thread, NULL);
+		}
 	}
 	US_THREAD_CREATE(_g_video_rtp_tid, _video_rtp_thread, NULL);
 	US_THREAD_CREATE(_g_video_sink_tid, _video_sink_thread, NULL);
@@ -311,6 +411,7 @@ static void _plugin_destroy(void) {
 	JOIN(_g_video_sink_tid);
 	JOIN(_g_video_rtp_tid);
 	JOIN(_g_acap_tid);
+	JOIN(_g_aplay_tid);
 #	undef JOIN
 
 	US_LIST_ITERATE(_g_clients, client, {
@@ -324,8 +425,6 @@ static void _plugin_destroy(void) {
 	US_DELETE(_g_rtpv, us_rtpv_destroy);
 	US_DELETE(_g_config, us_config_destroy);
 }
-
-#define _IF_DISABLED(...) { if (!_READY || _STOP) { __VA_ARGS__ } }
 
 static void _plugin_create_session(janus_plugin_session *session, int *err) {
 	_IF_DISABLED({ *err = -1; return; });
@@ -343,6 +442,7 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 	bool found = false;
 	bool has_watchers = false;
 	bool has_listeners = false;
+	bool has_speakers = false;
 	US_LIST_ITERATE(_g_clients, client, {
 		if (client->session == session) {
 			US_JLOG_INFO("main", "Removing session %p ...", session);
@@ -352,6 +452,7 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 		} else {
 			has_watchers = (has_watchers || atomic_load(&client->transmit));
 			has_listeners = (has_listeners || atomic_load(&client->transmit_acap));
+			has_speakers = (has_speakers || atomic_load(&client->transmit_aplay));
 		}
 	});
 	if (!found) {
@@ -360,6 +461,7 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 	}
 	atomic_store(&_g_has_watchers, has_watchers);
 	atomic_store(&_g_has_listeners, has_listeners);
+	atomic_store(&_g_has_speakers, has_speakers);
 	_UNLOCK_ALL;
 }
 
@@ -397,8 +499,6 @@ static void _set_transmit(janus_plugin_session *session, const char *msg, bool t
 	atomic_store(&_g_has_watchers, has_watchers);
 	_UNLOCK_ALL;
 }
-
-#undef _IF_DISABLED
 
 static void _plugin_setup_media(janus_plugin_session *session) { _set_transmit(session, "Unmuted", true); }
 static void _plugin_hangup_media(janus_plugin_session *session) { _set_transmit(session, "Muted", false); }
@@ -471,9 +571,9 @@ static struct janus_plugin_result *_plugin_handle_message(
 					}
 				}
 				{
-					json_t *const obj = json_object_get(params, "microphone");
+					json_t *const obj = json_object_get(params, "mic");
 					if (obj != NULL && json_is_boolean(obj)) {
-						with_aplay = (with_acap && json_boolean_value(obj)); // FIXME: also check playback
+						with_aplay = (_g_config->aplay_dev_name != NULL && with_acap && json_boolean_value(obj));
 					}
 				}
 				{
@@ -521,19 +621,27 @@ static struct janus_plugin_result *_plugin_handle_message(
 		{
 			_LOCK_ALL;
 			bool has_listeners = false;
+			bool has_speakers = false;
 			US_LIST_ITERATE(_g_clients, client, {
 				if (client->session == session) {
 					atomic_store(&client->transmit_acap, with_acap);
+					atomic_store(&client->transmit_aplay, with_aplay);
 					atomic_store(&client->video_orient, video_orient);
 				}
 				has_listeners = (has_listeners || atomic_load(&client->transmit_acap));
+				has_speakers = (has_speakers || atomic_load(&client->transmit_aplay));
 			});
 			atomic_store(&_g_has_listeners, has_listeners);
+			atomic_store(&_g_has_speakers, has_speakers);
 			_UNLOCK_ALL;
 		}
 
 	} else if (!strcmp(request_str, "features")) {
-		json_t *const features = json_pack("{sbsb}", "audio", (_g_rtpa != NULL), "microphone", false);
+		json_t *const features = json_pack(
+			"{sbsb}",
+			"audio", (_g_rtpa != NULL),
+			"mic", (_g_rtpa != NULL && _g_config->aplay_dev_name != NULL)
+		);
 		PUSH_STATUS("features", features, NULL);
 		json_decref(features);
 
@@ -558,10 +666,27 @@ done:
 #	undef PUSH_ERROR
 }
 
-static void _plugin_incoming_rtcp(janus_plugin_session *handle, janus_plugin_rtcp *packet) {
-	(void)handle;
-	(void)packet;
-	if (packet->video && janus_rtcp_has_pli(packet->buffer, packet->length)) {
+static void _plugin_incoming_rtp(janus_plugin_session *session, janus_plugin_rtp *packet) {
+	_IF_DISABLED({ return; });
+	if (session == NULL || packet == NULL || packet->video) {
+		return; // Accept only valid audio
+	}
+	_LOCK_APLAY;
+	US_LIST_ITERATE(_g_clients, client, {
+		if (client->session == session) {
+			us_janus_client_recv(client, packet);
+			break;
+		}
+	});
+	_UNLOCK_APLAY;
+}
+
+static void _plugin_incoming_rtcp(janus_plugin_session *session, janus_plugin_rtcp *packet) {
+	_IF_DISABLED({ return; });
+	if (session == NULL || packet == NULL || !packet->video) {
+		return; // Accept only valid video
+	}
+	if (janus_rtcp_has_pli(packet->buffer, packet->length)) {
 		// US_JLOG_INFO("main", "Got video PLI");
 		atomic_store(&_g_key_required, true);
 	}
@@ -602,6 +727,7 @@ janus_plugin *create(void) {
 		.get_author = _plugin_get_author,
 		.get_package = _plugin_get_package,
 
+		.incoming_rtp = _plugin_incoming_rtp,
 		.incoming_rtcp = _plugin_incoming_rtcp,
 	);
 #	pragma GCC diagnostic pop

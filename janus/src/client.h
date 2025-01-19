@@ -39,14 +39,20 @@ typedef struct {
 	janus_plugin_session	*session;
 	atomic_bool				transmit;
 	atomic_bool				transmit_acap;
+	atomic_bool				transmit_aplay;
 	atomic_uint				video_orient;
 
 	pthread_t				video_tid;
 	pthread_t				acap_tid;
+	pthread_t				aplay_tid;
 	atomic_bool				stop;
 
 	us_ring_s				*video_ring;
 	us_ring_s				*acap_ring;
+
+	us_ring_s				*aplay_enc_ring;
+	u16						aplay_seq_next;
+	us_ring_s				*aplay_pcm_ring;
 
     US_LIST_DECLARE;
 } us_janus_client_s;
@@ -56,3 +62,4 @@ us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_sessio
 void us_janus_client_destroy(us_janus_client_s *client);
 
 void us_janus_client_send(us_janus_client_s *client, const us_rtp_s *rtp);
+void us_janus_client_recv(us_janus_client_s *client, janus_plugin_rtp *packet);

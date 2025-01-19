@@ -55,18 +55,16 @@ us_config_s *us_config_init(const char *config_dir_path) {
 	}
 	janus_config_print(jcfg);
 
-	if (
-		(config->video_sink_name = _get_value(jcfg, "memsink", "object")) == NULL
-		&& (config->video_sink_name = _get_value(jcfg, "video", "sink")) == NULL
-	) {
-		US_JLOG_ERROR("config", "Missing config value: video.sink (ex. memsink.object)");
+	if ((config->video_sink_name = _get_value(jcfg, "video", "sink")) == NULL) {
+		US_JLOG_ERROR("config", "Missing config value: video.sink");
 		goto error;
 	}
-	if ((config->acap_dev_name = _get_value(jcfg, "audio", "device")) != NULL) {
-		if ((config->tc358743_dev_path = _get_value(jcfg, "audio", "tc358743")) == NULL) {
-			US_JLOG_INFO("config", "Missing config value: audio.tc358743");
+	if ((config->acap_dev_name = _get_value(jcfg, "acap", "device")) != NULL) {
+		if ((config->tc358743_dev_path = _get_value(jcfg, "acap", "tc358743")) == NULL) {
+			US_JLOG_INFO("config", "Missing config value: acap.tc358743");
 			goto error;
 		}
+		config->aplay_dev_name = _get_value(jcfg, "aplay", "device");
 	}
 
 	goto ok;
@@ -84,6 +82,7 @@ void us_config_destroy(us_config_s *config) {
 	US_DELETE(config->video_sink_name, free);
 	US_DELETE(config->acap_dev_name, free);
 	US_DELETE(config->tc358743_dev_path, free);
+	US_DELETE(config->aplay_dev_name, free);
 	free(config);
 }
 

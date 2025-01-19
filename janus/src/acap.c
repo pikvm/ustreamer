@@ -53,14 +53,14 @@ static void *_encoder_thread(void *v_acap);
 
 
 bool us_acap_probe(const char *name) {
-	snd_pcm_t *pcm;
+	snd_pcm_t *dev;
 	int err;
 	US_JLOG_INFO("acap", "Probing PCM capture ...");
-	if ((err = snd_pcm_open(&pcm, name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
+	if ((err = snd_pcm_open(&dev, name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
 		_JLOG_PERROR_ALSA(err, "acap", "Can't probe PCM capture");
 		return false;
 	}
-	snd_pcm_close(pcm);
+	snd_pcm_close(dev);
 	US_JLOG_INFO("acap", "PCM capture is available");
 	return true;
 }
@@ -76,15 +76,15 @@ us_acap_s *us_acap_init(const char *name, uint pcm_hz) {
 	int err;
 
 	{
-		if ((err = snd_pcm_open(&acap->pcm, name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
-			acap->pcm = NULL;
+		if ((err = snd_pcm_open(&acap->dev, name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
+			acap->dev = NULL;
 			_JLOG_PERROR_ALSA(err, "acap", "Can't open PCM capture");
 			goto error;
 		}
-		assert(!snd_pcm_hw_params_malloc(&acap->pcm_params));
+		assert(!snd_pcm_hw_params_malloc(&acap->dev_params));
 
 #		define SET_PARAM(_msg, _func, ...) { \
-				if ((err = _func(acap->pcm, acap->pcm_params, ##__VA_ARGS__)) < 0) { \
+				if ((err = _func(acap->dev, acap->dev_params, ##__VA_ARGS__)) < 0) { \
 					_JLOG_PERROR_ALSA(err, "acap", _msg); \
 					goto error; \
 				} \
@@ -148,8 +148,8 @@ void us_acap_destroy(us_acap_s *acap) {
 	}
 	US_DELETE(acap->enc, opus_encoder_destroy);
 	US_DELETE(acap->res, speex_resampler_destroy);
-	US_DELETE(acap->pcm, snd_pcm_close);
-	US_DELETE(acap->pcm_params, snd_pcm_hw_params_free);
+	US_DELETE(acap->dev, snd_pcm_close);
+	US_DELETE(acap->dev_params, snd_pcm_hw_params_free);
 	US_RING_DELETE_WITH_ITEMS(acap->enc_ring, us_au_encoded_destroy);
 	US_RING_DELETE_WITH_ITEMS(acap->pcm_ring, us_au_pcm_destroy);
 	if (acap->tids_created) {
@@ -167,7 +167,7 @@ int us_acap_get_encoded(us_acap_s *acap, u8 *data, uz *size, u64 *pts) {
 		return US_ERROR_NO_DATA;
 	}
 	const us_au_encoded_s *const buf = acap->enc_ring->items[ri];
-	if (*size < buf->used) {
+	if (buf->used == 0 || *size < buf->used) {
 		us_ring_consumer_release(acap->enc_ring, ri);
 		return US_ERROR_NO_DATA;
 	}
@@ -185,7 +185,7 @@ static void *_pcm_thread(void *v_acap) {
 	u8 in[US_AU_MAX_BUF8];
 
 	while (!atomic_load(&acap->stop)) {
-		const int frames = snd_pcm_readi(acap->pcm, in, acap->pcm_frames);
+		const int frames = snd_pcm_readi(acap->dev, in, acap->pcm_frames);
 		if (frames < 0) {
 			_JLOG_PERROR_ALSA(frames, "acap", "Fatal: Can't capture PCM frames");
 			break;
@@ -209,7 +209,7 @@ static void *_pcm_thread(void *v_acap) {
 }
 
 static void *_encoder_thread(void *v_acap) {
-	US_THREAD_SETTLE("us_a_enc");
+	US_THREAD_SETTLE("us_ac_enc");
 
 	us_acap_s *const acap = v_acap;
 	s16 in_res[US_AU_MAX_BUF16];
@@ -244,12 +244,13 @@ static void *_encoder_thread(void *v_acap) {
 		const int size = opus_encode(acap->enc, in_ptr, US_AU_HZ_TO_FRAMES(US_RTP_OPUS_HZ), out->data, US_ARRAY_LEN(out->data));
 		us_ring_consumer_release(acap->pcm_ring, in_ri);
 
-		if (size >= 0) {
+		if (size > 0) {
 			out->used = size;
 			out->pts = acap->pts;
 			// https://datatracker.ietf.org/doc/html/rfc7587#section-4.2
 			acap->pts += US_AU_HZ_TO_FRAMES(US_RTP_OPUS_HZ);
 		} else {
+			out->used = 0;
 			_JLOG_PERROR_OPUS(size, "acap", "Fatal: Can't encode PCM frame to OPUS");
 		}
 		us_ring_producer_release(acap->enc_ring, out_ri);

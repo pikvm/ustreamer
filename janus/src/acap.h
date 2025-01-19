@@ -34,11 +34,11 @@
 
 
 typedef struct {
-	snd_pcm_t			*pcm;
+	snd_pcm_t			*dev;
 	uint				pcm_hz;
 	uint				pcm_frames;
 	uz					pcm_size;
-	snd_pcm_hw_params_t	*pcm_params;
+	snd_pcm_hw_params_t	*dev_params;
 	SpeexResamplerState	*res;
 	OpusEncoder			*enc;
 
