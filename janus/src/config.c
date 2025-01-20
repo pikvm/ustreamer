@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <janus/config.h>
 #include <janus/plugins/plugin.h>
@@ -64,7 +65,16 @@ us_config_s *us_config_init(const char *config_dir_path) {
 			US_JLOG_INFO("config", "Missing config value: acap.tc358743");
 			goto error;
 		}
-		config->aplay_dev_name = _get_value(jcfg, "aplay", "device");
+		if ((config->aplay_dev_name = _get_value(jcfg, "aplay", "device")) != NULL) {
+			char *path = _get_value(jcfg, "aplay", "check");
+			if (path != NULL) {
+				if (access(path, F_OK) != 0) {
+					US_JLOG_INFO("config", "No check file found, aplay will be disabled");
+					US_DELETE(config->aplay_dev_name, free);
+				}
+				US_DELETE(path, free);
+			}
+		}
 	}
 
 	goto ok;
