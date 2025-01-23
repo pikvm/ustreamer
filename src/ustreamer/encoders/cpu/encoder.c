@@ -88,7 +88,7 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned q
 		// https://www.fourcc.org/yuv.php
 		case V4L2_PIX_FMT_YUYV:
 		case V4L2_PIX_FMT_YVYU:
-		case V4L2_PIX_FMT_UYVY:		_jpeg_write_scanlines_yuv(&jpeg, src); break;	
+		case V4L2_PIX_FMT_UYVY:		_jpeg_write_scanlines_yuv(&jpeg, src); break;
 		case V4L2_PIX_FMT_YUV420:
 		case V4L2_PIX_FMT_YVU420:	_jpeg_write_scanlines_yuv_planar(&jpeg, src); break;
 		case V4L2_PIX_FMT_RGB565:	_jpeg_write_scanlines_rgb565(&jpeg, src); break;
@@ -176,7 +176,6 @@ static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, 
 	uint8_t *line_buf;
 	US_CALLOC(line_buf, frame->width * 3);
 
-	US_LOG_DEBUG("Using Planar Encoder");
 	const unsigned padding = us_frame_get_padding(frame);
 	const uint image_size = frame->width * frame->height;
 	const uint chroma_array_size = (frame->used - image_size) / 2;
@@ -212,13 +211,13 @@ static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, 
 			ptr[1] = u;
 			ptr[2] = v;
 			ptr += 3;
-		}		
+		}
 
 		data += frame->width + padding;
 
 		if( jpeg->next_scanline > 0 && jpeg->next_scanline % chroma_matrix_order == 0 ){
 			chroma1_data += (frame->width + padding) / chroma_matrix_order;
-			chroma2_data += (frame->width + padding) / chroma_matrix_order;		
+			chroma2_data += (frame->width + padding) / chroma_matrix_order;
 		}
 
 		JSAMPROW scanlines[1] = {line_buf};
