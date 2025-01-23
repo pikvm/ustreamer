@@ -56,7 +56,6 @@
 #include "../../libs/tools.h"
 #include "../../libs/threading.h"
 #include "../../libs/logging.h"
-#include "../../libs/process.h"
 #include "../../libs/frame.h"
 #include "../../libs/base64.h"
 #include "../../libs/list.h"
@@ -68,9 +67,7 @@
 #	include "../gpio/gpio.h"
 #endif
 
-#include "bev.h"
-#include "unix.h"
-#include "uri.h"
+#include "tools.h"
 #include "mime.h"
 #include "static.h"
 #ifdef WITH_SYSTEMD
@@ -97,9 +94,6 @@ static void _http_send_stream(us_server_s *server, bool stream_updated, bool fra
 static void _http_send_snapshot(us_server_s *server);
 
 static bool _expose_frame(us_server_s *server, const us_frame_s *frame);
-
-static const char *_http_get_header(struct evhttp_request *request, const char *key);
-static char *_http_get_client_hostport(struct evhttp_request *request);
 
 
 #define _LOG_ERROR(x_msg, ...)	US_LOG_ERROR("HTTP: " x_msg, ##__VA_ARGS__)
@@ -203,8 +197,6 @@ int us_server_listen(us_server_s *server) {
 	}
 
 	us_frame_copy(stream->run->blank->jpeg, ex->frame);
-	ex->notify_last_width = ex->frame->width;
-	ex->notify_last_height = ex->frame->height;
 
 	{
 		struct timeval interval = {0};
@@ -282,8 +274,8 @@ static int _http_preprocess_request(struct evhttp_request *request, us_server_s 
 	atomic_store(&server->stream->run->http->last_request_ts, us_get_now_monotonic());
 
 	if (server->allow_origin[0] != '\0') {
-		const char *const cors_headers = _http_get_header(request, "Access-Control-Request-Headers");
-		const char *const cors_method = _http_get_header(request, "Access-Control-Request-Method");
+		const char *const cors_headers = us_evhttp_get_header(request, "Access-Control-Request-Headers");
+		const char *const cors_method = us_evhttp_get_header(request, "Access-Control-Request-Method");
 
 		_A_ADD_HEADER(request, "Access-Control-Allow-Origin", server->allow_origin);
 		_A_ADD_HEADER(request, "Access-Control-Allow-Credentials", "true");
@@ -301,7 +293,7 @@ static int _http_preprocess_request(struct evhttp_request *request, us_server_s 
 	}
 
 	if (run->auth_token != NULL) {
-		const char *const token = _http_get_header(request, "Authorization");
+		const char *const token = us_evhttp_get_header(request, "Authorization");
 		if (token == NULL || strcmp(token, run->auth_token) != 0) {
 			_A_ADD_HEADER(request, "WWW-Authenticate", "Basic realm=\"Restricted area\"");
 			evhttp_send_reply(request, 401, "Unauthorized", NULL);
@@ -593,7 +585,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 
 		struct evkeyvalq params;
 		evhttp_parse_query(evhttp_request_get_uri(request), &params);
-#		define PARSE_PARAM(x_type, x_name) client->x_name = us_uri_get_##x_type(&params, #x_name)
+#		define PARSE_PARAM(x_type, x_name) client->x_name = us_evkeyvalq_get_##x_type(&params, #x_name)
 		PARSE_PARAM(string, key);
 		PARSE_PARAM(true, extra_headers);
 		PARSE_PARAM(true, advance_headers);
@@ -602,7 +594,7 @@ static void _http_callback_stream(struct evhttp_request *request, void *v_server
 #		undef PARSE_PARAM
 		evhttp_clear_headers(&params);
 
-		client->hostport = _http_get_client_hostport(request);
+		client->hostport = us_evhttp_get_hostport(request);
 		client->id = us_get_now_id();
 
 		{
@@ -682,8 +674,8 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 		_A_EVBUFFER_ADD_PRINTF(buf, "HTTP/1.0 200 OK" RN);
 		
 		if (client->server->allow_origin[0] != '\0') {
-			const char *const cors_headers = _http_get_header(client->request, "Access-Control-Request-Headers");
-			const char *const cors_method = _http_get_header(client->request, "Access-Control-Request-Method");
+			const char *const cors_headers = us_evhttp_get_header(client->request, "Access-Control-Request-Headers");
+			const char *const cors_method = us_evhttp_get_header(client->request, "Access-Control-Request-Method");
 
 			_A_EVBUFFER_ADD_PRINTF(buf,
 				"Access-Control-Allow-Origin: %s" RN
@@ -957,21 +949,6 @@ static void _http_refresher(int fd, short what, void *v_server) {
 
 	_http_send_stream(server, stream_updated, frame_updated);
 	_http_send_snapshot(server);
-
-	if (
-		frame_updated
-		&& server->notify_parent
-		&& (
-			ex->notify_last_online != ex->frame->online
-			|| ex->notify_last_width != ex->frame->width
-			|| ex->notify_last_height != ex->frame->height
-		)
-	) {
-		ex->notify_last_online = ex->frame->online;
-		ex->notify_last_width = ex->frame->width;
-		ex->notify_last_height = ex->frame->height;
-		us_process_notify_parent();
-	}
 }
 
 static bool _expose_frame(us_server_s *server, const us_frame_s *frame) {
@@ -1015,40 +992,4 @@ static bool _expose_frame(us_server_s *server, const us_frame_s *frame) {
 	_LOG_VERBOSE("Exposed frame: online=%d, exp_time=%.06Lf",
 		 ex->frame->online, (ex->expose_end_ts - ex->expose_begin_ts));
 	return true; // Updated
-}
-
-static const char *_http_get_header(struct evhttp_request *request, const char *key) {
-	return evhttp_find_header(evhttp_request_get_input_headers(request), key);
-}
-
-static char *_http_get_client_hostport(struct evhttp_request *request) {
-	char *addr = NULL;
-	unsigned short port = 0;
-	struct evhttp_connection *conn = evhttp_request_get_connection(request);
-	if (conn != NULL) {
-		char *peer;
-		evhttp_connection_get_peer(conn, &peer, &port);
-		addr = us_strdup(peer);
-	}
-
-	const char *xff = _http_get_header(request, "X-Forwarded-For");
-	if (xff != NULL) {
-		US_DELETE(addr, free);
-		assert((addr = strndup(xff, 1024)) != NULL);
-		for (uint index = 0; addr[index]; ++index) {
-			if (addr[index] == ',') {
-				addr[index] = '\0';
-				break;
-			}
-		}
-	}
-
-	if (addr == NULL) {
-		addr = us_strdup("???");
-	}
-
-	char *hostport;
-	US_ASPRINTF(hostport, "[%s]:%u", addr, port);
-	free(addr);
-	return hostport;
 }

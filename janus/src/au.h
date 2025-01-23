@@ -20,46 +20,41 @@
 *****************************************************************************/
 
 
-#include "bev.h"
+#pragma once
 
-#include <string.h>
-#include <errno.h>
+#include "uslibs/types.h"
 
-#include <event2/util.h>
-#include <event2/bufferevent.h>
+#include "rtp.h"
 
-#include "../../libs/tools.h"
+// A number of frames per 1 channel:
+//   - https://github.com/xiph/opus/blob/7b05f44/src/opus_demo.c#L368
+#define US_AU_FRAME_MS			20
+// #define _HZ_TO_FRAMES(_hz)	(6 * (_hz) / 50) // 120ms
+#define US_AU_HZ_TO_FRAMES(_hz)	((_hz) / 50) // 20ms
+#define US_AU_HZ_TO_BUF16(_hz)	(US_AU_HZ_TO_FRAMES(_hz) * US_RTP_OPUS_CH) // ... * 2: One stereo frame = (16bit L) + (16bit R)
+#define US_AU_HZ_TO_BUF8(_hz)	(US_AU_HZ_TO_BUF16(_hz) * sizeof(s16))
+
+#define US_AU_MIN_PCM_HZ		8000
+#define US_AU_MAX_PCM_HZ		192000
+#define US_AU_MAX_BUF16			US_AU_HZ_TO_BUF16(US_AU_MAX_PCM_HZ)
+#define US_AU_MAX_BUF8			US_AU_HZ_TO_BUF8(US_AU_MAX_PCM_HZ)
 
 
-char *us_bufferevent_format_reason(short what) {
-	char *reason;
-	US_CALLOC(reason, 2048);
+typedef struct {
+	s16		data[US_AU_MAX_BUF16];
+	uz		frames;
+} us_au_pcm_s;
 
-	// evutil_socket_error_to_string() is not thread-safe
-	char *const perror_str = us_errno_to_string(EVUTIL_SOCKET_ERROR());
-	bool first = true;
+typedef struct {
+	u8		data[US_RTP_PAYLOAD_SIZE];
+	uz		used;
+	u64		pts;
+} us_au_encoded_s;
 
-	strncat(reason, perror_str, 1023);
-	free(perror_str);
-	strcat(reason, " (");
 
-#	define FILL_REASON(x_bev, x_name) { \
-			if (what & x_bev) { \
-				if (first) { \
-					first = false; \
-				} else { \
-					strcat(reason, ","); \
-				} \
-				strcat(reason, x_name); \
-			} \
-		}
-	FILL_REASON(BEV_EVENT_READING, "reading");
-	FILL_REASON(BEV_EVENT_WRITING, "writing");
-	FILL_REASON(BEV_EVENT_ERROR, "error");
-	FILL_REASON(BEV_EVENT_TIMEOUT, "timeout");
-	FILL_REASON(BEV_EVENT_EOF, "eof"); // cppcheck-suppress unreadVariable
-#	undef FILL_REASON
+us_au_pcm_s *us_au_pcm_init(void);
+void us_au_pcm_destroy(us_au_pcm_s *pcm);
+void us_au_pcm_mix(us_au_pcm_s *a, us_au_pcm_s *b);
 
-	strcat(reason, ")");
-	return reason;
-}
+us_au_encoded_s *us_au_encoded_init(void);
+void us_au_encoded_destroy(us_au_encoded_s *enc);

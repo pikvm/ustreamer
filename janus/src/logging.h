@@ -36,3 +36,8 @@
 		JANUS_LOG(LOG_ERR, "[%s/%-9s] " x_msg ": %s\n", US_PLUGIN_NAME, x_prefix, ##__VA_ARGS__, m_perror_str); \
 		free(m_perror_str); \
 	}
+
+// We don't include alsa, speex and opus headers here
+#define US_JLOG_PERROR_ALSA(_err, _prefix, _msg, ...)	US_JLOG_ERROR(_prefix, _msg ": %s", ##__VA_ARGS__, snd_strerror(_err))
+#define US_JLOG_PERROR_RES(_err, _prefix, _msg, ...)	US_JLOG_ERROR(_prefix, _msg ": %s", ##__VA_ARGS__, speex_resampler_strerror(_err))
+#define US_JLOG_PERROR_OPUS(_err, _prefix, _msg, ...)	US_JLOG_ERROR(_prefix, _msg ": %s", ##__VA_ARGS__, opus_strerror(_err))

@@ -22,10 +22,40 @@
 
 #pragma once
 
-#include <event2/keyvalq_struct.h>
+#include <stdatomic.h>
 
-#include "../../libs/types.h"
+#include <pthread.h>
+#include <alsa/asoundlib.h>
+#include <speex/speex_resampler.h>
+#include <opus/opus.h>
+
+#include "uslibs/types.h"
+#include "uslibs/ring.h"
 
 
-bool us_uri_get_true(struct evkeyvalq *params, const char *key);
-char *us_uri_get_string(struct evkeyvalq *params, const char *key);
+typedef struct {
+	snd_pcm_t			*dev;
+	uint				pcm_hz;
+	uint				pcm_frames;
+	uz					pcm_size;
+	snd_pcm_hw_params_t	*dev_params;
+	SpeexResamplerState	*res;
+	OpusEncoder			*enc;
+
+	us_ring_s		*pcm_ring;
+	us_ring_s		*enc_ring;
+	u32				pts;
+
+	pthread_t		pcm_tid;
+	pthread_t		enc_tid;
+	bool			tids_created;
+	atomic_bool		stop;
+} us_acap_s;
+
+
+bool us_acap_probe(const char *name);
+
+us_acap_s *us_acap_init(const char *name, uint pcm_hz);
+void us_acap_destroy(us_acap_s *acap);
+
+int us_acap_get_encoded(us_acap_s *acap, u8 *data, uz *size, u64 *pts);

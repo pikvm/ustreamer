@@ -85,9 +85,9 @@ static const struct {
 };
 
 static int _capture_wait_buffer(us_capture_s *cap);
-static int _capture_consume_event(us_capture_s *cap);
+static int _capture_consume_event(const us_capture_s *cap);
 static void _v4l2_buffer_copy(const struct v4l2_buffer *src, struct v4l2_buffer *dest);
-static bool _capture_is_buffer_valid(us_capture_s *cap, const struct v4l2_buffer *buf, const u8 *data);
+static bool _capture_is_buffer_valid(const us_capture_s *cap, const struct v4l2_buffer *buf, const u8 *data);
 static int _capture_open_check_cap(us_capture_s *cap);
 static int _capture_open_dv_timings(us_capture_s *cap, bool apply);
 static int _capture_open_format(us_capture_s *cap, bool first);
@@ -100,12 +100,12 @@ static int _capture_open_queue_buffers(us_capture_s *cap);
 static int _capture_open_export_to_dma(us_capture_s *cap);
 static int _capture_apply_resolution(us_capture_s *cap, uint width, uint height, float hz);
 
-static void _capture_apply_controls(us_capture_s *cap);
+static void _capture_apply_controls(const us_capture_s *cap);
 static int _capture_query_control(
-	us_capture_s *cap, struct v4l2_queryctrl *query,
+	const us_capture_s *cap, struct v4l2_queryctrl *query,
 	const char *name, uint cid, bool quiet);
 static void _capture_set_control(
-	us_capture_s *cap, const struct v4l2_queryctrl *query,
+	const us_capture_s *cap, const struct v4l2_queryctrl *query,
 	const char *name, uint cid, int value, bool quiet);
 
 static const char *_format_to_string_nullable(uint format);
@@ -425,7 +425,7 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 	return buf.index;
 }
 
-int us_capture_hwbuf_release(us_capture_s *cap, us_capture_hwbuf_s *hw) {
+int us_capture_hwbuf_release(const us_capture_s *cap, us_capture_hwbuf_s *hw) {
 	assert(atomic_load(&hw->refs) == 0);
 	const uint index = hw->buf.index;
 	_LOG_DEBUG("Releasing HW buffer=%u ...", index);
@@ -490,7 +490,7 @@ int _capture_wait_buffer(us_capture_s *cap) {
 	return 0;
 }
 
-static int _capture_consume_event(us_capture_s *cap) {
+static int _capture_consume_event(const us_capture_s *cap) {
 	struct v4l2_event event;
 	if (us_xioctl(cap->run->fd, VIDIOC_DQEVENT, &event) < 0) {
 		_LOG_PERROR("Can't consume V4L2 event");
@@ -517,7 +517,7 @@ static void _v4l2_buffer_copy(const struct v4l2_buffer *src, struct v4l2_buffer 
 	}
 }
 
-bool _capture_is_buffer_valid(us_capture_s *cap, const struct v4l2_buffer *buf, const u8 *data) {
+bool _capture_is_buffer_valid(const us_capture_s *cap, const struct v4l2_buffer *buf, const u8 *data) {
 	// Workaround for broken, corrupted frames:
 	// Under low light conditions corrupted frames may get captured.
 	// The good thing is such frames are quite small compared to the regular frames.
@@ -548,8 +548,11 @@ bool _capture_is_buffer_valid(us_capture_s *cap, const struct v4l2_buffer *buf, 
 		const u8 *const eoi_ptr = end_ptr - 2;
 		const u16 eoi_marker = (((u16)(eoi_ptr[0]) << 8) | eoi_ptr[1]);
 		if (eoi_marker != 0xFFD9 && eoi_marker != 0xD900 && eoi_marker != 0x0000) {
-			_LOG_DEBUG("Discarding truncated JPEG frame: eoi_marker=0x%04x, bytesused=%u", eoi_marker, buf->bytesused);
-			return false;
+			if (!cap->allow_truncated_frames) {
+				_LOG_DEBUG("Discarding truncated JPEG frame: eoi_marker=0x%04x, bytesused=%u", eoi_marker, buf->bytesused);
+				return false;
+			}
+			_LOG_DEBUG("Got truncated JPEG frame: eoi_marker=0x%04x, bytesused=%u", eoi_marker, buf->bytesused);
 		}
 	}
 
@@ -741,7 +744,7 @@ static int _capture_open_format(us_capture_s *cap, bool first) {
 			_format_to_string_supported(cap->format),
 			_format_to_string_supported(FMT(pixelformat)));
 
-		char *format_str;
+		const char *format_str;
 		if ((format_str = (char*)_format_to_string_nullable(FMT(pixelformat))) != NULL) {
 			_LOG_INFO("Falling back to format=%s", format_str);
 		} else {
@@ -1041,7 +1044,7 @@ static int _capture_apply_resolution(us_capture_s *cap, uint width, uint height,
 	return 0;
 }
 
-static void _capture_apply_controls(us_capture_s *cap) {
+static void _capture_apply_controls(const us_capture_s *cap) {
 #	define SET_CID_VALUE(x_cid, x_field, x_value, x_quiet) { \
 			struct v4l2_queryctrl m_query; \
 			if (_capture_query_control(cap, &m_query, #x_field, x_cid, x_quiet) == 0) { \
@@ -1098,7 +1101,7 @@ static void _capture_apply_controls(us_capture_s *cap) {
 }
 
 static int _capture_query_control(
-	us_capture_s *cap, struct v4l2_queryctrl *query,
+	const us_capture_s *cap, struct v4l2_queryctrl *query,
 	const char *name, uint cid, bool quiet) {
 
 	// cppcheck-suppress redundantPointerOp
@@ -1115,7 +1118,7 @@ static int _capture_query_control(
 }
 
 static void _capture_set_control(
-	us_capture_s *cap, const struct v4l2_queryctrl *query,
+	const us_capture_s *cap, const struct v4l2_queryctrl *query,
 	const char *name, uint cid, int value, bool quiet) {
 
 	if (value < query->minimum || value > query->maximum || value % query->step != 0) {

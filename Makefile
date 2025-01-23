@@ -17,6 +17,12 @@ _LINTERS_IMAGE ?= ustreamer-linters
 
 
 # =====
+ifeq (__not_found__,$(shell which pkg-config 2>/dev/null || echo "__not_found__"))
+$(error "No pkg-config found in $(PATH)")
+endif
+
+
+# =====
 define optbool
 $(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
 endef

@@ -614,7 +614,7 @@ static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz) {
 			goto done;
 		}
 
-		drmModeModeInfo *best;
+		const drmModeModeInfo *best;
 		if ((best = _find_best_mode(conn, width, height, hz)) == NULL) {
 			_LOG_ERROR("Can't find any appropriate display modes");
 			drmModeFreeConnector(conn);

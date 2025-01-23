@@ -32,6 +32,7 @@ enum _US_OPT_VALUES {
 	_O_IO_METHOD = 'I',
 	_O_DESIRED_FPS = 'f',
 	_O_MIN_FRAME_SIZE = 'z',
+	_O_ALLOW_TRUNCATED_FRAMES = 'T',
 	_O_PERSISTENT = 'n',
 	_O_DV_TIMINGS = 't',
 	_O_BUFFERS = 'b',
@@ -142,6 +143,7 @@ static const struct option _LONG_OPTS[] = {
 	{"io-method",				required_argument,	NULL,	_O_IO_METHOD},
 	{"desired-fps",				required_argument,	NULL,	_O_DESIRED_FPS},
 	{"min-frame-size",			required_argument,	NULL,	_O_MIN_FRAME_SIZE},
+	{"allow-truncated-frames",	no_argument,		NULL,	_O_ALLOW_TRUNCATED_FRAMES},
 	{"persistent",				no_argument,		NULL,	_O_PERSISTENT},
 	{"dv-timings",				no_argument,		NULL,	_O_DV_TIMINGS},
 	{"buffers",					required_argument,	NULL,	_O_BUFFERS},
@@ -353,7 +355,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 		}
 
 #	define ADD_SINK(x_prefix) \
-		char *x_prefix##_name = NULL; \
+		const char *x_prefix##_name = NULL; \
 		mode_t x_prefix##_mode = 0660; \
 		bool x_prefix##_rm = false; \
 		unsigned x_prefix##_client_ttl = 10; \
@@ -364,7 +366,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 #	undef ADD_SINK
 
 #	ifdef WITH_SETPROCTITLE
-	char *process_name_prefix = NULL;
+	const char *process_name_prefix = NULL;
 #	endif
 
 	char short_opts[128];
@@ -384,6 +386,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 			case _O_IO_METHOD:			OPT_PARSE_ENUM("IO method", cap->io_method, us_capture_parse_io_method, US_IO_METHODS_STR);
 			case _O_DESIRED_FPS:		OPT_NUMBER("--desired-fps", cap->desired_fps, 0, US_VIDEO_MAX_FPS, 0);
 			case _O_MIN_FRAME_SIZE:		OPT_NUMBER("--min-frame-size", cap->min_frame_size, 1, 8192, 0);
+			case _O_ALLOW_TRUNCATED_FRAMES:	OPT_SET(cap->allow_truncated_frames, true);
 			case _O_PERSISTENT:			OPT_SET(cap->persistent, true);
 			case _O_DV_TIMINGS:			OPT_SET(cap->dv_timings, true);
 			case _O_BUFFERS:			OPT_NUMBER("--buffers", cap->n_bufs, 1, 32, 0);
@@ -491,7 +494,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 #			ifdef WITH_SETPROCTITLE
 			case _O_PROCESS_NAME_PREFIX:	OPT_SET(process_name_prefix, optarg);
 #			endif
-			case _O_NOTIFY_PARENT:			OPT_SET(server->notify_parent, true);
+			case _O_NOTIFY_PARENT:			OPT_SET(stream->notify_parent, true);
 
 			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", us_g_log_level, US_LOG_LEVEL_INFO, US_LOG_LEVEL_DEBUG, 0);
 			case _O_PERF:				OPT_SET(us_g_log_level, US_LOG_LEVEL_PERF);
@@ -634,6 +637,8 @@ static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, co
 	SAY("    -f|--desired-fps <N>  ──────────────── Desired FPS. Default: maximum possible.\n");
 	SAY("    -z|--min-frame-size <N>  ───────────── Drop frames smaller then this limit. Useful if the device");
 	SAY("                                           produces small-sized garbage frames. Default: %zu bytes.\n", cap->min_frame_size);
+	SAY("    -T|--allow-truncated-frames  ───────── Allows to handle truncated frames. Useful if the device");
+	SAY("                                           produces incorrect but still acceptable frames. Default: disabled.\n");
 	SAY("    -n|--persistent  ───────────────────── Don't re-initialize device on timeout. Default: disabled.\n");
 	SAY("    -t|--dv-timings  ───────────────────── Enable DV-timings querying and events processing");
 	SAY("                                           to automatic resolution change. Default: disabled.\n");

@@ -111,9 +111,9 @@ int main(int argc, char *argv[]) {
 	US_LOGGING_INIT;
 	US_THREAD_RENAME("main");
 
-	char *sink_name = NULL;
+	const char *sink_name = NULL;
 	unsigned sink_timeout = 1;
-	char *output_path = NULL;
+	const char *output_path = NULL;
 	bool output_json = false;
 	long long count = 0;
 	long double interval = 0;

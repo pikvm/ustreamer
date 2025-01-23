@@ -3,14 +3,14 @@
 
 
 pkgname=ustreamer
-pkgver=6.12
+pkgver=6.27
 pkgrel=1
 pkgdesc="Lightweight and fast MJPEG-HTTP streamer"
 url="https://github.com/pikvm/ustreamer"
 license=(GPL)
 arch=(i686 x86_64 armv6h armv7h aarch64)
 depends=(libjpeg libevent libbsd libgpiod systemd)
-makedepends=(gcc make systemd)
+makedepends=(gcc make pkgconf systemd)
 source=(${pkgname}::"git+https://github.com/pikvm/ustreamer#commit=v${pkgver}")
 md5sums=(SKIP)
 
@@ -18,7 +18,7 @@ md5sums=(SKIP)
 _options="WITH_GPIO=1 WITH_SYSTEMD=1"
 if [ -e /usr/bin/python3 ]; then
 	_options="$_options WITH_PYTHON=1"
-	depends+=(python)
+	depends+=("python>=3.13" "python<3.14")
 	makedepends+=(python-setuptools python-pip python-build python-wheel)
 fi
 if [ -e /usr/include/janus/plugins/plugin.h ];then

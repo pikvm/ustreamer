@@ -113,7 +113,9 @@ INLINE void us_thread_get_name(char *name) { // Always required for logging
 #if defined(__linux__)
 		const pid_t tid = syscall(SYS_gettid);
 #elif defined(__FreeBSD__)
-		const pid_t tid = syscall(SYS_thr_self);
+		long id;
+		assert(!syscall(SYS_thr_self, &id));
+		const pid_t tid = id;
 #elif defined(__OpenBSD__)
 		const pid_t tid = syscall(SYS_getthrid);
 #elif defined(__NetBSD__)
