@@ -135,7 +135,7 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 
 void us_stream_update_blank(us_stream_s *stream, const us_capture_s *cap) {
 	us_stream_runtime_s *const run = stream->run;
-	us_blank_draw(run->blank, "< NO SIGNAL >", cap->width, cap->height);
+	us_blank_draw(run->blank, "No Capture Device","Please connect capture device", cap->width, cap->height);
 	us_fpsi_frame_to_meta(run->blank->raw, &run->notify_meta); // Initial "unchanged" meta
 	_stream_update_captured_fpsi(stream, run->blank->raw, false);
 }
