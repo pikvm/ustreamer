@@ -544,8 +544,11 @@ bool _capture_is_buffer_valid(const us_capture_s *cap, const struct v4l2_buffer 
 		const u8 *const eoi_ptr = end_ptr - 2;
 		const u16 eoi_marker = (((u16)(eoi_ptr[0]) << 8) | eoi_ptr[1]);
 		if (eoi_marker != 0xFFD9 && eoi_marker != 0xD900 && eoi_marker != 0x0000) {
-			_LOG_DEBUG("Discarding truncated JPEG frame: eoi_marker=0x%04x, bytesused=%u", eoi_marker, buf->bytesused);
-			return false;
+			if (!cap->allow_truncated_frames) {
+				_LOG_DEBUG("Discarding truncated JPEG frame: eoi_marker=0x%04x, bytesused=%u", eoi_marker, buf->bytesused);
+				return false;
+			}
+			_LOG_DEBUG("Got truncated JPEG frame: eoi_marker=0x%04x, bytesused=%u", eoi_marker, buf->bytesused);
 		}
 	}
 

@@ -91,6 +91,7 @@ static us_capture_hwbuf_s *_get_latest_hw(us_queue_s *queue);
 static bool _stream_has_jpeg_clients_cached(us_stream_s *stream);
 static bool _stream_has_any_clients_cached(us_stream_s *stream);
 static int _stream_init_loop(us_stream_s *stream);
+static void _stream_update_captured_fpsi(us_stream_s *stream, const us_frame_s *frame, bool bump);
 #ifdef WITH_V4P
 static void _stream_drm_ensure_no_signal(us_stream_s *stream);
 #endif
@@ -128,11 +129,15 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 	stream->h264_gop = 30;
 	stream->run = run;
 
-	us_blank_draw(run->blank, "No Capture Device","Please connect capture device", cap->width, cap->height);
-	us_fpsi_meta_s meta = {0};
-	us_fpsi_frame_to_meta(run->blank->raw, &meta);
-	us_fpsi_update(http->captured_fpsi, false, &meta);
+	us_stream_update_blank(stream, cap); // Init blank
 	return stream;
+}
+
+void us_stream_update_blank(us_stream_s *stream, const us_capture_s *cap) {
+	us_stream_runtime_s *const run = stream->run;
+	us_blank_draw(run->blank, "< NO SIGNAL >", cap->width, cap->height);
+	us_fpsi_frame_to_meta(run->blank->raw, &run->notify_meta); // Initial "unchanged" meta
+	_stream_update_captured_fpsi(stream, run->blank->raw, false);
 }
 
 void us_stream_destroy(us_stream_s *stream) {
@@ -211,9 +216,7 @@ void us_stream_loop(us_stream_s *stream) {
 				default: goto close; // Any error
 			}
 
-			us_fpsi_meta_s meta = {0};
-			us_fpsi_frame_to_meta(&hw->raw, &meta);
-			us_fpsi_update(run->http->captured_fpsi, true, &meta);
+			_stream_update_captured_fpsi(stream, &hw->raw, true);
 
 #			ifdef WITH_GPIO
 			us_gpio_set_stream_online(true);
@@ -590,10 +593,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 				}
 				us_blank_draw(run->blank, "No Capture Device","Please connect capture device", width, height);
 
-				us_fpsi_meta_s meta = {0};
-				us_fpsi_frame_to_meta(run->blank->raw, &meta);
-				us_fpsi_update(run->http->captured_fpsi, false, &meta);
-
+				_stream_update_captured_fpsi(stream, run->blank->raw, false);
 				_stream_expose_jpeg(stream, run->blank->jpeg);
 				_stream_expose_raw(stream, run->blank->raw);
 				_stream_encode_expose_h264(stream, run->blank->raw, true);
@@ -606,6 +606,19 @@ static int _stream_init_loop(us_stream_s *stream) {
 		}
 	}
 	return -1;
+}
+
+static void _stream_update_captured_fpsi(us_stream_s *stream, const us_frame_s *frame, bool bump) {
+	us_stream_runtime_s *const run = stream->run;
+
+	us_fpsi_meta_s meta = {0};
+	us_fpsi_frame_to_meta(frame, &meta);
+	us_fpsi_update(run->http->captured_fpsi, bump, &meta);
+
+	if (stream->notify_parent && memcmp(&run->notify_meta, &meta, sizeof(us_fpsi_meta_s))) {
+		memcpy(&run->notify_meta, &meta, sizeof(us_fpsi_meta_s));
+		us_process_notify_parent();
+	}
 }
 
 #ifdef WITH_V4P

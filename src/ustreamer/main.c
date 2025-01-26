@@ -90,6 +90,7 @@ int main(int argc, char *argv[]) {
 	_g_server = us_server_init(_g_stream);
 
 	if ((exit_code = options_parse(options, cap, enc, _g_stream, _g_server)) == 0) {
+		us_stream_update_blank(_g_stream, cap);
 #		ifdef WITH_GPIO
 		us_gpio_init();
 #		endif

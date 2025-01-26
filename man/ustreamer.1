@@ -1,6 +1,6 @@
 .\" Manpage for ustreamer.
 .\" Open an issue or pull request to https://github.com/pikvm/ustreamer to correct errors or typos
-.TH USTREAMER 1 "version 6.13" "November 2020"
+.TH USTREAMER 1 "version 6.27" "November 2020"
 
 .SH NAME
 ustreamer \- stream MJPEG video from any V4L2 device to the network
@@ -67,6 +67,9 @@ Desired FPS. Default: maximum possible.
 .TP
 .BR \-z\ \fIN ", " \-\-min\-frame\-size\ \fIN
 Drop frames smaller then this limit. Useful if the device produces small\-sized garbage frames. Default: 128 bytes.
+.TP
+.BR \-T ", " \-\-allow\-truncated\-frames
+Allows to handle truncated frames. Useful if the device produces incorrect but still acceptable frames. Default: disabled.
 .TP
 .BR \-n ", " \-\-persistent
 Suppress repetitive signal source errors. Default: disabled.

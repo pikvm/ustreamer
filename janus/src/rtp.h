@@ -28,6 +28,13 @@
 // https://stackoverflow.com/questions/47635545/why-webrtc-chose-rtp-max-packet-size-to-1200-bytes
 #define US_RTP_DATAGRAM_SIZE	1200
 #define US_RTP_HEADER_SIZE		12
+#define US_RTP_PAYLOAD_SIZE		(US_RTP_DATAGRAM_SIZE - US_RTP_HEADER_SIZE)
+
+#define US_RTP_H264_PAYLOAD		96
+#define US_RTP_OPUS_PAYLOAD		111
+
+#define US_RTP_OPUS_HZ			48000
+#define US_RTP_OPUS_CH			2
 
 
 typedef struct {

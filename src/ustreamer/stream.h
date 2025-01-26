@@ -76,6 +76,8 @@ typedef struct {
 
 	us_blank_s			*blank;
 
+	us_fpsi_meta_s		notify_meta;
+
 	atomic_bool			stop;
 } us_stream_runtime_s;
 
@@ -83,6 +85,7 @@ typedef struct {
 	us_capture_s	*cap;
 	us_encoder_s	*enc;
 
+	bool			notify_parent;
 	bool			slowdown;
 	uint			error_delay;
 	uint			exit_on_no_clients;
@@ -104,6 +107,7 @@ typedef struct {
 
 
 us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc);
+void us_stream_update_blank(us_stream_s *stream, const us_capture_s *cap);
 void us_stream_destroy(us_stream_s *stream);
 
 void us_stream_loop(us_stream_s *stream);

@@ -45,7 +45,7 @@ us_rtpv_s *us_rtpv_init(us_rtp_callback_f callback) {
 	us_rtpv_s *rtpv;
 	US_CALLOC(rtpv, 1);
 	rtpv->rtp = us_rtp_init();
-	us_rtp_assign(rtpv->rtp, 96, true);
+	us_rtp_assign(rtpv->rtp, US_RTP_H264_PAYLOAD, true);
 	rtpv->callback = callback;
 	return rtpv;
 }
