@@ -107,16 +107,16 @@ void us_frametext_draw(us_frametext_s *ft, const char *text1, const char *text2,
 	memset(frame->data, 0, frame->used);
 
 	// 计算每行的宽度和高度
-	uint block_width1 = strlen(text1) * 8;
+	uint block_width1 = strlen(text1) * 6;
 	uint block_height1 = 8;
-	uint block_width2 = strlen(text2) * 8;
-	uint block_height2 = 8;
+	uint block_width2 = strlen(text2) * 6;
+	uint block_height2 = 4;
 
 	// 计算缩放比例，使第一行更大，第二行更小
-	uint scale_x1 = (uint)((float)frame->width / block_width1 * 1.8); // 第一行更大的缩放比例
-	uint scale_y1 = (uint)((float)frame->height / (block_height1 + block_height2) * 0.5);
-	uint scale_x2 = (uint)((float)frame->width / block_width2 * 1.5); // 第二行更小的缩放比例
-	uint scale_y2 = (uint)((float)frame->height / (block_height1 + block_height2) * 0.2);
+	uint scale_x1 = (uint)((float)frame->width / 2 / block_width1 * 1); // 第一行更大的缩放比例
+	uint scale_y1 = (uint)((float)frame->height / 2  / (block_height1 + block_height2) * 0.5);
+	uint scale_x2 = (uint)((float)frame->width / 2 / block_width2 * 1); // 第二行更小的缩放比例
+	uint scale_y2 = (uint)((float)frame->height / 2 / (block_height1 + block_height2) * 0.2);
 
 	scale_x1 = US_MIN(scale_x1, scale_y1);
 	scale_x2 = US_MIN(scale_x2, scale_y2);
@@ -135,6 +135,7 @@ void us_frametext_draw(us_frametext_s *ft, const char *text1, const char *text2,
 	const uint start_y2 = start_y1 + block_height1 * scale_y1;
 	_frametext_draw_line(ft, text2, scale_x2, scale_y2, (frame->width - (strlen(text2) * 8 * scale_x2)) / 2, start_y2);
 }
+
 
 void _frametext_draw_line(
 	us_frametext_s *ft, const char *line,
