@@ -35,4 +35,4 @@
 #include "../../../libs/frame.h"
 
 
-void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned quality);
+void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, uint quality);

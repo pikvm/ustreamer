@@ -82,18 +82,31 @@ bool us_frame_compare(const us_frame_s *a, const us_frame_s *b) {
 uint us_frame_get_padding(const us_frame_s *frame) {
 	uint bytes_per_pixel = 0;
 	switch (frame->format) {
+		case V4L2_PIX_FMT_YUV420:
 		case V4L2_PIX_FMT_YVU420:
-		case V4L2_PIX_FMT_YUV420: bytes_per_pixel = 1; break;
+			bytes_per_pixel = 1;
+			break;
+
 		case V4L2_PIX_FMT_YUYV:
 		case V4L2_PIX_FMT_YVYU:
 		case V4L2_PIX_FMT_UYVY:
-		case V4L2_PIX_FMT_RGB565: bytes_per_pixel = 2; break;
+		case V4L2_PIX_FMT_RGB565:
+			bytes_per_pixel = 2;
+			break;
+
 		case V4L2_PIX_FMT_BGR24:
-		case V4L2_PIX_FMT_RGB24: bytes_per_pixel = 3; break;
+		case V4L2_PIX_FMT_RGB24:
+			bytes_per_pixel = 3;
+			break;
+
 		// case V4L2_PIX_FMT_H264:
 		case V4L2_PIX_FMT_MJPEG:
-		case V4L2_PIX_FMT_JPEG: bytes_per_pixel = 0; break;
-		default: assert(0 && "Unknown format");
+		case V4L2_PIX_FMT_JPEG:
+			bytes_per_pixel = 0;
+			break;
+
+		default:
+			assert(0 && "Unknown format");
 	}
 	if (bytes_per_pixel > 0 && frame->stride > frame->width) {
 		return (frame->stride - frame->width * bytes_per_pixel);

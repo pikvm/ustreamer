@@ -26,7 +26,7 @@
 
 
 #include "encoder.h"
-#include "../../../libs/logging.h"
+
 
 typedef struct {
 	struct jpeg_destination_mgr mgr; // Default manager
@@ -51,7 +51,7 @@ static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
 static void _jpeg_term_destination(j_compress_ptr jpeg);
 
 
-void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned quality) {
+void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, uint quality) {
 	// This function based on compress_image_to_jpeg() from mjpg-streamer
 
 	us_frame_encoding_begin(src, dest, V4L2_PIX_FMT_JPEG);
@@ -72,11 +72,17 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned q
 		case V4L2_PIX_FMT_YVYU:
 		case V4L2_PIX_FMT_UYVY:
 		case V4L2_PIX_FMT_YUV420:
-		case V4L2_PIX_FMT_YVU420: jpeg.in_color_space = JCS_YCbCr; break;
+		case V4L2_PIX_FMT_YVU420:
+			jpeg.in_color_space = JCS_YCbCr;
+			break;
 #		ifdef JCS_EXTENSIONS
-		case V4L2_PIX_FMT_BGR24:  jpeg.in_color_space = JCS_EXT_BGR; break;
+		case V4L2_PIX_FMT_BGR24:
+			jpeg.in_color_space = JCS_EXT_BGR;
+			break;
 #		endif
-		default: jpeg.in_color_space = JCS_RGB; break;
+		default:
+			jpeg.in_color_space = JCS_RGB;
+			break;
 	}
 
 	jpeg_set_defaults(&jpeg);
@@ -88,11 +94,23 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, unsigned q
 		// https://www.fourcc.org/yuv.php
 		case V4L2_PIX_FMT_YUYV:
 		case V4L2_PIX_FMT_YVYU:
-		case V4L2_PIX_FMT_UYVY:		_jpeg_write_scanlines_yuv(&jpeg, src); break;
+		case V4L2_PIX_FMT_UYVY:
+			_jpeg_write_scanlines_yuv(&jpeg, src);
+			break;
+
 		case V4L2_PIX_FMT_YUV420:
-		case V4L2_PIX_FMT_YVU420:	_jpeg_write_scanlines_yuv_planar(&jpeg, src); break;
-		case V4L2_PIX_FMT_RGB565:	_jpeg_write_scanlines_rgb565(&jpeg, src); break;
-		case V4L2_PIX_FMT_RGB24:	_jpeg_write_scanlines_rgb24(&jpeg, src); break;
+		case V4L2_PIX_FMT_YVU420:
+			_jpeg_write_scanlines_yuv_planar(&jpeg, src);
+			break;
+
+		case V4L2_PIX_FMT_RGB565:
+			_jpeg_write_scanlines_rgb565(&jpeg, src);
+			break;
+
+		case V4L2_PIX_FMT_RGB24:
+			_jpeg_write_scanlines_rgb24(&jpeg, src);
+			break;
+
 		case V4L2_PIX_FMT_BGR24:
 #			ifdef JCS_EXTENSIONS
 			_jpeg_write_scanlines_rgb24(&jpeg, src); // Use native JCS_EXT_BGR
@@ -129,13 +147,13 @@ static void _jpeg_write_scanlines_yuv(struct jpeg_compress_struct *jpeg, const u
 	u8 *line_buf;
 	US_CALLOC(line_buf, frame->width * 3);
 
-	const unsigned padding = us_frame_get_padding(frame);
+	const uint padding = us_frame_get_padding(frame);
 	const u8 *data = frame->data;
 
 	while (jpeg->next_scanline < frame->height) {
 		u8 *ptr = line_buf;
 
-		for (unsigned x = 0; x < frame->width; ++x) {
+		for (uint x = 0; x < frame->width; ++x) {
 			// See also: https://www.kernel.org/doc/html/v4.8/media/uapi/v4l/pixfmt-uyvy.html
 			const bool is_odd_pixel = x & 1;
 			u8 y, u, v;
@@ -176,21 +194,25 @@ static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, 
 	u8 *line_buf;
 	US_CALLOC(line_buf, frame->width * 3);
 
-	const unsigned padding = us_frame_get_padding(frame);
+	const uint padding = us_frame_get_padding(frame);
 	const uint image_size = frame->width * frame->height;
 	const uint chroma_array_size = (frame->used - image_size) / 2;
 	const uint chroma_matrix_order = (image_size / chroma_array_size) == 16 ? 4 : 2;
-	US_LOG_DEBUG("Planar data: Image Size %u, Chroma Array Size %u, Chroma Matrix Order %u", image_size, chroma_array_size, chroma_matrix_order);
 	const u8 *data = frame->data;
 	const u8 *chroma1_data = frame->data + image_size;
 	const u8 *chroma2_data = frame->data + image_size + chroma_array_size;
 
+	//US_LOG_DEBUG("Planar data: Image Size %u, Chroma Array Size %u, Chroma Matrix Order %u",
+	//	image_size, chroma_array_size, chroma_matrix_order);
+
 	while (jpeg->next_scanline < frame->height) {
 		u8 *ptr = line_buf;
 
-		for (unsigned x = 0; x < frame->width; ++x) {
+		for (uint x = 0; x < frame->width; ++x) {
 			// See also: https://www.kernel.org/doc/html/v4.8/media/uapi/v4l/pixfmt-yuv420.html
-			u8 y = data[x], u, v;
+			u8 y = data[x];
+			u8 u;
+			u8 v;
 			uint chroma_position = x / chroma_matrix_order;
 
 			switch (frame->format) {
@@ -215,7 +237,7 @@ static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, 
 
 		data += frame->width + padding;
 
-		if( jpeg->next_scanline > 0 && jpeg->next_scanline % chroma_matrix_order == 0 ){
+		if (jpeg->next_scanline > 0 && jpeg->next_scanline % chroma_matrix_order == 0) {
 			chroma1_data += (frame->width + padding) / chroma_matrix_order;
 			chroma2_data += (frame->width + padding) / chroma_matrix_order;
 		}
@@ -231,14 +253,14 @@ static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, cons
 	u8 *line_buf;
 	US_CALLOC(line_buf, frame->width * 3);
 
-	const unsigned padding = us_frame_get_padding(frame);
+	const uint padding = us_frame_get_padding(frame);
 	const u8 *data = frame->data;
 
 	while (jpeg->next_scanline < frame->height) {
 		u8 *ptr = line_buf;
 
-		for (unsigned x = 0; x < frame->width; ++x) {
-			const unsigned int two_byte = (data[1] << 8) + data[0];
+		for (uint x = 0; x < frame->width; ++x) {
+			const uint two_byte = (data[1] << 8) + data[0];
 
 			ptr[0] = data[1] & 248; // Red
 			ptr[1] = (u8)((two_byte & 2016) >> 3); // Green
@@ -257,7 +279,7 @@ static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, cons
 }
 
 static void _jpeg_write_scanlines_rgb24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
-	const unsigned padding = us_frame_get_padding(frame);
+	const uint padding = us_frame_get_padding(frame);
 	u8 *data = frame->data;
 
 	while (jpeg->next_scanline < frame->height) {
@@ -273,14 +295,14 @@ static void _jpeg_write_scanlines_bgr24(struct jpeg_compress_struct *jpeg, const
 	u8 *line_buf;
 	US_CALLOC(line_buf, frame->width * 3);
 
-	const unsigned padding = us_frame_get_padding(frame);
+	const uint padding = us_frame_get_padding(frame);
 	u8 *data = frame->data;
 
 	while (jpeg->next_scanline < frame->height) {
 		u8 *ptr = line_buf;
 
 		// swap B and R values
-		for (unsigned x = 0; x < frame->width * 3; x += 3) {
+		for (uint x = 0; x < frame->width * 3; x += 3) {
 			ptr[0] = data[x + 2];
 			ptr[1] = data[x + 1];
 			ptr[2] = data[x];
