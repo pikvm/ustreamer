@@ -82,6 +82,8 @@ bool us_frame_compare(const us_frame_s *a, const us_frame_s *b) {
 uint us_frame_get_padding(const us_frame_s *frame) {
 	uint bytes_per_pixel = 0;
 	switch (frame->format) {
+		case V4L2_PIX_FMT_YVU420:
+		case V4L2_PIX_FMT_YUV420: bytes_per_pixel = 1; break;
 		case V4L2_PIX_FMT_YUYV:
 		case V4L2_PIX_FMT_YVYU:
 		case V4L2_PIX_FMT_UYVY:

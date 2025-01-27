@@ -72,6 +72,8 @@ static const struct {
 	{"BGR24",	V4L2_PIX_FMT_BGR24},
 	{"MJPEG",	V4L2_PIX_FMT_MJPEG},
 	{"JPEG",	V4L2_PIX_FMT_JPEG},
+	{"YU12",    V4L2_PIX_FMT_YUV420},
+	{"YV12",    V4L2_PIX_FMT_YVU420},
 };
 
 static const struct {
