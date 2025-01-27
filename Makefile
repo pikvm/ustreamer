@@ -6,6 +6,7 @@ MANPREFIX ?= $(PREFIX)/share/man
 
 CC ?= gcc
 PY ?= python3
+PKG_CONFIG ?= pkg-config
 CFLAGS ?= -O3
 LDFLAGS ?=
 
@@ -17,8 +18,8 @@ _LINTERS_IMAGE ?= ustreamer-linters
 
 
 # =====
-ifeq (__not_found__,$(shell which pkg-config 2>/dev/null || echo "__not_found__"))
-$(error "No pkg-config found in $(PATH)")
+ifeq (__not_found__,$(shell which $(PKG_CONFIG) 2>/dev/null || echo "__not_found__"))
+$(error "No $(PKG_CONFIG) found in $(PATH)")
 endif
 
 

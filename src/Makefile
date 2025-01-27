@@ -2,6 +2,7 @@ R_DESTDIR ?=
 PREFIX ?= /usr/local
 
 CC ?= gcc
+PKG_CONFIG ?= pkg-config
 CFLAGS ?= -O3
 LDFLAGS ?=
 
@@ -51,7 +52,7 @@ endef
 
 
 ifneq ($(call optbool,$(WITH_GPIO)),)
-override _CFLAGS += -DWITH_GPIO $(shell pkg-config --atleast-version=2 libgpiod 2> /dev/null && echo -DHAVE_GPIOD2)
+override _CFLAGS += -DWITH_GPIO $(shell $(PKG_CONFIG) --atleast-version=2 libgpiod 2> /dev/null && echo -DHAVE_GPIOD2)
 override _USTR_LDFLAGS += -lgpiod
 override _USTR_SRCS += $(shell ls ustreamer/gpio/*.c)
 endif
@@ -83,10 +84,10 @@ WITH_V4P ?= 0
 ifneq ($(call optbool,$(WITH_V4P)),)
 override _TARGETS += $(_V4P)
 override _OBJS += $(_V4P_SRCS:%.c=$(_BUILD)/%.o)
-override _CFLAGS += -DWITH_V4P $(shell pkg-config --cflags libdrm)
-override _V4P_LDFLAGS += $(shell pkg-config --libs libdrm)
+override _CFLAGS += -DWITH_V4P $(shell $(PKG_CONFIG) --cflags libdrm)
+override _V4P_LDFLAGS += $(shell $(PKG_CONFIG) --libs libdrm)
 override _USTR_SRCS += $(shell ls libs/drm/*.c)
-override _USTR_LDFLAGS += $(shell pkg-config --libs libdrm)
+override _USTR_LDFLAGS += $(shell $(PKG_CONFIG) --libs libdrm)
 endif
 
 
