@@ -98,6 +98,10 @@ typedef struct {
 	uint			h264_gop;
 	char			*h264_m2m_path;
 
+#	ifdef WITH_LIBX264
+	char			*h264_preset;
+#	endif
+
 #	ifdef WITH_V4P
 	us_drm_s		*drm;
 #	endif

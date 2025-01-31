@@ -166,7 +166,7 @@ void us_stream_loop(us_stream_s *stream) {
 	}
 #ifdef WITH_LIBX264
 	if (stream->h264_sink != NULL && stream->enc->type == US_ENCODER_TYPE_LIBX264_VIDEO) {
-		us_libx264_encoder_init(&run->libx264_enc, cap->width, cap->height, stream->h264_bitrate, stream->h264_gop);
+		us_libx264_encoder_init(&run->libx264_enc, cap->width, cap->height, stream->h264_bitrate, stream->h264_gop, stream->h264_preset);
 	}
 #endif
 
