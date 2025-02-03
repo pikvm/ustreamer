@@ -205,8 +205,15 @@ static void *_video_or_acap_thread(void *v_client, bool video) {
 			}*/
 
 			if (rtp.video) {
-				const uint video_orient = atomic_load(&client->video_orient);
+				uint video_orient = atomic_load(&client->video_orient);
 				if (video_orient != 0) {
+					// The extension rotates the video clockwise, but want it counterclockwise.
+					// It's more intuitive for people who have seen a protractor at least once in their life.
+					if (video_orient == 90) {
+						video_orient = 270;
+					} else if (video_orient == 270) {
+						video_orient = 90;
+					}
 					packet.extensions.video_rotation = video_orient;
 				}
 			}
