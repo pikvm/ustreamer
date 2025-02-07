@@ -325,6 +325,7 @@ PyMODINIT_FUNC PyInit_ustreamer(void) {
 	ADD(StringConstant, "VERSION", US_VERSION);
 	ADD(IntConstant, "VERSION_MAJOR", US_VERSION_MAJOR);
 	ADD(IntConstant, "VERSION_MINOR", US_VERSION_MINOR);
+	ADD(StringConstant, "FEATURES", US_FEATURES); // Defined in setup.py
 	ADD(ObjectRef, "Memsink", (PyObject*)&_MemsinkType);
 #	undef ADD
 	return module;

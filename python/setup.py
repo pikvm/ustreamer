@@ -5,16 +5,41 @@ from setuptools import setup
 
 
 # =====
-def _find_sources(suffix: str) -> list[str]:
+def _find_sources() -> list[str]:
     sources: list[str] = []
     for (root_path, _, names) in os.walk("src"):
         for name in names:
-            if name.endswith(suffix):
+            if name.endswith(".c"):
                 sources.append(os.path.join(root_path, name))
     return sources
 
 
+def _find_flags() -> dict[str, bool]:
+    return {
+        key: bool(int(value))
+        for (key, value) in sorted(os.environ.items())
+        if key.startswith("WITH_")
+    }
+
+
+def _make_d_flags(flags: dict[str, bool]) -> list[str]:
+    return [
+        f"-D{key}"
+        for (key, value) in flags.items()
+        if value
+    ]
+
+
+def _make_d_features(flags: dict[str, bool]) -> str:
+    features = " ".join([
+        f"{key}={int(value)}"
+        for (key, value) in flags.items()
+    ])
+    return f"-DUS_FEATURES=\"{features}\""
+
+
 if __name__ == "__main__":
+    flags = _find_flags()
     setup(
         name="ustreamer",
         version="6.29",
@@ -26,9 +51,13 @@ if __name__ == "__main__":
             Extension(
                 "ustreamer",
                 libraries=["rt", "m", "pthread"],
-                extra_compile_args=["-std=c17", "-D_GNU_SOURCE"],
+                extra_compile_args=[
+                    "-std=c17", "-D_GNU_SOURCE",
+                    _make_d_features(flags),
+                    *_make_d_flags(flags),
+                ],
                 undef_macros=["NDEBUG"],
-                sources=_find_sources(".c"),
+                sources=_find_sources(),
             ),
         ],
     )

@@ -8,7 +8,7 @@ PY ?= python3
 
 # =====
 all: root
-root: $(shell find src -type f,l)
+root: $(shell find src -type f,l) setup.py
 	$(info == PY_BUILD ustreamer-*.so)
 	rm -rf root
 	$(ECHO) $(PY) -m build --skip-dependency-check --no-isolation
