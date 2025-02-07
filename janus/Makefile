@@ -1,3 +1,7 @@
+include ../lib.mk
+
+
+# =====
 R_DESTDIR ?=
 PREFIX ?= /usr/local
 
@@ -18,12 +22,6 @@ _SRCS = $(shell ls src/uslibs/*.c src/*.c)
 _BUILD = build
 
 
-define optbool
-$(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
-endef
-
-
-WITH_PTHREAD_NP ?= 1
 ifneq ($(call optbool,$(WITH_PTHREAD_NP)),)
 override _CFLAGS += -DWITH_PTHREAD_NP
 endif

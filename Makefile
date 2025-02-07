@@ -1,5 +1,8 @@
+include lib.mk
 -include config.mk
 
+
+# =====
 DESTDIR ?=
 PREFIX ?= /usr/local
 MANPREFIX ?= $(PREFIX)/share/man
@@ -11,6 +14,14 @@ CFLAGS ?= -O3
 LDFLAGS ?=
 
 R_DESTDIR = $(if $(DESTDIR),$(shell realpath "$(DESTDIR)"),)
+
+WITH_PYTHON ?= 0
+WITH_JANUS ?= 0
+WITH_V4P ?= 0
+WITH_GPIO ?= 0
+WITH_SYSTEMD ?= 0
+WITH_PTHREAD_NP ?= 1
+WITH_SETPROCTITLE ?= 1
 
 export
 
@@ -24,13 +35,10 @@ endif
 
 
 # =====
-define optbool
-$(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
-endef
-
 ifeq ($(V),)
 	ECHO = @
 endif
+
 
 # =====
 all:

@@ -1,3 +1,7 @@
+include ../lib.mk
+
+
+# =====
 R_DESTDIR ?=
 PREFIX ?= /usr/local
 
@@ -41,22 +45,16 @@ _V4P_SRCS = $(shell ls \
 
 _BUILD = build
 
-
 _TARGETS = $(_USTR) $(_DUMP)
 _OBJS = $(_USTR_SRCS:%.c=$(_BUILD)/%.o) $(_DUMP_SRCS:%.c=$(_BUILD)/%.o)
 
 
-define optbool
-$(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
-endef
-
-
+# =====
 ifneq ($(call optbool,$(WITH_GPIO)),)
 override _CFLAGS += -DWITH_GPIO $(shell $(PKG_CONFIG) --atleast-version=2 libgpiod 2> /dev/null && echo -DHAVE_GPIOD2)
 override _USTR_LDFLAGS += -lgpiod
 override _USTR_SRCS += $(shell ls ustreamer/gpio/*.c)
 endif
-
 
 ifneq ($(call optbool,$(WITH_SYSTEMD)),)
 override _CFLAGS += -DWITH_SYSTEMD
@@ -64,14 +62,10 @@ override _USTR_LDFLAGS += -lsystemd
 override _USTR_SRCS += $(shell ls ustreamer/http/systemd/*.c)
 endif
 
-
-WITH_PTHREAD_NP ?= 1
 ifneq ($(call optbool,$(WITH_PTHREAD_NP)),)
 override _CFLAGS += -DWITH_PTHREAD_NP
 endif
 
-
-WITH_SETPROCTITLE ?= 1
 ifneq ($(call optbool,$(WITH_SETPROCTITLE)),)
 override _CFLAGS += -DWITH_SETPROCTITLE
 ifeq ($(shell uname -s | tr A-Z a-z),linux)
@@ -79,8 +73,6 @@ override _USTR_LDFLAGS += -lbsd
 endif
 endif
 
-
-WITH_V4P ?= 0
 ifneq ($(call optbool,$(WITH_V4P)),)
 override _TARGETS += $(_V4P)
 override _OBJS += $(_V4P_SRCS:%.c=$(_BUILD)/%.o)
