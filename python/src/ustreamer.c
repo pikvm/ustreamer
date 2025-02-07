@@ -49,6 +49,8 @@ static void _MemsinkObject_destroy_internals(_MemsinkObject *self) {
 }
 
 static int _MemsinkObject_init(_MemsinkObject *self, PyObject *args, PyObject *kwargs) {
+	self->fd = -1;
+
 	self->lock_timeout = 1;
 	self->wait_timeout = 1;
 
