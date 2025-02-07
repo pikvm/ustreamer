@@ -581,6 +581,12 @@ static int _check_instance_id(const char *str) {
 }
 
 static void _features(void) {
+#	ifdef WITH_V4P
+	puts("+ WITH_V4P");
+#	else
+	puts("- WITH_V4P");
+#	endif
+
 #	ifdef WITH_GPIO
 	puts("+ WITH_GPIO");
 #	else
