@@ -114,7 +114,7 @@ enum _US_OPT_VALUES {
 	_O_GPIO_HAS_HTTP_CLIENTS,
 #	endif
 
-#	ifdef HAS_PDEATHSIG
+#	ifdef WITH_PDEATHSIG
 	_O_EXIT_ON_PARENT_DEATH,
 #	endif
 	_O_EXIT_ON_NO_CLIENTS,
@@ -224,7 +224,7 @@ static const struct option _LONG_OPTS[] = {
 	{"gpio-has-http-clients",	required_argument,	NULL,	_O_GPIO_HAS_HTTP_CLIENTS},
 #	endif
 
-#	ifdef HAS_PDEATHSIG
+#	ifdef WITH_PDEATHSIG
 	{"exit-on-parent-death",	no_argument,		NULL,	_O_EXIT_ON_PARENT_DEATH},
 #	endif
 	{"exit-on-no-clients",		required_argument,	NULL,	_O_EXIT_ON_NO_CLIENTS},
@@ -483,7 +483,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 			case _O_GPIO_HAS_HTTP_CLIENTS:	OPT_NUMBER("--gpio-has-http-clients", us_g_gpio.has_http_clients.pin, 0, 256, 0);
 #			endif
 
-#			ifdef HAS_PDEATHSIG
+#			ifdef WITH_PDEATHSIG
 			case _O_EXIT_ON_PARENT_DEATH:
 				if (us_process_track_parent_death() < 0) {
 					return -1;
@@ -611,10 +611,10 @@ static void _features(void) {
 	puts("- WITH_SETPROCTITLE");
 #	endif
 
-#	ifdef HAS_PDEATHSIG
-	puts("+ HAS_PDEATHSIG");
+#	ifdef WITH_PDEATHSIG
+	puts("+ WITH_PDEATHSIG");
 #	else
-	puts("- HAS_PDEATHSIG");
+	puts("- WITH_PDEATHSIG");
 #	endif
 }
 
@@ -746,11 +746,11 @@ static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, co
 	SAY("    --gpio-stream-online <pin>  ──── Set 1 while streaming. Default: disabled.\n");
 	SAY("    --gpio-has-http-clients <pin>  ─ Set 1 while stream has at least one client. Default: disabled.\n");
 #	endif
-#	if (defined(HAS_PDEATHSIG) || defined(WITH_SETPROCTITLE))
+#	if (defined(WITH_PDEATHSIG) || defined(WITH_SETPROCTITLE))
 	SAY("Process options:");
 	SAY("════════════════");
 #	endif
-#	ifdef HAS_PDEATHSIG
+#	ifdef WITH_PDEATHSIG
 	SAY("    --exit-on-parent-death  ─────── Exit the program if the parent process is dead. Default: disabled.\n");
 #	endif
 	SAY("    --exit-on-no-clients <sec> ──── Exit the program if there have been no stream or sink clients");

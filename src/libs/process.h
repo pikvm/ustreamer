@@ -25,14 +25,8 @@
 #include <signal.h>
 #include <unistd.h>
 
-
-#if defined(__linux__)
-#	define HAS_PDEATHSIG
-#elif defined(__FreeBSD__)
+#if defined(__FreeBSD__)
 #	include <sys/param.h>
-#	if __FreeBSD_version >= 1102000
-#		define HAS_PDEATHSIG
-#	endif
 #endif
 
 
@@ -49,20 +43,22 @@
 #		error setproctitle() not implemented, you can disable it using WITH_SETPROCTITLE=0
 #	endif
 #endif
-#ifdef HAS_PDEATHSIG
+
+#ifdef WITH_PDEATHSIG
 #	if defined(__linux__)
 #		include <sys/prctl.h>
-#	elif defined(__FreeBSD__)
+#	elif defined(__FreeBSD__) && (__FreeBSD_version >= 1102000)
 #		include <sys/procctl.h>
+#	else
+#		error WITH_PDEATHSIG is not supported on your system
 #	endif
 #endif
+
 #include "types.h"
 #ifdef WITH_SETPROCTITLE
 #	include "tools.h"
 #endif
-#ifdef HAS_PDEATHSIG
-#	include "logging.h"
-#endif
+#include "logging.h"
 
 
 #ifdef WITH_SETPROCTITLE
@@ -70,7 +66,7 @@ extern char **environ;
 #endif
 
 
-#ifdef HAS_PDEATHSIG
+#ifdef WITH_PDEATHSIG
 INLINE int us_process_track_parent_death(void) {
 	const pid_t parent = getppid();
 	int signum = SIGTERM;

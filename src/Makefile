@@ -73,6 +73,10 @@ override _USTR_LDFLAGS += -lbsd
 endif
 endif
 
+ifneq ($(call optbool,$(WITH_PDEATHSIG)),)
+override _CFLAGS += -DWITH_PDEATHSIG
+endif
+
 ifneq ($(call optbool,$(WITH_V4P)),)
 override _TARGETS += $(_V4P)
 override _OBJS += $(_V4P_SRCS:%.c=$(_BUILD)/%.o)
