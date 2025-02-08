@@ -16,18 +16,10 @@ def _find_sources() -> list[str]:
 
 def _find_flags() -> dict[str, bool]:
     return {
-        key: bool(int(value))
+        key[3:]: (value.strip().lower() in ["true", "on", "1"])
         for (key, value) in sorted(os.environ.items())
-        if key.startswith("WITH_")
+        if key.startswith("MK_WITH_")
     }
-
-
-def _make_d_flags(flags: dict[str, bool]) -> list[str]:
-    return [
-        f"-D{key}"
-        for (key, value) in flags.items()
-        if value
-    ]
 
 
 def _make_d_features(flags: dict[str, bool]) -> str:
@@ -54,7 +46,6 @@ def main() -> None:
                 extra_compile_args=[
                     "-std=c17", "-D_GNU_SOURCE",
                     _make_d_features(flags),
-                    *_make_d_flags(flags),
                 ],
                 undef_macros=["NDEBUG"],
                 sources=_find_sources(),

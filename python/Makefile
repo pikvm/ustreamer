@@ -1,5 +1,3 @@
--include ../config.mk
-
 R_DESTDIR ?=
 PREFIX ?= /usr/local
 

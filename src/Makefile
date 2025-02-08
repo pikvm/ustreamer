@@ -1,7 +1,3 @@
-include ../lib.mk
-
-
-# =====
 R_DESTDIR ?=
 PREFIX ?= /usr/local
 
@@ -50,45 +46,45 @@ _OBJS = $(_USTR_SRCS:%.c=$(_BUILD)/%.o) $(_DUMP_SRCS:%.c=$(_BUILD)/%.o)
 
 
 # =====
-ifneq ($(call optbool,$(WITH_PYTHON)),)
-override _CFLAGS += -DWITH_PYTHON
+ifneq ($(MK_WITH_PYTHON),)
+override _CFLAGS += -DMK_WITH_PYTHON
 endif
 
-ifneq ($(call optbool,$(WITH_JANUS)),)
-override _CFLAGS += -DWITH_JANUS
+ifneq ($(MK_WITH_JANUS),)
+override _CFLAGS += -DMK_WITH_JANUS
 endif
 
-ifneq ($(call optbool,$(WITH_GPIO)),)
-override _CFLAGS += -DWITH_GPIO $(shell $(PKG_CONFIG) --atleast-version=2 libgpiod 2> /dev/null && echo -DHAVE_GPIOD2)
+ifneq ($(MK_WITH_GPIO),)
+override _CFLAGS += -DMK_WITH_GPIO -DWITH_GPIO $(shell $(PKG_CONFIG) --atleast-version=2 libgpiod 2> /dev/null && echo -DHAVE_GPIOD2)
 override _USTR_LDFLAGS += -lgpiod
 override _USTR_SRCS += $(shell ls ustreamer/gpio/*.c)
 endif
 
-ifneq ($(call optbool,$(WITH_SYSTEMD)),)
-override _CFLAGS += -DWITH_SYSTEMD
+ifneq ($(MK_WITH_SYSTEMD),)
+override _CFLAGS += -DMK_WITH_SYSTEMD -DWITH_SYSTEMD
 override _USTR_LDFLAGS += -lsystemd
 override _USTR_SRCS += $(shell ls ustreamer/http/systemd/*.c)
 endif
 
-ifneq ($(call optbool,$(WITH_PTHREAD_NP)),)
-override _CFLAGS += -DWITH_PTHREAD_NP
+ifneq ($(MK_WITH_PTHREAD_NP),)
+override _CFLAGS += -DMK_WITH_PTHREAD_NP -DWITH_PTHREAD_NP
 endif
 
-ifneq ($(call optbool,$(WITH_SETPROCTITLE)),)
-override _CFLAGS += -DWITH_SETPROCTITLE
+ifneq ($(MK_WITH_SETPROCTITLE),)
+override _CFLAGS += -DMK_WITH_SETPROCTITLE -DWITH_SETPROCTITLE
 ifeq ($(shell uname -s | tr A-Z a-z),linux)
 override _USTR_LDFLAGS += -lbsd
 endif
 endif
 
-ifneq ($(call optbool,$(WITH_PDEATHSIG)),)
-override _CFLAGS += -DWITH_PDEATHSIG
+ifneq ($(MK_WITH_PDEATHSIG),)
+override _CFLAGS += -DMK_WITH_PDEATHSIG -DWITH_PDEATHSIG
 endif
 
-ifneq ($(call optbool,$(WITH_V4P)),)
+ifneq ($(MK_WITH_V4P),)
 override _TARGETS += $(_V4P)
 override _OBJS += $(_V4P_SRCS:%.c=$(_BUILD)/%.o)
-override _CFLAGS += -DWITH_V4P $(shell $(PKG_CONFIG) --cflags libdrm)
+override _CFLAGS += -DMK_WITH_V4P -DWITH_V4P $(shell $(PKG_CONFIG) --cflags libdrm)
 override _V4P_LDFLAGS += $(shell $(PKG_CONFIG) --libs libdrm)
 override _USTR_SRCS += $(shell ls libs/drm/*.c)
 override _USTR_LDFLAGS += $(shell $(PKG_CONFIG) --libs libdrm)

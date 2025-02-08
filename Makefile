@@ -1,4 +1,3 @@
-include lib.mk
 -include config.mk
 
 
@@ -24,6 +23,18 @@ WITH_PTHREAD_NP ?= 1
 WITH_SETPROCTITLE ?= 1
 WITH_PDEATHSIG ?= 1
 
+define optbool
+$(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
+endef
+MK_WITH_PYTHON = $(call optbool,$(WITH_PYTHON))
+MK_WITH_JANUS = $(call optbool,$(WITH_JANUS))
+MK_WITH_V4P = $(call optbool,$(WITH_V4P))
+MK_WITH_GPIO = $(call optbool,$(WITH_GPIO))
+MK_WITH_SYSTEMD = $(call optbool,$(WITH_SYSTEMD))
+MK_WITH_PTHREAD_NP = $(call optbool,$(WITH_PTHREAD_NP))
+MK_WITH_SETPROCTITLE = $(call optbool,$(WITH_SETPROCTITLE))
+MK_WITH_PDEATHSIG = $(call optbool,$(WITH_PDEATHSIG))
+
 export
 
 _LINTERS_IMAGE ?= ustreamer-linters
@@ -44,10 +55,10 @@ endif
 # =====
 all:
 	+ $(MAKE) apps
-ifneq ($(call optbool,$(WITH_PYTHON)),)
+ifneq ($(MK_WITH_PYTHON),)
 	+ $(MAKE) python
 endif
-ifneq ($(call optbool,$(WITH_JANUS)),)
+ifneq ($(MK_WITH_JANUS),)
 	+ $(MAKE) janus
 endif
 
@@ -71,10 +82,10 @@ janus:
 
 install: all
 	$(MAKE) -C src install
-ifneq ($(call optbool,$(WITH_PYTHON)),)
+ifneq ($(MK_WITH_PYTHON),)
 	$(MAKE) -C python install
 endif
-ifneq ($(call optbool,$(WITH_JANUS)),)
+ifneq ($(MK_WITH_JANUS),)
 	$(MAKE) -C janus install
 endif
 	mkdir -p $(R_DESTDIR)$(MANPREFIX)/man1

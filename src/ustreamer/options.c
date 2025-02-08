@@ -581,49 +581,49 @@ static int _check_instance_id(const char *str) {
 }
 
 static void _features(void) {
-#	ifdef WITH_PYTHON
+#	ifdef MK_WITH_PYTHON
 	puts("+ WITH_PYTHON");
 #	else
 	puts("- WITH_PYTHON");
 #	endif
 
-#	ifdef WITH_JANUS
+#	ifdef MK_WITH_JANUS
 	puts("+ WITH_JANUS");
 #	else
 	puts("- WITH_JANUS");
 #	endif
 
-#	ifdef WITH_V4P
+#	ifdef MK_WITH_V4P
 	puts("+ WITH_V4P");
 #	else
 	puts("- WITH_V4P");
 #	endif
 
-#	ifdef WITH_GPIO
+#	ifdef MK_WITH_GPIO
 	puts("+ WITH_GPIO");
 #	else
 	puts("- WITH_GPIO");
 #	endif
 
-#	ifdef WITH_SYSTEMD
+#	ifdef MK_WITH_SYSTEMD
 	puts("+ WITH_SYSTEMD");
 #	else
 	puts("- WITH_SYSTEMD");
 #	endif
 
-#	ifdef WITH_PTHREAD_NP
+#	ifdef MK_WITH_PTHREAD_NP
 	puts("+ WITH_PTHREAD_NP");
 #	else
 	puts("- WITH_PTHREAD_NP");
 #	endif
 
-#	ifdef WITH_SETPROCTITLE
+#	ifdef MK_WITH_SETPROCTITLE
 	puts("+ WITH_SETPROCTITLE");
 #	else
 	puts("- WITH_SETPROCTITLE");
 #	endif
 
-#	ifdef WITH_PDEATHSIG
+#	ifdef MK_WITH_PDEATHSIG
 	puts("+ WITH_PDEATHSIG");
 #	else
 	puts("- WITH_PDEATHSIG");

@@ -1,7 +1,3 @@
-include ../lib.mk
-
-
-# =====
 R_DESTDIR ?=
 PREFIX ?= /usr/local
 
@@ -22,7 +18,7 @@ _SRCS = $(shell ls src/uslibs/*.c src/*.c)
 _BUILD = build
 
 
-ifneq ($(call optbool,$(WITH_PTHREAD_NP)),)
+ifneq ($(MK_WITH_PTHREAD_NP),)
 override _CFLAGS += -DWITH_PTHREAD_NP
 endif
 
