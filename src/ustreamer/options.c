@@ -581,6 +581,18 @@ static int _check_instance_id(const char *str) {
 }
 
 static void _features(void) {
+#	ifdef WITH_PYTHON
+	puts("+ WITH_PYTHON");
+#	else
+	puts("- WITH_PYTHON");
+#	endif
+
+#	ifdef WITH_JANUS
+	puts("+ WITH_JANUS");
+#	else
+	puts("- WITH_JANUS");
+#	endif
+
 #	ifdef WITH_V4P
 	puts("+ WITH_V4P");
 #	else

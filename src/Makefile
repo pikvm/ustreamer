@@ -50,6 +50,14 @@ _OBJS = $(_USTR_SRCS:%.c=$(_BUILD)/%.o) $(_DUMP_SRCS:%.c=$(_BUILD)/%.o)
 
 
 # =====
+ifneq ($(call optbool,$(WITH_PYTHON)),)
+override _CFLAGS += -DWITH_PYTHON
+endif
+
+ifneq ($(call optbool,$(WITH_JANUS)),)
+override _CFLAGS += -DWITH_JANUS
+endif
+
 ifneq ($(call optbool,$(WITH_GPIO)),)
 override _CFLAGS += -DWITH_GPIO $(shell $(PKG_CONFIG) --atleast-version=2 libgpiod 2> /dev/null && echo -DHAVE_GPIOD2)
 override _USTR_LDFLAGS += -lgpiod
