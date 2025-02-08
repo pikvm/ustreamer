@@ -42,7 +42,7 @@ def main() -> None:
     flags = _find_flags()
     setup(
         name="ustreamer",
-        version="6.29",
+        version="6.30",
         description="uStreamer tools",
         author="Maxim Devaev",
         author_email="mdevaev@gmail.com",
