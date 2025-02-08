@@ -38,7 +38,7 @@ def _make_d_features(flags: dict[str, bool]) -> str:
     return f"-DUS_FEATURES=\"{features}\""
 
 
-if __name__ == "__main__":
+def main() -> None:
     flags = _find_flags()
     setup(
         name="ustreamer",
@@ -61,3 +61,7 @@ if __name__ == "__main__":
             ),
         ],
     )
+
+
+if __name__ == "__main__":
+    main()
