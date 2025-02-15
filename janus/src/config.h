@@ -27,9 +27,11 @@ typedef struct {
 	char	*video_sink_name;
 
 	char	*acap_dev_name;
+    unsigned int    acap_sampling_rate;
 	char	*tc358743_dev_path;
 
 	char	*aplay_dev_name;
+
 } us_config_s;
 
 

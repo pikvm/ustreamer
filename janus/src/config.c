@@ -22,6 +22,7 @@
 
 #include "config.h"
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -36,6 +37,7 @@
 
 
 static char *_get_value(janus_config *jcfg, const char *section, const char *option);
+static uint _get_uint(janus_config *jcfg, const char *section, const char *option, bool def);
 // static bool _get_bool(janus_config *jcfg, const char *section, const char *option, bool def);
 
 
@@ -65,6 +67,7 @@ us_config_s *us_config_init(const char *config_dir_path) {
 			US_JLOG_INFO("config", "Missing config value: acap.tc358743");
 			goto error;
 		}
+		config->acap_sampling_rate = _get_uint(jcfg, "acap", "sampling_rate", 0);
 		if ((config->aplay_dev_name = _get_value(jcfg, "aplay", "device")) != NULL) {
 			char *path = _get_value(jcfg, "aplay", "check");
 			if (path != NULL) {
@@ -103,6 +106,20 @@ static char *_get_value(janus_config *jcfg, const char *section, const char *opt
 		return NULL;
 	}
 	return us_strdup(option_obj->value);
+}
+
+static uint _get_uint(janus_config *jcfg, const char *section, const char *option, bool def) {
+	char *const tmp = _get_value(jcfg, section, option);
+	uint value = def;
+	if (tmp != NULL) {
+		errno = 0;
+		value = (uint) strtoul(tmp, NULL, 10);
+		if (errno != 0) {
+			value = def;
+		}
+		free(tmp);
+	}
+	return value;
 }
 
 /*static bool _get_bool(janus_config *jcfg, const char *section, const char *option, bool def) {
