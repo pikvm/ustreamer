@@ -670,15 +670,11 @@ static struct janus_plugin_result *_plugin_handle_message(
 		}
 
 	} else if (!strcmp(request_str, "features")) {
-		const char *const stun_host = getenv("JANUS_USTREAMER_WEB_STUN_HOST");
-		const char *const stun_port = getenv("JANUS_USTREAMER_WEB_STUN_PORT");
 		json_t *const features = json_pack(
-			"{s:b, s:b, s:{s:s, s:i}}",
+			"{s:b, s:b, s:{s:s?}}",
 			"audio", (_g_rtpa != NULL),
 			"mic", (_g_rtpa != NULL && _g_config->aplay_dev_name != NULL),
-			"stun",
-			"host", (stun_host != NULL ? stun_host : ""),
-			"port", (stun_port != NULL ? atoi(stun_port) : 0)
+			"ice", "url", getenv("JANUS_USTREAMER_WEB_ICE_URL")
 		);
 		PUSH_STATUS("features", features, NULL);
 		json_decref(features);
