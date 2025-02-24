@@ -670,8 +670,8 @@ static struct janus_plugin_result *_plugin_handle_message(
 		}
 
 	} else if (!strcmp(request_str, "features")) {
-		const char *const stun_host = getenv("JANUS_USTREAMER_STUN_HOST");
-		const char *const stun_port = getenv("JANUS_USTREAMER_STUN_PORT");
+		const char *const stun_host = getenv("JANUS_USTREAMER_WEB_STUN_HOST");
+		const char *const stun_port = getenv("JANUS_USTREAMER_WEB_STUN_PORT");
 		json_t *const features = json_pack(
 			"{s:b, s:b, s:{s:s, s:i}}",
 			"audio", (_g_rtpa != NULL),
