@@ -59,6 +59,7 @@
 #include "memsinkfd.h"
 #include "config.h"
 
+
 static us_config_s		*_g_config = NULL;
 static const useconds_t	_g_watchers_polling = 100000;
 
@@ -669,10 +670,15 @@ static struct janus_plugin_result *_plugin_handle_message(
 		}
 
 	} else if (!strcmp(request_str, "features")) {
+		const char *const stun_host = getenv("JANUS_USTREAMER_STUN_HOST");
+		const char *const stun_port = getenv("JANUS_USTREAMER_STUN_PORT");
 		json_t *const features = json_pack(
-			"{sbsb}",
+			"{s:b, s:b, s:{s:s, s:i}}",
 			"audio", (_g_rtpa != NULL),
-			"mic", (_g_rtpa != NULL && _g_config->aplay_dev_name != NULL)
+			"mic", (_g_rtpa != NULL && _g_config->aplay_dev_name != NULL),
+			"stun",
+			"host", (stun_host != NULL ? stun_host : ""),
+			"port", (stun_port != NULL ? atoi(stun_port) : 0)
 		);
 		PUSH_STATUS("features", features, NULL);
 		json_decref(features);
