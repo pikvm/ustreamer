@@ -44,7 +44,7 @@ You need to download the µStreamer onto your system and build it from the sourc
 * FreeBSD port: https://www.freshports.org/multimedia/ustreamer.
 
 ### Preconditions
-You'll need  ```make```, ```gcc```, ```libevent``` with ```pthreads``` support, ```libjpeg9```/```libjpeg-turbo``` and ```libbsd``` (only for Linux).
+You'll need  ```make```, ```gcc```, ```pkg-config```, ```libevent``` with ```pthreads``` support, ```libjpeg9```/```libjpeg-turbo``` and ```libbsd``` (only for Linux).
 
 * Arch: `sudo pacman -S libevent libjpeg-turbo libutil-linux libbsd`.
 * Raspberry OS Bullseye: `sudo apt install libevent-dev libjpeg62-turbo libbsd-dev`. Add `libgpiod-dev` for `WITH_GPIO=1` and `libsystemd-dev` for `WITH_SYSTEMD=1` and `libasound2-dev libspeex-dev libspeexdsp-dev libopus-dev` for `WITH_JANUS=1`.
