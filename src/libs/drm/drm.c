@@ -28,7 +28,9 @@
 
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/sysmacros.h>
+#ifdef __linux__
+#	include <sys/sysmacros.h>
+#endif
 
 #include <linux/videodev2.h>
 
