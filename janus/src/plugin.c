@@ -247,16 +247,18 @@ static void *_acap_thread(void *arg) {
 			continue;
 		}
 
-		uint hz = 0;
+		uint hz = _g_config->acap_sampling_rate;
 		us_acap_s *acap = NULL;
 
-		if (_check_tc358743_acap(&hz) < 0) {
+		US_ONCE({ US_JLOG_INFO("acap", "Configured acap_sampling_rate : %d", _g_config->acap_sampling_rate); });
+		if (hz == 0 && _check_tc358743_acap(&hz) < 0) {
 			goto close_acap;
 		}
 		if (hz == 0) {
 			US_ONCE({ US_JLOG_INFO("acap", "No audio presented from the host"); });
 			goto close_acap;
 		}
+
 		US_ONCE({ US_JLOG_INFO("acap", "Detected host audio"); });
 		if ((acap = us_acap_init(_g_config->acap_dev_name, hz)) == NULL) {
 			goto close_acap;
@@ -265,7 +267,7 @@ static void *_acap_thread(void *arg) {
 		once = 0;
 
 		while (!_STOP && _HAS_WATCHERS && _HAS_LISTENERS) {
-			if (_check_tc358743_acap(&hz) < 0 || acap->pcm_hz != hz) {
+			if (_g_config->acap_sampling_rate == 0 && (_check_tc358743_acap(&hz) < 0 || acap->pcm_hz != hz)) {
 				goto close_acap;
 			}
 			uz size = US_RTP_DATAGRAM_SIZE - US_RTP_HEADER_SIZE;
