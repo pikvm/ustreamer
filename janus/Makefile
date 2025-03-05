@@ -18,6 +18,11 @@ _SRCS = $(shell ls src/uslibs/*.c src/*.c)
 _BUILD = build
 
 
+# =====
+ifneq ($(shell sh -c 'uname 2>/dev/null || echo Unknown'),FreeBSD)
+override _LDFLAGS += -latomic
+endif
+
 ifneq ($(MK_WITH_PTHREAD_NP),)
 override _CFLAGS += -DWITH_PTHREAD_NP
 endif

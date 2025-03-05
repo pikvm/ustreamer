@@ -14,9 +14,9 @@ _V4P = ustreamer-v4p.bin
 
 _CFLAGS = -MD -c -std=c17 -Wall -Wextra -D_GNU_SOURCE $(CFLAGS)
 
-_USTR_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt -latomic -levent -levent_pthreads
-_DUMP_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt -latomic
-_V4P_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt -latomic
+_USTR_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt -levent -levent_pthreads
+_DUMP_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt
+_V4P_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt
 
 _USTR_SRCS = $(shell ls \
 	libs/*.c \
@@ -46,6 +46,12 @@ _OBJS = $(_USTR_SRCS:%.c=$(_BUILD)/%.o) $(_DUMP_SRCS:%.c=$(_BUILD)/%.o)
 
 
 # =====
+ifneq ($(shell sh -c 'uname 2>/dev/null || echo Unknown'),FreeBSD)
+override _USTR_LDFLAGS += -latomic
+override _DUMP_LDFLAGS += -latomic
+override _V4P_LDFLAGS += -latomic
+endif
+
 ifneq ($(MK_WITH_PYTHON),)
 override _CFLAGS += -DMK_WITH_PYTHON
 endif
