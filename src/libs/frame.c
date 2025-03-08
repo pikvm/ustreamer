@@ -84,6 +84,7 @@ uint us_frame_get_padding(const us_frame_s *frame) {
 	switch (frame->format) {
 		case V4L2_PIX_FMT_YUV420:
 		case V4L2_PIX_FMT_YVU420:
+		case V4L2_PIX_FMT_GREY:
 			bytes_per_pixel = 1;
 			break;
 

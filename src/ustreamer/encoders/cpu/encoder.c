@@ -39,6 +39,7 @@ static void _jpeg_set_dest_frame(j_compress_ptr jpeg, us_frame_s *frame);
 
 static void _jpeg_write_scanlines_yuv(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
+static void _jpeg_write_scanlines_grey(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_rgb565(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 static void _jpeg_write_scanlines_rgb24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 #ifndef JCS_EXTENSIONS
@@ -75,6 +76,10 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, uint quali
 		case V4L2_PIX_FMT_YVU420:
 			jpeg.in_color_space = JCS_YCbCr;
 			break;
+		case V4L2_PIX_FMT_GREY:
+			jpeg.input_components = 1;
+			jpeg.in_color_space = JCS_GRAYSCALE;
+			break;
 #		ifdef JCS_EXTENSIONS
 		case V4L2_PIX_FMT_BGR24:
 			jpeg.in_color_space = JCS_EXT_BGR;
@@ -101,6 +106,10 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, uint quali
 		case V4L2_PIX_FMT_YUV420:
 		case V4L2_PIX_FMT_YVU420:
 			_jpeg_write_scanlines_yuv_planar(&jpeg, src);
+			break;
+		
+		case V4L2_PIX_FMT_GREY:
+			_jpeg_write_scanlines_grey(&jpeg, src);
 			break;
 
 		case V4L2_PIX_FMT_RGB565:
@@ -241,6 +250,30 @@ static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, 
 			chroma1_data += (frame->width + padding) / chroma_matrix_order;
 			chroma2_data += (frame->width + padding) / chroma_matrix_order;
 		}
+
+		JSAMPROW scanlines[1] = {line_buf};
+		jpeg_write_scanlines(jpeg, scanlines, 1);
+	}
+
+	free(line_buf);
+}
+
+static void _jpeg_write_scanlines_grey(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
+	u8 *line_buf;
+	US_CALLOC(line_buf, frame->width);
+
+	const uint padding = us_frame_get_padding(frame);
+	const u8 *data = frame->data;
+
+	while (jpeg->next_scanline < frame->height) {
+		u8 *ptr = line_buf;
+
+		for (uint x = 0; x < frame->width; ++x) {
+			ptr[0] = data[x];
+			ptr += 1;
+		}
+
+		data += frame->width + padding;
 
 		JSAMPROW scanlines[1] = {line_buf};
 		jpeg_write_scanlines(jpeg, scanlines, 1);
