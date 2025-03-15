@@ -39,6 +39,59 @@
 #include "frame.h"
 #include "memsinksh.h"
 
+#ifdef WITH_MEDIACODEC
+static int shm_unlink(const char *name) {
+    size_t namelen;
+    char *fname;
+
+    while (name[0] == '/') ++name;
+
+    if (name[0] == '\0') {
+        errno = EINVAL;
+        return -1;
+    }
+
+    namelen = strlen(name);
+    fname = (char *) alloca(sizeof("/dev/shm/") - 1 + namelen + 1);
+    memcpy(fname, "/dev/shm/", sizeof("/dev/shm/") - 1);
+    memcpy(fname + sizeof("/dev/shm/") - 1, name, namelen + 1);
+
+    return unlink(fname);
+}
+static int shm_open(const char *name, int oflag, mode_t mode) {
+    size_t namelen;
+    char *fname;
+    int fd;
+
+    while (name[0] == '/') ++name;
+
+    if (name[0] == '\0') {
+        errno = EINVAL;
+        return -1;
+    }
+
+    namelen = strlen(name);
+    fname = (char *) alloca(sizeof("/dev/shm/") - 1 + namelen + 1);
+    memcpy(fname, "/dev/shm/", sizeof("/dev/shm/") - 1);
+    memcpy(fname + sizeof("/dev/shm/") - 1, name, namelen + 1);
+
+    fd = open(fname, oflag, mode);
+    if (fd != -1) {
+        int flags = fcntl(fd, F_GETFD, 0);
+        flags |= FD_CLOEXEC;
+        flags = fcntl(fd, F_SETFD, flags);
+
+        if (flags == -1) {
+            int save_errno = errno;
+            close(fd);
+            fd = -1;
+            errno = save_errno;
+        }
+    }
+
+    return fd;
+}
+#endif
 
 us_memsink_s *us_memsink_init_opened(
 	const char *name, const char *obj, bool server,

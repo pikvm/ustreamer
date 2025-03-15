@@ -45,7 +45,11 @@ void us_libx264_encoder_init(us_libx264_encoder_s *enc, int frame_width, int fra
     enc->param->b_sliced_threads = 0;
     enc->param->i_width = frame_width;
     enc->param->i_height = frame_height;
-    enc->param->i_fps_num = 30;
+	if ((frame_width <= 1280 && frame_height <= 720)) {
+		enc->param->i_fps_num = 60;
+	} else {
+		enc->param->i_fps_num = 30;
+	}
     enc->param->i_fps_den = 1;
     enc->param->i_log_level = X264_LOG_NONE; // Use X264_LOG_DEBUG for debugging
     enc->param->b_repeat_headers = 1;

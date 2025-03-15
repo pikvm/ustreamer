@@ -57,6 +57,9 @@ static const struct {
 #ifdef WITH_LIBX264
 	{"LIBX264-VIDEO",		US_ENCODER_TYPE_LIBX264_VIDEO},
 #endif
+#ifdef WITH_MEDIACODEC
+	{"MEDIACODEC-VIDEO",		US_ENCODER_TYPE_MEDIACODEC_VIDEO},
+#endif
 };
 
 
@@ -233,7 +236,15 @@ static bool _worker_run_job(us_worker_s *wr) {
 		US_LOG_VERBOSE("Compressing JPEG using CPU: worker=%s, buffer=%u",
 			wr->name, job->hw->buf.index);
 		us_cpu_encoder_compress(src, dest, run->quality);
-#endif		
+#endif	
+#ifdef WITH_MEDIACODEC
+	}else if (run->type == US_ENCODER_TYPE_MEDIACODEC_VIDEO) {
+		US_LOG_VERBOSE("Compressing RAW or JPEG to H.264 using Android MEDIACODEC: worker=%s, buffer=%u",
+			wr->name, job->hw->buf.index);
+		US_LOG_VERBOSE("Compressing JPEG using CPU: worker=%s, buffer=%u",
+			wr->name, job->hw->buf.index);
+		us_cpu_encoder_compress(src, dest, run->quality);
+#endif	
 	} else {
 		assert(0 && "Unknown encoder type");
 	}

@@ -47,6 +47,7 @@
 #ifdef WITH_LIBX264
 #	include <x264.h>
 #endif
+
 #ifdef WITH_V4P
 #	include "../libs/drm/drm.h"
 #endif
@@ -55,6 +56,9 @@
 #include "encoder.h"
 #include "workers.h"
 #include "m2m.h"
+#ifdef WITH_MEDIACODEC
+#	include "encoders/android_mediacodec/android_mediacodec.h"
+#endif
 #ifdef WITH_LIBX264
 #	include "encoders/libx264/libx264.h"
 #endif
@@ -169,7 +173,11 @@ void us_stream_loop(us_stream_s *stream) {
 		us_libx264_encoder_init(&run->libx264_enc, cap->width, cap->height, stream->h264_bitrate, stream->h264_gop, stream->h264_preset);
 	}
 #endif
-
+#ifdef WITH_MEDIACODEC
+	if (stream->h264_sink != NULL && stream->enc->type == US_ENCODER_TYPE_MEDIACODEC_VIDEO) {
+		us_android_mediacodec_init(&run->android_bridge_enc, cap->width, cap->height, stream->h264_bitrate, stream->h264_gop);
+	}
+#endif
 	while (!_stream_init_loop(stream)) {
 		atomic_bool threads_stop;
 		atomic_init(&threads_stop, false);
@@ -280,6 +288,9 @@ void us_stream_loop(us_stream_s *stream) {
 	}
 
 	US_DELETE(run->h264_enc, us_m2m_encoder_destroy);
+#ifdef WITH_MEDIACODEC
+	if (stream->h264_sink != NULL && stream->enc->type == US_ENCODER_TYPE_MEDIACODEC_VIDEO) us_android_mediacodec_destroy(&run->android_bridge_enc);
+#endif
 #ifdef WITH_LIBX264
 	if (stream->h264_sink != NULL && stream->enc->type == US_ENCODER_TYPE_LIBX264_VIDEO) us_libx264_encoder_destroy(&run->libx264_enc);
 #endif
@@ -686,17 +697,38 @@ static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *fr
 		run->h264_key_requested = false;
 		force_key = true;
 	}
-#ifndef WITH_LIBX264
-	if (!us_m2m_encoder_compress(run->h264_enc, frame, run->h264_dest, force_key)) {
-		meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
-	}
+
+#if !defined(WITH_LIBX264) && !defined(WITH_MEDIACODEC)
+if (!us_m2m_encoder_compress(run->h264_enc, frame, run->h264_dest, force_key)) {
+	meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
+}
 #else
-	if (stream->enc->type != US_ENCODER_TYPE_LIBX264_VIDEO && !us_m2m_encoder_compress(run->h264_enc, frame, run->h264_dest, force_key)) {
-		meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
-	}else if (stream->enc->type == US_ENCODER_TYPE_LIBX264_VIDEO && !us_libx264_encoder_compress(&run->libx264_enc, frame, run->h264_dest, force_key)) {
+	if (
+		#if defined(WITH_LIBX264)
+			stream->enc->type != US_ENCODER_TYPE_LIBX264_VIDEO &&
+		#endif
+		#if defined(WITH_MEDIACODEC)
+			stream->enc->type != US_ENCODER_TYPE_MEDIACODEC_VIDEO &&
+		#endif
+		!us_m2m_encoder_compress(run->h264_enc, frame, run->h264_dest, force_key)) {
 		meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
 	}
-#endif	
+
+#ifdef WITH_LIBX264
+	else if (stream->enc->type == US_ENCODER_TYPE_LIBX264_VIDEO && 
+				!us_libx264_encoder_compress(&run->libx264_enc, frame, run->h264_dest, force_key)) {
+		meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
+	}
+#endif
+
+#ifdef WITH_MEDIACODEC
+	else if (stream->enc->type == US_ENCODER_TYPE_MEDIACODEC_VIDEO && 
+				!us_android_mediacodec_compress(&run->android_bridge_enc, frame, run->h264_dest, force_key)) {
+		meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
+	}
+#endif
+#endif
+
 
 done:
 	us_fpsi_update(run->http->h264_fpsi, meta.online, &meta);

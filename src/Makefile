@@ -13,9 +13,9 @@ _V4P = ustreamer-v4p.bin
 
 _CFLAGS = -MD -c -std=c17 -Wall -Wextra -D_GNU_SOURCE $(CFLAGS)
 
-_USTR_LDFLAGS = $(LDFLAGS) -Wl,-Bstatic -ljpeg -pthread -lrt -latomic -levent -levent_pthreads -Wl,-Bdynamic -lm
-_DUMP_LDFLAGS = $(LDFLAGS) -Wl,-Bstatic -ljpeg -pthread -lrt -latomic -Wl,-Bdynamic -lm
-_V4P_LDFLAGS = $(LDFLAGS) -Wl,-Bstatic -ljpeg -pthread -lrt -latomic -Wl,-Bdynamic -lm
+_USTR_LDFLAGS = $(LDFLAGS) -Wl,-Bstatic -ljpeg -Wl,-Bdynamic -lm -pthread  -latomic -levent -levent_pthreads  -lrt -lm
+_DUMP_LDFLAGS = $(LDFLAGS) -Wl,-Bstatic -ljpeg -Wl,-Bdynamic -lm -pthread -lrt -latomic -lm
+_V4P_LDFLAGS = $(LDFLAGS)  -ljpeg -pthread -lrt -latomic
 
 _USTR_SRCS = $(shell ls \
 	libs/*.c \
@@ -65,8 +65,14 @@ endif
 
 ifneq ($(call optbool,$(WITH_LIBX264)),)
 override _CFLAGS += -DWITH_LIBX264
-override _USTR_LDFLAGS += -Wl,-Bstatic -lx264 -lyuv -Wl,-Bdynamic
+override _USTR_LDFLAGS += -Wl,-Bstatic -lyuv -Wl,-Bdynamic -lx264
 override _USTR_SRCS += $(shell ls ustreamer/encoders/libx264/*.c)
+endif
+
+ifneq ($(call optbool,$(WITH_MEDIACODEC)),)
+override _CFLAGS += -DWITH_MEDIACODEC
+override _USTR_LDFLAGS += -Wl,-Bstatic -lyuv -Wl,-Bdynamic -lavcodec -lavformat -lavutil -landroid-shmem
+override _USTR_SRCS += $(shell ls ustreamer/encoders/android_mediacodec/*.c)
 endif
 
 WITH_PTHREAD_NP ?= 1

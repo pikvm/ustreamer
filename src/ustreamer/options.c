@@ -624,6 +624,12 @@ static void _features(void) {
 #	else
 	puts("- WITH_LIBX264");
 #	endif
+
+#	ifdef WITH_MEDIACODEC
+	puts("+ WITH_MEDIACODEC");
+#	else
+	puts("- WITH_MEDIACODEC");
+#	endif
 }
 
 static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, const us_stream_s *stream, const us_server_s *server) {
@@ -673,6 +679,9 @@ static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, co
 	SAY("                                             * M2M-IMAGE  ── GPU-accelerated JPEG encoding using V4L2 M2M image interface.");
 #	ifdef WITH_LIBX264
 	SAY("                                             * LIBX264-VIDEO  ── Software H.264 encoding using libx264.\n");
+#	endif
+#	ifdef WITH_MEDIACODEC
+	SAY("                                             * MEDIACODEC-VIDEO  ── GPU-accelerated H.264 encoding using Android MediaCodec.\n");
 #	endif
 	SAY("    -g|--glitched-resolutions <WxH,...>  ─ It doesn't do anything. Still here for compatibility.\n");
 	SAY("    -k|--blank <path>  ─────────────────── It doesn't do anything. Still here for compatibility.\n");

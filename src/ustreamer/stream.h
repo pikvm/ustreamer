@@ -43,6 +43,9 @@
 #include "blank.h"
 #include "encoder.h"
 #include "m2m.h"
+#ifdef WITH_MEDIACODEC
+#	include "encoders/android_mediacodec/android_mediacodec.h"
+#endif
 #ifdef WITH_LIBX264
 #	include "encoders/libx264/libx264.h"
 #endif
@@ -67,6 +70,9 @@ typedef struct {
 	us_stream_http_s	*http;
 
 	us_m2m_encoder_s	*h264_enc;
+#ifdef WITH_MEDIACODEC
+	us_android_bridge_encoder_s android_bridge_enc;
+#endif
 #ifdef WITH_LIBX264
 	us_libx264_encoder_s libx264_enc;
 #endif
