@@ -138,7 +138,7 @@ static const struct option _LONG_OPTS[] = {
 	{"input",					required_argument,	NULL,	_O_INPUT},
 	{"resolution",				required_argument,	NULL,	_O_RESOLUTION},
 	{"format",					required_argument,	NULL,	_O_FORMAT},
-	{"format-swap-rgb",			required_argument,	NULL,	_O_FORMAT_SWAP_RGB},
+	{"format-swap-rgb",			no_argument,		NULL,	_O_FORMAT_SWAP_RGB},
 	{"tv-standard",				required_argument,	NULL,	_O_TV_STANDARD},
 	{"io-method",				required_argument,	NULL,	_O_IO_METHOD},
 	{"desired-fps",				required_argument,	NULL,	_O_DESIRED_FPS},
