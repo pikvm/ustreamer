@@ -1,15 +1,39 @@
 -include config.mk
 
+
+# =====
 DESTDIR ?=
 PREFIX ?= /usr/local
 MANPREFIX ?= $(PREFIX)/share/man
 
 CC ?= gcc
 PY ?= python3
+PKG_CONFIG ?= pkg-config
 CFLAGS ?= -O3
 LDFLAGS ?=
 
 R_DESTDIR = $(if $(DESTDIR),$(shell realpath "$(DESTDIR)"),)
+
+WITH_PYTHON ?= 0
+WITH_JANUS ?= 0
+WITH_V4P ?= 0
+WITH_GPIO ?= 0
+WITH_SYSTEMD ?= 0
+WITH_PTHREAD_NP ?= 1
+WITH_SETPROCTITLE ?= 1
+WITH_PDEATHSIG ?= 1
+
+define optbool
+$(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
+endef
+MK_WITH_PYTHON = $(call optbool,$(WITH_PYTHON))
+MK_WITH_JANUS = $(call optbool,$(WITH_JANUS))
+MK_WITH_V4P = $(call optbool,$(WITH_V4P))
+MK_WITH_GPIO = $(call optbool,$(WITH_GPIO))
+MK_WITH_SYSTEMD = $(call optbool,$(WITH_SYSTEMD))
+MK_WITH_PTHREAD_NP = $(call optbool,$(WITH_PTHREAD_NP))
+MK_WITH_SETPROCTITLE = $(call optbool,$(WITH_SETPROCTITLE))
+MK_WITH_PDEATHSIG = $(call optbool,$(WITH_PDEATHSIG))
 
 export
 
@@ -17,27 +41,24 @@ _LINTERS_IMAGE ?= ustreamer-linters
 
 
 # =====
-ifeq (__not_found__,$(shell which pkg-config 2>/dev/null || echo "__not_found__"))
-$(error "No pkg-config found in $(PATH)")
+ifeq (__not_found__,$(shell which $(PKG_CONFIG) 2>/dev/null || echo "__not_found__"))
+$(error "No $(PKG_CONFIG) found in $(PATH)")
 endif
 
 
 # =====
-define optbool
-$(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
-endef
-
 ifeq ($(V),)
 	ECHO = @
 endif
 
+
 # =====
 all:
 	+ $(MAKE) apps
-ifneq ($(call optbool,$(WITH_PYTHON)),)
+ifneq ($(MK_WITH_PYTHON),)
 	+ $(MAKE) python
 endif
-ifneq ($(call optbool,$(WITH_JANUS)),)
+ifneq ($(MK_WITH_JANUS),)
 	+ $(MAKE) janus
 endif
 
@@ -61,10 +82,10 @@ janus:
 
 install: all
 	$(MAKE) -C src install
-ifneq ($(call optbool,$(WITH_PYTHON)),)
+ifneq ($(MK_WITH_PYTHON),)
 	$(MAKE) -C python install
 endif
-ifneq ($(call optbool,$(WITH_JANUS)),)
+ifneq ($(MK_WITH_JANUS),)
 	$(MAKE) -C janus install
 endif
 	mkdir -p $(R_DESTDIR)$(MANPREFIX)/man1

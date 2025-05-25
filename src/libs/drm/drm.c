@@ -28,7 +28,9 @@
 
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/sysmacros.h>
+#ifdef __linux__
+#	include <sys/sysmacros.h>
+#endif
 
 #include <linux/videodev2.h>
 
@@ -664,6 +666,15 @@ static drmModeModeInfo *_find_best_mode(drmModeConnector *conn, uint width, uint
 			continue; // Discard interlaced
 		}
 		const float mode_hz = _get_refresh_rate(mode);
+		if (width == 640 && height == 416 && mode->hdisplay == 640 && mode->vdisplay == 480) {
+			// A special case for some ancient DOS device with VGA converter.
+			// @CapnKirk in Discord
+			if (hz > 0 && mode_hz < hz) {
+				best = mode;
+				best->vdisplay = 416;
+				break;
+			}
+		}
 		if (mode->hdisplay == width && mode->vdisplay == height) {
 			best = mode; // Any mode with exact resolution
 			if (hz > 0 && mode_hz == hz) {

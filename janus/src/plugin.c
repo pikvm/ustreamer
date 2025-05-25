@@ -59,6 +59,9 @@
 #include "memsinkfd.h"
 #include "config.h"
 
+
+static const char *const	default_ice_url = "stun:stun.l.google.com:19302";
+
 static us_config_s		*_g_config = NULL;
 static const useconds_t	_g_watchers_polling = 100000;
 
@@ -747,10 +750,12 @@ static struct janus_plugin_result *_plugin_handle_message(
 		}
 
 	} else if (!strcmp(request_str, "features")) {
+		const char *const ice_url = getenv("JANUS_USTREAMER_WEB_ICE_URL");
 		json_t *const features = json_pack(
-			"{sbsb}",
+			"{s:b, s:b, s:{s:s?}}",
 			"audio", (_g_rtpa != NULL),
-			"mic", (_g_rtpa != NULL && _g_config->aplay_dev_name != NULL)
+			"mic", (_g_rtpa != NULL && _g_config->aplay_dev_name != NULL),
+			"ice", "url", (ice_url != NULL ? ice_url : default_ice_url)
 		);
 		PUSH_STATUS("features", features, NULL);
 		json_decref(features);

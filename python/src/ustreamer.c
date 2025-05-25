@@ -13,6 +13,7 @@
 
 #include <Python.h>
 
+#include "uslibs/const.h"
 #include "uslibs/types.h"
 #include "uslibs/errors.h"
 #include "uslibs/tools.h"
@@ -48,6 +49,8 @@ static void _MemsinkObject_destroy_internals(_MemsinkObject *self) {
 }
 
 static int _MemsinkObject_init(_MemsinkObject *self, PyObject *args, PyObject *kwargs) {
+	self->fd = -1;
+
 	self->lock_timeout = 1;
 	self->wait_timeout = 1;
 
@@ -228,7 +231,8 @@ static PyObject *_MemsinkObject_wait_frame(_MemsinkObject *self, PyObject *args,
 			} \
 			Py_DECREF(m_tmp); \
 		}
-#	define SET_NUMBER(x_key, x_from, x_to) SET_VALUE(#x_key, Py##x_to##_From##x_from(self->frame->x_key))
+#	define SET_NUMBER(x_key, x_from, x_to) \
+		SET_VALUE(#x_key, Py##x_to##_From##x_from(self->frame->x_key))
 
 	SET_NUMBER(width, Long, Long);
 	SET_NUMBER(height, Long, Long);
@@ -275,7 +279,8 @@ static PyMethodDef _MemsinkObject_methods[] = {
 };
 
 static PyGetSetDef _MemsinkObject_getsets[] = {
-#	define ADD_GETTER(x_field) {.name = #x_field, .get = (getter)_MemsinkObject_getter_##x_field}
+#	define ADD_GETTER(x_field) \
+		{.name = #x_field, .get = (getter)_MemsinkObject_getter_##x_field}
 	ADD_GETTER(obj),
 	ADD_GETTER(lock_timeout),
 	ADD_GETTER(wait_timeout),
@@ -304,20 +309,30 @@ static PyModuleDef _Module = {
 };
 
 PyMODINIT_FUNC PyInit_ustreamer(void) {
-	PyObject *module = PyModule_Create(&_Module);
-	if (module == NULL) {
-		return NULL;
-	}
+	PyObject *module = NULL;
 
 	if (PyType_Ready(&_MemsinkType) < 0) {
-		return NULL;
+		goto error;
 	}
 
-	Py_INCREF(&_MemsinkType);
-
-	if (PyModule_AddObject(module, "Memsink", (PyObject*)&_MemsinkType) < 0) {
-		return NULL;
+	if ((module = PyModule_Create(&_Module)) == NULL) {
+		goto error;
 	}
 
+#	define ADD(x_what, x_key, x_value) \
+		{ if (PyModule_Add##x_what(module, x_key, x_value) < 0) { goto error; } }
+	ADD(StringConstant, "__version__", US_VERSION);
+	ADD(StringConstant, "VERSION", US_VERSION);
+	ADD(IntConstant, "VERSION_MAJOR", US_VERSION_MAJOR);
+	ADD(IntConstant, "VERSION_MINOR", US_VERSION_MINOR);
+	ADD(StringConstant, "FEATURES", US_FEATURES); // Defined in setup.py
+	ADD(ObjectRef, "Memsink", (PyObject*)&_MemsinkType);
+#	undef ADD
 	return module;
+
+error:
+	if (module != NULL) {
+		Py_DECREF(module);
+	}
+	return NULL;
 }
