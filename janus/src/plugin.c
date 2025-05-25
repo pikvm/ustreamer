@@ -211,6 +211,74 @@ static void *_video_sink_thread(void *arg) {
 	return NULL;
 }
 
+static int _detect_alsa_audio_hz(const char *dev_name, uint *hz) {
+	*hz = 0;
+	
+	snd_pcm_t *dev = NULL;
+	snd_pcm_hw_params_t *params = NULL;
+	int err;
+	
+	// 尝试打开ALSA设备
+	if ((err = snd_pcm_open(&dev, dev_name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
+		US_JLOG_PERROR_ALSA(err, "acap", "Can't open ALSA device for rate detection");
+		return -1;
+	}
+	
+	if ((err = snd_pcm_hw_params_malloc(&params)) < 0) {
+		US_JLOG_PERROR_ALSA(err, "acap", "Can't allocate hw params for rate detection");
+		snd_pcm_close(dev);
+		return -1;
+	}
+	
+	if ((err = snd_pcm_hw_params_any(dev, params)) < 0) {
+		US_JLOG_PERROR_ALSA(err, "acap", "Can't initialize hw params for rate detection");
+		goto cleanup;
+	}
+	
+	// 常用采样率列表，按优先级排序
+	const uint common_rates[] = {48000, 44100, 96000, 192000, 32000, 22050, 16000, 8000};
+	const uz num_rates = sizeof(common_rates) / sizeof(common_rates[0]);
+	
+	// 尝试找到设备支持的最佳采样率
+	for (uz i = 0; i < num_rates; ++i) {
+		uint rate = common_rates[i];
+		if (snd_pcm_hw_params_test_rate(dev, params, rate, 0) == 0) {
+			*hz = rate;
+			US_JLOG_INFO("acap", "Detected ALSA audio rate: %uHz", rate);
+			break;
+		}
+	}
+	
+	// 如果没有找到常用采样率，尝试获取设备的默认采样率范围
+	if (*hz == 0) {
+		uint min_rate, max_rate;
+		int dir = 0;
+		if (snd_pcm_hw_params_get_rate_min(params, &min_rate, &dir) == 0 &&
+			snd_pcm_hw_params_get_rate_max(params, &max_rate, &dir) == 0) {
+			// 选择范围内最接近48000的值
+			if (min_rate <= 48000 && max_rate >= 48000) {
+				*hz = 48000;
+			} else if (max_rate < 48000) {
+				*hz = max_rate;
+			} else {
+				*hz = min_rate;
+			}
+			US_JLOG_INFO("acap", "Using ALSA audio rate from range: %uHz (range: %u-%u)", *hz, min_rate, max_rate);
+		}
+	}
+	
+cleanup:
+	snd_pcm_hw_params_free(params);
+	snd_pcm_close(dev);
+	
+	if (*hz == 0) {
+		US_JLOG_WARN("acap", "Could not detect ALSA audio rate, using default 48000Hz");
+		*hz = 48000; // 默认值
+	}
+	
+	return 0;
+}
+
 static int _check_tc358743_acap(uint *hz) {
 	int fd;
 	if ((fd = open(_g_config->tc358743_dev_path, O_RDWR)) < 0) {
@@ -247,14 +315,21 @@ static void *_acap_thread(void *arg) {
 		uint hz = 0;
 		us_acap_s *acap = NULL;
 
-		/*if (_check_tc358743_acap(&hz) < 0) {
-			goto close_acap;
-		}*/
+		// 首先尝试TC358743检测
+		if (_check_tc358743_acap(&hz) < 0) {
+			US_JLOG_WARN("acap", "TC358743 audio detection failed, trying ALSA detection");
+			// TC358743检测失败，尝试通用ALSA检测
+			if (_detect_alsa_audio_hz(_g_config->acap_dev_name, &hz) < 0) {
+				US_JLOG_ERROR("acap", "Both TC358743 and ALSA audio detection failed");
+				goto close_acap;
+			}
+		}
+		
 		if (hz == 0) {
 			US_ONCE({ US_JLOG_INFO("acap", "No audio presented from the host"); });
 			goto close_acap;
 		}
-		US_ONCE({ US_JLOG_INFO("acap", "Detected host audio"); });
+		US_ONCE({ US_JLOG_INFO("acap", "Detected host audio at %uHz", hz); });
 		if ((acap = us_acap_init(_g_config->acap_dev_name, hz)) == NULL) {
 			goto close_acap;
 		}
@@ -262,9 +337,12 @@ static void *_acap_thread(void *arg) {
 		once = 0;
 
 		while (!_STOP && _HAS_WATCHERS && _HAS_LISTENERS) {
-			/*if (_check_tc358743_acap(&hz) < 0 || acap->pcm_hz != hz) {
+			// 在运行过程中继续检查TC358743状态
+			uint current_hz = 0;
+			if (_check_tc358743_acap(&current_hz) < 0 || (current_hz != 0 && acap->pcm_hz != current_hz)) {
+				US_JLOG_INFO("acap", "Audio configuration changed, restarting capture");
 				goto close_acap;
-			}*/
+			}
 			uz size = US_RTP_DATAGRAM_SIZE - US_RTP_HEADER_SIZE;
 			u8 data[size];
 			u64 pts;
