@@ -36,7 +36,7 @@ us_blank_s *us_blank_init(void) {
 	blank->ft = us_frametext_init();
 	blank->raw = blank->ft->frame;
 	blank->jpeg = us_frame_init();
-	us_blank_draw(blank, "< NO SIGNAL >", 640, 480);
+	us_blank_draw(blank, "< NO LIVE VIDEO >", 640, 480);
 	return blank;
 }
 

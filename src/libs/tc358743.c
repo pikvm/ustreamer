@@ -33,17 +33,6 @@
 #include "xioctl.h"
 
 
-#ifndef V4L2_CID_USER_TC358743_BASE
-#	define V4L2_CID_USER_TC358743_BASE (V4L2_CID_USER_BASE + 0x1080)
-#endif
-#ifndef TC358743_CID_AUDIO_PRESENT
-#	define TC358743_CID_AUDIO_PRESENT (V4L2_CID_USER_TC358743_BASE + 1)
-#endif
-#ifndef TC358743_CID_AUDIO_SAMPLING_RATE
-#	define TC358743_CID_AUDIO_SAMPLING_RATE (V4L2_CID_USER_TC358743_BASE + 0)
-#endif
-
-
 int us_tc358743_xioctl_get_audio_hz(int fd, uint *audio_hz) {
 	*audio_hz = 0;
 

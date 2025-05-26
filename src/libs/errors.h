@@ -25,4 +25,7 @@
 #define US_ERROR_COMMON		-1
 #define US_ERROR_NO_DEVICE	-2
 #define US_ERROR_NO_CABLE	-3
-#define US_ERROR_NO_DATA	-4
+#define US_ERROR_NO_SIGNAL	-4
+#define US_ERROR_NO_SYNC	-5
+#define US_ERROR_NO_LANES	-6
+#define US_ERROR_NO_DATA	-7

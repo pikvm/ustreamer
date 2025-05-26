@@ -129,7 +129,7 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 
 void us_stream_update_blank(us_stream_s *stream, const us_capture_s *cap) {
 	us_stream_runtime_s *const run = stream->run;
-	us_blank_draw(run->blank, "< NO SIGNAL >", cap->width, cap->height);
+	us_blank_draw(run->blank, "< NO LIVE VIDEO >", cap->width, cap->height);
 	us_fpsi_frame_to_meta(run->blank->raw, &run->notify_meta); // Initial "unchanged" meta
 	_stream_update_captured_fpsi(stream, run->blank->raw, false);
 }
@@ -529,7 +529,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 
 	int once = 0;
 	while (!atomic_load(&stream->run->stop)) {
-		char *blank_reason = "< NO SIGNAL >";
+		const char *blank_reason = "< NO LIVE VIDEO >";
 
 #		ifdef WITH_GPIO
 		us_gpio_set_stream_online(false);
@@ -556,24 +556,58 @@ static int _stream_init_loop(us_stream_s *stream) {
 		switch (us_capture_open(stream->cap)) {
 			case 0: break;
 			case US_ERROR_NO_DEVICE:
-				blank_reason = "< NO CAPTURE DEVICE >";
-				goto known_error;
+				blank_reason = (
+					"< NO CAPTURE DEVICE >\n \n"
+					"  Possible reasons:  \n \n"
+					"  - Device unplugged \n \n"
+					"  - Bad config       \n \n"
+					"  - Malfunction      "
+				);
+				goto silent_error;
 			case US_ERROR_NO_CABLE:
-				blank_reason = "< NO VIDEO SOURCE >";
-				goto known_error;
-			case US_ERROR_NO_DATA:
-				goto known_error;
+				blank_reason = (
+					"< NO VIDEO SOURCE >\n \n"
+					" Possible reasons: \n \n"
+					" - Source is off   \n \n"
+					" - Cable problems  "
+				);
+				goto silent_error;
+			case US_ERROR_NO_SIGNAL:
+				blank_reason = (
+					"< NO SIGNAL DETECTED >\n \n"
+					"   Possible reasons:  \n \n"
+                    "   - Video suspended  \n \n"
+					"   - Cable problems   "
+				);
+				goto silent_error;
+			case US_ERROR_NO_SYNC:
+				blank_reason = (
+					"< NO SYNC WITH SIGNAL >\n \n"
+					"   Possible reasons:   \n \n"
+					"   - Source is crazy   \n \n"
+					"   - Cable problems    "
+				);
+				goto silent_error;
+			case US_ERROR_NO_LANES:
+				blank_reason = (
+					"< UNSUPPORTED SIGNAL TIMINGS >\n \n"
+					"      Possible reasons:       \n \n"
+					"    - Too high frequency      \n \n"
+					"    - Source ignores EDID     \n \n"
+					"    - Invalid EDID            "
+				);
+				goto verbose_error;
 			default:
-				goto unknown_error;
+				goto verbose_error;
 		}
 		us_encoder_open(stream->enc, stream->cap);
 		return 0;
 
-	known_error:
+	silent_error:
 		US_ONCE({ US_LOG_INFO("Waiting for the capture device ..."); });
 		goto offline_and_retry;
 
-	unknown_error:
+	verbose_error:
 		once = 0;
 		goto offline_and_retry;
 

@@ -48,6 +48,7 @@
 #include "threading.h"
 #include "frame.h"
 #include "xioctl.h"
+#include "tc358743.h"
 
 
 static const struct {
@@ -200,11 +201,11 @@ int us_capture_open(us_capture_s *cap) {
 			}
 		}
 		_LOG_DEBUG("Probing DV-timings or QuerySTD ...");
-		if (_capture_open_dv_timings(cap, false) < 0) {
-			US_ONCE_FOR(run->open_error_once, __LINE__, {
-				_LOG_ERROR("No signal from source");
-			});
-			goto error_no_signal;
+		switch (_capture_open_dv_timings(cap, false)) {
+			case 0: break;
+			case US_ERROR_NO_SIGNAL: goto error_no_signal;
+			case US_ERROR_NO_SYNC: goto error_no_sync;
+			default: goto error;
 		}
 	}
 
@@ -221,6 +222,15 @@ int us_capture_open(us_capture_s *cap) {
 	}
 	if (_capture_open_format(cap, true) < 0) {
 		goto error;
+	}
+	if (cap->dv_timings && cap->persistent) {
+		struct v4l2_control ctl = {.id = TC358743_CID_LANES_ENOUGH};
+		if (!us_xioctl(run->fd, VIDIOC_G_CTRL, &ctl)) {
+			if (!ctl.value) {
+				_LOG_ERROR("Not enough lanes, hardware can't handle this signal");
+				goto error_no_lanes;
+			}
+		}
 	}
 	_capture_open_hw_fps(cap);
 	_capture_open_jpeg_quality(cap);
@@ -259,8 +269,18 @@ error_no_cable:
 	return US_ERROR_NO_CABLE;
 
 error_no_signal:
+	US_ONCE_FOR(run->open_error_once, __LINE__, { _LOG_ERROR("No signal from source"); });
 	us_capture_close(cap);
-	return US_ERROR_NO_DATA;
+	return US_ERROR_NO_SIGNAL;
+
+error_no_sync:
+	US_ONCE_FOR(run->open_error_once, __LINE__, { _LOG_ERROR("No sync on signal"); });
+	us_capture_close(cap);
+	return US_ERROR_NO_SYNC;
+
+error_no_lanes:
+	us_capture_close(cap);
+	return US_ERROR_NO_LANES;
 
 error:
 	run->open_error_once = 0;
@@ -630,6 +650,10 @@ static int _capture_open_dv_timings(us_capture_s *cap, bool apply) {
 		// TC358743 errors here (see in the kernel: drivers/media/i2c/tc358743.c):
 		//   - ENOLINK: No valid signal (SYS_STATUS & MASK_S_TMDS)
 		//   - ENOLCK:  No sync on signal (SYS_STATUS & MASK_S_SYNC)
+		switch (errno) {
+			case ENOLINK: return US_ERROR_NO_SIGNAL;
+			case ENOLCK: return US_ERROR_NO_SYNC;
+		}
 		dv_errno = errno;
 		goto querystd;
 	} else if (!apply) {

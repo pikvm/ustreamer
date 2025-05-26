@@ -11,7 +11,7 @@
 |----------|---------------|-------------------|
 | Multithreaded JPEG encoding | ✔ | ✘ |
 | Hardware image encoding<br>on Raspberry Pi | ✔ | ✘ |
-| Behavior when the device<br>is disconnected while streaming | ✔ Shows a black screen<br>with ```NO SIGNAL``` on it<br>until reconnected | ✘ Stops the streaming <sup>1</sup> |
+| Behavior when the device<br>is disconnected while streaming | ✔ Shows a black screen<br>with ```NO LIVE VIDEO``` on it<br>until reconnected | ✘ Stops the streaming <sup>1</sup> |
 | [DV-timings](https://linuxtv.org/downloads/v4l-dvb-apis-new/userspace-api/v4l/dv-timings.html) support -<br>the ability to change resolution<br>on the fly by source signal | ✔ | ☹ Partially yes <sup>1</sup> |
 | Option to skip frames when streaming<br>static images by HTTP to save the traffic | ✔ <sup>2</sup> | ✘ |
 | Streaming via UNIX domain socket | ✔ | ✘ |
