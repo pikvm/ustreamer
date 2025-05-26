@@ -125,8 +125,11 @@ void us_frametext_draw(us_frametext_s *ft, const char *text, uint width, uint he
 	// Ширина текста должна быть от 75%, до половины экрана, в зависимости от длины
 	const float div_x = US_MAX(US_MIN((100 / block_width * 2), 2.0), 1.5);
 
+	// Высоту тоже отрегулировать как-нибудь
+	const float div_y = US_MAX(US_MIN((70 / block_height * 2), 2.0), 1.5);
+
 	uint scale_x = frame->width / block_width / div_x;
-	uint scale_y = frame->height / block_height / 3;
+	uint scale_y = frame->height / block_height / div_y;
 	if (scale_x < scale_y / 1.5) { // Keep proportions
 		scale_y = scale_x * 1.5;
 	} else if (scale_y < scale_x * 1.5) {
