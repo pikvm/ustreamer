@@ -529,6 +529,8 @@ static int _stream_init_loop(us_stream_s *stream) {
 
 	int once = 0;
 	while (!atomic_load(&stream->run->stop)) {
+		char *blank_reason = "< NO SIGNAL >";
+
 #		ifdef WITH_GPIO
 		us_gpio_set_stream_online(false);
 #		endif
@@ -554,15 +556,26 @@ static int _stream_init_loop(us_stream_s *stream) {
 		switch (us_capture_open(stream->cap)) {
 			case 0: break;
 			case US_ERROR_NO_DEVICE:
+				blank_reason = "< NO CAPTURE DEVICE >";
+				goto known_error;
+			case US_ERROR_NO_CABLE:
+				blank_reason = "< NO VIDEO SOURCE >";
+				goto known_error;
 			case US_ERROR_NO_DATA:
-				US_ONCE({ US_LOG_INFO("Waiting for the capture device ..."); });
-				goto offline_and_retry;
+				goto known_error;
 			default:
-				once = 0;
-				goto offline_and_retry;
+				goto unknown_error;
 		}
 		us_encoder_open(stream->enc, stream->cap);
 		return 0;
+
+	known_error:
+		US_ONCE({ US_LOG_INFO("Waiting for the capture device ..."); });
+		goto offline_and_retry;
+
+	unknown_error:
+		once = 0;
+		goto offline_and_retry;
 
 	offline_and_retry:
 		for (uint count = 0; count < stream->error_delay * 10; ++count) {
@@ -577,7 +590,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 					width = stream->cap->width;
 					height = stream->cap->height;
 				}
-				us_blank_draw(run->blank, "< NO SIGNAL >", width, height);
+				us_blank_draw(run->blank, blank_reason, width, height);
 
 				_stream_update_captured_fpsi(stream, run->blank->raw, false);
 				_stream_expose_jpeg(stream, run->blank->jpeg);

@@ -24,4 +24,5 @@
 
 #define US_ERROR_COMMON		-1
 #define US_ERROR_NO_DEVICE	-2
-#define US_ERROR_NO_DATA	-3
+#define US_ERROR_NO_CABLE	-3
+#define US_ERROR_NO_DATA	-4

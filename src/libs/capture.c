@@ -193,6 +193,12 @@ int us_capture_open(us_capture_s *cap) {
 	_LOG_DEBUG("Capture device fd=%d opened", run->fd);
 
 	if (cap->dv_timings && cap->persistent) {
+		struct v4l2_control ctl = {.id = V4L2_CID_DV_RX_POWER_PRESENT};
+		if (!us_xioctl(run->fd, VIDIOC_G_CTRL, &ctl)) {
+			if (!ctl.value) {
+				goto error_no_cable;
+			}
+		}
 		_LOG_DEBUG("Probing DV-timings or QuerySTD ...");
 		if (_capture_open_dv_timings(cap, false) < 0) {
 			US_ONCE_FOR(run->open_error_once, __LINE__, {
@@ -247,6 +253,10 @@ int us_capture_open(us_capture_s *cap) {
 error_no_device:
 	us_capture_close(cap);
 	return US_ERROR_NO_DEVICE;
+
+error_no_cable:
+	us_capture_close(cap);
+	return US_ERROR_NO_CABLE;
 
 error_no_signal:
 	us_capture_close(cap);
