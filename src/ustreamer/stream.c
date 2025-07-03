@@ -612,6 +612,10 @@ static int _stream_init_loop(us_stream_s *stream) {
 		goto offline_and_retry;
 
 	offline_and_retry:
+		if (stream->exit_on_device_error) {
+			US_LOG_INFO("Device error, exiting ...");
+			us_process_suicide();
+		}
 		for (uint count = 0; count < stream->error_delay * 10; ++count) {
 			if (atomic_load(&run->stop)) {
 				break;

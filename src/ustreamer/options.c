@@ -117,6 +117,7 @@ enum _US_OPT_VALUES {
 #	ifdef WITH_PDEATHSIG
 	_O_EXIT_ON_PARENT_DEATH,
 #	endif
+	_O_EXIT_ON_DEVICE_ERROR,
 	_O_EXIT_ON_NO_CLIENTS,
 #	ifdef WITH_SETPROCTITLE
 	_O_PROCESS_NAME_PREFIX,
@@ -227,6 +228,7 @@ static const struct option _LONG_OPTS[] = {
 #	ifdef WITH_PDEATHSIG
 	{"exit-on-parent-death",	no_argument,		NULL,	_O_EXIT_ON_PARENT_DEATH},
 #	endif
+	{"exit-on-device-error",	no_argument,		NULL,	_O_EXIT_ON_DEVICE_ERROR},
 	{"exit-on-no-clients",		required_argument,	NULL,	_O_EXIT_ON_NO_CLIENTS},
 #	ifdef WITH_SETPROCTITLE
 	{"process-name-prefix",		required_argument,	NULL,	_O_PROCESS_NAME_PREFIX},
@@ -490,6 +492,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 				};
 				break;
 #			endif
+			case _O_EXIT_ON_DEVICE_ERROR:	OPT_SET(stream->exit_on_device_error, true);
 			case _O_EXIT_ON_NO_CLIENTS:		OPT_NUMBER("--exit-on-no-clients", stream->exit_on_no_clients, 0, 86400, 0);
 #			ifdef WITH_SETPROCTITLE
 			case _O_PROCESS_NAME_PREFIX:	OPT_SET(process_name_prefix, optarg);
