@@ -604,7 +604,9 @@ static int _stream_init_loop(us_stream_s *stream) {
 		return 0;
 
 	silent_error:
-		US_ONCE({ US_LOG_INFO("Waiting for the capture device ..."); });
+		if (!stream->exit_on_device_error) {
+			US_ONCE({ US_LOG_INFO("Waiting for the capture device ..."); });
+		}
 		goto offline_and_retry;
 
 	verbose_error:
