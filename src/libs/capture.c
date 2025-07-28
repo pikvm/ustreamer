@@ -573,6 +573,12 @@ bool _capture_is_buffer_valid(const us_capture_s *cap, const struct v4l2_buffer 
 			return false;
 		}
 
+		const u16 begin_marker = (((u16)(data[0]) << 8) | data[1]);
+		if (begin_marker != 0xFFD8) {
+			_LOG_DEBUG("Discarding JPEG frame with invalid header: begin_marker=0x%04x, bytesused=%u", begin_marker, buf->bytesused);
+			return false;
+		}
+
 		const u8 *const end_ptr = data + buf->bytesused;
 		const u8 *const eoi_ptr = end_ptr - 2;
 		const u16 eoi_marker = (((u16)(eoi_ptr[0]) << 8) | eoi_ptr[1]);
