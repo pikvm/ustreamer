@@ -569,25 +569,28 @@ bool _capture_is_buffer_valid(const us_capture_s *cap, const struct v4l2_buffer 
 	if (us_is_jpeg(cap->run->format)) {
 		if (buf->bytesused < 125) {
 			// https://stackoverflow.com/questions/2253404/what-is-the-smallest-valid-jpeg-file-size-in-bytes
-			_LOG_DEBUG("Discarding invalid frame, too small to be a valid JPEG: bytesused=%u", buf->bytesused);
+			_LOG_DEBUG("Discarding invalid frame, too small to be a valid JPEG: bytesused=%u",
+				buf->bytesused);
 			return false;
 		}
 
 		const u16 begin_marker = (((u16)(data[0]) << 8) | data[1]);
 		if (begin_marker != 0xFFD8) {
-			_LOG_DEBUG("Discarding JPEG frame with invalid header: begin_marker=0x%04x, bytesused=%u", begin_marker, buf->bytesused);
+			_LOG_DEBUG("Discarding JPEG frame with invalid header: begin_marker=0x%04x, bytesused=%u",
+				begin_marker, buf->bytesused);
 			return false;
 		}
 
-		const u8 *const end_ptr = data + buf->bytesused;
-		const u8 *const eoi_ptr = end_ptr - 2;
-		const u16 eoi_marker = (((u16)(eoi_ptr[0]) << 8) | eoi_ptr[1]);
-		if (eoi_marker != 0xFFD9 && eoi_marker != 0xD900 && eoi_marker != 0x0000) {
+		const u8 *const end_ptr = data + buf->bytesused - 2;
+		const u16 end_marker = (((u16)(end_ptr[0]) << 8) | end_ptr[1]);
+		if (end_marker != 0xFFD9 && end_marker != 0xD900 && end_marker != 0x0000) {
 			if (!cap->allow_truncated_frames) {
-				_LOG_DEBUG("Discarding truncated JPEG frame: eoi_marker=0x%04x, bytesused=%u", eoi_marker, buf->bytesused);
+				_LOG_DEBUG("Discarding truncated JPEG frame: end_marker=0x%04x, bytesused=%u",
+					end_marker, buf->bytesused);
 				return false;
 			}
-			_LOG_DEBUG("Got truncated JPEG frame: eoi_marker=0x%04x, bytesused=%u", eoi_marker, buf->bytesused);
+			_LOG_DEBUG("Got truncated JPEG frame: end_marker=0x%04x, bytesused=%u",
+				end_marker, buf->bytesused);
 		}
 	}
 
