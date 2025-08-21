@@ -96,6 +96,207 @@ bool is_valid_preset(const char* preset) {
 	return us_libx264_is_valid_preset(preset);
 }
 
+// 智能预设选择函数
+const char* us_libx264_select_optimal_preset(int width, int height, int fps, int bitrate_kbps) {
+	int pixels = width * height;
+	
+	// 高分辨率或高帧率场景优先速度
+	if (fps >= 60 || pixels > 1920 * 1080) {
+		return "ultrafast";
+	}
+	
+	// 根据比特率和分辨率选择预设
+	if (pixels <= 640 * 480) {
+		// SD分辨率
+		if (bitrate_kbps < 500) return "veryfast";
+		if (bitrate_kbps < 1000) return "faster";
+		return "fast";
+	} else if (pixels <= 1280 * 720) {
+		// HD分辨率
+		if (bitrate_kbps < 1000) return "veryfast";
+		if (bitrate_kbps < 2000) return "faster";
+		if (bitrate_kbps < 4000) return "fast";
+		return "medium";
+	} else if (pixels <= 1920 * 1080) {
+		// FHD分辨率
+		if (bitrate_kbps < 2000) return "ultrafast";
+		if (bitrate_kbps < 4000) return "veryfast";
+		if (bitrate_kbps < 8000) return "faster";
+		return "fast";
+	} else {
+		// 4K+分辨率
+		if (bitrate_kbps < 8000) return "ultrafast";
+		if (bitrate_kbps < 15000) return "veryfast";
+		return "faster";
+	}
+}
+
+// 根据档案获取预设
+const char* us_libx264_get_preset_by_profile(us_h264_profile_e profile, int width, int height) {
+	static const char* presets[4][3] = {
+		// 低分辨率     中分辨率     高分辨率
+		{"ultrafast", "ultrafast", "ultrafast"},  // REALTIME
+		{"veryfast",  "faster",    "ultrafast"},  // BALANCED
+		{"faster",    "medium",    "fast"},       // QUALITY
+		{"medium",    "slow",      "faster"}      // ARCHIVE
+	};
+	
+	int pixels = width * height;
+	int res_idx = (pixels < 720 * 480) ? 0 : (pixels < 1920 * 1080) ? 1 : 2;
+	
+	if (profile >= 0 && profile < 4) {
+		return presets[profile][res_idx];
+	}
+	
+	return "ultrafast";
+}
+
+// 计算最优线程数
+int us_libx264_get_optimal_threads(int width, int height) {
+	int pixels = width * height;
+	int cpu_cores = sysconf(_SC_NPROCESSORS_ONLN);
+	
+	if (pixels <= 640 * 480) return US_MIN(2, cpu_cores);        // SD
+	if (pixels <= 1280 * 720) return US_MIN(4, cpu_cores);       // HD
+	if (pixels <= 1920 * 1080) return US_MIN(6, cpu_cores);      // FHD
+	return US_MIN(8, cpu_cores);                                  // 4K+
+}
+
+// 根据使用情况确定档案
+us_h264_profile_e us_libx264_determine_profile_by_usage(int width, int height, int fps, int bitrate_kbps) {
+	int pixels = width * height;
+	
+	// 实时流条件：高帧率或低延迟需求
+	if (fps >= 60 || (pixels > 1920 * 1080 && fps >= 30)) {
+		return US_H264_PROFILE_REALTIME;
+	}
+	
+	// 存档条件：高比特率和大分辨率
+	if (pixels >= 1920 * 1080 && bitrate_kbps >= 8000 && fps <= 30) {
+		return US_H264_PROFILE_ARCHIVE;
+	}
+	
+	// 高质量条件：中等比特率和分辨率
+	if (bitrate_kbps >= 4000 && fps <= 30) {
+		return US_H264_PROFILE_QUALITY;
+	}
+	
+	// 默认平衡模式
+	return US_H264_PROFILE_BALANCED;
+}
+
+// 档案转字符串
+const char* us_libx264_profile_to_string(us_h264_profile_e profile) {
+	static const char* profile_strings[] = {
+		"realtime", "balanced", "quality", "archive"
+	};
+	
+	if (profile >= 0 && profile < 4) {
+		return profile_strings[profile];
+	}
+	return "unknown";
+}
+
+// 调优选项转字符串
+const char* us_libx264_tune_to_string(us_h264_tune_e tune) {
+	static const char* tune_strings[] = {
+		"", "film", "animation", "grain", "stillimage",
+		"psnr", "ssim", "fastdecode", "zerolatency"
+	};
+	
+	if (tune >= 0 && tune < 9) {
+		return tune_strings[tune];
+	}
+	return "";
+}
+
+// 启用自适应质量控制
+us_h264_error_e us_libx264_encoder_enable_adaptive_quality(us_libx264_encoder_s *encoder, double target_fps) {
+	US_H264_CHECK_NOT_NULL(encoder, "Encoder");
+	US_H264_CHECK_PARAM(target_fps > 0, US_H264_ERROR_INVALID_PARAM, "Invalid target FPS: %f", target_fps);
+	
+	if (!atomic_load(&encoder->initialized)) {
+		return US_H264_ERROR_NOT_INITIALIZED;
+	}
+	
+	pthread_mutex_lock(&encoder->mutex);
+	
+	encoder->adaptive_quality.adaptation_enabled = true;
+	encoder->adaptive_quality.target_encode_time_ms = 1000.0 / target_fps * 0.8; // 80%的帧时间
+	encoder->adaptive_quality.current_profile = encoder->profile;
+	encoder->adaptive_quality.adaptation_counter = 0;
+	encoder->adaptive_quality.last_adaptation_time = us_get_now_monotonic_u64();
+	
+	pthread_mutex_unlock(&encoder->mutex);
+	
+	US_LOG_INFO("H264: Adaptive quality enabled, target: %.2f ms", 
+	           encoder->adaptive_quality.target_encode_time_ms);
+	
+	return US_H264_OK;
+}
+
+// 更新自适应质量控制
+us_h264_error_e us_libx264_encoder_update_adaptive_quality(us_libx264_encoder_s *encoder) {
+	if (!encoder || !encoder->adaptive_quality.adaptation_enabled) {
+		return US_H264_OK;
+	}
+	
+	us_adaptive_quality_s *aq = &encoder->adaptive_quality;
+	aq->adaptation_counter++;
+	
+	// 每30帧检查一次
+	if (aq->adaptation_counter % 30 != 0) {
+		return US_H264_OK;
+	}
+	
+	uint64_t now = us_get_now_monotonic_u64();
+	// 至少间隔10秒才能调整
+	if (now - aq->last_adaptation_time < 10000000) {
+		return US_H264_OK;
+	}
+	
+	bool changed = false;
+	
+	// 如果编码时间超过目标，降低质量档次
+	if (encoder->stats.avg_encode_time_ms > aq->target_encode_time_ms * 1.2) {
+		if (aq->current_profile > US_H264_PROFILE_REALTIME) {
+			aq->current_profile--;
+			changed = true;
+			US_LOG_INFO("H264: Adaptive quality decreased to %s (avg time: %.2fms > target: %.2fms)",
+			           us_libx264_profile_to_string(aq->current_profile),
+			           encoder->stats.avg_encode_time_ms, aq->target_encode_time_ms);
+		}
+	}
+	// 如果编码时间充裕，提升质量档次
+	else if (encoder->stats.avg_encode_time_ms < aq->target_encode_time_ms * 0.6) {
+		if (aq->current_profile < US_H264_PROFILE_ARCHIVE) {
+			aq->current_profile++;
+			changed = true;
+			US_LOG_INFO("H264: Adaptive quality increased to %s (avg time: %.2fms < target: %.2fms)",
+			           us_libx264_profile_to_string(aq->current_profile),
+			           encoder->stats.avg_encode_time_ms, aq->target_encode_time_ms);
+		}
+	}
+	
+	// 如果档次发生变化，更新预设并重置编码器
+	if (changed) {
+		const char* new_preset = us_libx264_get_preset_by_profile(aq->current_profile, encoder->width, encoder->height);
+		strncpy(encoder->preset, new_preset, sizeof(encoder->preset) - 1);
+		encoder->preset[sizeof(encoder->preset) - 1] = '\0';
+		encoder->profile = aq->current_profile;
+		
+		aq->last_adaptation_time = now;
+		
+		// 标记需要重置编码器（将在下次编码时重置）
+		if (encoder->handle) {
+			x264_encoder_close(encoder->handle);
+			encoder->handle = NULL;
+		}
+	}
+	
+	return US_H264_OK;
+}
+
 // 设置错误信息
 static void _us_libx264_encoder_set_error(us_libx264_encoder_s *encoder, us_h264_error_e error, const char *msg) {
 	if (!encoder) return;
@@ -163,13 +364,32 @@ us_h264_error_e us_libx264_encoder_create(us_libx264_encoder_s **encoder,
 	enc->gop_size = gop_size;
 	enc->max_consecutive_errors = 10;
 	
-	// 设置预设
+	// 计算FPS
+	enc->fps_num = (width <= 1280 && height <= 720) ? 60 : 30;
+	enc->fps_den = 1;
+	
+	// 智能预设选择
 	if (preset) {
+		// 用户指定预设
 		strncpy(enc->preset, preset, sizeof(enc->preset) - 1);
+		enc->auto_preset_enabled = false;
 	} else {
-		strncpy(enc->preset, "ultrafast", sizeof(enc->preset) - 1);
+		// 自动选择最优预设
+		const char* optimal_preset = us_libx264_select_optimal_preset(width, height, enc->fps_num, bitrate_kbps);
+		strncpy(enc->preset, optimal_preset, sizeof(enc->preset) - 1);
+		enc->auto_preset_enabled = true;
 	}
 	enc->preset[sizeof(enc->preset) - 1] = '\0';
+	
+	// 确定编码档案
+	enc->profile = us_libx264_determine_profile_by_usage(width, height, enc->fps_num, bitrate_kbps);
+	
+	// 设置调优选项（默认零延迟用于实时流）
+	enc->tune = (enc->profile == US_H264_PROFILE_REALTIME) ? US_H264_TUNE_ZEROLATENCY : US_H264_TUNE_NONE;
+	
+	// 初始化自适应质量控制
+	memset(&enc->adaptive_quality, 0, sizeof(enc->adaptive_quality));
+	enc->adaptive_quality.current_profile = enc->profile;
 	
 	// 初始化原子变量
 	atomic_init(&enc->initialized, false);
@@ -193,8 +413,10 @@ us_h264_error_e us_libx264_encoder_create(us_libx264_encoder_s **encoder,
 	atomic_store(&enc->initialized, true);
 	*encoder = enc;
 	
-	US_LOG_INFO("H264: Encoder created successfully (%dx%d @ %u kbps, preset: %s)",
-	           width, height, bitrate_kbps, enc->preset);
+	US_LOG_INFO("H264: Encoder created successfully (%dx%d @ %u kbps, fps: %d/%d, preset: %s, profile: %s, tune: %s)",
+	           width, height, bitrate_kbps, enc->fps_num, enc->fps_den, enc->preset,
+	           us_libx264_profile_to_string(enc->profile), 
+	           strlen(us_libx264_tune_to_string(enc->tune)) > 0 ? us_libx264_tune_to_string(enc->tune) : "none");
 	return US_H264_OK;
 }
 
@@ -209,9 +431,11 @@ static us_h264_error_e _us_libx264_encoder_init_internal(us_libx264_encoder_s *e
 		return US_H264_ERROR_MEMORY;
 	}
 	
-	// 设置默认预设
-	if (x264_param_default_preset(encoder->param, encoder->preset, NULL) < 0) {
-		US_LOG_ERROR("H264: Failed to set preset: %s", encoder->preset);
+	// 设置默认预设和调优选项
+	const char* tune_str = us_libx264_tune_to_string(encoder->tune);
+	if (x264_param_default_preset(encoder->param, encoder->preset, 
+	                              strlen(tune_str) > 0 ? tune_str : NULL) < 0) {
+		US_LOG_ERROR("H264: Failed to set preset: %s, tune: %s", encoder->preset, tune_str);
 		return US_H264_ERROR_ENCODER_INIT;
 	}
 	
@@ -227,8 +451,8 @@ static us_h264_error_e _us_libx264_encoder_setup_params(us_libx264_encoder_s *en
 	// 基本参数
 	param->i_width = encoder->width;
 	param->i_height = encoder->height;
-	param->i_fps_num = (encoder->width <= 1280 && encoder->height <= 720) ? 60 : 30;
-	param->i_fps_den = 1;
+	param->i_fps_num = encoder->fps_num;
+	param->i_fps_den = encoder->fps_den;
 	
 	// 日志设置
 	param->i_log_level = X264_LOG_NONE;
@@ -238,17 +462,65 @@ static us_h264_error_e _us_libx264_encoder_setup_params(us_libx264_encoder_s *en
 	param->rc.i_bitrate = encoder->bitrate_kbps;
 	param->rc.i_vbv_max_bitrate = encoder->bitrate_kbps;
 	param->rc.i_vbv_buffer_size = encoder->bitrate_kbps / 2;
-	param->rc.b_mb_tree = 0;
 	
-	// GOP设置
-	param->i_keyint_max = encoder->gop_size;
+	// 根据档案优化参数
+	switch (encoder->profile) {
+		case US_H264_PROFILE_REALTIME:
+			// 实时流优化：最快编码速度
+			param->i_keyint_max = encoder->fps_num * 2;     // 2秒GOP
+			param->i_keyint_min = encoder->fps_num / 2;     // 最小GOP
+			param->analyse.i_subpel_refine = 1;             // 快速子像素
+			param->analyse.b_mixed_references = 0;          // 禁用混合参考
+			param->analyse.i_trellis = 0;                   // 禁用trellis
+			param->rc.i_lookahead = 10;                     // 短前瞻
+			param->i_bframe = 0;                            // 禁用B帧
+			param->rc.b_mb_tree = 0;                        // 禁用mb-tree
+			break;
+			
+		case US_H264_PROFILE_BALANCED:
+			// 平衡模式：速度与质量平衡
+			param->i_keyint_max = encoder->gop_size;
+			param->i_keyint_min = encoder->fps_num;
+			param->analyse.i_me_method = X264_ME_HEX;       // 六边形搜索
+			param->analyse.i_subpel_refine = 3;             // 中等子像素精度
+			param->analyse.b_mixed_references = 1;
+			param->rc.i_lookahead = 20;
+			param->i_bframe = 2;                            // 适量B帧
+			param->rc.b_mb_tree = 1;
+			break;
+			
+		case US_H264_PROFILE_QUALITY:
+			// 高质量模式
+			param->i_keyint_max = encoder->gop_size;
+			param->i_keyint_min = encoder->fps_num;
+			param->analyse.i_me_method = X264_ME_UMH;       // UMH搜索
+			param->analyse.i_subpel_refine = 6;             // 高子像素精度
+			param->analyse.b_mixed_references = 1;
+			param->analyse.i_trellis = 1;                   // 启用trellis
+			param->rc.i_lookahead = 40;                     // 长前瞻
+			param->i_bframe = 3;
+			param->rc.b_mb_tree = 1;
+			break;
+			
+		case US_H264_PROFILE_ARCHIVE:
+			// 存档模式：最高质量
+			param->i_keyint_max = encoder->gop_size;
+			param->analyse.i_me_method = X264_ME_TESA;      // 最精确搜索
+			param->analyse.i_subpel_refine = 8;             // 最高子像素精度
+			param->analyse.i_trellis = 2;                   // 全trellis
+			param->rc.i_lookahead = 60;                     // 最长前瞻
+			param->i_bframe = 5;                            // 更多B帧
+			param->rc.b_mb_tree = 1;
+			break;
+	}
 	
 	// 头部重复
 	param->b_repeat_headers = 1;
 	
-	// 线程设置
-	param->i_threads = sysconf(_SC_NPROCESSORS_ONLN);
-	param->b_sliced_threads = 0;
+	// 智能线程设置
+	int optimal_threads = us_libx264_get_optimal_threads(encoder->width, encoder->height);
+	param->i_threads = optimal_threads;
+	param->b_sliced_threads = (optimal_threads > 2) ? 1 : 0;
 	
 	// 分配图像结构体
 	encoder->picture_in = calloc(1, sizeof(x264_picture_t));
@@ -462,6 +734,9 @@ us_h264_error_e us_libx264_encoder_compress(us_libx264_encoder_s *encoder,
 	// 更新统计信息
 	_us_libx264_encoder_update_stats(encoder, total_size);
 	encoder->consecutive_errors = 0; // 重置错误计数
+	
+	// 更新自适应质量控制
+	us_libx264_encoder_update_adaptive_quality(encoder);
 	
 cleanup:
 	US_H264_PERF_END(encoder, encode);

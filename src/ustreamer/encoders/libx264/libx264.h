@@ -23,6 +23,37 @@ typedef enum {
 	US_H264_ERROR_NOT_INITIALIZED = -9
 } us_h264_error_e;
 
+// 编码档案枚举
+typedef enum {
+	US_H264_PROFILE_REALTIME,    // 实时流：ultrafast
+	US_H264_PROFILE_BALANCED,    // 平衡：veryfast/faster
+	US_H264_PROFILE_QUALITY,     // 高质量：medium/slow
+	US_H264_PROFILE_ARCHIVE      // 存档：slow/slower
+} us_h264_profile_e;
+
+// H.264调优选项
+typedef enum {
+	US_H264_TUNE_NONE,
+	US_H264_TUNE_FILM,
+	US_H264_TUNE_ANIMATION,
+	US_H264_TUNE_GRAIN,
+	US_H264_TUNE_STILLIMAGE,
+	US_H264_TUNE_PSNR,
+	US_H264_TUNE_SSIM,
+	US_H264_TUNE_FASTDECODE,
+	US_H264_TUNE_ZEROLATENCY
+} us_h264_tune_e;
+
+// 自适应质量控制结构
+typedef struct {
+	us_h264_profile_e current_profile;
+	double target_encode_time_ms;    // 目标编码时间
+	double avg_encode_time_ms;       // 平均编码时间
+	uint32_t adaptation_counter;     // 适配计数器
+	bool adaptation_enabled;         // 是否启用自适应
+	uint64_t last_adaptation_time;   // 上次调整时间
+} us_adaptive_quality_s;
+
 // 编码统计信息
 typedef struct {
 	uint64_t frames_encoded;
@@ -47,6 +78,14 @@ typedef struct {
 	uint bitrate_kbps;
 	uint gop_size;
 	char preset[16];
+	us_h264_profile_e profile;
+	us_h264_tune_e tune;
+	int fps_num;
+	int fps_den;
+	
+	// 智能预设相关
+	us_adaptive_quality_s adaptive_quality;
+	bool auto_preset_enabled;
 	
 	// 状态管理
 	atomic_bool initialized;
@@ -85,6 +124,16 @@ void us_libx264_encoder_destroy(us_libx264_encoder_s *encoder);
 const char* us_h264_error_string(us_h264_error_e error);
 bool us_libx264_is_valid_preset(const char *preset);
 us_h264_error_e us_libx264_encoder_get_stats(us_libx264_encoder_s *encoder, us_h264_stats_s *stats);
+
+// 智能预设相关函数
+const char* us_libx264_select_optimal_preset(int width, int height, int fps, int bitrate_kbps);
+const char* us_libx264_get_preset_by_profile(us_h264_profile_e profile, int width, int height);
+int us_libx264_get_optimal_threads(int width, int height);
+us_h264_profile_e us_libx264_determine_profile_by_usage(int width, int height, int fps, int bitrate_kbps);
+us_h264_error_e us_libx264_encoder_enable_adaptive_quality(us_libx264_encoder_s *encoder, double target_fps);
+us_h264_error_e us_libx264_encoder_update_adaptive_quality(us_libx264_encoder_s *encoder);
+const char* us_libx264_profile_to_string(us_h264_profile_e profile);
+const char* us_libx264_tune_to_string(us_h264_tune_e tune);
 
 // 向后兼容的旧接口（已废弃）
 void us_libx264_encoder_init(us_libx264_encoder_s *enc, int frame_width, int frame_height, uint h264_bitrate, uint h264_gop, char *h264_preset) __attribute__((deprecated));
