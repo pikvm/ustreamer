@@ -4,7 +4,6 @@
 
 此分支作者建立了基于 [PiKVM](https://github.com/pikvm/pikvm) 项目的 [One-KVM](https://github.com/mofeng-git/One-KVM)，该项目旨在将 PiKVM 的功能扩展到其他平台，如 X86、ARM。故作者对 [µStreamer](https://github.com/pikvm/ustreamer) 进行了**分支**和**修改**：**添加 libx264 视频编码器**，以支持树莓派以外平台的 H.264 视频编码。
 
-
 ### 编译
 
 基于 Ubuntu/Debian 发行版，直接编译所需依赖：

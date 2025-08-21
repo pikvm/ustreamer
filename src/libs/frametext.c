@@ -80,24 +80,22 @@ To access the nth pixel in a row, right-shift by n.
     (0x0C >> 7) & 1 == 0---------------+
 */
 
-void us_frametext_draw(us_frametext_s *ft, const char *text1, const char *text2, uint width, uint height) {
+void us_frametext_draw(us_frametext_s *ft, const char *text, uint width, uint height) {
 	assert(width > 0);
 	assert(height > 0);
 
 	us_frame_s *const frame = ft->frame;
 
-	// 检查是否需要重新分配内存或重绘
 	if (
 		frame->width == width && frame->height == height
-		&& ft->text != NULL 
-		&& (strcmp(ft->text, text1) == 0 || strcmp(ft->text, text2) == 0)
+		&& ft->text != NULL && !strcmp(ft->text, text)
 	) {
 		return;
 	}
 
-	US_DELETE(ft->text, free); // 清除旧的文本
-
-	// 初始化新的帧数据
+	US_DELETE(ft->text, free);
+	ft->text = us_strdup(text);
+	strcpy(ft->text, text);
 	frame->width = width;
 	frame->height = height;
 	frame->format = V4L2_PIX_FMT_RGB24;
@@ -106,36 +104,56 @@ void us_frametext_draw(us_frametext_s *ft, const char *text1, const char *text2,
 	us_frame_realloc_data(frame, frame->used);
 	memset(frame->data, 0, frame->used);
 
-	// 计算每行的宽度和高度
-	uint block_width1 = strlen(text1) * 6;
-	uint block_height1 = 8;
-	uint block_width2 = strlen(text2) * 6;
-	uint block_height2 = 4;
+	if (frame->width == 0 || frame->height == 0) {
+		return;
+	}
 
-	// 计算缩放比例，使第一行更大，第二行更小
-	uint scale_x1 = (uint)((float)frame->width / 2 / block_width1 * 1); // 第一行更大的缩放比例
-	uint scale_y1 = (uint)((float)frame->height / 2  / (block_height1 + block_height2) * 0.5);
-	uint scale_x2 = (uint)((float)frame->width / 2 / block_width2 * 1); // 第二行更小的缩放比例
-	uint scale_y2 = (uint)((float)frame->height / 2 / (block_height1 + block_height2) * 0.2);
+	char *str = us_strdup(text);
+	char *line;
+	char *rest;
 
-	scale_x1 = US_MIN(scale_x1, scale_y1);
-	scale_x2 = US_MIN(scale_x2, scale_y2);
+	uint block_width = 0;
+	uint block_height = 0;
+	while ((line = strtok_r((block_height == 0 ? str : NULL), "\n", &rest)) != NULL) {
+		block_width = US_MAX(strlen(line) * 8, block_width);
+		block_height += 8;
+	}
+	if (block_width == 0 || block_height == 0) {
+		goto empty;
+	}
 
-	// 确保不会超出画面边界
-	scale_x1 = US_MIN(scale_x1, (uint)(frame->width / block_width1));
-	scale_y1 = US_MIN(scale_y1, (uint)(frame->height / block_height1));
-	scale_x2 = US_MIN(scale_x2, (uint)(frame->width / block_width2));
-	scale_y2 = US_MIN(scale_y2, (uint)(frame->height / block_height2));
+	// Ширина текста должна быть от 75%, до половины экрана, в зависимости от длины
+	const float div_x = US_MAX(US_MIN((100 / block_width * 2), 2.0), 1.5);
 
-	// 绘制第一行
-	const uint start_y1 = (frame->height - (block_height1 * scale_y1 + block_height2 * scale_y2)) / 2;
-	_frametext_draw_line(ft, text1, scale_x1, scale_y1, (frame->width - (strlen(text1) * 8 * scale_x1)) / 2, start_y1);
+	// Высоту тоже отрегулировать как-нибудь
+	const float div_y = US_MAX(US_MIN((70 / block_height * 2), 2.0), 1.5);
 
-	// 绘制第二行
-	const uint start_y2 = start_y1 + block_height1 * scale_y1;
-	_frametext_draw_line(ft, text2, scale_x2, scale_y2, (frame->width - (strlen(text2) * 8 * scale_x2)) / 2, start_y2);
+	uint scale_x = frame->width / block_width / div_x;
+	uint scale_y = frame->height / block_height / div_y;
+	if (scale_x < scale_y / 1.5) { // Keep proportions
+		scale_y = scale_x * 1.5;
+	} else if (scale_y < scale_x * 1.5) {
+		scale_x = scale_y / 1.5;
+	}
+
+	strcpy(str, text);
+
+	const uint start_y = (frame->height >= (block_height * scale_y)
+		? ((frame->height - (block_height * scale_y)) / 2)
+		: 0);
+	uint n_line = 0;
+	while ((line = strtok_r((n_line == 0 ? str : NULL), "\n", &rest)) != NULL) {
+		const uint line_width = strlen(line) * 8 * scale_x;
+		const uint start_x = (frame->width >= line_width
+			? ((frame->width - line_width) / 2)
+			: 0);
+		_frametext_draw_line(ft, line, scale_x, scale_y, start_x, start_y + n_line * 8 * scale_y);
+		++n_line;
+	}
+
+empty:
+	free(str);
 }
-
 
 void _frametext_draw_line(
 	us_frametext_s *ft, const char *line,

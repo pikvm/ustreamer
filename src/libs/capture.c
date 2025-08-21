@@ -48,6 +48,7 @@
 #include "threading.h"
 #include "frame.h"
 #include "xioctl.h"
+#include "tc358743.h"
 
 
 static const struct {
@@ -67,6 +68,9 @@ static const struct {
 	{"YUYV",	V4L2_PIX_FMT_YUYV},
 	{"YVYU",	V4L2_PIX_FMT_YVYU},
 	{"UYVY",	V4L2_PIX_FMT_UYVY},
+	{"YUV420",	V4L2_PIX_FMT_YUV420},
+	{"YVU420",	V4L2_PIX_FMT_YVU420},
+	{"GREY",	V4L2_PIX_FMT_GREY},
 	{"RGB565",	V4L2_PIX_FMT_RGB565},
 	{"RGB24",	V4L2_PIX_FMT_RGB24},
 	{"BGR24",	V4L2_PIX_FMT_BGR24},
@@ -190,12 +194,18 @@ int us_capture_open(us_capture_s *cap) {
 	_LOG_DEBUG("Capture device fd=%d opened", run->fd);
 
 	if (cap->dv_timings && cap->persistent) {
+		struct v4l2_control ctl = {.id = V4L2_CID_DV_RX_POWER_PRESENT};
+		if (!us_xioctl(run->fd, VIDIOC_G_CTRL, &ctl)) {
+			if (!ctl.value) {
+				goto error_no_cable;
+			}
+		}
 		_LOG_DEBUG("Probing DV-timings or QuerySTD ...");
-		if (_capture_open_dv_timings(cap, false) < 0) {
-			US_ONCE_FOR(run->open_error_once, __LINE__, {
-				_LOG_ERROR("No signal from source");
-			});
-			goto error_no_signal;
+		switch (_capture_open_dv_timings(cap, false)) {
+			case 0: break;
+			case US_ERROR_NO_SIGNAL: goto error_no_signal;
+			case US_ERROR_NO_SYNC: goto error_no_sync;
+			default: goto error;
 		}
 	}
 
@@ -212,6 +222,15 @@ int us_capture_open(us_capture_s *cap) {
 	}
 	if (_capture_open_format(cap, true) < 0) {
 		goto error;
+	}
+	if (cap->dv_timings && cap->persistent) {
+		struct v4l2_control ctl = {.id = TC358743_CID_LANES_ENOUGH};
+		if (!us_xioctl(run->fd, VIDIOC_G_CTRL, &ctl)) {
+			if (!ctl.value) {
+				_LOG_ERROR("Not enough lanes, hardware can't handle this signal");
+				goto error_no_lanes;
+			}
+		}
 	}
 	_capture_open_hw_fps(cap);
 	_capture_open_jpeg_quality(cap);
@@ -245,9 +264,23 @@ error_no_device:
 	us_capture_close(cap);
 	return US_ERROR_NO_DEVICE;
 
-error_no_signal:
+error_no_cable:
 	us_capture_close(cap);
-	return US_ERROR_NO_DATA;
+	return US_ERROR_NO_CABLE;
+
+error_no_signal:
+	US_ONCE_FOR(run->open_error_once, __LINE__, { _LOG_ERROR("No signal from source"); });
+	us_capture_close(cap);
+	return US_ERROR_NO_SIGNAL;
+
+error_no_sync:
+	US_ONCE_FOR(run->open_error_once, __LINE__, { _LOG_ERROR("No sync on signal"); });
+	us_capture_close(cap);
+	return US_ERROR_NO_SYNC;
+
+error_no_lanes:
+	us_capture_close(cap);
+	return US_ERROR_NO_LANES;
 
 error:
 	run->open_error_once = 0;
@@ -536,19 +569,28 @@ bool _capture_is_buffer_valid(const us_capture_s *cap, const struct v4l2_buffer 
 	if (us_is_jpeg(cap->run->format)) {
 		if (buf->bytesused < 125) {
 			// https://stackoverflow.com/questions/2253404/what-is-the-smallest-valid-jpeg-file-size-in-bytes
-			_LOG_DEBUG("Discarding invalid frame, too small to be a valid JPEG: bytesused=%u", buf->bytesused);
+			_LOG_DEBUG("Discarding invalid frame, too small to be a valid JPEG: bytesused=%u",
+				buf->bytesused);
 			return false;
 		}
 
-		const u8 *const end_ptr = data + buf->bytesused;
-		const u8 *const eoi_ptr = end_ptr - 2;
-		const u16 eoi_marker = (((u16)(eoi_ptr[0]) << 8) | eoi_ptr[1]);
-		if (eoi_marker != 0xFFD9 && eoi_marker != 0xD900 && eoi_marker != 0x0000) {
+		const u16 begin_marker = (((u16)(data[0]) << 8) | data[1]);
+		if (begin_marker != 0xFFD8) {
+			_LOG_DEBUG("Discarding JPEG frame with invalid header: begin_marker=0x%04x, bytesused=%u",
+				begin_marker, buf->bytesused);
+			return false;
+		}
+
+		const u8 *const end_ptr = data + buf->bytesused - 2;
+		const u16 end_marker = (((u16)(end_ptr[0]) << 8) | end_ptr[1]);
+		if (end_marker != 0xFFD9 && end_marker != 0xD900 && end_marker != 0x0000) {
 			if (!cap->allow_truncated_frames) {
-				_LOG_DEBUG("Discarding truncated JPEG frame: eoi_marker=0x%04x, bytesused=%u", eoi_marker, buf->bytesused);
+				_LOG_DEBUG("Discarding truncated JPEG frame: end_marker=0x%04x, bytesused=%u",
+					end_marker, buf->bytesused);
 				return false;
 			}
-			_LOG_DEBUG("Got truncated JPEG frame: eoi_marker=0x%04x, bytesused=%u", eoi_marker, buf->bytesused);
+			_LOG_DEBUG("Got truncated JPEG frame: end_marker=0x%04x, bytesused=%u",
+				end_marker, buf->bytesused);
 		}
 	}
 
@@ -617,6 +659,10 @@ static int _capture_open_dv_timings(us_capture_s *cap, bool apply) {
 		// TC358743 errors here (see in the kernel: drivers/media/i2c/tc358743.c):
 		//   - ENOLINK: No valid signal (SYS_STATUS & MASK_S_TMDS)
 		//   - ENOLCK:  No sync on signal (SYS_STATUS & MASK_S_SYNC)
+		switch (errno) {
+			case ENOLINK: return US_ERROR_NO_SIGNAL;
+			case ENOLCK: return US_ERROR_NO_SYNC;
+		}
 		dv_errno = errno;
 		goto querystd;
 	} else if (!apply) {

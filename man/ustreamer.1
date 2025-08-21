@@ -1,6 +1,6 @@
 .\" Manpage for ustreamer.
 .\" Open an issue or pull request to https://github.com/pikvm/ustreamer to correct errors or typos
-.TH USTREAMER 1 "version 6.27" "November 2020"
+.TH USTREAMER 1 "version 6.40" "November 2020"
 
 .SH NAME
 ustreamer \- stream MJPEG video from any V4L2 device to the network
@@ -52,7 +52,7 @@ Initial image resolution. Default: 640x480.
 .TP
 .BR \-m\ \fIfmt ", " \-\-format\ \fIfmt
 Image format.
-Available: YUYV, YVYU, UYVY, RGB565, RGB24, JPEG; default: YUYV.
+Available: YUYV, YVYU, UYVY, YUV420, YVU420, RGB565, RGB24, GREY, MJPEG, JPEG; default: YUYV.
 .TP
 .BR \-a\ \fIstd ", " \-\-tv\-standard\ \fIstd
 Force TV standard.
@@ -274,7 +274,10 @@ Timeout for lock. Default: 1.
 .SS "Process options"
 .TP
 .BR \-\-exit\-on\-parent\-death
-Exit the program if the parent process is dead. Required \fBHAS_PDEATHSIG\fR feature. Default: disabled.
+Exit the program if the parent process is dead. Required \fBWITH_PDEATHSIG\fR feature. Default: disabled.
+.TP
+.BR \-\-exit\-on\-device\-error
+Exit on any device error instead of polling until success. Default: disabled.
 .TP
 .BR \-\-exit\-on\-no\-clients \fIsec
 Exit the program if there have been no stream or sink clients or any HTTP requests in the last N seconds. Default: 0 (disabled).

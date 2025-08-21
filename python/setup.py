@@ -5,19 +5,36 @@ from setuptools import setup
 
 
 # =====
-def _find_sources(suffix: str) -> list[str]:
+def _find_sources() -> list[str]:
     sources: list[str] = []
     for (root_path, _, names) in os.walk("src"):
         for name in names:
-            if name.endswith(suffix):
+            if name.endswith(".c"):
                 sources.append(os.path.join(root_path, name))
     return sources
 
 
-if __name__ == "__main__":
+def _find_flags() -> dict[str, bool]:
+    return {
+        key[3:]: (value.strip().lower() in ["true", "on", "1"])
+        for (key, value) in sorted(os.environ.items())
+        if key.startswith("MK_WITH_")
+    }
+
+
+def _make_d_features(flags: dict[str, bool]) -> str:
+    features = " ".join([
+        f"{key}={int(value)}"
+        for (key, value) in flags.items()
+    ])
+    return f"-DUS_FEATURES=\"{features}\""
+
+
+def main() -> None:
+    flags = _find_flags()
     setup(
         name="ustreamer",
-        version="6.27",
+        version="6.40",
         description="uStreamer tools",
         author="Maxim Devaev",
         author_email="mdevaev@gmail.com",
@@ -26,9 +43,16 @@ if __name__ == "__main__":
             Extension(
                 "ustreamer",
                 libraries=["rt", "m", "pthread"],
-                extra_compile_args=["-std=c17", "-D_GNU_SOURCE"],
+                extra_compile_args=[
+                    "-std=c17", "-D_GNU_SOURCE",
+                    _make_d_features(flags),
+                ],
                 undef_macros=["NDEBUG"],
-                sources=_find_sources(".c"),
+                sources=_find_sources(),
             ),
         ],
     )
+
+
+if __name__ == "__main__":
+    main()

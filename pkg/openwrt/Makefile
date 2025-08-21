@@ -6,7 +6,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=ustreamer
-PKG_VERSION:=6.27
+PKG_VERSION:=6.40
 PKG_RELEASE:=1
 PKG_MAINTAINER:=Maxim Devaev <mdevaev@gmail.com>
 
@@ -25,7 +25,7 @@ define Package/ustreamer
   SECTION:=multimedia
   CATEGORY:=Multimedia
   TITLE:=uStreamer
-  DEPENDS:=+libpthread +libjpeg +libv4l +libbsd +libevent2 +libevent2-core +libevent2-extra +libevent2-pthreads
+  DEPENDS:=+libatomic +libpthread +libjpeg +libv4l +libbsd +libevent2 +libevent2-core +libevent2-extra +libevent2-pthreads
   URL:=https://github.com/pikvm/ustreamer
 endef
 

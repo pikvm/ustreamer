@@ -2,6 +2,7 @@ R_DESTDIR ?=
 PREFIX ?= /usr/local
 
 CC ?= gcc
+PKG_CONFIG ?= pkg-config
 CFLAGS ?= -O3
 LDFLAGS ?=
 
@@ -9,21 +10,20 @@ LDFLAGS ?=
 # =====
 _PLUGIN = libjanus_ustreamer.so
 
-_CFLAGS = -fPIC -MD -c -std=c17 -Wall -Wextra -D_GNU_SOURCE $(shell pkg-config --cflags glib-2.0) $(CFLAGS)
-_LDFLAGS = -shared -lm -pthread -lrt -ljansson -lopus -lasound -lspeexdsp $(shell pkg-config --libs glib-2.0) $(LDFLAGS)
+_CFLAGS = -fPIC -MD -c -std=c17 -Wall -Wextra -D_GNU_SOURCE $(shell $(PKG_CONFIG) --cflags glib-2.0) $(CFLAGS)
+_LDFLAGS = -shared -lm -pthread -lrt -ljansson -lopus -lasound -lspeexdsp $(shell $(PKG_CONFIG) --libs glib-2.0) $(LDFLAGS)
 
 _SRCS = $(shell ls src/uslibs/*.c src/*.c)
 
 _BUILD = build
 
 
-define optbool
-$(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
-endef
+# =====
+ifneq ($(shell sh -c 'uname 2>/dev/null || echo Unknown'),FreeBSD)
+override _LDFLAGS += -latomic
+endif
 
-
-WITH_PTHREAD_NP ?= 1
-ifneq ($(call optbool,$(WITH_PTHREAD_NP)),)
+ifneq ($(MK_WITH_PTHREAD_NP),)
 override _CFLAGS += -DWITH_PTHREAD_NP
 endif
 

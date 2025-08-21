@@ -139,7 +139,7 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 
 void us_stream_update_blank(us_stream_s *stream, const us_capture_s *cap) {
 	us_stream_runtime_s *const run = stream->run;
-	us_blank_draw(run->blank, "No Capture Device","Please connect capture device", cap->width, cap->height);
+	us_blank_draw(run->blank, "< NO LIVE VIDEO >", cap->width, cap->height);
 	us_fpsi_frame_to_meta(run->blank->raw, &run->notify_meta); // Initial "unchanged" meta
 	_stream_update_captured_fpsi(stream, run->blank->raw, false);
 }
@@ -554,6 +554,8 @@ static int _stream_init_loop(us_stream_s *stream) {
 
 	int once = 0;
 	while (!atomic_load(&stream->run->stop)) {
+		const char *blank_reason = "< NO LIVE VIDEO >";
+
 #		ifdef WITH_GPIO
 		us_gpio_set_stream_online(false);
 #		endif
@@ -579,17 +581,68 @@ static int _stream_init_loop(us_stream_s *stream) {
 		switch (us_capture_open(stream->cap)) {
 			case 0: break;
 			case US_ERROR_NO_DEVICE:
-			case US_ERROR_NO_DATA:
-				US_ONCE({ US_LOG_INFO("Waiting for the capture device ..."); });
-				goto offline_and_retry;
+				blank_reason = (
+					"< NO CAPTURE DEVICE >\n \n"
+					"  Possible reasons:  \n \n"
+					"  - Device unplugged \n \n"
+					"  - Bad config       \n \n"
+					"  - Malfunction      "
+				);
+				goto silent_error;
+			case US_ERROR_NO_CABLE:
+				blank_reason = (
+					"< NO VIDEO SOURCE >\n \n"
+					" Possible reasons: \n \n"
+					" - Source is off   \n \n"
+					" - Cable problems  "
+				);
+				goto silent_error;
+			case US_ERROR_NO_SIGNAL:
+				blank_reason = (
+					"< NO SIGNAL DETECTED >\n \n"
+					"   Possible reasons:  \n \n"
+                    "   - Video suspended  \n \n"
+					"   - Cable problems   "
+				);
+				goto silent_error;
+			case US_ERROR_NO_SYNC:
+				blank_reason = (
+					"< NO SYNC WITH SIGNAL >\n \n"
+					"   Possible reasons:   \n \n"
+					"   - Source is crazy   \n \n"
+					"   - Cable problems    "
+				);
+				goto silent_error;
+			case US_ERROR_NO_LANES:
+				blank_reason = (
+					"< UNSUPPORTED SIGNAL TIMINGS >\n \n"
+					"      Possible reasons:       \n \n"
+					"    - Too high frequency      \n \n"
+					"    - Source ignores EDID     \n \n"
+					"    - Invalid EDID            "
+				);
+				goto verbose_error;
 			default:
-				once = 0;
-				goto offline_and_retry;
+				goto verbose_error;
 		}
 		us_encoder_open(stream->enc, stream->cap);
 		return 0;
 
+	silent_error:
+		if (!stream->exit_on_device_error) {
+			US_ONCE({ US_LOG_INFO("Waiting for the capture device ..."); });
+		}
+		goto offline_and_retry;
+
+	verbose_error:
+		once = 0;
+		goto offline_and_retry;
+
 	offline_and_retry:
+		if (stream->exit_on_device_error) {
+			US_LOG_INFO("Device error, exiting ...");
+			us_process_suicide();
+		}
 		for (uint count = 0; count < stream->error_delay * 10; ++count) {
 			if (atomic_load(&run->stop)) {
 				break;
@@ -602,7 +655,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 					width = stream->cap->width;
 					height = stream->cap->height;
 				}
-				us_blank_draw(run->blank, "No Capture Device","Please connect capture device", width, height);
+				us_blank_draw(run->blank, blank_reason, width, height);
 
 				_stream_update_captured_fpsi(stream, run->blank->raw, false);
 				_stream_expose_jpeg(stream, run->blank->jpeg);

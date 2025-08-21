@@ -94,6 +94,7 @@ typedef struct {
 	bool			notify_parent;
 	bool			slowdown;
 	uint			error_delay;
+	bool			exit_on_device_error;
 	uint			exit_on_no_clients;
 
 	us_memsink_s	*jpeg_sink;

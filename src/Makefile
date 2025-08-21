@@ -2,6 +2,7 @@ R_DESTDIR ?=
 PREFIX ?= /usr/local
 
 CC ?= gcc
+PKG_CONFIG ?= pkg-config
 CFLAGS ?= -O3
 LDFLAGS ?=
 
@@ -13,9 +14,9 @@ _V4P = ustreamer-v4p.bin
 
 _CFLAGS = -MD -c -std=c17 -Wall -Wextra -D_GNU_SOURCE $(CFLAGS)
 
-_USTR_LDFLAGS = $(LDFLAGS) -Wl,-Bstatic -ljpeg -Wl,-Bdynamic -lm -pthread  -latomic -levent -levent_pthreads  -lrt -lm
-_DUMP_LDFLAGS = $(LDFLAGS) -Wl,-Bstatic -ljpeg -Wl,-Bdynamic -lm -pthread -lrt -latomic -lm
-_V4P_LDFLAGS = $(LDFLAGS)  -ljpeg -pthread -lrt -latomic
+_USTR_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt -levent -levent_pthreads
+_DUMP_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt
+_V4P_LDFLAGS = $(LDFLAGS) -lm -ljpeg -pthread -lrt
 
 _USTR_SRCS = $(shell ls \
 	libs/*.c \
@@ -40,28 +41,40 @@ _V4P_SRCS = $(shell ls \
 
 _BUILD = build
 
-
 _TARGETS = $(_USTR) $(_DUMP)
 _OBJS = $(_USTR_SRCS:%.c=$(_BUILD)/%.o) $(_DUMP_SRCS:%.c=$(_BUILD)/%.o)
 
 
-define optbool
-$(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
-endef
+# =====
+ifneq ($(shell sh -c 'uname 2>/dev/null || echo Unknown'),FreeBSD)
+override _USTR_LDFLAGS += -latomic
+override _DUMP_LDFLAGS += -latomic
+override _V4P_LDFLAGS += -latomic
+endif
 
+ifneq ($(MK_WITH_PYTHON),)
+override _CFLAGS += -DMK_WITH_PYTHON
+endif
 
-ifneq ($(call optbool,$(WITH_GPIO)),)
-override _CFLAGS += -DWITH_GPIO $(shell pkg-config --atleast-version=2 libgpiod 2> /dev/null && echo -DHAVE_GPIOD2)
-override _USTR_LDFLAGS += -Wl,-Bstatic -lgpiod -Wl,-Bdynamic
+ifneq ($(MK_WITH_JANUS),)
+override _CFLAGS += -DMK_WITH_JANUS
+endif
+
+ifneq ($(MK_WITH_GPIO),)
+override _CFLAGS += -DMK_WITH_GPIO -DWITH_GPIO $(shell $(PKG_CONFIG) --atleast-version=2 libgpiod 2> /dev/null && echo -DHAVE_GPIOD2)
+override _USTR_LDFLAGS += -lgpiod
 override _USTR_SRCS += $(shell ls ustreamer/gpio/*.c)
 endif
 
-
-ifneq ($(call optbool,$(WITH_SYSTEMD)),)
-override _CFLAGS += -DWITH_SYSTEMD
+ifneq ($(MK_WITH_SYSTEMD),)
+override _CFLAGS += -DMK_WITH_SYSTEMD -DWITH_SYSTEMD
 override _USTR_LDFLAGS += -lsystemd
 override _USTR_SRCS += $(shell ls ustreamer/http/systemd/*.c)
 endif
+
+define optbool
+$(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
+endef
 
 ifneq ($(call optbool,$(WITH_LIBX264)),)
 override _CFLAGS += -DWITH_LIBX264
@@ -80,7 +93,6 @@ ifneq ($(call optbool,$(WITH_PTHREAD_NP)),)
 override _CFLAGS += -DWITH_PTHREAD_NP
 endif
 
-
 WITH_SETPROCTITLE ?= 1
 ifneq ($(call optbool,$(WITH_SETPROCTITLE)),)
 override _CFLAGS += -DWITH_SETPROCTITLE
@@ -89,15 +101,17 @@ override _USTR_LDFLAGS += -lbsd
 endif
 endif
 
+ifneq ($(MK_WITH_PDEATHSIG),)
+override _CFLAGS += -DMK_WITH_PDEATHSIG -DWITH_PDEATHSIG
+endif
 
-WITH_V4P ?= 0
-ifneq ($(call optbool,$(WITH_V4P)),)
+ifneq ($(MK_WITH_V4P),)
 override _TARGETS += $(_V4P)
 override _OBJS += $(_V4P_SRCS:%.c=$(_BUILD)/%.o)
-override _CFLAGS += -DWITH_V4P $(shell pkg-config --cflags libdrm)
-override _V4P_LDFLAGS += $(shell pkg-config --libs libdrm)
+override _CFLAGS += -DMK_WITH_V4P -DWITH_V4P $(shell $(PKG_CONFIG) --cflags libdrm)
+override _V4P_LDFLAGS += $(shell $(PKG_CONFIG) --libs libdrm)
 override _USTR_SRCS += $(shell ls libs/drm/*.c)
-override _USTR_LDFLAGS += $(shell pkg-config --libs libdrm)
+override _USTR_LDFLAGS += $(shell $(PKG_CONFIG) --libs libdrm)
 endif
 
 
