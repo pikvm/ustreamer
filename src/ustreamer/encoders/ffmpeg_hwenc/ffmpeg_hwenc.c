@@ -204,9 +204,8 @@ us_hwenc_error_e us_ffmpeg_hwenc_create(us_ffmpeg_hwenc_s **encoder,
 		av_dict_set(&opts, "profile", "baseline", 0);
 		av_dict_set(&opts, "crf", "23", 0);  // 默认质量
 	} else if (type == US_HWENC_VAAPI) {
-		// VAAPI硬件编码器选项 - 最小化配置，最大兼容性
-		av_dict_set(&opts, "rc_mode", "CQP", 0);               // 固定量化参数
-		av_dict_set(&opts, "qp", "23", 0);                     // 量化参数
+		// VAAPI硬件编码器选项 - 使用CBR模式确保码率生效
+		av_dict_set(&opts, "rc_mode", "CBR", 0);               // 恒定码率模式
 		av_dict_set(&opts, "packed_headers", "none", 0);       // 禁用打包头
 		// 不设置profile和level，让驱动自动选择最兼容的配置
 	} else if (type == US_HWENC_NVENC) {
