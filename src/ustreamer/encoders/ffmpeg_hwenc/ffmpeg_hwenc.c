@@ -207,6 +207,11 @@ us_hwenc_error_e us_ffmpeg_hwenc_create(us_ffmpeg_hwenc_s **encoder,
 		// VAAPI硬件编码器选项 - 使用CBR模式确保码率生效
 		av_dict_set(&opts, "rc_mode", "CBR", 0);               // 恒定码率模式
 		av_dict_set(&opts, "packed_headers", "none", 0);       // 禁用打包头
+		// 设置关键帧间隔，确保关键帧生成
+		char gop_str[16];
+		snprintf(gop_str, sizeof(gop_str), "%u", gop_size);
+		av_dict_set(&opts, "g", gop_str, 0);                  // 设置GOP大小
+		av_dict_set(&opts, "keyint_min", gop_str, 0);         // 设置最小关键帧间隔
 		// 不设置profile和level，让驱动自动选择最兼容的配置
 	} else if (type == US_HWENC_NVENC) {
 		av_dict_set(&opts, "preset", "fast", 0);
@@ -472,12 +477,14 @@ us_hwenc_error_e us_ffmpeg_hwenc_compress(us_ffmpeg_hwenc_s *encoder,
 		yuv_frame->data, yuv_frame->linesize);
 
 	// 设置帧时间戳
-	yuv_frame->pts = encoder->frame_number++;
-
-	// 强制关键帧
-	if (force_key) {
+	yuv_frame->pts = encoder->frame_number;
+	
+	// 强制关键帧（第一帧或明确请求）
+	if (force_key || encoder->frame_number == 0) {
 		yuv_frame->pict_type = AV_PICTURE_TYPE_I;
 	}
+	
+	encoder->frame_number++;
 
 	AVFrame *hw_frame = yuv_frame;
 	
@@ -522,7 +529,7 @@ us_hwenc_error_e us_ffmpeg_hwenc_compress(us_ffmpeg_hwenc_s *encoder,
 		}
 		
 		hw_frame->pts = yuv_frame->pts;
-		if (force_key) {
+		if (force_key || yuv_frame->pict_type == AV_PICTURE_TYPE_I) {
 			hw_frame->pict_type = AV_PICTURE_TYPE_I;
 		}
 	}
@@ -586,6 +593,10 @@ us_hwenc_error_e us_ffmpeg_hwenc_compress(us_ffmpeg_hwenc_s *encoder,
 		double encode_time_ms = (end_time - start_time) / 1000.0;
 		encoder->stats.total_encode_time_ms += encode_time_ms;
 		encoder->stats.avg_encode_time_ms = encoder->stats.total_encode_time_ms / encoder->stats.frames_encoded;
+		
+		// 检查是否是关键帧并设置标记
+		bool is_keyframe = (encoder->pkt->flags & AV_PKT_FLAG_KEY) != 0;
+		dest->key = is_keyframe ? 1 : 0;
 		
 		US_LOG_DEBUG("HWENC: Encoded frame %lu, size: %d bytes, time: %.2fms", 
 		           encoder->stats.frames_encoded, encoder->pkt->size, encode_time_ms);
