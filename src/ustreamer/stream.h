@@ -33,8 +33,8 @@
 #include "../libs/memsink.h"
 #include "../libs/capture.h"
 #include "../libs/fpsi.h"
-#ifdef WITH_LIBX264
-#	include <x264.h>
+#ifdef WITH_FFMPEG
+#	include "encoders/ffmpeg_hwenc/ffmpeg_hwenc.h"
 #endif
 #ifdef WITH_V4P
 #	include "../libs/drm/drm.h"
@@ -45,9 +45,6 @@
 #include "m2m.h"
 #ifdef WITH_MEDIACODEC
 #	include "encoders/android_mediacodec/android_mediacodec.h"
-#endif
-#ifdef WITH_LIBX264
-#	include "encoders/libx264/libx264.h"
 #endif
 
 typedef struct {
@@ -73,8 +70,8 @@ typedef struct {
 #ifdef WITH_MEDIACODEC
 	us_android_bridge_encoder_s android_bridge_enc;
 #endif
-#ifdef WITH_LIBX264
-	us_libx264_encoder_s libx264_enc;
+#ifdef WITH_FFMPEG
+	us_ffmpeg_hwenc_s *ffmpeg_enc;
 #endif
 	us_frame_s			*h264_tmp_src;
 	us_frame_s			*h264_dest;
@@ -105,8 +102,10 @@ typedef struct {
 	uint			h264_gop;
 	char			*h264_m2m_path;
 
-#	ifdef WITH_LIBX264
+#	ifdef WITH_FFMPEG
 	char			*h264_preset;
+	char			*h264_hwenc;
+	bool			h264_hwenc_fallback;
 #	endif
 
 #	ifdef WITH_V4P

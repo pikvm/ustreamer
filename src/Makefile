@@ -76,10 +76,10 @@ define optbool
 $(filter $(shell echo $(1) | tr A-Z a-z), yes on 1)
 endef
 
-ifneq ($(call optbool,$(WITH_LIBX264)),)
-override _CFLAGS += -DWITH_LIBX264
-override _USTR_LDFLAGS += -Wl,-Bstatic -lyuv -Wl,-Bdynamic -lx264
-override _USTR_SRCS += $(shell ls ustreamer/encoders/libx264/*.c)
+ifneq ($(call optbool,$(WITH_FFMPEG)),)
+override _CFLAGS += -DWITH_FFMPEG
+override _USTR_LDFLAGS += -lavcodec -lavformat -lavutil -lswscale
+override _USTR_SRCS += $(shell ls ustreamer/encoders/ffmpeg_hwenc/*.c)
 endif
 
 ifneq ($(call optbool,$(WITH_MEDIACODEC)),)
@@ -134,23 +134,23 @@ install-strip: install
 
 $(_USTR): $(_USTR_SRCS:%.c=$(_BUILD)/%.o)
 	$(info == LD $@)
-	$(ECHO) $(CC) $^ -o $@ $(_USTR_LDFLAGS)
+	$(CC) $^ -o $@ $(_USTR_LDFLAGS)
 
 
 $(_DUMP): $(_DUMP_SRCS:%.c=$(_BUILD)/%.o)
 	$(info == LD $@)
-	$(ECHO) $(CC) $^ -o $@ $(_DUMP_LDFLAGS)
+	$(CC) $^ -o $@ $(_DUMP_LDFLAGS)
 
 
 $(_V4P): $(_V4P_SRCS:%.c=$(_BUILD)/%.o)
 	$(info == LD $@)
-	$(ECHO) $(CC) $^ -o $@ $(_V4P_LDFLAGS)
+	$(CC) $^ -o $@ $(_V4P_LDFLAGS)
 
 
 $(_BUILD)/%.o: %.c
 	$(info -- CC $<)
-	$(ECHO) mkdir -p $(dir $@) || true
-	$(ECHO) $(CC) $< -o $@ $(_CFLAGS)
+	@mkdir -p $(dir $@) || true
+	$(CC) $< -o $@ $(_CFLAGS)
 
 
 clean:

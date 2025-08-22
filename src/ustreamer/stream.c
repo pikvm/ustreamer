@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
+#include <string.h>
 
 #include <pthread.h>
 
@@ -44,7 +45,7 @@
 #include "../libs/capture.h"
 #include "../libs/unjpeg.h"
 #include "../libs/fpsi.h"
-#ifdef WITH_LIBX264
+#ifdef WITH_FFMPEG
 #	include <x264.h>
 #endif
 
@@ -59,8 +60,8 @@
 #ifdef WITH_MEDIACODEC
 #	include "encoders/android_mediacodec/android_mediacodec.h"
 #endif
-#ifdef WITH_LIBX264
-#	include "encoders/libx264/libx264.h"
+#ifdef WITH_FFMPEG
+#	include "encoders/ffmpeg_hwenc/ffmpeg_hwenc.h"
 #endif
 #ifdef WITH_GPIO
 #	include "gpio/gpio.h"
@@ -168,9 +169,50 @@ void us_stream_loop(us_stream_s *stream) {
 		run->h264_dest = us_frame_init();
 		run->h264_enc = us_m2m_h264_encoder_init("H264", stream->h264_m2m_path, stream->h264_bitrate, stream->h264_gop);
 	}
-#ifdef WITH_LIBX264
-	if (stream->h264_sink != NULL && stream->enc->type == US_ENCODER_TYPE_LIBX264_VIDEO) {
-		us_libx264_encoder_init(&run->libx264_enc, cap->width, cap->height, stream->h264_bitrate, stream->h264_gop, stream->h264_preset);
+#ifdef WITH_FFMPEG
+	if (stream->h264_sink != NULL && stream->enc->type == US_ENCODER_TYPE_FFMPEG_VIDEO) {
+		US_LOG_INFO("H264: Initializing FFmpeg hardware encoder ...");
+		
+		// 解析硬件编码器类型
+		us_hwenc_type_e hwenc_type = US_HWENC_LIBX264; // 默认软件编码
+		if (stream->h264_hwenc != NULL) {
+			if (strcasecmp(stream->h264_hwenc, "vaapi") == 0) {
+				hwenc_type = US_HWENC_VAAPI;
+			} else if (strcasecmp(stream->h264_hwenc, "nvenc") == 0) {
+				hwenc_type = US_HWENC_NVENC;
+			} else if (strcasecmp(stream->h264_hwenc, "amf") == 0) {
+				hwenc_type = US_HWENC_AMF;
+			} else if (strcasecmp(stream->h264_hwenc, "v4l2m2m") == 0) {
+				hwenc_type = US_HWENC_V4L2_M2M;
+			} else if (strcasecmp(stream->h264_hwenc, "mediacodec") == 0) {
+				hwenc_type = US_HWENC_MEDIACODEC;
+			} else if (strcasecmp(stream->h264_hwenc, "videotoolbox") == 0) {
+				hwenc_type = US_HWENC_VIDEOTOOLBOX;
+			}
+		}
+		
+		us_hwenc_error_e error = us_ffmpeg_hwenc_create(&run->ffmpeg_enc, hwenc_type, 
+			cap->width, cap->height, stream->h264_bitrate, stream->h264_gop);
+		
+		if (error != US_HWENC_OK) {
+			US_LOG_ERROR("H264: Failed to initialize FFmpeg encoder: %s", us_hwenc_error_string(error));
+			if (stream->h264_hwenc_fallback && hwenc_type != US_HWENC_LIBX264) {
+				US_LOG_INFO("H264: Falling back to software encoding ...");
+				error = us_ffmpeg_hwenc_create(&run->ffmpeg_enc, US_HWENC_LIBX264,
+					cap->width, cap->height, stream->h264_bitrate, stream->h264_gop);
+				if (error == US_HWENC_OK) {
+					US_LOG_INFO("H264: Software encoder initialized successfully");
+				} else {
+					US_LOG_ERROR("H264: Software encoder fallback failed: %s", us_hwenc_error_string(error));
+					run->ffmpeg_enc = NULL;
+				}
+			} else {
+				run->ffmpeg_enc = NULL;
+			}
+		} else {
+			US_LOG_INFO("H264: FFmpeg encoder (%s) initialized successfully", 
+				us_hwenc_type_to_string(hwenc_type));
+		}
 	}
 #endif
 #ifdef WITH_MEDIACODEC
@@ -291,8 +333,10 @@ void us_stream_loop(us_stream_s *stream) {
 #ifdef WITH_MEDIACODEC
 	if (stream->h264_sink != NULL && stream->enc->type == US_ENCODER_TYPE_MEDIACODEC_VIDEO) us_android_mediacodec_destroy(&run->android_bridge_enc);
 #endif
-#ifdef WITH_LIBX264
-	if (stream->h264_sink != NULL && stream->enc->type == US_ENCODER_TYPE_LIBX264_VIDEO) us_libx264_encoder_destroy(&run->libx264_enc);
+#ifdef WITH_FFMPEG
+	if (stream->h264_sink != NULL && stream->enc->type == US_ENCODER_TYPE_FFMPEG_VIDEO) {
+		US_DELETE(run->ffmpeg_enc, us_ffmpeg_hwenc_destroy);
+	}
 #endif
 	US_DELETE(run->h264_tmp_src, us_frame_destroy);
 	US_DELETE(run->h264_dest, us_frame_destroy);
@@ -751,14 +795,14 @@ static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *fr
 		force_key = true;
 	}
 
-#if !defined(WITH_LIBX264) && !defined(WITH_MEDIACODEC)
+#if !defined(WITH_FFMPEG) && !defined(WITH_MEDIACODEC)
 if (!us_m2m_encoder_compress(run->h264_enc, frame, run->h264_dest, force_key)) {
 	meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
 }
 #else
 	if (
-		#if defined(WITH_LIBX264)
-			stream->enc->type != US_ENCODER_TYPE_LIBX264_VIDEO &&
+		#if defined(WITH_FFMPEG)
+			stream->enc->type != US_ENCODER_TYPE_FFMPEG_VIDEO &&
 		#endif
 		#if defined(WITH_MEDIACODEC)
 			stream->enc->type != US_ENCODER_TYPE_MEDIACODEC_VIDEO &&
@@ -767,10 +811,16 @@ if (!us_m2m_encoder_compress(run->h264_enc, frame, run->h264_dest, force_key)) {
 		meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
 	}
 
-#ifdef WITH_LIBX264
-	else if (stream->enc->type == US_ENCODER_TYPE_LIBX264_VIDEO && 
-				!us_libx264_encoder_compress(&run->libx264_enc, frame, run->h264_dest, force_key)) {
-		meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
+#ifdef WITH_FFMPEG
+	else if (stream->enc->type == US_ENCODER_TYPE_FFMPEG_VIDEO && run->ffmpeg_enc != NULL) {
+		US_LOG_VERBOSE("H264: Compressing frame using FFmpeg encoder");
+		
+		us_hwenc_error_e error = us_ffmpeg_hwenc_compress(run->ffmpeg_enc, frame, run->h264_dest, force_key);
+		if (error == US_HWENC_OK) {
+			meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
+		} else {
+			US_LOG_ERROR("H264: FFmpeg compression failed: %s", us_hwenc_error_string(error));
+		}
 	}
 #endif
 
