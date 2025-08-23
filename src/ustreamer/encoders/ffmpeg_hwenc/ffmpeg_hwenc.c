@@ -24,6 +24,11 @@
 
 #include "ffmpeg_hwenc.h"
 
+// CPU核心数检测相关头文件
+#ifdef __linux__
+#include <unistd.h>
+#endif
+
 // 参数验证宏
 #define US_HWENC_CHECK_PARAM(cond, error, msg, ...) \
 	do { \
@@ -75,6 +80,68 @@ const char* us_hwenc_type_to_string(us_hwenc_type_e type) {
 }
 
 #ifdef WITH_FFMPEG
+
+// 获取CPU核心数
+static int _get_cpu_core_count() {
+	int cpu_count = 1;
+	
+#ifdef __linux__
+	cpu_count = (int)sysconf(_SC_NPROCESSORS_ONLN);  // 获取在线 CPU 核心数
+	if (cpu_count <= 0) {
+		cpu_count = 1;
+	}
+#elif defined(_WIN32)
+	SYSTEM_INFO sysinfo;
+	GetSystemInfo(&sysinfo);
+	cpu_count = sysinfo.dwNumberOfProcessors;
+#else
+	// 其他平台默认为1核心
+	cpu_count = 1;
+#endif
+	
+	return cpu_count;
+}
+
+// 根据preset和CPU核心数获取最佳线程数
+static int _get_optimal_threads_by_preset(const char *preset, int width, int height) {
+	int cpu_cores = _get_cpu_core_count();
+	int optimal_threads;
+	
+	// 所有设备都充分利用CPU核心，但有上限
+	// 基本原则：线程数 = CPU核心数，但不超过合理上限
+	optimal_threads = cpu_cores;
+	
+	// 根据preset调整线程策略
+	if (!preset || strcmp(preset, "ultrafast") == 0) {
+		// ultrafast: 使用所有核心，但限制在合理范围内
+		optimal_threads = cpu_cores;
+	} else if (strcmp(preset, "veryfast") == 0 || strcmp(preset, "faster") == 0) {
+		// veryfast/faster: 可以使用更多线程因为编码复杂度中等
+		optimal_threads = cpu_cores;
+	} else if (strcmp(preset, "fast") == 0 || strcmp(preset, "medium") == 0) {
+		// fast/medium: 编码复杂度高，可以充分利用所有核心
+		optimal_threads = cpu_cores;
+	} else {
+		// slow/slower/veryslow: 最复杂编码，可以使用所有核心
+		optimal_threads = cpu_cores;
+	}
+	
+	// 根据分辨率进行微调
+	int pixel_count = width * height;
+	if (pixel_count > 1920 * 1080) {
+		// 4K及以上分辨率，可以适当增加线程数
+		optimal_threads = cpu_cores + 2;
+	} else if (pixel_count < 320 * 240) {
+		// 非常低的分辨率，可以适当减少线程数
+		optimal_threads = (cpu_cores > 2) ? cpu_cores / 2 : cpu_cores;
+	}
+	
+	// 设置合理的上限和下限
+	if (optimal_threads < 1) optimal_threads = 1;
+	if (optimal_threads > 16) optimal_threads = 16;  // 防止过多线程导致开销
+	
+	return optimal_threads;
+}
 
 // 获取硬件设备类型
 static const char* _get_hw_device_type(us_hwenc_type_e type) {
@@ -198,7 +265,7 @@ us_hwenc_error_e us_ffmpeg_hwenc_create(us_ffmpeg_hwenc_s **encoder,
 	// 设置编码器选项
 	AVDictionary *opts = NULL;
 	if (type == US_HWENC_LIBX264) {
-		// libx264软件编码器选项
+		// libx264软件编码器选项 - 基础设置
 		av_dict_set(&opts, "preset", "ultrafast", 0);
 		av_dict_set(&opts, "tune", "zerolatency", 0);
 		av_dict_set(&opts, "profile", "baseline", 0);
@@ -323,14 +390,36 @@ us_hwenc_error_e us_ffmpeg_hwenc_create_with_preset(us_ffmpeg_hwenc_s **encoder,
                                                    int width, int height,
                                                    uint bitrate_kbps, uint gop_size,
                                                    const char *preset, const char *tune, const char *profile) {
-	// 首先创建基础编码器
-	us_hwenc_error_e result = us_ffmpeg_hwenc_create(encoder, type, width, height, bitrate_kbps, gop_size);
-	if (result != US_HWENC_OK) {
-		return result;
+	if (!encoder) {
+		US_LOG_ERROR("HWENC: Encoder pointer is NULL");
+		return US_HWENC_ERROR_INVALID_PARAM;
 	}
 	
-	us_ffmpeg_hwenc_s *enc = *encoder;
-	
+	*encoder = NULL;
+
+	// 分配编码器结构体
+	us_ffmpeg_hwenc_s *enc = calloc(1, sizeof(us_ffmpeg_hwenc_s));
+	if (!enc) {
+		US_LOG_ERROR("HWENC: Failed to allocate encoder structure");
+		return US_HWENC_ERROR_MEMORY;
+	}
+
+	// 初始化互斥锁
+	if (pthread_mutex_init(&enc->mutex, NULL) != 0) {
+		US_LOG_ERROR("HWENC: Failed to initialize mutex");
+		free(enc);
+		return US_HWENC_ERROR_MEMORY;
+	}
+	enc->mutex_initialized = true;
+
+	// 设置基础参数
+	enc->type = type;
+	enc->width = width;
+	enc->height = height;
+	enc->bitrate_kbps = bitrate_kbps;
+	enc->gop_size = gop_size;
+	strncpy(enc->codec_name, us_ffmpeg_hwenc_get_codec_name(type), sizeof(enc->codec_name) - 1);
+
 	// 保存libx264预设参数
 	if (preset) {
 		strncpy(enc->preset, preset, sizeof(enc->preset) - 1);
@@ -344,49 +433,241 @@ us_hwenc_error_e us_ffmpeg_hwenc_create_with_preset(us_ffmpeg_hwenc_s **encoder,
 		strncpy(enc->profile, profile, sizeof(enc->profile) - 1);
 		enc->profile[sizeof(enc->profile) - 1] = '\0';
 	}
-	
-	// 对于libx264，需要重新配置编码器选项
-	if (type == US_HWENC_LIBX264 && (preset || tune || profile)) {
-		// 关闭当前编码器
-		avcodec_close(enc->ctx);
+
+	// 查找编码器
+	const AVCodec *codec = avcodec_find_encoder_by_name(enc->codec_name);
+	if (!codec) {
+		US_LOG_ERROR("HWENC: Codec %s not found", enc->codec_name);
+		us_ffmpeg_hwenc_destroy(enc);
+		return US_HWENC_ERROR_ENCODER_INIT;
+	}
+
+	// 创建编码器上下文
+	enc->ctx = avcodec_alloc_context3(codec);
+	if (!enc->ctx) {
+		US_LOG_ERROR("HWENC: Failed to allocate codec context");
+		us_ffmpeg_hwenc_destroy(enc);
+		return US_HWENC_ERROR_MEMORY;
+	}
+
+	// 配置编码器参数
+	enc->ctx->width = width;
+	enc->ctx->height = height;
+	enc->ctx->time_base = (AVRational){1, 25};
+	enc->ctx->framerate = (AVRational){25, 1};
+	enc->ctx->bit_rate = bitrate_kbps * 1000;
+	enc->ctx->gop_size = gop_size;
+	enc->ctx->max_b_frames = 0;
+	enc->ctx->pix_fmt = AV_PIX_FMT_YUV420P;
+
+	// 设置编码器选项
+	AVDictionary *opts = NULL;
+	if (type == US_HWENC_LIBX264) {
+		// 根据用户preset优化libx264参数
+		const char *use_preset = preset ? preset : "ultrafast";
+		int thread_count = _get_optimal_threads_by_preset(use_preset, width, height);
 		
-		// 重新配置编码器选项
-		AVDictionary *opts = NULL;
-		if (preset && strlen(preset) > 0) {
-			av_dict_set(&opts, "preset", preset, 0);
+		// 设置线程数
+		char threads_str[8];
+		snprintf(threads_str, sizeof(threads_str), "%d", thread_count);
+		av_dict_set(&opts, "threads", threads_str, 0);
+		
+		// 设置preset
+		av_dict_set(&opts, "preset", use_preset, 0);
+		
+		// 设置tune
+		const char *use_tune = tune ? tune : "zerolatency";
+		av_dict_set(&opts, "tune", use_tune, 0);
+		
+		// 设置profile
+		const char *use_profile = profile ? profile : "baseline";
+		av_dict_set(&opts, "profile", use_profile, 0);
+		
+		// 根据preset优化编码复杂度参数（但保持充分利用多核心）
+		if (strcmp(use_preset, "ultrafast") == 0) {
+			// 低性能设备：降低编码复杂度而非线程数
+			av_dict_set(&opts, "crf", "26", 0);     // 适当限制质量减少计算量
+			av_dict_set(&opts, "me_method", "dia", 0);  // 最快运动估计算法
+			av_dict_set(&opts, "subme", "1", 0);    // 最低子像素运动估计
+			av_dict_set(&opts, "refs", "1", 0);     // 单参考帧减少内存使用
+			av_dict_set(&opts, "trellis", "0", 0);  // 禁用trellis量化节省CPU
+			av_dict_set(&opts, "rc_lookahead", "0", 0); // 禁用前瞻减少延迟
+			av_dict_set(&opts, "mixed_refs", "0", 0);   // 禁用混合参考
+			av_dict_set(&opts, "8x8dct", "0", 0);       // 禁用8x8 DCT变换
+			av_dict_set(&opts, "cabac", "0", 0);        // 禁用CABAC熔码
+			av_dict_set(&opts, "deblock", "0:0", 0);    // 禁用去块效滤器
+		} else if (strcmp(use_preset, "veryfast") == 0 || strcmp(use_preset, "faster") == 0) {
+			// 中等性能设备：适度的编码复杂度
+			av_dict_set(&opts, "crf", "24", 0);
+			av_dict_set(&opts, "me_method", "hex", 0);  // 六边形运动估计
+			av_dict_set(&opts, "subme", "2", 0);    // 低级子像素运动估计
+			av_dict_set(&opts, "refs", "2", 0);     // 双参考帧
+			av_dict_set(&opts, "rc_lookahead", "10", 0); // 少量前瞻
+			av_dict_set(&opts, "trellis", "0", 0);  // 仍禁用trellis保持速度
+		} else if (strcmp(use_preset, "fast") == 0) {
+			// 高性能设备：更好的质量设置
+			av_dict_set(&opts, "crf", "22", 0);
+			av_dict_set(&opts, "me_method", "umh", 0);  // 非对称多六边形运动估计
+			av_dict_set(&opts, "subme", "4", 0);    // 中级子像素运动估计
+			av_dict_set(&opts, "refs", "3", 0);     // 三参考帧
+			av_dict_set(&opts, "rc_lookahead", "20", 0); // 适度前瞻
+			av_dict_set(&opts, "trellis", "1", 0);  // 启用基础trellis
 		} else {
-			av_dict_set(&opts, "preset", "ultrafast", 0);
-		}
-		if (tune && strlen(tune) > 0) {
-			av_dict_set(&opts, "tune", tune, 0);
-		} else {
-			av_dict_set(&opts, "tune", "zerolatency", 0);
-		}
-		if (profile && strlen(profile) > 0) {
-			av_dict_set(&opts, "profile", profile, 0);
-		} else {
-			av_dict_set(&opts, "profile", "baseline", 0);
+			// medium及更慢预设：最优质量设置
+			av_dict_set(&opts, "crf", "20", 0);     // 更低的CRF获得更好质量
+			av_dict_set(&opts, "me_method", "umh", 0);
+			av_dict_set(&opts, "subme", "6", 0);    // 高级子像素运动估计
+			av_dict_set(&opts, "refs", "4", 0);     // 四参考帧
+			av_dict_set(&opts, "rc_lookahead", "40", 0); // 更多前瞻优化
+			av_dict_set(&opts, "trellis", "2", 0);  // 完整trellis量化
 		}
 		
-		// 重新打开编码器
-		int ret = avcodec_open2(enc->ctx, enc->ctx->codec, &opts);
-		av_dict_free(&opts);
+		// 实时编码通用优化（适用于所有preset）
+		av_dict_set(&opts, "slice_max_size", "1500", 0);  // 限制slice大小减少延迟
+		av_dict_set(&opts, "intra_refresh", "1", 0);     // 启用帧内刷新
+		av_dict_set(&opts, "sliced_threads", "1", 0);    // 启用slice级多线程
+		av_dict_set(&opts, "thread_type", "slice", 0);   // 优化线程类型
 		
+		US_LOG_INFO("HWENC: Optimized libx264 with preset=%s (%d threads, %d CPU cores), tune=%s, profile=%s", 
+		           use_preset, thread_count, _get_cpu_core_count(), use_tune, use_profile);
+	} else if (type == US_HWENC_VAAPI) {
+		// VAAPI硬件编码器选项 - 使用CBR模式确保码率生效
+		av_dict_set(&opts, "rc_mode", "CBR", 0);
+		av_dict_set(&opts, "packed_headers", "none", 0);
+		// 设置关键帧间隔
+		char gop_str[16];
+		snprintf(gop_str, sizeof(gop_str), "%u", gop_size);
+		av_dict_set(&opts, "g", gop_str, 0);
+		av_dict_set(&opts, "keyint_min", gop_str, 0);
+	} else if (type == US_HWENC_NVENC) {
+		av_dict_set(&opts, "preset", "fast", 0);
+		av_dict_set(&opts, "profile", "main", 0);
+	}
+
+	// 硬件设备初始化（与原有代码相同）
+	const char *hw_device_type = _get_hw_device_type(type);
+	if (hw_device_type) {
+		enum AVHWDeviceType device_type = av_hwdevice_find_type_by_name(hw_device_type);
+		if (device_type == AV_HWDEVICE_TYPE_NONE) {
+			US_LOG_ERROR("HWENC: Hardware device type %s not found", hw_device_type);
+			av_dict_free(&opts);
+			us_ffmpeg_hwenc_destroy(enc);
+			return US_HWENC_ERROR_DEVICE_NOT_FOUND;
+		}
+
+		const char *device_name = NULL;
+		if (type == US_HWENC_VAAPI) {
+			device_name = "/dev/dri/renderD128";
+		}
+		
+		int ret = av_hwdevice_ctx_create(&enc->hw_device_ctx, device_type, device_name, NULL, 0);
 		if (ret < 0) {
 			char errbuf[AV_ERROR_MAX_STRING_SIZE];
 			av_strerror(ret, errbuf, sizeof(errbuf));
-			US_LOG_ERROR("HWENC: Failed to reopen codec with preset: %s", errbuf);
+			US_LOG_ERROR("HWENC: Failed to create hardware device context: %s", errbuf);
+			av_dict_free(&opts);
 			us_ffmpeg_hwenc_destroy(enc);
-			*encoder = NULL;
-			return US_HWENC_ERROR_ENCODER_INIT;
+			return US_HWENC_ERROR_DEVICE_NOT_FOUND;
+		}
+
+		enc->ctx->hw_device_ctx = av_buffer_ref(enc->hw_device_ctx);
+
+		if (type == US_HWENC_VAAPI) {
+			enc->ctx->pix_fmt = AV_PIX_FMT_VAAPI;
+			
+			// VAAPI硬件帧上下文设置
+			AVBufferRef *hw_frames_ref = av_hwframe_ctx_alloc(enc->hw_device_ctx);
+			if (!hw_frames_ref) {
+				US_LOG_ERROR("HWENC: Failed to create VAAPI frame context");
+				av_dict_free(&opts);
+				us_ffmpeg_hwenc_destroy(enc);
+				return US_HWENC_ERROR_MEMORY;
+			}
+			
+			AVHWFramesContext *frames_ctx = (AVHWFramesContext *)(hw_frames_ref->data);
+			frames_ctx->format = AV_PIX_FMT_VAAPI;
+			frames_ctx->sw_format = AV_PIX_FMT_NV12;
+			frames_ctx->width = width;
+			frames_ctx->height = height;
+			frames_ctx->initial_pool_size = 20;
+			
+			ret = av_hwframe_ctx_init(hw_frames_ref);
+			if (ret < 0) {
+				char errbuf[AV_ERROR_MAX_STRING_SIZE];
+				av_strerror(ret, errbuf, sizeof(errbuf));
+				US_LOG_ERROR("HWENC: Failed to initialize VAAPI frame context: %s", errbuf);
+				av_buffer_unref(&hw_frames_ref);
+				av_dict_free(&opts);
+				us_ffmpeg_hwenc_destroy(enc);
+				return US_HWENC_ERROR_DEVICE_NOT_FOUND;
+			}
+			
+			enc->ctx->hw_frames_ctx = av_buffer_ref(hw_frames_ref);
+			av_buffer_unref(&hw_frames_ref);
+			
+			if (!enc->ctx->hw_frames_ctx) {
+				US_LOG_ERROR("HWENC: Failed to reference hardware frames context");
+				av_dict_free(&opts);
+				us_ffmpeg_hwenc_destroy(enc);
+				return US_HWENC_ERROR_MEMORY;
+			}
+		}
+	}
+
+	// 打开编码器
+	int ret = avcodec_open2(enc->ctx, codec, &opts);
+	av_dict_free(&opts);
+	if (ret < 0) {
+		char errbuf[AV_ERROR_MAX_STRING_SIZE];
+		av_strerror(ret, errbuf, sizeof(errbuf));
+		US_LOG_ERROR("HWENC: Failed to open codec: %s", errbuf);
+		
+		if (type == US_HWENC_VAAPI) {
+			US_LOG_ERROR("HWENC: VAAPI initialization failed, this may be due to:");
+			US_LOG_ERROR("HWENC: - Incompatible driver (try updating mesa/intel-media-driver)");
+			US_LOG_ERROR("HWENC: - Missing VAAPI permissions (check /dev/dri access)");
+			US_LOG_ERROR("HWENC: - Unsupported hardware profile");
 		}
 		
-		US_LOG_INFO("HWENC: Reconfigured libx264 with preset=%s, tune=%s, profile=%s", 
-		           preset ? preset : "default", 
-		           tune ? tune : "default",
-		           profile ? profile : "default");
+		us_ffmpeg_hwenc_destroy(enc);
+		return US_HWENC_ERROR_ENCODER_INIT;
 	}
-	
+
+	// 分配帧和包
+	enc->frame = av_frame_alloc();
+	enc->pkt = av_packet_alloc();
+	if (!enc->frame || !enc->pkt) {
+		US_LOG_ERROR("HWENC: Failed to allocate frame or packet");
+		us_ffmpeg_hwenc_destroy(enc);
+		return US_HWENC_ERROR_MEMORY;
+	}
+
+	// 设置帧参数
+	enc->frame->format = enc->ctx->pix_fmt;
+	enc->frame->width = width;
+	enc->frame->height = height;
+
+	// 对于VAAPI硬件编码，不在初始化时分配帧缓冲
+	if (type != US_HWENC_VAAPI) {
+		ret = av_frame_get_buffer(enc->frame, 32);
+		if (ret < 0) {
+			char errbuf[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(ret, errbuf, sizeof(errbuf));
+			US_LOG_ERROR("HWENC: Failed to allocate frame buffer: %s", errbuf);
+			us_ffmpeg_hwenc_destroy(enc);
+			return US_HWENC_ERROR_MEMORY;
+		}
+	}
+
+	// 软件缩放器将在编码时根据输入格式动态创建
+	enc->sws_ctx = NULL;
+
+	enc->initialized = true;
+	*encoder = enc;
+
+	US_LOG_INFO("HWENC: Hardware encoder created successfully (%s, %dx%d @ %u kbps)",
+	           enc->codec_name, width, height, bitrate_kbps);
+
 	return US_HWENC_OK;
 }
 
@@ -710,6 +991,7 @@ void us_ffmpeg_hwenc_destroy(us_ffmpeg_hwenc_s *encoder) {
 
 // 格式支持检查
 bool us_ffmpeg_hwenc_is_format_supported(us_hwenc_type_e encoder_type, uint32_t format) {
+	(void)encoder_type; // 避免编译器警告
 	switch (format) {
 		case V4L2_PIX_FMT_RGB24:
 		case V4L2_PIX_FMT_YUYV:
