@@ -65,6 +65,9 @@ static const struct {
 	const char *name; // cppcheck-suppress unusedStructMember
 	const uint format; // cppcheck-suppress unusedStructMember
 } _FORMATS[] = {
+	{"NV12",	V4L2_PIX_FMT_NV12},
+	{"NV16",	V4L2_PIX_FMT_NV16},
+	{"NV24",	V4L2_PIX_FMT_NV24},
 	{"YUYV",	V4L2_PIX_FMT_YUYV},
 	{"YVYU",	V4L2_PIX_FMT_YVYU},
 	{"UYVY",	V4L2_PIX_FMT_UYVY},
@@ -131,8 +134,8 @@ us_capture_s *us_capture_init(void) {
 	us_capture_s *cap;
 	US_CALLOC(cap, 1);
 	cap->path = "/dev/video0";
-	cap->width = 640;
-	cap->height = 480;
+	cap->width = 1920;
+	cap->height = 1080;
 	cap->format = V4L2_PIX_FMT_YUYV;
 	cap->jpeg_quality = 80;
 	cap->standard = V4L2_STD_UNKNOWN;

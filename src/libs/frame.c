@@ -88,6 +88,9 @@ uint us_frame_get_padding(const us_frame_s *frame) {
 			bytes_per_pixel = 1;
 			break;
 
+		case V4L2_PIX_FMT_NV12:
+		case V4L2_PIX_FMT_NV16:
+		case V4L2_PIX_FMT_NV24:
 		case V4L2_PIX_FMT_YUYV:
 		case V4L2_PIX_FMT_YVYU:
 		case V4L2_PIX_FMT_UYVY:

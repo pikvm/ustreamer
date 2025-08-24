@@ -46,6 +46,13 @@ static void _jpeg_write_scanlines_rgb24(struct jpeg_compress_struct *jpeg, const
 #warning JCS_EXT_BGR is not supported, please use libjpeg-turbo
 static void _jpeg_write_scanlines_bgr24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
 #endif
+static void _jpeg_write_scanlines_nv12(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
+static void _jpeg_write_scanlines_nv16(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
+static void _jpeg_write_scanlines_nv24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame);
+
+static void _nv12_to_rgb24(const u8 *in, u8 *out, int width, int height);
+static void _nv16_to_rgb24(const u8 *in, u8 *out, int width, int height);
+static void _nv24_to_rgb24(const u8 *in, u8 *out, int width, int height);
 
 static void _jpeg_init_destination(j_compress_ptr jpeg);
 static boolean _jpeg_empty_output_buffer(j_compress_ptr jpeg);
@@ -106,6 +113,18 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, uint quali
 		case V4L2_PIX_FMT_YUV420:
 		case V4L2_PIX_FMT_YVU420:
 			_jpeg_write_scanlines_yuv_planar(&jpeg, src);
+			break;
+
+		case V4L2_PIX_FMT_NV12:
+			_jpeg_write_scanlines_nv12(&jpeg, src);
+			break;
+
+		case V4L2_PIX_FMT_NV16:
+			_jpeg_write_scanlines_nv16(&jpeg, src);
+			break;
+
+		case V4L2_PIX_FMT_NV24:
+			_jpeg_write_scanlines_nv24(&jpeg, src);
 			break;
 		
 		case V4L2_PIX_FMT_GREY:
@@ -388,6 +407,149 @@ static void _jpeg_term_destination(j_compress_ptr jpeg) {
 
 	// Write any data remaining in the buffer.
 	us_frame_append_data(dest->frame, dest->buf, final);
+}
+
+static void _nv12_to_rgb24(const u8 *in, u8 *out, int width, int height) {
+	int frame_size = width * height;
+	int uv_offset = frame_size;
+
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			int uv_index = (i / 2) * width + 2 * (j / 2);
+			int Y = in[i * width + j];
+			int U = in[uv_offset + uv_index];
+			int V = in[uv_offset + uv_index + 1];
+
+			// YUV to RGB conversion
+			int C = Y - 16;
+			int D = U - 128;
+			int E = V - 128;
+			int R = (298 * C + 409 * E + 128) >> 8;
+			int G = (298 * C - 100 * D - 208 * E + 128) >> 8;
+			int B = (298 * C + 516 * D + 128) >> 8;
+
+			// Clamp values to [0, 255]
+			R = (R < 0) ? 0 : ((R > 255) ? 255 : R);
+			G = (G < 0) ? 0 : ((G > 255) ? 255 : G);
+			B = (B < 0) ? 0 : ((B > 255) ? 255 : B);
+
+			int rgb_index = (i * width + j) * 3;
+			out[rgb_index] = (u8)R;
+			out[rgb_index + 1] = (u8)G;
+			out[rgb_index + 2] = (u8)B;
+		}
+	}
+}
+
+static void _nv16_to_rgb24(const u8 *in, u8 *out, int width, int height) {
+	int frame_size = width * height;
+	int uv_offset = frame_size;
+
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			int y_index = i * width + j;
+			int uv_index = uv_offset + (i * width) + (j & ~1);
+			int Y = in[y_index];
+			int U = in[uv_index] - 128;
+			int V = in[uv_index + 1] - 128;
+
+			// YUV to RGB conversion
+			int R = (298 * (Y - 16) + 409 * V + 128) >> 8;
+			int G = (298 * (Y - 16) - 100 * U - 208 * V + 128) >> 8;
+			int B = (298 * (Y - 16) + 516 * U + 128) >> 8;
+
+			// Clamp values to [0, 255]
+			R = R < 0 ? 0 : (R > 255 ? 255 : R);
+			G = G < 0 ? 0 : (G > 255 ? 255 : G);
+			B = B < 0 ? 0 : (B > 255 ? 255 : B);
+
+			int rgb_index = y_index * 3;
+			out[rgb_index] = (u8)R;
+			out[rgb_index + 1] = (u8)G;
+			out[rgb_index + 2] = (u8)B;
+		}
+	}
+}
+
+static void _nv24_to_rgb24(const u8 *in, u8 *out, int width, int height) {
+	int frame_size = width * height;
+	int uv_offset = frame_size;
+
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			int y_index = i * width + j;
+			int uv_index = uv_offset + (2 * j) + (i * width * 2);
+			int Y = in[y_index];
+			int U = in[uv_index] - 128;
+			int V = in[uv_index + 1] - 128;
+
+			// YUV to RGB conversion
+			int R = (298 * (Y - 16) + 409 * V + 128) >> 8;
+			int G = (298 * (Y - 16) - 100 * U - 208 * V + 128) >> 8;
+			int B = (298 * (Y - 16) + 516 * U + 128) >> 8;
+
+			// Clamp values to [0, 255]
+			R = R < 0 ? 0 : (R > 255 ? 255 : R);
+			G = G < 0 ? 0 : (G > 255 ? 255 : G);
+			B = B < 0 ? 0 : (B > 255 ? 255 : B);
+
+			int rgb_index = y_index * 3;
+			out[rgb_index] = (u8)R;
+			out[rgb_index + 1] = (u8)G;
+			out[rgb_index + 2] = (u8)B;
+		}
+	}
+}
+
+static void _jpeg_write_scanlines_nv12(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
+	const uint padding = us_frame_get_padding(frame);
+	u8 *rgb;
+	US_CALLOC(rgb, frame->width * frame->height * 3);
+	_nv12_to_rgb24(frame->data, rgb, frame->width, frame->height);
+	u8 *data = rgb;
+
+	while (jpeg->next_scanline < frame->height) {
+		JSAMPROW scanlines[1] = {data};
+		jpeg_write_scanlines(jpeg, scanlines, 1);
+
+		data += (frame->width * 3) + padding;
+	}
+
+	free(rgb);
+}
+
+static void _jpeg_write_scanlines_nv16(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
+	const uint padding = us_frame_get_padding(frame);
+	u8 *rgb;
+	US_CALLOC(rgb, frame->width * frame->height * 3);
+	_nv16_to_rgb24(frame->data, rgb, frame->width, frame->height);
+	u8 *data = rgb;
+
+	while (jpeg->next_scanline < frame->height) {
+		JSAMPROW scanlines[1] = {data};
+		jpeg_write_scanlines(jpeg, scanlines, 1);
+
+		data += (frame->width * 3) + padding;
+	}
+
+	free(rgb);
+}
+
+static void _jpeg_write_scanlines_nv24(struct jpeg_compress_struct *jpeg, const us_frame_s *frame) {
+	const uint padding = us_frame_get_padding(frame);
+	u8 *rgb;
+	US_CALLOC(rgb, frame->width * frame->height * 3);
+	_nv24_to_rgb24(frame->data, rgb, frame->width, frame->height);
+	u8 *data = rgb;
+
+	while (jpeg->next_scanline < frame->height) {
+		JSAMPROW scanlines[1] = {data};
+		jpeg_write_scanlines(jpeg, scanlines, 1);
+
+		data += (frame->width * 3) + padding;
+	}
+
+	free(rgb);
 }
 
 #undef JPEG_OUTPUT_BUFFER_SIZE
