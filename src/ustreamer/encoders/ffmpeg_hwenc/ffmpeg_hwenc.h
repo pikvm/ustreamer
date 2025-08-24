@@ -15,6 +15,7 @@ typedef enum {
 	US_HWENC_AMF,        // AMD Advanced Media Framework
 	US_HWENC_NVENC,      // NVIDIA NVENC
 	US_HWENC_V4L2_M2M,   // Rockchip/AllWinner/其他SoC
+	US_HWENC_RKMPP,      // Rockchip Media Process Platform
 	US_HWENC_MEDIACODEC, // Android MediaCodec
 	US_HWENC_VIDEOTOOLBOX // Apple VideoToolbox (macOS/iOS)
 } us_hwenc_type_e;

@@ -73,6 +73,7 @@ const char* us_hwenc_type_to_string(us_hwenc_type_e type) {
 		case US_HWENC_NVENC: return "nvenc";
 		case US_HWENC_AMF: return "amf";
 		case US_HWENC_V4L2_M2M: return "v4l2m2m";
+		case US_HWENC_RKMPP: return "rkmpp";
 		case US_HWENC_MEDIACODEC: return "mediacodec";
 		case US_HWENC_VIDEOTOOLBOX: return "videotoolbox";
 		default: return "unknown";
@@ -149,6 +150,7 @@ static const char* _get_hw_device_type(us_hwenc_type_e type) {
 		case US_HWENC_VAAPI: return "vaapi";
 		case US_HWENC_NVENC: return "cuda";
 		case US_HWENC_AMF: return "d3d11va";
+		case US_HWENC_RKMPP: return "rkmpp";
 		case US_HWENC_VIDEOTOOLBOX: return "videotoolbox";
 		default: return NULL;
 	}
@@ -162,6 +164,7 @@ const char* us_ffmpeg_hwenc_get_codec_name(us_hwenc_type_e type) {
 		case US_HWENC_NVENC: return "h264_nvenc";
 		case US_HWENC_AMF: return "h264_amf";
 		case US_HWENC_V4L2_M2M: return "h264_v4l2m2m";
+		case US_HWENC_RKMPP: return "h264_rkmpp";
 		case US_HWENC_MEDIACODEC: return "h264_mediacodec";
 		case US_HWENC_VIDEOTOOLBOX: return "h264_videotoolbox";
 		default: return "";
@@ -280,6 +283,20 @@ us_hwenc_error_e us_ffmpeg_hwenc_create(us_ffmpeg_hwenc_s **encoder,
 		av_dict_set(&opts, "g", gop_str, 0);                  // 设置GOP大小
 		av_dict_set(&opts, "keyint_min", gop_str, 0);         // 设置最小关键帧间隔
 		// 不设置profile和level，让驱动自动选择最兼容的配置
+	} else if (type == US_HWENC_RKMPP) {
+		// RKMPP (Rockchip MPP) 硬件编码器选项
+		av_dict_set(&opts, "rc_mode", "1", 0);                // CBR模式 (0=VBR, 1=CBR, 2=CQP, 3=AVBR)
+		av_dict_set(&opts, "profile", "100", 0);              // High profile
+		av_dict_set(&opts, "level", "40", 0);                 // Level 4.0
+		av_dict_set(&opts, "coder", "1", 0);                  // CABAC熵编码器
+		// 设置关键帧间隔
+		char gop_str[16];
+		snprintf(gop_str, sizeof(gop_str), "%u", gop_size);
+		av_dict_set(&opts, "g", gop_str, 0);                  // GOP大小
+		// QP参数优化
+		av_dict_set(&opts, "qp_init", "24", 0);               // 初始QP值
+		av_dict_set(&opts, "qp_min", "16", 0);                // 最小QP值
+		av_dict_set(&opts, "qp_max", "40", 0);                // 最大QP值
 	} else if (type == US_HWENC_NVENC) {
 		av_dict_set(&opts, "preset", "fast", 0);
 		av_dict_set(&opts, "profile", "main", 0);
@@ -539,6 +556,20 @@ us_hwenc_error_e us_ffmpeg_hwenc_create_with_preset(us_ffmpeg_hwenc_s **encoder,
 		snprintf(gop_str, sizeof(gop_str), "%u", gop_size);
 		av_dict_set(&opts, "g", gop_str, 0);
 		av_dict_set(&opts, "keyint_min", gop_str, 0);
+	} else if (type == US_HWENC_RKMPP) {
+		// RKMPP (Rockchip MPP) 硬件编码器选项 - 与preset版本相同配置
+		av_dict_set(&opts, "rc_mode", "1", 0);                // CBR模式 (0=VBR, 1=CBR, 2=CQP, 3=AVBR)
+		av_dict_set(&opts, "profile", "100", 0);              // High profile
+		av_dict_set(&opts, "level", "40", 0);                 // Level 4.0
+		av_dict_set(&opts, "coder", "1", 0);                  // CABAC熵编码器
+		// 设置关键帧间隔
+		char gop_str[16];
+		snprintf(gop_str, sizeof(gop_str), "%u", gop_size);
+		av_dict_set(&opts, "g", gop_str, 0);                  // GOP大小
+		// QP参数优化
+		av_dict_set(&opts, "qp_init", "24", 0);               // 初始QP值
+		av_dict_set(&opts, "qp_min", "16", 0);                // 最小QP值
+		av_dict_set(&opts, "qp_max", "40", 0);                // 最大QP值
 	} else if (type == US_HWENC_NVENC) {
 		av_dict_set(&opts, "preset", "fast", 0);
 		av_dict_set(&opts, "profile", "main", 0);

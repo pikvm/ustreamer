@@ -233,8 +233,9 @@ static bool _worker_run_job(us_worker_s *wr) {
 	}else if (run->type == US_ENCODER_TYPE_FFMPEG_VIDEO) {
 		US_LOG_VERBOSE("Compressing RAW or JPEG to H.264 using FFMPEG: worker=%s, buffer=%u",
 			wr->name, job->hw->buf.index);
-		// TODO: Implement FFmpeg hardware encoding compression here
-		// For now fallback to CPU encoding
+		// Note: FFmpeg H.264 hardware encoding is handled in stream.c via us_ffmpeg_hwenc_compress()
+		// This encoder worker is primarily for MJPEG encoding. For H.264 output, refer to stream.c
+		// For now fallback to CPU MJPEG encoding for compatibility
 		us_cpu_encoder_compress(src, dest, run->quality);
 #endif	
 #ifdef WITH_MEDIACODEC

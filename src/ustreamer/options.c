@@ -780,7 +780,7 @@ static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, co
 	SAY("    --h264-m2m-device </dev/path>  ─ Path to V4L2 M2M encoder device. Default: auto select.\n");
 #	ifdef WITH_FFMPEG
 	SAY("    --h264-preset <string>  ───────── FFmpeg encoder preset. Default: ultrafast.\n");
-	SAY("    --h264-hwenc <type>  ──────────── Hardware encoder type (vaapi, nvenc, amf, v4l2m2m, mediacodec, videotoolbox).\n");
+	SAY("    --h264-hwenc <type>  ──────────── Hardware encoder type (vaapi, nvenc, amf, v4l2m2m, rkmpp, mediacodec, videotoolbox).\n");
 	SAY("                                       Falls back to software encoding if hardware encoding fails. Default: disabled.\n");
 	SAY("    --h264-hwenc-fallback  ────────── Always fallback to software encoding if hardware encoding is unavailable.\n");
 	SAY("                                       Default: disabled.\n");
