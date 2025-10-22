@@ -214,7 +214,15 @@ static void *_video_sink_thread(void *arg) {
 	return NULL;
 }
 
-static int _check_tc358743_acap(uint *hz) {
+static int _get_acap_hz(uint *hz) {
+	if (_g_config->acap_hz != 0) {
+		*hz = _g_config->acap_hz;
+		return 0;
+	}
+	if (_g_config->tc358743_dev_path == NULL) {
+		US_JLOG_ERROR("acap", "No configured sampling rate");
+		return -1;
+	}
 	int fd;
 	if ((fd = open(_g_config->tc358743_dev_path, O_RDWR)) < 0) {
 		US_JLOG_PERROR("acap", "Can't open TC358743 V4L2 device");
@@ -236,7 +244,6 @@ static void *_acap_thread(void *arg) {
 	atomic_store(&_g_acap_tid_created, true);
 
 	assert(_g_config->acap_dev_name != NULL);
-	assert(_g_config->tc358743_dev_path != NULL);
 	assert(_g_rtpa != NULL);
 
 	int once = 0;
@@ -254,7 +261,7 @@ static void *_acap_thread(void *arg) {
 			US_ONCE({ US_JLOG_ERROR("acap", "No PCM capture device"); });
 			goto close_acap;
 		}
-		if (_check_tc358743_acap(&hz) < 0) {
+		if (_get_acap_hz(&hz) < 0) {
 			goto close_acap;
 		}
 		if (hz == 0) {
@@ -269,7 +276,7 @@ static void *_acap_thread(void *arg) {
 		once = 0;
 
 		while (!_STOP && _HAS_WATCHERS && _HAS_LISTENERS) {
-			if (_check_tc358743_acap(&hz) < 0 || acap->pcm_hz != hz) {
+			if (_get_acap_hz(&hz) < 0 || acap->pcm_hz != hz) {
 				goto close_acap;
 			}
 			uz size = US_RTP_DATAGRAM_SIZE - US_RTP_HEADER_SIZE;

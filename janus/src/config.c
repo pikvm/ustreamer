@@ -28,6 +28,7 @@
 #include <janus/config.h>
 #include <janus/plugins/plugin.h>
 
+#include "uslibs/types.h"
 #include "uslibs/tools.h"
 
 #include "const.h"
@@ -35,6 +36,7 @@
 
 
 static char *_get_value(janus_config *jcfg, const char *section, const char *option);
+static uint _get_uint(janus_config *jcfg, const char *section, const char *option, uint def);
 // static bool _get_bool(janus_config *jcfg, const char *section, const char *option, bool def);
 
 
@@ -60,8 +62,10 @@ us_config_s *us_config_init(const char *config_dir_path) {
 		goto error;
 	}
 	if ((config->acap_dev_name = _get_value(jcfg, "acap", "device")) != NULL) {
-		if ((config->tc358743_dev_path = _get_value(jcfg, "acap", "tc358743")) == NULL) {
-			US_JLOG_INFO("config", "Missing config value: acap.tc358743");
+		config->acap_hz = _get_uint(jcfg, "acap", "sampling_rate", 0);
+		config->tc358743_dev_path = _get_value(jcfg, "acap", "tc358743");
+		if (config->acap_hz == 0 && config->tc358743_dev_path == NULL) {
+			US_JLOG_ERROR("config", "Either acap.sampling_rate or acap.tc358743 required");
 			goto error;
 		}
 		config->aplay_dev_name = _get_value(jcfg, "aplay", "device");
@@ -93,6 +97,20 @@ static char *_get_value(janus_config *jcfg, const char *section, const char *opt
 		return NULL;
 	}
 	return us_strdup(option_obj->value);
+}
+
+static uint _get_uint(janus_config *jcfg, const char *section, const char *option, uint def) {
+	char *const tmp = _get_value(jcfg, section, option);
+	uint value = def;
+	if (tmp != NULL) {
+		errno = 0;
+		value = (uint)strtoul(tmp, NULL, 10);
+		if (errno != 0) {
+			value = def;
+		}
+		free(tmp);
+	}
+	return value;
 }
 
 /*static bool _get_bool(janus_config *jcfg, const char *section, const char *option, bool def) {

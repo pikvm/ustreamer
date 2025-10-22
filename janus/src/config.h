@@ -23,10 +23,14 @@
 #pragma once
 
 
+#include "uslibs/types.h"
+
+
 typedef struct {
 	char	*video_sink_name;
 
 	char	*acap_dev_name;
+	uint	acap_hz;
 	char	*tc358743_dev_path;
 
 	char	*aplay_dev_name;
