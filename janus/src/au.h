@@ -51,6 +51,7 @@ typedef struct {
 	u64		pts;
 } us_au_encoded_s;
 
+bool us_au_probe(const char *name);
 
 us_au_pcm_s *us_au_pcm_init(void);
 void us_au_pcm_destroy(us_au_pcm_s *pcm);

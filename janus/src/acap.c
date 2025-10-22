@@ -47,19 +47,6 @@ static void *_pcm_thread(void *v_acap);
 static void *_encoder_thread(void *v_acap);
 
 
-bool us_acap_probe(const char *name) {
-	snd_pcm_t *dev;
-	int err;
-	US_JLOG_INFO("acap", "Probing PCM capture ...");
-	if ((err = snd_pcm_open(&dev, name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
-		US_JLOG_PERROR_ALSA(err, "acap", "Can't probe PCM capture");
-		return false;
-	}
-	snd_pcm_close(dev);
-	US_JLOG_INFO("acap", "PCM capture is available");
-	return true;
-}
-
 us_acap_s *us_acap_init(const char *name, uint pcm_hz) {
 	us_acap_s *acap;
 	US_CALLOC(acap, 1);

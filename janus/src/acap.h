@@ -53,8 +53,6 @@ typedef struct {
 } us_acap_s;
 
 
-bool us_acap_probe(const char *name);
-
 us_acap_s *us_acap_init(const char *name, uint pcm_hz);
 void us_acap_destroy(us_acap_s *acap);
 

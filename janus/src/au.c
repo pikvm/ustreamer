@@ -23,9 +23,77 @@
 #include "au.h"
 
 #include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+#include <sys/stat.h>
 
 #include "uslibs/tools.h"
 
+
+bool us_au_probe(const char *name) {
+	// This function is very limited. It takes something like:
+	//   hw:0,0 or hw:tc358743,0 or plughw:UAC2Gadget,0
+	// parses card name (0, tc358743, UAC2Gadget) and checks
+	// the existence of it in /proc/asound/.
+	// It's enough for our case.
+
+	if (name == NULL) {
+		return false;
+	}
+
+	if (strchr(name, '/') || strchr(name, '.')) {
+		return false;
+	}
+
+	const char *begin = strchr(name, ':');
+	if (begin == NULL) {
+		return false;
+	}
+	begin += 1;
+	if (*begin == '\0') {
+		return false;
+	}
+
+	const char *end = strchr(begin, ',');
+	if (end == NULL) {
+		return false;
+	}
+	if (end - begin < 1) {
+		return false;
+	}
+
+	char *card = us_strdup(begin);
+	card[end - begin] = '\0';
+
+	bool numeric = true;
+	for (uz index = 0; card[index] != '\0'; ++index) {
+		if (!isdigit(card[index])) {
+			numeric = false;
+			break;
+		}
+	}
+
+	char *path;
+	if (numeric) {
+		US_ASPRINTF(path, "/proc/asound/card%s", card);
+	} else {
+		US_ASPRINTF(path, "/proc/asound/%s", card);
+	}
+
+	bool ok = false;
+	struct stat st;
+	if (lstat(path, &st) == 0) {
+		if (numeric && S_ISDIR(st.st_mode)) {
+			ok = true;
+		} else if (!numeric && S_ISLNK(st.st_mode)) {
+			ok = true;
+		}
+	}
+	free(path);
+	free(card);
+	return ok;
+}
 
 us_au_pcm_s *us_au_pcm_init(void) {
 	us_au_pcm_s *pcm;

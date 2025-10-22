@@ -69,7 +69,7 @@ static us_janus_client_s	*_g_clients = NULL;
 static janus_callbacks		*_g_gw = NULL;
 static us_ring_s			*_g_video_ring = NULL;
 static us_rtpv_s			*_g_rtpv = NULL;
-static us_rtpa_s			*_g_rtpa = NULL; // Also indicates "audio capture is available"
+static us_rtpa_s			*_g_rtpa = NULL;
 
 static pthread_t		_g_video_rtp_tid;
 static atomic_bool		_g_video_rtp_tid_created = false;
@@ -250,6 +250,10 @@ static void *_acap_thread(void *arg) {
 		uint hz = 0;
 		us_acap_s *acap = NULL;
 
+		if (!us_au_probe(_g_config->acap_dev_name)) {
+			US_ONCE({ US_JLOG_ERROR("acap", "No PCM capture device"); });
+			goto close_acap;
+		}
 		if (_check_tc358743_acap(&hz) < 0) {
 			goto close_acap;
 		}
@@ -339,6 +343,11 @@ static void *_aplay_thread(void *arg) {
 			}
 
 			if (dev == NULL) {
+				if (!us_au_probe(_g_config->aplay_dev_name)) {
+					US_ONCE({ US_JLOG_ERROR("aplay", "No PCM playback device"); });
+					goto close_aplay;
+				}
+
 				int err = snd_pcm_open(&dev, _g_config->aplay_dev_name, SND_PCM_STREAM_PLAYBACK, 0);
 				if (err < 0) {
 					US_ONCE({ US_JLOG_PERROR_ALSA(err, "aplay", "Can't open PCM playback"); });
@@ -424,7 +433,7 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 
 	US_RING_INIT_WITH_ITEMS(_g_video_ring, 64, us_frame_init);
 	_g_rtpv = us_rtpv_init(_relay_rtp_clients);
-	if (_g_config->acap_dev_name != NULL && us_acap_probe(_g_config->acap_dev_name)) {
+	if (_g_config->acap_dev_name != NULL) {
 		_g_rtpa = us_rtpa_init(_relay_rtp_clients);
 		US_THREAD_CREATE(_g_acap_tid, _acap_thread, NULL);
 		if (_g_config->aplay_dev_name != NULL) {
@@ -602,13 +611,13 @@ static struct janus_plugin_result *_plugin_handle_message(
 				{
 					json_t *const obj = json_object_get(params, "audio");
 					if (obj != NULL && json_is_boolean(obj)) {
-						with_acap = (_g_rtpa != NULL && json_boolean_value(obj));
+						with_acap = (us_au_probe(_g_config->acap_dev_name) && json_boolean_value(obj));
 					}
 				}
 				{
 					json_t *const obj = json_object_get(params, "mic");
 					if (obj != NULL && json_is_boolean(obj)) {
-						with_aplay = (_g_config->aplay_dev_name != NULL && with_acap && json_boolean_value(obj));
+						with_aplay = (us_au_probe(_g_config->aplay_dev_name) && json_boolean_value(obj));
 					}
 				}
 				{
@@ -673,10 +682,11 @@ static struct janus_plugin_result *_plugin_handle_message(
 
 	} else if (!strcmp(request_str, "features")) {
 		const char *const ice_url = getenv("JANUS_USTREAMER_WEB_ICE_URL");
+		const bool acap_avail = us_au_probe(_g_config->acap_dev_name);
 		json_t *const features = json_pack(
 			"{s:b, s:b, s:{s:s?}}",
-			"audio", (_g_rtpa != NULL),
-			"mic", (_g_rtpa != NULL && _g_config->aplay_dev_name != NULL),
+			"audio", acap_avail,
+			"mic", (acap_avail && us_au_probe(_g_config->aplay_dev_name)),
 			"ice", "url", (ice_url != NULL ? ice_url : default_ice_url)
 		);
 		PUSH_STATUS("features", features, NULL);
