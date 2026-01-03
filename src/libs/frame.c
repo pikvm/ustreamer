@@ -36,7 +36,7 @@
 us_frame_s *us_frame_init(void) {
 	us_frame_s *frame;
 	US_CALLOC(frame, 1);
-	us_frame_realloc_data(frame, 512 * 1024);
+	us_frame_realloc_data(frame, 32 * 1024);
 	frame->dma_fd = -1;
 	return frame;
 }
