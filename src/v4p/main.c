@@ -242,7 +242,7 @@ static void _main_loop(void) {
 	us_drm_destroy(drm);
 }
 
-static void *_follower_thread(void *v_unix_follow) {
+static void *_follower_thread(void *v_unix_follow) { // cppcheck-suppress constParameterCallback
 	US_THREAD_SETTLE("follower");
 	const char *path = v_unix_follow;
 	assert(path != NULL);

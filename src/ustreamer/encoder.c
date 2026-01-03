@@ -131,7 +131,7 @@ void us_encoder_open(us_encoder_s *enc, us_capture_s *cap) {
 		} else {
 			US_LOG_INFO("Switching to CPU encoder: the input format is not (M)JPEG ...");
 			type = US_ENCODER_TYPE_CPU;
-			quality = cap->jpeg_quality;
+			quality = cap->jpeg_quality; // cppcheck-suppress redundantAssignment
 		}
 
 	} else if (type == US_ENCODER_TYPE_M2M_VIDEO || type == US_ENCODER_TYPE_M2M_IMAGE) {
