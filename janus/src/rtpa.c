@@ -54,6 +54,8 @@ char *us_rtpa_make_sdp(us_rtpa_s *rtpa, bool mic) {
 		"a=rtcp-fb:%u nack" RN
 		"a=rtcp-fb:%u nack pli" RN
 		"a=rtcp-fb:%u goog-remb" RN
+		"a=mid:a" RN
+		"a=msid:audio a" RN
 		"a=ssrc:%" PRIu32 " cname:ustreamer" RN
 		"a=%s" RN,
 		pl, pl,

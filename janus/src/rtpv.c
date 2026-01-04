@@ -69,6 +69,8 @@ char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
 		"a=rtcp-fb:%u nack" RN
 		"a=rtcp-fb:%u nack pli" RN
 		"a=rtcp-fb:%u goog-remb" RN
+		"a=mid:v" RN
+		"a=msid:video v" RN
 		"a=ssrc:%" PRIu32 " cname:ustreamer" RN
 		"a=extmap:1 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay" RN
 		"a=extmap:2 urn:3gpp:video-orientation" RN
