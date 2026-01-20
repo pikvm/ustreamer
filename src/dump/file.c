@@ -53,11 +53,13 @@ void us_output_file_write(void *v_output, const us_frame_s *frame) {
 		fprintf(output->fp,
 			"{\"size\": %zu, \"width\": %u, \"height\": %u,"
 			" \"format\": %u, \"stride\": %u, \"online\": %u, \"key\": %u, \"gop\": %u,"
-			" \"grab_ts\": %.3Lf, \"encode_begin_ts\": %.3Lf, \"encode_end_ts\": %.3Lf,"
+			" \"grab_begin_ts\": %.3Lf, \"grab_end_ts\": %.3Lf,"
+			" \"encode_begin_ts\": %.3Lf, \"encode_end_ts\": %.3Lf,"
 			" \"data\": \"%s\"}\n",
 			frame->used, frame->width, frame->height,
 			frame->format, frame->stride, frame->online, frame->key, frame->gop,
-			frame->grab_ts, frame->encode_begin_ts, frame->encode_end_ts,
+			frame->grab_begin_ts, frame->grab_end_ts,
+			frame->encode_begin_ts, frame->encode_end_ts,
 			output->base64_data);
 	} else {
 		fwrite(frame->data, 1, frame->used, output->fp);

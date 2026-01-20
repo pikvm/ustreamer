@@ -241,7 +241,8 @@ static PyObject *_MemsinkObject_wait_frame(_MemsinkObject *self, PyObject *args,
 	SET_NUMBER(online, Long, Bool);
 	SET_NUMBER(key, Long, Bool);
 	SET_NUMBER(gop, Long, Long);
-	SET_NUMBER(grab_ts, Double, Float);
+	SET_NUMBER(grab_begin_ts, Double, Float);
+	SET_NUMBER(grab_end_ts, Double, Float);
 	SET_NUMBER(encode_begin_ts, Double, Float);
 	SET_NUMBER(encode_end_ts, Double, Float);
 	SET_VALUE("data", PyBytes_FromStringAndSize((const char*)self->frame->data, self->frame->used));

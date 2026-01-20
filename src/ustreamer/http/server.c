@@ -722,7 +722,8 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				"X-UStreamer-Width: %u" RN
 				"X-UStreamer-Height: %u" RN
 				"X-UStreamer-Client-FPS: %u" RN
-				"X-UStreamer-Grab-Time: %.06Lf" RN
+				"X-UStreamer-Grab-Begin-Time: %.06Lf" RN
+				"X-UStreamer-Grab-End-Time: %.06Lf" RN
 				"X-UStreamer-Encode-Begin-Time: %.06Lf" RN
 				"X-UStreamer-Encode-End-Time: %.06Lf" RN
 				"X-UStreamer-Expose-Begin-Time: %.06Lf" RN
@@ -736,14 +737,15 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 				ex->frame->width,
 				ex->frame->height,
 				us_fpsi_get(client->fpsi, NULL),
-				ex->frame->grab_ts,
+				ex->frame->grab_begin_ts,
+				ex->frame->grab_end_ts,
 				ex->frame->encode_begin_ts,
 				ex->frame->encode_end_ts,
 				ex->expose_begin_ts,
 				ex->expose_cmp_ts,
 				ex->expose_end_ts,
 				now_ts,
-				now_ts - ex->frame->grab_ts
+				now_ts - ex->frame->grab_begin_ts
 			);
 		}
 	}
@@ -892,7 +894,8 @@ static void _http_send_snapshot(us_server_s *server) {
 			_A_ADD_HEADER(request, "X-UStreamer-Online",			us_bool_to_string(frame->online));
 			ADD_UNSIGNED_HEADER("X-UStreamer-Width",				frame->width);
 			ADD_UNSIGNED_HEADER("X-UStreamer-Height",				frame->height);
-			ADD_TIME_HEADER("X-UStreamer-Grab-Timestamp",			frame->grab_ts);
+			ADD_TIME_HEADER("X-UStreamer-Grab-Begin-Timestamp",		frame->grab_begin_ts);
+			ADD_TIME_HEADER("X-UStreamer-Grab-End-Timestamp",		frame->grab_end_ts);
 			ADD_TIME_HEADER("X-UStreamer-Encode-Begin-Timestamp",	frame->encode_begin_ts);
 			ADD_TIME_HEADER("X-UStreamer-Encode-End-Timestamp",		frame->encode_end_ts);
 			ADD_TIME_HEADER("X-UStreamer-Send-Timestamp",			us_get_now_monotonic());

@@ -240,16 +240,22 @@ static int _dump_sink(
 			const long double now = us_get_now_monotonic();
 
 			char fourcc_str[8];
-			US_LOG_VERBOSE("Frame: %s - %ux%u -- online=%d, key=%d, kr=%d, gop=%u, latency=%.3Lf, backlog=%.3Lf, size=%zu",
+			US_LOG_VERBOSE("%s %.3Lf - %s %ux%u - gop=%u, key=%u, kr=%u - GRAB=%.3Lf ~~%.3Lf~~ ENC=%.3Lf ~~> LAT=%.3Lf - size=%zu",
+				(frame->online ? " ON" : "OFF"),
+				(last_ts ? now - last_ts : 0),
 				us_fourcc_to_string(frame->format, fourcc_str, 8),
-				frame->width, frame->height,
-				frame->online, frame->key, key_requested, frame->gop,
-				now - frame->grab_ts, (last_ts ? now - last_ts : 0),
+				frame->width,
+				frame->height,
+				frame->gop,
+				frame->key,
+				key_requested,
+				frame->grab_end_ts - frame->grab_begin_ts,
+				frame->encode_begin_ts - frame->grab_end_ts,
+				frame->encode_end_ts - frame->encode_begin_ts,
+				now - frame->grab_begin_ts,
 				frame->used);
-			last_ts = now;
 
-			US_LOG_DEBUG("       stride=%u, grab_ts=%.3Lf, encode_begin_ts=%.3Lf, encode_end_ts=%.3Lf",
-				frame->stride, frame->grab_ts, frame->encode_begin_ts, frame->encode_end_ts);
+			last_ts = now;
 
 			us_fpsi_update(fpsi, true, NULL);
 

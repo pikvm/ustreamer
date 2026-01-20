@@ -332,7 +332,7 @@ static void *_jpeg_thread(void *v_ctx) {
 					atomic_fetch_sub(&stream->run->http->snapshot_requested, 1);
 				}
 				US_LOG_PERF("JPEG: ##### Encoded JPEG exposed; worker=%s, latency=%.3Lf",
-					wr->name, us_get_now_monotonic() - job->dest->grab_ts);
+					wr->name, us_get_now_monotonic() - job->dest->grab_begin_ts);
 			} else {
 				US_LOG_PERF("JPEG: ----- Encoded JPEG dropped; worker=%s", wr->name);
 			}
@@ -407,7 +407,7 @@ static void *_h264_thread(void *v_ctx) {
 			US_LOG_VERBOSE("H264: Passed encoding because nobody is watching");
 			goto decref;
 		}
-		if (hw->raw.grab_ts < grab_after_ts) {
+		if (hw->raw.grab_begin_ts < grab_after_ts) {
 			US_LOG_DEBUG("H264: Passed encoding for FPS limit");
 			goto decref;
 		}
@@ -421,7 +421,7 @@ static void *_h264_thread(void *v_ctx) {
 		const uint fps_limit = stream->run->h264_enc->run->fps_limit;
 		if (fps_limit > 0) {
 			const ldf frame_interval = (ldf)1 / fps_limit;
-			grab_after_ts = hw->raw.grab_ts + frame_interval - 0.01;
+			grab_after_ts = hw->raw.grab_begin_ts + frame_interval - 0.01;
 		}
 
 	decref:

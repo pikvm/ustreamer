@@ -38,7 +38,8 @@
 	bool	key; \
 	uint	gop; \
 	\
-	ldf		grab_ts; \
+	ldf		grab_begin_ts; \
+	ldf		grab_end_ts; \
 	ldf		encode_begin_ts; \
 	ldf		encode_end_ts;
 
@@ -62,7 +63,8 @@ typedef struct {
 		(x_dest)->key = (x_src)->key; \
 		(x_dest)->gop = (x_src)->gop; \
 		\
-		(x_dest)->grab_ts = (x_src)->grab_ts; \
+		(x_dest)->grab_begin_ts = (x_src)->grab_begin_ts; \
+		(x_dest)->grab_end_ts = (x_src)->grab_end_ts; \
 		(x_dest)->encode_begin_ts = (x_src)->encode_begin_ts; \
 		(x_dest)->encode_end_ts = (x_src)->encode_end_ts; \
 	}

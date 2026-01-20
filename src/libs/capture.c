@@ -447,10 +447,16 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 	(*hw)->raw.stride = run->stride;
 	(*hw)->raw.online = true;
 	_v4l2_buffer_copy(&buf, &(*hw)->buf);
-	(*hw)->raw.grab_ts = (ldf)((buf.timestamp.tv_sec * (u64)1000) + (buf.timestamp.tv_usec / 1000)) / 1000;
+	(*hw)->raw.grab_begin_ts = (ldf)((buf.timestamp.tv_sec * (u64)1000) + (buf.timestamp.tv_usec / 1000)) / 1000;
+	(*hw)->raw.grab_end_ts = us_get_now_monotonic();
 
-	_LOG_DEBUG("Grabbed HW buffer=%u: bytesused=%u, grab_ts=%.3Lf, latency=%.3Lf, skipped=%u",
-		buf.index, buf.bytesused, (*hw)->raw.grab_ts, us_get_now_monotonic() - (*hw)->raw.grab_ts, skipped);
+	_LOG_DEBUG("Grabbed HW buffer=%u: bytesused=%u, grab_begin_ts=%.3Lf, grab_end_ts=%.3Lf, latency=%.3Lf, skipped=%u",
+		buf.index, buf.bytesused,
+		(*hw)->raw.grab_begin_ts,
+		(*hw)->raw.grab_end_ts,
+		(*hw)->raw.grab_end_ts - (*hw)->raw.grab_begin_ts,
+		skipped);
+
 	return buf.index;
 }
 
