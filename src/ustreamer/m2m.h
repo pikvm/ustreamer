@@ -58,12 +58,13 @@ typedef struct {
 	uint	gop;
 	uint	quality;
 	bool	allow_dma;
+	bool	boost;
 
 	us_m2m_encoder_runtime_s *run;
 } us_m2m_encoder_s;
 
 
-us_m2m_encoder_s *us_m2m_h264_encoder_init(const char *name, const char *path, uint bitrate, uint gop);
+us_m2m_encoder_s *us_m2m_h264_encoder_init(const char *name, const char *path, uint bitrate, uint gop, bool boost);
 us_m2m_encoder_s *us_m2m_mjpeg_encoder_init(const char *name, const char *path, uint quality);
 us_m2m_encoder_s *us_m2m_jpeg_encoder_init(const char *name, const char *path, uint quality);
 void us_m2m_encoder_destroy(us_m2m_encoder_s *enc);
