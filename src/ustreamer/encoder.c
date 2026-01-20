@@ -162,14 +162,8 @@ void us_encoder_open(us_encoder_s *enc, us_capture_s *cap) {
 	run->quality = quality;
 	US_MUTEX_UNLOCK(run->mutex);
 
-	const ldf desired_interval = (
-		cap->desired_fps > 0 && (cap->desired_fps < cap->run->hw_fps || cap->run->hw_fps == 0)
-		? (ldf)1 / cap->desired_fps
-		: 0
-	);
-
 	enc->run->pool = us_workers_pool_init(
-		"JPEG", "jw", n_workers, desired_interval,
+		"JPEG", "jw", n_workers,
 		_worker_job_init, (void*)enc,
 		_worker_job_destroy,
 		_worker_run_job);

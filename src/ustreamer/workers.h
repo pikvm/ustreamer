@@ -56,7 +56,6 @@ typedef bool (*us_workers_pool_run_job_f)(us_worker_s *wr);
 
 typedef struct us_workers_pool_sx {
 	const char		*name;
-	ldf				desired_interval;
 
 	us_workers_pool_job_destroy_f	job_destroy;
 	us_workers_pool_run_job_f		run_job;
@@ -76,7 +75,7 @@ typedef struct us_workers_pool_sx {
 
 
 us_workers_pool_s *us_workers_pool_init(
-	const char *name, const char *wr_prefix, uint n_workers, ldf desired_interval,
+	const char *name, const char *wr_prefix, uint n_workers,
 	us_workers_pool_job_init_f job_init, void *job_init_arg,
 	us_workers_pool_job_destroy_f job_destroy,
 	us_workers_pool_run_job_f run_job);

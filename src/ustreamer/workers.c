@@ -37,7 +37,7 @@ static void *_worker_thread(void *v_worker);
 
 
 us_workers_pool_s *us_workers_pool_init(
-	const char *name, const char *wr_prefix, uint n_workers, ldf desired_interval,
+	const char *name, const char *wr_prefix, uint n_workers,
 	us_workers_pool_job_init_f job_init, void *job_init_arg,
 	us_workers_pool_job_destroy_f job_destroy,
 	us_workers_pool_run_job_f run_job) {
@@ -47,7 +47,6 @@ us_workers_pool_s *us_workers_pool_init(
 	us_workers_pool_s *pool;
 	US_CALLOC(pool, 1);
 	pool->name = name;
-	pool->desired_interval = desired_interval;
 	pool->job_destroy = job_destroy;
 	pool->run_job = run_job;
 
@@ -147,14 +146,8 @@ ldf us_workers_pool_get_fluency_delay(us_workers_pool_s *pool, const us_worker_s
 
 	pool->approx_job_time = approx_job_time;
 
-	const ldf min_delay = pool->approx_job_time / pool->n_workers; // Среднее время работы размазывается на N воркеров
-
-	if (pool->desired_interval > 0 && min_delay > 0 && pool->desired_interval > min_delay) {
-		// Искусственное время задержки на основе желаемого FPS, если включен --desired-fps
-		// и аппаратный fps не попадает точно в желаемое значение
-		return pool->desired_interval;
-	}
-	return min_delay;
+	// Среднее время работы размазывается на N воркеров
+	return (pool->approx_job_time / pool->n_workers);
 }
 
 static void *_worker_thread(void *v_worker) {
