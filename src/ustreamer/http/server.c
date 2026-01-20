@@ -198,16 +198,8 @@ int us_server_listen(us_server_s *server) {
 
 	us_frame_copy(stream->run->blank->jpeg, ex->frame);
 
-	{
-		struct timeval interval = {0};
-		if (stream->cap->desired_fps > 0) {
-			interval.tv_usec = 1000000 / (stream->cap->desired_fps * 2);
-		} else {
-			interval.tv_usec = 16000; // ~60fps
-		}
-		assert((run->refresher = event_new(run->base, -1, EV_PERSIST, _http_refresher, server)) != NULL);
-		assert(!event_add(run->refresher, &interval));
-	}
+	assert((run->refresher = event_new(run->base, -1, 0, _http_refresher, server)) != NULL);
+	stream->run->http->jpeg_refresher = run->refresher;
 
 	evhttp_set_timeout(run->http, server->timeout);
 
@@ -519,7 +511,7 @@ static void _http_callback_state(struct evhttp_request *request, void *v_server)
 		(server->fake_width ? server->fake_width : captured_meta.width),
 		(server->fake_height ? server->fake_height : captured_meta.height),
 		us_bool_to_string(captured_meta.online),
-		stream->cap->desired_fps,
+		stream->desired_fps,
 		captured_fps,
 		us_fpsi_get(ex->queued_fpsi, NULL),
 		run->stream_clients_count
@@ -932,13 +924,15 @@ static void _http_refresher(int fd, short what, void *v_server) {
 	bool stream_updated = false;
 	bool frame_updated = false;
 
-	const int ri = us_ring_consumer_acquire(ring, 0);
-	if (ri >= 0) {
+	int ri;
+	while ((ri = us_ring_consumer_acquire(ring, 0)) >= 0) {
 		const us_frame_s *const frame = ring->items[ri];
 		frame_updated = _expose_frame(server, frame);
 		stream_updated = true;
 		us_ring_consumer_release(ring, ri);
-	} else if (ex->expose_end_ts + 1 < us_get_now_monotonic()) {
+	}
+
+	if (!stream_updated && (ex->expose_end_ts + 1 < us_get_now_monotonic())) {
 		_LOG_DEBUG("Repeating exposed ...");
 		ex->expose_begin_ts = us_get_now_monotonic();
 		ex->expose_cmp_ts = ex->expose_begin_ts;

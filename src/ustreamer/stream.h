@@ -26,6 +26,8 @@
 
 #include <pthread.h>
 
+#include <event2/event.h> // jpeg_refresher
+
 #include "../libs/types.h"
 #include "../libs/queue.h"
 #include "../libs/ring.h"
@@ -51,6 +53,7 @@ typedef struct {
 	atomic_bool		h264_online;
 	us_fpsi_s		*h264_fpsi;
 
+	struct event	*jpeg_refresher;
 	us_ring_s		*jpeg_ring;
 	atomic_bool		has_clients;
 	atomic_uint		snapshot_requested;
@@ -77,6 +80,7 @@ typedef struct {
 	us_capture_s	*cap;
 	us_encoder_s	*enc;
 
+	uint			desired_fps;
 	bool			notify_parent;
 	bool			slowdown;
 	uint			error_delay;

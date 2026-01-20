@@ -828,8 +828,6 @@ static int _capture_open_format(us_capture_s *cap, bool first) {
 static void _capture_open_hw_fps(us_capture_s *cap) {
 	us_capture_runtime_s *const run = cap->run;
 
-	run->hw_fps = 0;
-
 	struct v4l2_streamparm setfps = {.type = run->capture_type};
 	_LOG_DEBUG("Querying HW FPS ...");
 	if (us_xioctl(run->fd, VIDIOC_G_PARM, &setfps) < 0) {
@@ -851,7 +849,7 @@ static void _capture_open_hw_fps(us_capture_s *cap) {
 	US_MEMSET_ZERO(setfps);
 	setfps.type = run->capture_type;
 	SETFPS_TPF(numerator) = 1;
-	SETFPS_TPF(denominator) = (cap->desired_fps == 0 ? 255 : cap->desired_fps);
+	SETFPS_TPF(denominator) = -1; // Request maximum possible FPS
 
 	if (us_xioctl(run->fd, VIDIOC_S_PARM, &setfps) < 0) {
 		_LOG_PERROR("Can't set HW FPS");
@@ -868,12 +866,7 @@ static void _capture_open_hw_fps(us_capture_s *cap) {
 		return;
 	}
 
-	run->hw_fps = SETFPS_TPF(denominator);
-	if (cap->desired_fps != run->hw_fps) {
-		_LOG_INFO("Using HW FPS: %u -> %u (coerced)", cap->desired_fps, run->hw_fps);
-	} else {
-		_LOG_INFO("Using HW FPS: %u", run->hw_fps);
-	}
+	_LOG_INFO("Using HW FPS: %u/%u", SETFPS_TPF(numerator), SETFPS_TPF(denominator));
 
 #	undef SETFPS_TPF
 }

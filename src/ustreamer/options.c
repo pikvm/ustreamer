@@ -386,7 +386,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 			case _O_FORMAT_SWAP_RGB:	OPT_SET(cap->format_swap_rgb, true);
 			case _O_TV_STANDARD:		OPT_PARSE_ENUM("TV standard", cap->standard, us_capture_parse_standard, US_STANDARDS_STR);
 			case _O_IO_METHOD:			OPT_PARSE_ENUM("IO method", cap->io_method, us_capture_parse_io_method, US_IO_METHODS_STR);
-			case _O_DESIRED_FPS:		OPT_NUMBER("--desired-fps", cap->desired_fps, 0, US_VIDEO_MAX_FPS, 0);
+			case _O_DESIRED_FPS:		OPT_NUMBER("--desired-fps", stream->desired_fps, 0, US_VIDEO_MAX_FPS, 0);
 			case _O_MIN_FRAME_SIZE:		OPT_NUMBER("--min-frame-size", cap->min_frame_size, 1, 8192, 0);
 			case _O_ALLOW_TRUNCATED_FRAMES:	OPT_SET(cap->allow_truncated_frames, true);
 			case _O_PERSISTENT:			OPT_SET(cap->persistent, true);

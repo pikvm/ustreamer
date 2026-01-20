@@ -31,6 +31,8 @@
 
 #include <pthread.h>
 
+#include <event2/event.h> // jpeg_refresher
+
 #include "../libs/types.h"
 #include "../libs/errors.h"
 #include "../libs/tools.h"
@@ -696,6 +698,7 @@ static void _stream_expose_jpeg(us_stream_s *stream, const us_frame_s *frame) {
 	us_frame_s *const dest = run->http->jpeg_ring->items[ri];
 	us_frame_copy(frame, dest);
 	us_ring_producer_release(run->http->jpeg_ring, ri);
+	event_active(run->http->jpeg_refresher, 0, 0);
 	if (stream->jpeg_sink != NULL) {
 		us_memsink_server_put(stream->jpeg_sink, dest, NULL);
 	}

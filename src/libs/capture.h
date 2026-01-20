@@ -58,7 +58,6 @@ typedef struct {
 	uint				format;
 	uint				stride;
 	float				hz;
-	uint				hw_fps;
 	uint				jpeg_quality;
 	uz					raw_size;
 	uint				n_bufs;
@@ -113,7 +112,6 @@ typedef struct {
 	uint				n_bufs;
 	bool				dma_export;
 	bool				dma_required;
-	uint				desired_fps;
 	uz					min_frame_size;
 	bool				allow_truncated_frames;
 	bool				persistent;
