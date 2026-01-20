@@ -85,8 +85,6 @@ void us_fpsi_update(us_fpsi_s *fpsi, bool bump, const us_fpsi_meta_s *meta) {
 uint us_fpsi_get(us_fpsi_s *fpsi, us_fpsi_meta_s *meta) {
 	if (meta != NULL) {
 		assert(fpsi->with_meta);
-	} else {
-		assert(!fpsi->with_meta);
 	}
 
 	// Между чтением инфы и времени может быть гонка,
@@ -97,8 +95,7 @@ uint us_fpsi_get(us_fpsi_s *fpsi, us_fpsi_meta_s *meta) {
 	const ull state = atomic_load(&fpsi->state); // Потом инфа
 
 	uint current = state & 0xFFFF;
-	if (fpsi->with_meta) {
-		assert(meta != NULL);
+	if (fpsi->with_meta && meta != NULL) {
 		meta->width = (state >> 16) & 0xFFFF;
 		meta->height = (state >> 32) & 0xFFFF;
 		meta->online = (state >> 48) & 1;
