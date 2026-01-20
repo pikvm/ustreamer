@@ -193,16 +193,16 @@ static void *_video_or_acap_thread(void *v_client, bool video) {
 			};
 			janus_plugin_rtp_extensions_reset(&packet.extensions);
 
-			/*if (rtp->zero_playout_delay) {
+			if (rtp.zero_playout_delay) {
 				// https://github.com/pikvm/pikvm/issues/784
 				packet.extensions.min_delay = 0;
 				packet.extensions.max_delay = 0;
 			} else {
+				// Эти дефолты используются в Chrome/Safari/Firefox.
+				// Работает всё одинаково, потому что у них общая кодовая база WebRTC.
 				packet.extensions.min_delay = 0;
-				// 10s - Chromium/WebRTC default
-				// 3s - Firefox default
-				packet.extensions.max_delay = 300; // == 3s, i.e. 10ms granularity
-			}*/
+				packet.extensions.max_delay = 1000; // == 10s, i.e. 10ms granularity
+			}
 
 			if (rtp.video) {
 				uint video_orient = atomic_load(&client->video_orient);
