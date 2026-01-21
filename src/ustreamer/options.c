@@ -749,6 +749,7 @@ static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, co
 	SAY("    --h264-bitrate <kbps>  ───────── H264 bitrate in Kbps. Default: %u.\n", stream->h264_bitrate);
 	SAY("    --h264-gop <N>  ──────────────── Interval between keyframes. Default: %u.\n", stream->h264_gop);
 	SAY("    --h264-m2m-device </dev/path>  ─ Path to V4L2 M2M encoder device. Default: auto select.\n");
+	SAY("    --h264-boost  ────────────────── Increase encoder performance on PiKVM V4. Default: disabled.\n");
 #	ifdef WITH_V4P
 	SAY("Passthrough options for PiKVM V4:");
 	SAY("═════════════════════════════════");
