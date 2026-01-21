@@ -831,8 +831,8 @@ static int _capture_open_format(us_capture_s *cap, bool first) {
 	return 0;
 }
 
-static void _capture_open_hw_fps(us_capture_s *cap) {
-	us_capture_runtime_s *const run = cap->run;
+static void _capture_open_hw_fps(us_capture_s *cap) { // cppcheck-suppress constParameterPointer
+	const us_capture_runtime_s *const run = cap->run;
 
 	struct v4l2_streamparm setfps = {.type = run->capture_type};
 	_LOG_DEBUG("Querying HW FPS ...");
