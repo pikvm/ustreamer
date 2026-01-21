@@ -100,6 +100,7 @@ enum _US_OPT_VALUES {
 	_O_H264_BITRATE,
 	_O_H264_GOP,
 	_O_H264_M2M_DEVICE,
+	_O_H264_BOOST,
 #	undef ADD_SINK
 
 #	ifdef WITH_V4P
@@ -206,6 +207,7 @@ static const struct option _LONG_OPTS[] = {
 	{"h264-bitrate",			required_argument,	NULL,	_O_H264_BITRATE},
 	{"h264-gop",				required_argument,	NULL,	_O_H264_GOP},
 	{"h264-m2m-device",			required_argument,	NULL,	_O_H264_M2M_DEVICE},
+	{"h264-boost",				no_argument,		NULL,	_O_H264_BOOST},
 	// Compatibility
 	{"sink",					required_argument,	NULL,	_O_JPEG_SINK},
 	{"sink-mode",				required_argument,	NULL,	_O_JPEG_SINK_MODE},
@@ -469,6 +471,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 			case _O_H264_BITRATE:			OPT_NUMBER("--h264-bitrate", stream->h264_bitrate, 25, 20000, 0);
 			case _O_H264_GOP:				OPT_NUMBER("--h264-gop", stream->h264_gop, 0, 60, 0);
 			case _O_H264_M2M_DEVICE:		OPT_SET(stream->h264_m2m_path, optarg);
+			case _O_H264_BOOST:				OPT_SET(stream->h264_boost, true);
 
 #			ifdef WITH_V4P
 			case _O_V4P:

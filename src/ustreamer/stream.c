@@ -157,7 +157,13 @@ void us_stream_loop(us_stream_s *stream) {
 	atomic_store(&run->http->last_request_ts, us_get_now_monotonic());
 
 	if (stream->h264_sink != NULL) {
-		run->h264_enc = us_m2m_h264_encoder_init("H264", stream->h264_m2m_path, stream->h264_bitrate, stream->h264_gop);
+		run->h264_enc = us_m2m_h264_encoder_init(
+			"H264",
+			stream->h264_m2m_path,
+			stream->h264_bitrate,
+			stream->h264_gop,
+			stream->h264_boost);
+
 		run->h264_tmp_src = us_frame_init();
 		run->h264_dest = us_frame_init();
 	}

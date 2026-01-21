@@ -94,6 +94,7 @@ typedef struct {
 	uint			h264_bitrate;
 	uint			h264_gop;
 	char			*h264_m2m_path;
+	bool			h264_boost;
 
 #	ifdef WITH_V4P
 	us_drm_s		*drm;

@@ -43,7 +43,7 @@
 
 static us_m2m_encoder_s *_m2m_encoder_init(
 	const char *name, const char *path, uint output_format,
-	uint bitrate, uint gop, uint quality, bool allow_dma);
+	uint bitrate, uint gop, uint quality, bool allow_dma, bool boost);
 
 static void _m2m_encoder_ensure(us_m2m_encoder_s *enc, const us_frame_s *frame);
 
@@ -63,9 +63,9 @@ static int _m2m_encoder_compress_raw(us_m2m_encoder_s *enc, const us_frame_s *sr
 #define _LOG_DEBUG(x_msg, ...)	US_LOG_DEBUG("%s: " x_msg, enc->name, ##__VA_ARGS__)
 
 
-us_m2m_encoder_s *us_m2m_h264_encoder_init(const char *name, const char *path, uint bitrate, uint gop) {
+us_m2m_encoder_s *us_m2m_h264_encoder_init(const char *name, const char *path, uint bitrate, uint gop, bool boost) {
 	bitrate *= 1000; // From Kbps
-	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_H264, bitrate, gop, 0, true);
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_H264, bitrate, gop, 0, true, boost);
 }
 
 us_m2m_encoder_s *us_m2m_mjpeg_encoder_init(const char *name, const char *path, uint quality) {
@@ -76,12 +76,12 @@ us_m2m_encoder_s *us_m2m_mjpeg_encoder_init(const char *name, const char *path, 
 	bitrate = step * round(bitrate / step);
 	bitrate *= 1000; // From Kbps
 	assert(bitrate > 0);
-	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_MJPEG, bitrate, 0, 0, true);
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_MJPEG, bitrate, 0, 0, true, false);
 }
 
 us_m2m_encoder_s *us_m2m_jpeg_encoder_init(const char *name, const char *path, uint quality) {
 	// FIXME: DMA не работает
-	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_JPEG, 0, 0, quality, false);
+	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_JPEG, 0, 0, quality, false, false);
 }
 
 void us_m2m_encoder_destroy(us_m2m_encoder_s *enc) {
@@ -139,7 +139,7 @@ int us_m2m_encoder_compress(us_m2m_encoder_s *enc, const us_frame_s *src, us_fra
 
 static us_m2m_encoder_s *_m2m_encoder_init(
 	const char *name, const char *path, uint output_format,
-	uint bitrate, uint gop, uint quality, bool allow_dma) {
+	uint bitrate, uint gop, uint quality, bool allow_dma, bool boost) {
 
 	US_LOG_INFO("%s: Initializing encoder ...", name);
 
@@ -161,6 +161,7 @@ static us_m2m_encoder_s *_m2m_encoder_init(
 	enc->gop = gop;
 	enc->quality = quality;
 	enc->allow_dma = allow_dma;
+	enc->boost = boost;
 	enc->run = run;
 	return enc;
 }
@@ -222,7 +223,11 @@ static void _m2m_encoder_ensure(us_m2m_encoder_s *enc, const us_frame_s *frame) 
 		SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_I_PERIOD,		enc->gop);
 		SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_PROFILE,		V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE);
 		if (run->p_width * run->p_height <= 1920 * 1080) { // https://forums.raspberrypi.com/viewtopic.php?t=291447#p1762296
-			SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_LEVEL,		V4L2_MPEG_VIDEO_H264_LEVEL_4_0);
+			if (enc->boost) {
+				SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_LEVEL, V4L2_MPEG_VIDEO_H264_LEVEL_4_2);
+			} else {
+				SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_LEVEL, V4L2_MPEG_VIDEO_H264_LEVEL_4_0);
+			}
 		} else {
 			SET_OPTION(V4L2_CID_MPEG_VIDEO_H264_LEVEL,		V4L2_MPEG_VIDEO_H264_LEVEL_5_1);
 		}
@@ -276,10 +281,13 @@ static void _m2m_encoder_ensure(us_m2m_encoder_s *enc, const us_frame_s *frame) 
 		}
 	}
 
-	if (run->p_width * run->p_height <= 1280 * 720) {
+	if (
+		(run->p_width * run->p_height <= 1280 * 720)
+		|| ((enc->output_format == V4L2_PIX_FMT_H264) && enc->boost)
+	) {
 		// H264 требует каких-то лимитов. Больше 30 не поддерживается, а при 0
 		// через какое-то время начинает производить некорректные фреймы.
-		// Если же привысить fps, то резко увеличивается время кодирования.
+		// Если же превысить fps, то резко увеличивается время кодирования.
 		run->fps_limit = 60;
 	} else {
 		run->fps_limit = 30;
