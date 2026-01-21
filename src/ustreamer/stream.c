@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
+#include <math.h>
 
 #include <pthread.h>
 
@@ -314,6 +315,9 @@ static void *_jpeg_thread(void *v_ctx) {
 	_worker_context_s *ctx = v_ctx;
 	us_stream_s *stream = ctx->stream;
 
+	uint take = 1;
+	uint step = 1;
+
 	ldf grab_after_ts = 0;
 	uint fluency_passed = 0;
 
@@ -348,6 +352,19 @@ static void *_jpeg_thread(void *v_ctx) {
 			US_LOG_VERBOSE("JPEG: Passed encoding because nobody is watching");
 			us_capture_hwbuf_decref(hw);
 			continue;
+		}
+
+		if (stream->desired_fps > 0) {
+			const uint captured_fps = us_fpsi_get(stream->run->http->captured_fpsi, NULL);
+			take = ceilf((float)captured_fps / (float)stream->desired_fps);
+			if (step < take) {
+				US_LOG_DEBUG("JPEG: Passed encoding for FPS limit: step=%u, take=%u", step, take);
+				++step;
+				us_capture_hwbuf_decref(hw);
+				continue;
+			} else {
+				step = 1;
+			}
 		}
 
 		const ldf now_ts = us_get_now_monotonic();
@@ -396,7 +413,9 @@ static void *_h264_thread(void *v_ctx) {
 	_worker_context_s *ctx = v_ctx;
 	us_stream_s *stream = ctx->stream;
 
-	ldf grab_after_ts = 0;
+	uint take = 1;
+	uint step = 1;
+
 	while (!atomic_load(ctx->stop)) {
 		us_capture_hwbuf_s *hw = _get_latest_hw(ctx->queue);
 		if (hw == NULL) {
@@ -407,22 +426,21 @@ static void *_h264_thread(void *v_ctx) {
 			US_LOG_VERBOSE("H264: Passed encoding because nobody is watching");
 			goto decref;
 		}
-		if (hw->raw.grab_begin_ts < grab_after_ts) {
-			US_LOG_DEBUG("H264: Passed encoding for FPS limit");
-			goto decref;
+
+		const uint fps_limit = US_MAX(stream->run->h264_enc->run->fps_limit, stream->desired_fps);
+		if (fps_limit > 0) {
+			const uint captured_fps = us_fpsi_get(stream->run->http->captured_fpsi, NULL);
+			take = ceilf((float)captured_fps / (float)fps_limit);
+			if (step < take) {
+				US_LOG_DEBUG("H264: Passed encoding for FPS limit: step=%u, take=%u", step, take);
+				++step;
+				goto decref;
+			} else {
+				step = 1;
+			}
 		}
 
 		_stream_encode_expose_h264(ctx->stream, &hw->raw, false);
-
-		// M2M-енкодер увеличивает задержку на 100 милисекунд при 1080p, если скормить ему больше 30 FPS.
-		// Поэтому у нас есть два режима: 60 FPS для маленьких видео и 30 для 1920x1080(1200).
-		// Следующй фрейм захватывается не раньше, чем это требуется по FPS, минус небольшая
-		// погрешность (если захват неравномерный) - немного меньше 1/60, и примерно треть от 1/30.
-		const uint fps_limit = stream->run->h264_enc->run->fps_limit;
-		if (fps_limit > 0) {
-			const ldf frame_interval = (ldf)1 / fps_limit;
-			grab_after_ts = hw->raw.grab_begin_ts + frame_interval - 0.01;
-		}
 
 	decref:
 		us_capture_hwbuf_decref(hw);
