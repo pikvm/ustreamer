@@ -433,7 +433,10 @@ static void *_h264_thread(void *v_ctx) {
 			goto decref;
 		}
 
-		const uint fps_limit = US_MAX(stream->run->h264_enc->run->fps_limit, stream->desired_fps);
+		uint fps_limit = stream->run->h264_enc->run->fps_limit;
+		if (stream->desired_fps > 0 && (fps_limit == 0 || stream->desired_fps < fps_limit)) {
+			fps_limit = stream->desired_fps;
+		}
 		if (fps_limit > 0) {
 			const uint captured_fps = us_fpsi_get(stream->run->http->captured_fpsi, NULL);
 			take = ceilf((float)captured_fps / (float)fps_limit);
