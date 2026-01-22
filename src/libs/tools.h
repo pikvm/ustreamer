@@ -85,6 +85,8 @@
 
 #define US_ONCE(...) US_ONCE_FOR(once, __LINE__, ##__VA_ARGS__)
 
+#define NTP_UNIX_TIME_DIFF 2208988800u // difference between Unix time and NTP time in seconds (1970 - 1900)
+#define NTP_TICKS_IN_SECOND 4294967296u // ticks per second in NTP time
 
 INLINE char *us_strdup(const char *str) {
 	char *const new = strdup(str);
@@ -139,6 +141,12 @@ INLINE u64 us_get_now_monotonic_u64(void) {
 	struct timespec ts;
 	US_A(!clock_gettime(CLOCK_MONOTONIC, &ts));
 	return (u64)(ts.tv_nsec / 1000) + (u64)ts.tv_sec * 1000000;
+}
+
+INLINE u64 us_get_now_ntp(void) {
+	struct timespec ts;
+	assert(!clock_gettime(CLOCK_REALTIME, &ts));
+	return (((u64)ts.tv_sec + NTP_UNIX_TIME_DIFF) << 32) + ((u64)ts.tv_nsec / 1000 * NTP_TICKS_IN_SECOND ) / 1000000;
 }
 
 INLINE u64 us_get_now_id(void) {
