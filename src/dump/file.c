@@ -24,56 +24,73 @@
 
 
 us_output_file_s *us_output_file_init(const char *path, bool json) {
-	us_output_file_s *output;
-	US_CALLOC(output, 1);
+	us_output_file_s *out;
+	US_CALLOC(out, 1);
 
 	if (!strcmp(path, "-")) {
 		US_LOG_INFO("Using output: <stdout>");
-		output->fp = stdout;
+		out->fp = stdout;
 	} else {
 		US_LOG_INFO("Using output: %s", path);
-		if ((output->fp = fopen(path, "wb")) == NULL) {
+		if ((out->fp = fopen(path, "wb")) == NULL) {
 			US_LOG_PERROR("Can't open output file");
 			goto error;
 		}
 	}
 
-	output->json = json;
-	return output;
+	out->json = json;
+	return out;
 
 	error:
-		us_output_file_destroy(output);
+		us_output_file_destroy(out);
 		return NULL;
 }
 
-void us_output_file_write(void *v_output, const us_frame_s *frame) {
-	us_output_file_s *output = v_output;
-	if (output->json) {
-		us_base64_encode(frame->data, frame->used, &output->base64_data, &output->base64_allocated);
-		fprintf(output->fp,
-			"{\"size\": %zu, \"width\": %u, \"height\": %u,"
-			" \"format\": %u, \"stride\": %u, \"online\": %u, \"key\": %u, \"gop\": %u,"
-			" \"grab_begin_ts\": %.3Lf, \"grab_end_ts\": %.3Lf,"
-			" \"encode_begin_ts\": %.3Lf, \"encode_end_ts\": %.3Lf,"
+void us_output_file_write(void *v_out, const us_frame_s *frame) {
+	us_output_file_s *out = v_out;
+	if (out->json) {
+		us_base64_encode(frame->data, frame->used, &out->base64_data, &out->base64_allocated);
+		fprintf(
+			out->fp,
+			"{\"size\": %zu,"
+			" \"width\": %u,"
+			" \"height\": %u,"
+			" \"format\": %u,"
+			" \"stride\": %u,"
+			" \"online\": %u,"
+			" \"key\": %u,"
+			" \"gop\": %u,"
+			" \"grab_begin_ts\": %.3Lf,"
+			" \"grab_end_ts\": %.3Lf,"
+			" \"encode_begin_ts\": %.3Lf,"
+			" \"encode_end_ts\": %.3Lf,"
 			" \"data\": \"%s\"}\n",
-			frame->used, frame->width, frame->height,
-			frame->format, frame->stride, frame->online, frame->key, frame->gop,
-			frame->grab_begin_ts, frame->grab_end_ts,
-			frame->encode_begin_ts, frame->encode_end_ts,
-			output->base64_data);
+			frame->used,
+			frame->width,
+			frame->height,
+			frame->format,
+			frame->stride,
+			frame->online,
+			frame->key,
+			frame->gop,
+			frame->grab_begin_ts,
+			frame->grab_end_ts,
+			frame->encode_begin_ts,
+			frame->encode_end_ts,
+			out->base64_data);
 	} else {
-		fwrite(frame->data, 1, frame->used, output->fp);
+		fwrite(frame->data, 1, frame->used, out->fp);
 	}
-	fflush(output->fp);
+	fflush(out->fp);
 }
 
-void us_output_file_destroy(void *v_output) {
-	us_output_file_s *output = v_output;
-	US_DELETE(output->base64_data, free);
-	if (output->fp && output->fp != stdout) {
-		if (fclose(output->fp) < 0) {
+void us_output_file_destroy(void *v_out) {
+	us_output_file_s *out = v_out;
+	US_DELETE(out->base64_data, free);
+	if (out->fp && out->fp != stdout) {
+		if (fclose(out->fp) < 0) {
 			US_LOG_PERROR("Can't close output file");
 		}
 	}
-	free(output);
+	free(out);
 }

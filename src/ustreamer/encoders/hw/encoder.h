@@ -22,16 +22,7 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
-#include <assert.h>
-
-#include <linux/videodev2.h>
-
 #include "../../../libs/frame.h"
-
-#include "huffman.h"
 
 
 void us_hw_encoder_compress(const us_frame_s *src, us_frame_s *dest);

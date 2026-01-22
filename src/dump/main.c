@@ -90,17 +90,19 @@ volatile bool _g_stop = false;
 
 
 typedef struct {
-	void *v_output;
-	void (*write)(void *v_output, const us_frame_s *frame);
-	void (*destroy)(void *v_output);
+	void *v_out;
+	void (*write)(void *v_out, const us_frame_s *frame);
+	void (*destroy)(void *v_out);
 } _output_context_s;
 
 
 static void _signal_handler(int signum);
 
 static int _dump_sink(
-	const char *sink_name, unsigned sink_timeout,
-	long long count, long double interval,
+	const char *sink_name,
+	unsigned sink_timeout,
+	long long count,
+	long double interval,
 	bool key_required,
 	_output_context_s *ctx);
 
@@ -113,8 +115,8 @@ int main(int argc, char *argv[]) {
 
 	const char *sink_name = NULL;
 	unsigned sink_timeout = 1;
-	const char *output_path = NULL;
-	bool output_json = false;
+	const char *out_path = NULL;
+	bool out_json = false;
 	long long count = 0;
 	long double interval = 0;
 	bool key_required = false;
@@ -151,8 +153,8 @@ int main(int argc, char *argv[]) {
 		switch (ch) {
 			case _O_SINK:			OPT_SET(sink_name, optarg);
 			case _O_SINK_TIMEOUT:	OPT_NUMBER("--sink-timeout", sink_timeout, 1, 60, 0);
-			case _O_OUTPUT:			OPT_SET(output_path, optarg);
-			case _O_OUTPUT_JSON:	OPT_SET(output_json, true);
+			case _O_OUTPUT:			OPT_SET(out_path, optarg);
+			case _O_OUTPUT_JSON:	OPT_SET(out_json, true);
 			case _O_COUNT:			OPT_NUMBER("--count", count, 0, LLONG_MAX, 0);
 			case _O_INTERVAL:		OPT_LDOUBLE("--interval", interval, 0, 60);
 			case _O_KEY_REQUIRED:	OPT_SET(key_required, true);
@@ -183,8 +185,8 @@ int main(int argc, char *argv[]) {
 
 	_output_context_s ctx = {0};
 
-	if (output_path && output_path[0] != '\0') {
-		if ((ctx.v_output = (void*)us_output_file_init(output_path, output_json)) == NULL) {
+	if (out_path && out_path[0] != '\0') {
+		if ((ctx.v_out = (void*)us_output_file_init(out_path, out_json)) == NULL) {
 			return 1;
 		}
 		ctx.write = us_output_file_write;
@@ -193,8 +195,8 @@ int main(int argc, char *argv[]) {
 
 	us_install_signals_handler(_signal_handler, false);
 	const int retval = abs(_dump_sink(sink_name, sink_timeout, count, interval, key_required, &ctx));
-	if (ctx.v_output && ctx.destroy) {
-		ctx.destroy(ctx.v_output);
+	if (ctx.v_out && ctx.destroy) {
+		ctx.destroy(ctx.v_out);
 	}
 	return retval;
 }
@@ -208,10 +210,13 @@ static void _signal_handler(int signum) {
 }
 
 static int _dump_sink(
-	const char *sink_name, unsigned sink_timeout,
-	long long count, long double interval,
+	const char *sink_name,
+	unsigned sink_timeout,
+	long long count,
+	long double interval,
 	bool key_required,
-	_output_context_s *ctx) {
+	_output_context_s *ctx
+) {
 
 	int retval = -1;
 
@@ -259,8 +264,8 @@ static int _dump_sink(
 
 			us_fpsi_update(fpsi, true, NULL);
 
-			if (ctx->v_output != NULL) {
-				ctx->write(ctx->v_output, frame);
+			if (ctx->v_out != NULL) {
+				ctx->write(ctx->v_out, frame);
 			}
 
 			if (count >= 0) {

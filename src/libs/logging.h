@@ -75,7 +75,7 @@ extern pthread_mutex_t us_g_log_mutex;
 
 #define US_SEP_INFO(x_ch) { \
 		US_LOGGING_LOCK; \
-		for (int m_count = 0; m_count < 80; ++m_count) { \
+		for (int m_i = 0; m_i < 80; ++m_i) { \
 			fputc((x_ch), stderr); \
 		} \
 		fputc('\n', stderr); \

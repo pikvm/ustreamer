@@ -32,14 +32,14 @@
 
 void us_build_short_options(const struct option opts[], char *short_opts, uz size) {
 	memset(short_opts, 0, size);
-    for (uint short_index = 0, opt_index = 0; opts[opt_index].name != NULL; ++opt_index) {
-		assert(short_index < size - 3);
-        if (isalpha(opts[opt_index].val)) {
-            short_opts[short_index] = opts[opt_index].val;
-            ++short_index;
-            if (opts[opt_index].has_arg == required_argument) {
-                short_opts[short_index] = ':';
-                ++short_index;
+    for (uint short_i = 0, opt_i = 0; opts[opt_i].name != NULL; ++opt_i) {
+		assert(short_i < size - 3);
+        if (isalpha(opts[opt_i].val)) {
+            short_opts[short_i] = opts[opt_i].val;
+            ++short_i;
+            if (opts[opt_i].has_arg == required_argument) {
+                short_opts[short_i] = ':';
+                ++short_i;
             }
         }
     }

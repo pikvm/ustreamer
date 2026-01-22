@@ -41,9 +41,9 @@ def main() -> None:
     data_text = "{\n\t" + ",\n\t".join(
         ", ".join(
             f"0x{ch:02X}"
-            for ch in data[index:index + 20]
+            for ch in data[i:i + 20]
         )
-        for index in range(0, len(data), 20)
+        for i in range(0, len(data), 20)
     ) + ",\n}"
 
     text = f"{common.C_PREPEND}\n"

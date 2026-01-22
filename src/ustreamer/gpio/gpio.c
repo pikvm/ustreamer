@@ -32,7 +32,7 @@ us_gpio_s us_g_gpio = {
 		.role = x_role, \
 		.consumer = NULL, \
 		.line = NULL, \
-		.state = false \
+		.on = false \
 	}
 	.prog_running = MAKE_OUTPUT("prog-running"),
 	.stream_online = MAKE_OUTPUT("stream-online"),
@@ -46,8 +46,8 @@ us_gpio_s us_g_gpio = {
 };
 
 
-static void _gpio_output_init(us_gpio_output_s *output, struct gpiod_chip *chip);
-static void _gpio_output_destroy(us_gpio_output_s *output);
+static void _gpio_output_init(us_gpio_output_s *out, struct gpiod_chip *chip);
+static void _gpio_output_destroy(us_gpio_output_s *out);
 
 
 void us_gpio_init(void) {
@@ -92,23 +92,23 @@ void us_gpio_destroy(void) {
 	}
 }
 
-int us_gpio_inner_set(us_gpio_output_s *output, bool state) {
+int us_gpio_inner_set(us_gpio_output_s *out, bool on) {
 	int retval = 0;
 
 #	ifndef HAVE_GPIOD2
 	assert(us_g_gpio.chip != NULL);
 #	endif
-	assert(output->line != NULL);
-	assert(output->state != state); // Must be checked in macro for the performance
+	assert(out->line != NULL);
+	assert(out->on != on); // Must be checked in macro for the performance
 	US_MUTEX_LOCK(us_g_gpio.mutex);
 
 #	ifdef HAVE_GPIOD2
-	if (gpiod_line_request_set_value(output->line, output->pin, state) < 0) {
+	if (gpiod_line_request_set_value(out->line, out->pin, on) < 0) {
 #	else
-	if (gpiod_line_set_value(output->line, (int)state) < 0) {
+	if (gpiod_line_set_value(out->line, (int)on) < 0) {
 #	endif
-		US_LOG_PERROR("GPIO: Can't write value %d to line %s", state, output->consumer); \
-		_gpio_output_destroy(output);
+		US_LOG_PERROR("GPIO: Can't write value %d to line %s", on, out->consumer); \
+		_gpio_output_destroy(out);
 		retval = -1;
 	}
 
@@ -116,12 +116,12 @@ int us_gpio_inner_set(us_gpio_output_s *output, bool state) {
 	return retval;
 }
 
-static void _gpio_output_init(us_gpio_output_s *output, struct gpiod_chip *chip) {
-	assert(output->line == NULL);
+static void _gpio_output_init(us_gpio_output_s *out, struct gpiod_chip *chip) {
+	assert(out->line == NULL);
 
-	US_ASPRINTF(output->consumer, "%s::%s", us_g_gpio.consumer_prefix, output->role);
+	US_ASPRINTF(out->consumer, "%s::%s", us_g_gpio.consumer_prefix, out->role);
 
-	if (output->pin >= 0) {
+	if (out->pin >= 0) {
 #		ifdef HAVE_GPIOD2
 		struct gpiod_line_settings *line_settings;
 		assert(line_settings = gpiod_line_settings_new());
@@ -130,51 +130,51 @@ static void _gpio_output_init(us_gpio_output_s *output, struct gpiod_chip *chip)
 
 		struct gpiod_line_config *line_config;
 		assert(line_config = gpiod_line_config_new());
-		const unsigned offset = output->pin;
+		const unsigned offset = out->pin;
 		assert(!gpiod_line_config_add_line_settings(line_config, &offset, 1, line_settings));
 
-		struct gpiod_request_config *request_config;
-		assert(request_config = gpiod_request_config_new());
-		gpiod_request_config_set_consumer(request_config, output->consumer);
+		struct gpiod_request_config *req_config;
+		assert(req_config = gpiod_request_config_new());
+		gpiod_request_config_set_consumer(req_config, out->consumer);
 
-		if ((output->line = gpiod_chip_request_lines(chip, request_config, line_config)) == NULL) {
-			US_LOG_PERROR("GPIO: Can't request pin=%d as %s", output->pin, output->consumer);
+		if ((out->line = gpiod_chip_request_lines(chip, req_config, line_config)) == NULL) {
+			US_LOG_PERROR("GPIO: Can't request pin=%d as %s", out->pin, out->consumer);
 		}
 
-		gpiod_request_config_free(request_config);
+		gpiod_request_config_free(req_config);
 		gpiod_line_config_free(line_config);
 		gpiod_line_settings_free(line_settings);
 
-		if (output->line == NULL) {
-			_gpio_output_destroy(output);
+		if (out->line == NULL) {
+			_gpio_output_destroy(out);
 		}
 
 #		else
 
-		if ((output->line = gpiod_chip_get_line(chip, output->pin)) != NULL) {
-			if (gpiod_line_request_output(output->line, output->consumer, 0) < 0) {
-				US_LOG_PERROR("GPIO: Can't request pin=%d as %s", output->pin, output->consumer);
-				_gpio_output_destroy(output);
+		if ((out->line = gpiod_chip_get_line(chip, out->pin)) != NULL) {
+			if (gpiod_line_request_output(out->line, out->consumer, 0) < 0) {
+				US_LOG_PERROR("GPIO: Can't request pin=%d as %s", out->pin, out->consumer);
+				_gpio_output_destroy(out);
 			}
 		} else {
-			US_LOG_PERROR("GPIO: Can't get pin=%d as %s", output->pin, output->consumer);
+			US_LOG_PERROR("GPIO: Can't get pin=%d as %s", out->pin, out->consumer);
 		}
 #		endif
 	}
 }
 
-static void _gpio_output_destroy(us_gpio_output_s *output) {
-	if (output->line != NULL) {
+static void _gpio_output_destroy(us_gpio_output_s *out) {
+	if (out->line != NULL) {
 #		ifdef HAVE_GPIOD2
-		gpiod_line_request_release(output->line);
+		gpiod_line_request_release(out->line);
 #		else
-		gpiod_line_release(output->line);
+		gpiod_line_release(out->line);
 #		endif
-		output->line = NULL;
+		out->line = NULL;
 	}
-	if (output->consumer != NULL) {
-		free(output->consumer);
-		output->consumer = NULL;
+	if (out->consumer != NULL) {
+		free(out->consumer);
+		out->consumer = NULL;
 	}
-	output->state = false;
+	out->on = false;
 }

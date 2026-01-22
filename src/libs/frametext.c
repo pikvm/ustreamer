@@ -34,9 +34,12 @@
 
 
 static void _frametext_draw_line(
-	us_frametext_s *ft, const char *line,
-	uint scale_x, uint scale_y,
-	uint start_x, uint start_y);
+	us_frametext_s *ft,
+	const char *line,
+	uint scale_x,
+	uint scale_y,
+	uint start_x,
+	uint start_y);
 
 
 us_frametext_s *us_frametext_init(void) {
@@ -156,10 +159,13 @@ empty:
 }
 
 void _frametext_draw_line(
-	us_frametext_s *ft, const char *line,
-	uint scale_x, uint scale_y,
-	uint start_x, uint start_y) {
-
+	us_frametext_s *ft,
+	const char *line,
+	uint scale_x,
+	uint scale_y,
+	uint start_x,
+	uint start_y
+) {
 	us_frame_s *const frame = ft->frame;
 
 	const size_t len = strlen(line);

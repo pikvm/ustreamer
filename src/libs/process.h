@@ -71,13 +71,13 @@ INLINE int us_process_track_parent_death(void) {
 	const pid_t parent = getppid();
 	int signum = SIGTERM;
 #	if defined(__linux__)
-	const int retval = prctl(PR_SET_PDEATHSIG, signum);
+	const int result = prctl(PR_SET_PDEATHSIG, signum);
 #	elif defined(__FreeBSD__)
-	const int retval = procctl(P_PID, 0, PROC_PDEATHSIG_CTL, &signum);
+	const int result = procctl(P_PID, 0, PROC_PDEATHSIG_CTL, &signum);
 #	else
 #		error WTF?
 #	endif
-	if (retval < 0) {
+	if (result < 0) {
 		US_LOG_PERROR("Can't set to receive SIGTERM on parent process death");
 		return -1;
 	}
@@ -103,15 +103,15 @@ INLINE void us_process_set_name_prefix(int argc, char *argv[], const char *prefi
 	US_REALLOC(cmdline, allocated);
 	cmdline[0] = '\0';
 
-	for (int index = 0; index < argc; ++index) {
-		uz arg_len = strlen(argv[index]);
+	for (int i = 0; i < argc; ++i) {
+		uz arg_len = strlen(argv[i]);
 		if (used + arg_len + 16 >= allocated) {
 			allocated += arg_len + 2048;
 			US_REALLOC(cmdline, allocated); // cppcheck-suppress memleakOnRealloc // False-positive (ok with assert)
 		}
 
 		strcat(cmdline, " ");
-		strcat(cmdline, argv[index]);
+		strcat(cmdline, argv[i]);
 		used = strlen(cmdline); // Не считаем вручную, так надежнее
 	}
 

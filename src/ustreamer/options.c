@@ -22,6 +22,35 @@
 
 #include "options.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <ctype.h>
+#include <limits.h>
+#include <getopt.h>
+#include <errno.h>
+#include <assert.h>
+
+#include "../libs/types.h"
+#include "../libs/const.h"
+#include "../libs/logging.h"
+#include "../libs/process.h"
+#include "../libs/frame.h"
+#include "../libs/memsink.h"
+#include "../libs/options.h"
+#include "../libs/capture.h"
+#ifdef WITH_V4P
+#	include "../libs/drm/drm.h"
+#endif
+
+#include "encoder.h"
+#include "stream.h"
+#include "http/server.h"
+#ifdef WITH_GPIO
+#	include "gpio/gpio.h"
+#endif
+
 
 enum _US_OPT_VALUES {
 	_O_DEVICE = 'd',
@@ -252,53 +281,65 @@ static const struct option _LONG_OPTS[] = {
 };
 
 
-static int _parse_resolution(const char *str, unsigned *width, unsigned *height, bool limited);
+static int _parse_resolution(const char *str, uint *width, uint *height, bool limited);
 static int _check_instance_id(const char *str);
 
 static void _features(void);
-static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, const us_stream_s *stream, const us_server_s *server);
+
+static void _help(
+	FILE *fp,
+	const us_capture_s *cap,
+	const us_encoder_s *enc,
+	const us_stream_s *stream,
+	const us_server_s *server);
 
 
-us_options_s *us_options_init(unsigned argc, char *argv[]) {
-	us_options_s *options;
-	US_CALLOC(options, 1);
-	options->argc = argc;
-	options->argv = argv;
+us_options_s *us_options_init(uint argc, char *argv[]) {
+	us_options_s *opts;
+	US_CALLOC(opts, 1);
+	opts->argc = argc;
+	opts->argv = argv;
 
-	US_CALLOC(options->argv_copy, argc);
-	for (unsigned index = 0; index < argc; ++index) {
-		options->argv_copy[index] = us_strdup(argv[index]);
+	US_CALLOC(opts->argv_copy, argc);
+	for (uint i = 0; i < argc; ++i) {
+		opts->argv_copy[i] = us_strdup(argv[i]);
 	}
-	return options;
+	return opts;
 }
 
-void us_options_destroy(us_options_s *options) {
-	US_DELETE(options->jpeg_sink, us_memsink_destroy);
-	US_DELETE(options->raw_sink, us_memsink_destroy);
-	US_DELETE(options->h264_sink, us_memsink_destroy);
+void us_options_destroy(us_options_s *opts) {
+	US_DELETE(opts->jpeg_sink, us_memsink_destroy);
+	US_DELETE(opts->raw_sink, us_memsink_destroy);
+	US_DELETE(opts->h264_sink, us_memsink_destroy);
 #	ifdef WITH_V4P
-	US_DELETE(options->drm, us_drm_destroy);
+	US_DELETE(opts->drm, us_drm_destroy);
 #	endif
 
-	for (unsigned index = 0; index < options->argc; ++index) {
-		free(options->argv_copy[index]);
+	for (uint i = 0; i < opts->argc; ++i) {
+		free(opts->argv_copy[i]);
 	}
-	free(options->argv_copy);
+	free(opts->argv_copy);
 
-	free(options);
+	free(opts);
 }
 
 
-int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, us_stream_s *stream, us_server_s *server) {
+int us_options_parse(
+	us_options_s *opts,
+	us_capture_s *cap,
+	us_encoder_s *enc,
+	us_stream_s *stream,
+	us_server_s *server
+) {
 #	define OPT_SET(x_dest, x_value) { \
 			x_dest = x_value; \
 			break; \
 		}
 
 #	define OPT_NUMBER(x_name, x_dest, x_min, x_max, x_base) { \
-			errno = 0; char *m_end = NULL; const long long m_tmp = strtoll(optarg, &m_end, x_base); \
+			errno = 0; char *m_end = NULL; const sll m_tmp = strtoll(optarg, &m_end, x_base); \
 			if (errno || *m_end || m_tmp < x_min || m_tmp > x_max) { \
-				printf("Invalid value for '%s=%s': min=%lld, max=%lld\n", x_name, optarg, (long long)x_min, (long long)x_max); \
+				printf("Invalid value for '%s=%s': min=%lld, max=%lld\n", x_name, optarg, (sll)x_min, (sll)x_max); \
 				return -1; \
 			} \
 			x_dest = m_tmp; \
@@ -362,8 +403,8 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 		const char *x_prefix##_name = NULL; \
 		mode_t x_prefix##_mode = 0660; \
 		bool x_prefix##_rm = false; \
-		unsigned x_prefix##_client_ttl = 10; \
-		unsigned x_prefix##_timeout = 1;
+		uint x_prefix##_client_ttl = 10; \
+		uint x_prefix##_timeout = 1;
 	ADD_SINK(jpeg_sink);
 	ADD_SINK(raw_sink);
 	ADD_SINK(h264_sink);
@@ -376,7 +417,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 	char short_opts[128];
 	us_build_short_options(_LONG_OPTS, short_opts, 128);
 
-	for (int ch; (ch = getopt_long(options->argc, options->argv_copy, short_opts, _LONG_OPTS, NULL)) >= 0;) {
+	for (int ch; (ch = getopt_long(opts->argc, opts->argv_copy, short_opts, _LONG_OPTS, NULL)) >= 0;) {
 		switch (ch) {
 			case _O_DEVICE:				OPT_SET(cap->path, optarg);
 			case _O_INPUT:				OPT_NUMBER("--input", cap->input, 0, 128, 0);
@@ -475,8 +516,8 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 
 #			ifdef WITH_V4P
 			case _O_V4P:
-				options->drm = us_drm_init();
-				stream->drm = options->drm;
+				opts->drm = us_drm_init();
+				stream->drm = opts->drm;
 				break;
 #			endif
 
@@ -522,7 +563,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 
 #	define ADD_SINK(x_label, x_prefix) { \
 			if (x_prefix##_name && x_prefix##_name[0] != '\0') { \
-				options->x_prefix = us_memsink_init_opened( \
+				opts->x_prefix = us_memsink_init_opened( \
 					x_label, \
 					x_prefix##_name, \
 					true, \
@@ -532,7 +573,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 					x_prefix##_timeout \
 				); \
 			} \
-			stream->x_prefix = options->x_prefix; \
+			stream->x_prefix = opts->x_prefix; \
 		}
 	ADD_SINK("JPEG", jpeg_sink);
 	ADD_SINK("RAW", raw_sink);
@@ -541,7 +582,7 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 
 #	ifdef WITH_SETPROCTITLE
 	if (process_name_prefix != NULL) {
-		us_process_set_name_prefix(options->argc, options->argv, process_name_prefix);
+		us_process_set_name_prefix(opts->argc, opts->argv, process_name_prefix);
 	}
 #	endif
 
@@ -555,9 +596,9 @@ int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, u
 	return 0;
 }
 
-static int _parse_resolution(const char *str, unsigned *width, unsigned *height, bool limited) {
-	unsigned tmp_width;
-	unsigned tmp_height;
+static int _parse_resolution(const char *str, uint *width, uint *height, bool limited) {
+	uint tmp_width;
+	uint tmp_height;
 	if (sscanf(str, "%ux%u", &tmp_width, &tmp_height) != 2) {
 		return -1;
 	}
@@ -636,7 +677,13 @@ static void _features(void) {
 #	endif
 }
 
-static void _help(FILE *fp, const us_capture_s *cap, const us_encoder_s *enc, const us_stream_s *stream, const us_server_s *server) {
+static void _help(
+	FILE *fp,
+	const us_capture_s *cap,
+	const us_encoder_s *enc,
+	const us_stream_s *stream,
+	const us_server_s *server
+) {
 #	define SAY(x_msg, ...) fprintf(fp, x_msg "\n", ##__VA_ARGS__)
 	SAY("\nuStreamer - Lightweight and fast MJPEG-HTTP streamer");
 	SAY("═══════════════════════════════════════════════════");

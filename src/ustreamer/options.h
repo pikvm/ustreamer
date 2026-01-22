@@ -22,23 +22,8 @@
 
 #pragma once
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-#include <strings.h>
-#include <ctype.h>
-#include <limits.h>
-#include <getopt.h>
-#include <errno.h>
-#include <assert.h>
-
-#include "../libs/const.h"
-#include "../libs/logging.h"
-#include "../libs/process.h"
-#include "../libs/frame.h"
+#include "../libs/types.h"
 #include "../libs/memsink.h"
-#include "../libs/options.h"
 #include "../libs/capture.h"
 #ifdef WITH_V4P
 #	include "../libs/drm/drm.h"
@@ -47,13 +32,10 @@
 #include "encoder.h"
 #include "stream.h"
 #include "http/server.h"
-#ifdef WITH_GPIO
-#	include "gpio/gpio.h"
-#endif
 
 
 typedef struct {
-	unsigned		argc;
+	uint			argc;
 	char			**argv;
 	char			**argv_copy;
 	us_memsink_s	*jpeg_sink;
@@ -65,7 +47,12 @@ typedef struct {
 } us_options_s;
 
 
-us_options_s *us_options_init(unsigned argc, char *argv[]);
+us_options_s *us_options_init(uint argc, char *argv[]);
 void us_options_destroy(us_options_s *options);
 
-int options_parse(us_options_s *options, us_capture_s *cap, us_encoder_s *enc, us_stream_s *stream, us_server_s *server);
+int us_options_parse(
+	us_options_s *options,
+	us_capture_s *cap,
+	us_encoder_s *enc,
+	us_stream_s *stream,
+	us_server_s *server);

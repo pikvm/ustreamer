@@ -62,14 +62,14 @@
 typedef struct {
 	pthread_t		tid;
 	us_capture_s	*cap;
-	us_queue_s		*queue;
+	us_queue_s		*q;
 	pthread_mutex_t	*mutex;
 	atomic_bool		*stop;
 } _releaser_context_s;
 
 typedef struct {
 	pthread_t	tid;
-	us_queue_s	*queue;
+	us_queue_s	*q;
 	us_stream_s	*stream;
 	atomic_bool	*stop;
 } _worker_context_s;
@@ -83,7 +83,7 @@ static void *_h264_thread(void *v_ctx);
 static void *_drm_thread(void *v_ctx);
 #endif
 
-static us_capture_hwbuf_s *_get_latest_hw(us_queue_s *queue);
+static us_capture_hwbuf_s *_get_latest_hw(us_queue_s *q);
 
 static bool _stream_has_jpeg_clients_cached(us_stream_s *stream);
 static bool _stream_has_any_clients_cached(us_stream_s *stream);
@@ -108,7 +108,7 @@ us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
 	US_RING_INIT_WITH_ITEMS(http->jpeg_ring, 4, us_frame_init);
 	atomic_init(&http->has_clients, false);
 	atomic_init(&http->snapshot_requested, 0);
-	atomic_init(&http->last_request_ts, 0);
+	atomic_init(&http->last_req_ts, 0);
 	http->captured_fpsi = us_fpsi_init("STREAM-CAPTURED", true);
 
 	us_stream_runtime_s *run;
@@ -154,7 +154,7 @@ void us_stream_loop(us_stream_s *stream) {
 	us_stream_runtime_s *const run = stream->run;
 	us_capture_s *const cap = stream->cap;
 
-	atomic_store(&run->http->last_request_ts, us_get_now_monotonic());
+	atomic_store(&run->http->last_req_ts, us_get_now_monotonic());
 
 	if (stream->h264_sink != NULL) {
 		run->h264_enc = us_m2m_h264_encoder_init(
@@ -177,10 +177,10 @@ void us_stream_loop(us_stream_s *stream) {
 		const uint n_releasers = cap->run->n_bufs;
 		_releaser_context_s *releasers;
 		US_CALLOC(releasers, n_releasers);
-		for (uint index = 0; index < n_releasers; ++index) {
-			_releaser_context_s *ctx = &releasers[index];
+		for (uint i = 0; i < n_releasers; ++i) {
+			_releaser_context_s *ctx = &releasers[i];
 			ctx->cap = cap;
-			ctx->queue = us_queue_init(1);
+			ctx->q = us_queue_init(1);
 			ctx->mutex = &release_mutex;
 			ctx->stop = &threads_stop;
 			US_THREAD_CREATE(ctx->tid, _releaser_thread, ctx);
@@ -190,7 +190,7 @@ void us_stream_loop(us_stream_s *stream) {
 			_worker_context_s *x_ctx = NULL; \
 			if (x_cond) { \
 				US_CALLOC(x_ctx, 1); \
-				x_ctx->queue = us_queue_init(x_capacity); \
+				x_ctx->q = us_queue_init(x_capacity); \
 				x_ctx->stream = stream; \
 				x_ctx->stop = &threads_stop; \
 				US_THREAD_CREATE(x_ctx->tid, (x_thread), x_ctx); \
@@ -222,7 +222,7 @@ void us_stream_loop(us_stream_s *stream) {
 
 #			define QUEUE_HW(x_ctx) if (x_ctx != NULL) { \
 					us_capture_hwbuf_incref(hw); \
-					us_queue_put(x_ctx->queue, hw, 0); \
+					us_queue_put(x_ctx->q, hw, 0); \
 				}
 			QUEUE_HW(jpeg_ctx);
 			QUEUE_HW(raw_ctx);
@@ -231,7 +231,7 @@ void us_stream_loop(us_stream_s *stream) {
 			QUEUE_HW(drm_ctx);
 #			endif
 #			undef QUEUE_HW
-			us_queue_put(releasers[hw->buf.index].queue, hw, 0); // Plan to release
+			us_queue_put(releasers[hw->buf.index].q, hw, 0); // Plan to release
 
 			// Мы не обновляем здесь состояние синков, потому что это происходит внутри обслуживающих их потоков
 			_stream_check_suicide(stream);
@@ -249,7 +249,7 @@ void us_stream_loop(us_stream_s *stream) {
 
 #		define DELETE_WORKER(x_ctx) if (x_ctx != NULL) { \
 				US_THREAD_JOIN(x_ctx->tid); \
-				us_queue_destroy(x_ctx->queue); \
+				us_queue_destroy(x_ctx->q); \
 				free(x_ctx); \
 			}
 #		ifdef WITH_V4P
@@ -260,9 +260,9 @@ void us_stream_loop(us_stream_s *stream) {
 		DELETE_WORKER(jpeg_ctx);
 #		undef DELETE_WORKER
 
-		for (uint index = 0; index < n_releasers; ++index) {
-			US_THREAD_JOIN(releasers[index].tid);
-			us_queue_destroy(releasers[index].queue);
+		for (uint i = 0; i < n_releasers; ++i) {
+			US_THREAD_JOIN(releasers[i].tid);
+			us_queue_destroy(releasers[i].q);
 		}
 		free(releasers);
 		US_MUTEX_DESTROY(release_mutex);
@@ -292,7 +292,7 @@ static void *_releaser_thread(void *v_ctx) {
 
 	while (!atomic_load(ctx->stop)) {
 		us_capture_hwbuf_s *hw;
-		if (us_queue_get(ctx->queue, (void**)&hw, 0.1) < 0) {
+		if (us_queue_get(ctx->q, (void**)&hw, 0.1) < 0) {
 			continue;
 		}
 
@@ -348,7 +348,7 @@ static void *_jpeg_thread(void *v_ctx) {
 			}
 		}
 
-		us_capture_hwbuf_s *hw = _get_latest_hw(ctx->queue);
+		us_capture_hwbuf_s *hw = _get_latest_hw(ctx->q);
 		if (hw == NULL) {
 			continue;
 		}
@@ -399,7 +399,7 @@ static void *_raw_thread(void *v_ctx) {
 	_worker_context_s *ctx = v_ctx;
 
 	while (!atomic_load(ctx->stop)) {
-		us_capture_hwbuf_s *hw = _get_latest_hw(ctx->queue);
+		us_capture_hwbuf_s *hw = _get_latest_hw(ctx->q);
 		if (hw == NULL) {
 			continue;
 		}
@@ -423,7 +423,7 @@ static void *_h264_thread(void *v_ctx) {
 	uint step = 1;
 
 	while (!atomic_load(ctx->stop)) {
-		us_capture_hwbuf_s *hw = _get_latest_hw(ctx->queue);
+		us_capture_hwbuf_s *hw = _get_latest_hw(ctx->q);
 		if (hw == NULL) {
 			continue;
 		}
@@ -472,7 +472,7 @@ static void *_drm_thread(void *v_ctx) {
 #		define SLOWDOWN { \
 				const ldf m_next_ts = us_get_now_monotonic() + 1; \
 				while (!atomic_load(ctx->stop) && us_get_now_monotonic() < m_next_ts) { \
-					us_capture_hwbuf_s *m_pass_hw = _get_latest_hw(ctx->queue); \
+					us_capture_hwbuf_s *m_pass_hw = _get_latest_hw(ctx->q); \
 					if (m_pass_hw != NULL) { \
 						us_capture_hwbuf_decref(m_pass_hw); \
 					} \
@@ -485,7 +485,7 @@ static void *_drm_thread(void *v_ctx) {
 			CHECK(us_drm_wait_for_vsync(stream->drm));
 			US_DELETE(prev_hw, us_capture_hwbuf_decref);
 
-			us_capture_hwbuf_s *hw = _get_latest_hw(ctx->queue);
+			us_capture_hwbuf_s *hw = _get_latest_hw(ctx->q);
 			if (hw == NULL) {
 				continue;
 			}
@@ -521,14 +521,14 @@ static void *_drm_thread(void *v_ctx) {
 }
 #endif
 
-static us_capture_hwbuf_s *_get_latest_hw(us_queue_s *queue) {
+static us_capture_hwbuf_s *_get_latest_hw(us_queue_s *q) {
 	us_capture_hwbuf_s *hw;
-	if (us_queue_get(queue, (void**)&hw, 0.1) < 0) {
+	if (us_queue_get(q, (void**)&hw, 0.1) < 0) {
 		return NULL;
 	}
-	while (!us_queue_is_empty(queue)) { // Берем только самый свежий кадр
+	while (!us_queue_is_empty(q)) { // Берем только самый свежий кадр
 		us_capture_hwbuf_decref(hw);
-		assert(!us_queue_get(queue, (void**)&hw, 0));
+		assert(!us_queue_get(q, (void**)&hw, 0));
 	}
 	return hw;
 }
@@ -647,11 +647,11 @@ static int _stream_init_loop(us_stream_s *stream) {
 			US_LOG_INFO("Device error, exiting ...");
 			us_process_suicide();
 		}
-		for (uint count = 0; count < stream->error_delay * 10; ++count) {
+		for (uint i = 0; i < stream->error_delay * 10; ++i) {
 			if (atomic_load(&run->stop)) {
 				break;
 			}
-			if (count % 10 == 0) {
+			if (i % 10 == 0) {
 				// Каждую секунду повторяем blank
 				uint width = stream->cap->run->width;
 				uint height = stream->cap->run->height;
@@ -716,12 +716,14 @@ close:
 
 static void _stream_expose_jpeg(us_stream_s *stream, const us_frame_s *frame) {
 	us_stream_runtime_s *const run = stream->run;
+
 	int ri;
 	while ((ri = us_ring_producer_acquire(run->http->jpeg_ring, 0)) < 0) {
 		if (atomic_load(&run->stop)) {
 			return;
 		}
 	}
+
 	us_frame_s *const dest = run->http->jpeg_ring->items[ri];
 	us_frame_copy(frame, dest);
 	us_ring_producer_release(run->http->jpeg_ring, ri);
@@ -741,6 +743,7 @@ static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *fr
 	if (stream->h264_sink == NULL) {
 		return;
 	}
+
 	us_stream_runtime_s *run = stream->run;
 
 	us_fpsi_meta_s meta = {.online = false};
@@ -767,16 +770,16 @@ static void _stream_check_suicide(us_stream_s *stream) {
 	if (stream->exit_on_no_clients == 0) {
 		return;
 	}
-	us_stream_runtime_s *const run = stream->run;
 
+	const atomic_ullong *last_req_ts = &stream->run->http->last_req_ts;
 	const ldf now_ts = us_get_now_monotonic();
-	const ull http_last_request_ts = atomic_load(&run->http->last_request_ts); // Seconds
+
 	if (_stream_has_any_clients_cached(stream)) {
-		atomic_store(&run->http->last_request_ts, now_ts);
-	} else if (http_last_request_ts + stream->exit_on_no_clients < now_ts) {
+		atomic_store(last_req_ts, now_ts);
+	} else if (atomic_load(last_req_ts) + stream->exit_on_no_clients < now_ts) {
 		US_LOG_INFO("No requests or HTTP/sink clients found in last %u seconds, exiting ...",
 			stream->exit_on_no_clients);
+		atomic_store(last_req_ts, now_ts); // Prevent a signal spam
 		us_process_suicide();
-		atomic_store(&run->http->last_request_ts, now_ts);
 	}
 }

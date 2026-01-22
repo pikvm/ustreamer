@@ -81,8 +81,8 @@ us_encoder_s *us_encoder_init(void) {
 void us_encoder_destroy(us_encoder_s *enc) {
 	us_encoder_runtime_s *const run = enc->run;
 	if (run->m2ms != NULL) {
-		for (uint index = 0; index < run->n_m2ms; ++index) {
-			US_DELETE(run->m2ms[index], us_m2m_encoder_destroy);
+		for (uint i = 0; i < run->n_m2ms; ++i) {
+			US_DELETE(run->m2ms[i], us_m2m_encoder_destroy);
 		}
 		free(run->m2ms);
 	}
@@ -135,10 +135,13 @@ void us_encoder_open(us_encoder_s *enc, us_capture_s *cap) {
 		}
 
 	} else if (type == US_ENCODER_TYPE_M2M_VIDEO || type == US_ENCODER_TYPE_M2M_IMAGE) {
-		US_LOG_DEBUG("Preparing M2M-%s encoder ...", (type == US_ENCODER_TYPE_M2M_VIDEO ? "VIDEO" : "IMAGE"));
+		US_LOG_DEBUG("Preparing M2M-%s encoder ...",
+			(type == US_ENCODER_TYPE_M2M_VIDEO ? "VIDEO" : "IMAGE"));
+
 		if (run->m2ms == NULL) {
 			US_CALLOC(run->m2ms, n_workers);
 		}
+
 		for (; run->n_m2ms < n_workers; ++run->n_m2ms) {
 			// Начинаем с нуля и доинициализируем на следующих заходах при необходимости
 			char name[32];
@@ -163,8 +166,11 @@ void us_encoder_open(us_encoder_s *enc, us_capture_s *cap) {
 	US_MUTEX_UNLOCK(run->mutex);
 
 	enc->run->pool = us_workers_pool_init(
-		"JPEG", "jw", n_workers,
-		_worker_job_init, (void*)enc,
+		"JPEG",
+		"jw",
+		n_workers,
+		_worker_job_init,
+		(void*)enc,
 		_worker_job_destroy,
 		_worker_run_job);
 }
@@ -201,20 +207,20 @@ static bool _worker_run_job(us_worker_s *wr) {
 	us_encoder_runtime_s *const run = job->enc->run;
 	const us_frame_s *const src = &job->hw->raw;
 	us_frame_s *const dest = job->dest;
+	const uint i = job->hw->buf.index;
 
 	if (run->type == US_ENCODER_TYPE_CPU) {
-		US_LOG_VERBOSE("Compressing JPEG using CPU: worker=%s, buffer=%u",
-			wr->name, job->hw->buf.index);
+		US_LOG_VERBOSE("Compressing JPEG using CPU: worker=%s, buffer=%u", wr->name, i);
 		us_cpu_encoder_compress(src, dest, run->quality);
 
 	} else if (run->type == US_ENCODER_TYPE_HW) {
-		US_LOG_VERBOSE("Compressing JPEG using HW (just copying): worker=%s, buffer=%u",
-			wr->name, job->hw->buf.index);
+		US_LOG_VERBOSE("Compressing JPEG using HW (just copying): worker=%s, buffer=%u", wr->name, i);
 		us_hw_encoder_compress(src, dest);
 
 	} else if (run->type == US_ENCODER_TYPE_M2M_VIDEO || run->type == US_ENCODER_TYPE_M2M_IMAGE) {
 		US_LOG_VERBOSE("Compressing JPEG using M2M-%s: worker=%s, buffer=%u",
-			(run->type == US_ENCODER_TYPE_M2M_VIDEO ? "VIDEO" : "IMAGE"), wr->name, job->hw->buf.index);
+			(run->type == US_ENCODER_TYPE_M2M_VIDEO ? "VIDEO" : "IMAGE"),
+			wr->name, i);
 		if (us_m2m_encoder_compress(run->m2ms[wr->number], src, dest, false) < 0) {
 			goto error;
 		}
@@ -226,11 +232,10 @@ static bool _worker_run_job(us_worker_s *wr) {
 	US_LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%s, buffer=%u",
 		job->dest->used,
 		job->dest->encode_end_ts - job->dest->encode_begin_ts,
-		wr->name,
-		job->hw->buf.index);
+		wr->name, i);
 	return true;
 
 error:
-	US_LOG_ERROR("Compression failed: worker=%s, buffer=%u", wr->name, job->hw->buf.index);
+	US_LOG_ERROR("Compression failed: worker=%s, buffer=%u", wr->name, i);
 	return false;
 }

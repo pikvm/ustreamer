@@ -82,27 +82,27 @@ evutil_socket_t us_evhttp_bind_unix(struct evhttp *http, const char *path, bool 
 	return fd;
 }
 
-const char *us_evhttp_get_header(struct evhttp_request *request, const char *key) {
-	return evhttp_find_header(evhttp_request_get_input_headers(request), key);
+const char *us_evhttp_get_header(struct evhttp_request *req, const char *key) {
+	return evhttp_find_header(evhttp_request_get_input_headers(req), key);
 }
 
-char *us_evhttp_get_hostport(struct evhttp_request *request) {
+char *us_evhttp_get_hostport(struct evhttp_request *req) {
 	char *addr = NULL;
 	unsigned short port = 0;
-	struct evhttp_connection *conn = evhttp_request_get_connection(request);
+	struct evhttp_connection *conn = evhttp_request_get_connection(req);
 	if (conn != NULL) {
 		char *peer;
 		evhttp_connection_get_peer(conn, &peer, &port);
 		addr = us_strdup(peer);
 	}
 
-	const char *xff = us_evhttp_get_header(request, "X-Forwarded-For");
+	const char *xff = us_evhttp_get_header(req, "X-Forwarded-For");
 	if (xff != NULL) {
 		US_DELETE(addr, free);
 		assert((addr = strndup(xff, 1024)) != NULL);
-		for (uint index = 0; addr[index]; ++index) {
-			if (addr[index] == ',') {
-				addr[index] = '\0';
+		for (uint i = 0; addr[i]; ++i) {
+			if (addr[i] == ',') {
+				addr[i] = '\0';
 				break;
 			}
 		}

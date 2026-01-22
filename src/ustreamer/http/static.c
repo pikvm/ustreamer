@@ -36,12 +36,12 @@
 #include "path.h"
 
 
-char *us_find_static_file_path(const char *root_path, const char *request_path) {
+char *us_find_static_file_path(const char *root_path, const char *req_path) {
 	char *path = NULL;
 
-	char *const simplified_path = us_simplify_request_path(request_path);
+	char *const simplified_path = us_simplify_request_path(req_path);
 	if (simplified_path[0] == '\0') {
-		US_LOG_VERBOSE("HTTP: Invalid request path %s to static", request_path);
+		US_LOG_VERBOSE("HTTP: Invalid request path %s to static", req_path);
 		goto error;
 	}
 

@@ -34,14 +34,14 @@ typedef struct {
 typedef struct {
 	int				fd;
 	uint			fps_limit;
-	us_m2m_buffer_s	*input_bufs;
-	uint			n_input_bufs;
-	us_m2m_buffer_s	*output_bufs;
-	uint			n_output_bufs;
+	us_m2m_buffer_s	*in_bufs;
+	uint			n_in_bufs;
+	us_m2m_buffer_s	*out_bufs;
+	uint			n_out_bufs;
 
 	uint	p_width;
 	uint	p_height;
-	uint	p_input_format;
+	uint	p_in_format;
 	uint	p_stride;
 	bool	p_dma;
 
@@ -53,7 +53,7 @@ typedef struct {
 typedef struct {
 	char	*name;
 	char	*path;
-	uint	output_format;
+	uint	out_format;
 	uint	bitrate;
 	uint	gop;
 	uint	quality;

@@ -54,8 +54,8 @@ void us_base64_encode(const u8 *data, uz size, char **encoded, uz *allocated) {
 		}
 	}
 
-	for (uint data_index = 0, encoded_index = 0; data_index < size;) {
-#		define OCTET(_name) uint _name = (data_index < size ? (u8)data[data_index++] : 0)
+	for (uint data_i = 0, encoded_i = 0; data_i < size;) {
+#		define OCTET(_name) uint _name = (data_i < size ? (u8)data[data_i++] : 0)
 		OCTET(octet_a);
 		OCTET(octet_b);
 		OCTET(octet_c);
@@ -63,7 +63,7 @@ void us_base64_encode(const u8 *data, uz size, char **encoded, uz *allocated) {
 
 		const uint triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
 
-#		define ENCODE(_offset) (*encoded)[encoded_index++] = _ENCODING_TABLE[(triple >> _offset * 6) & 0x3F]
+#		define ENCODE(_offset) (*encoded)[encoded_i++] = _ENCODING_TABLE[(triple >> _offset * 6) & 0x3F]
 		ENCODE(3);
 		ENCODE(2);
 		ENCODE(1);

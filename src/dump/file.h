@@ -45,5 +45,5 @@ typedef struct {
 
 
 us_output_file_s *us_output_file_init(const char *path, bool json);
-void us_output_file_write(void *v_output, const us_frame_s *frame);
-void us_output_file_destroy(void *v_output);
+void us_output_file_write(void *v_out, const us_frame_s *frame);
+void us_output_file_destroy(void *v_out);

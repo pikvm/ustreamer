@@ -77,7 +77,7 @@ int us_unjpeg(const us_frame_s *src, us_frame_s *dest, bool decode) {
 
 	if (decode) {
 		JSAMPARRAY scanlines;
-		scanlines = (*jpeg.mem->alloc_sarray)((j_common_ptr) &jpeg, JPOOL_IMAGE, dest->stride, 1);
+		scanlines = (*jpeg.mem->alloc_sarray)((j_common_ptr)&jpeg, JPOOL_IMAGE, dest->stride, 1);
 
 		us_frame_realloc_data(dest, ((dest->width * dest->height) << 1) * 2);
 		while (jpeg.output_scanline < jpeg.output_height) {

@@ -29,8 +29,8 @@
 #include "queue.h"
 
 
-int _acquire(us_ring_s *ring, us_queue_s *queue, ldf timeout);
-void _release(us_ring_s *ring, us_queue_s *queue, uint index);
+int _acquire(us_ring_s *ring, us_queue_s *q, ldf timeout);
+void _release(us_ring_s *ring, us_queue_s *q, uint ri);
 
 
 us_ring_s *us_ring_init(uint capacity) {
@@ -41,9 +41,9 @@ us_ring_s *us_ring_init(uint capacity) {
 	ring->capacity = capacity;
 	ring->producer = us_queue_init(capacity);
 	ring->consumer = us_queue_init(capacity);
-	for (uint index = 0; index < capacity; ++index) {
-		ring->places[index] = index; // XXX: Just to avoid casting between pointer and uint
-		assert(!us_queue_put(ring->producer, (void*)(ring->places + index), 0));
+	for (uint ri = 0; ri < capacity; ++ri) {
+		ring->places[ri] = ri; // XXX: Just to avoid casting between pointer and uint
+		assert(!us_queue_put(ring->producer, (void*)(ring->places + ri), 0));
 	}
 	return ring;
 }
@@ -60,27 +60,27 @@ int us_ring_producer_acquire(us_ring_s *ring, ldf timeout) {
 	return _acquire(ring, ring->producer, timeout);
 }
 
-void us_ring_producer_release(us_ring_s *ring, uint index) {
-	_release(ring, ring->consumer, index);
+void us_ring_producer_release(us_ring_s *ring, uint ri) {
+	_release(ring, ring->consumer, ri);
 }
 
 int us_ring_consumer_acquire(us_ring_s *ring, ldf timeout) {
 	return _acquire(ring, ring->consumer, timeout);
 }
 
-void us_ring_consumer_release(us_ring_s *ring, uint index) {
-	_release(ring, ring->producer, index);
+void us_ring_consumer_release(us_ring_s *ring, uint ri) {
+	_release(ring, ring->producer, ri);
 }
 
-int _acquire(us_ring_s *ring, us_queue_s *queue, ldf timeout) {
+int _acquire(us_ring_s *ring, us_queue_s *q, ldf timeout) {
 	(void)ring;
 	uint *place;
-	if (us_queue_get(queue, (void**)&place, timeout) < 0) {
+	if (us_queue_get(q, (void**)&place, timeout) < 0) {
 		return -1;
 	}
 	return *place;
 }
 
-void _release(us_ring_s *ring, us_queue_s *queue, uint index) {
-	assert(!us_queue_put(queue, (void*)(ring->places + index), 0));
+void _release(us_ring_s *ring, us_queue_s *q, uint ri) {
+	assert(!us_queue_put(q, (void*)(ring->places + ri), 0));
 }

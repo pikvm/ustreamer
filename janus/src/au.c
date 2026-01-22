@@ -107,11 +107,14 @@ void us_au_pcm_destroy(us_au_pcm_s *pcm) {
 
 void us_au_pcm_mix(us_au_pcm_s *dest, us_au_pcm_s *src) {
 	const uz size = src->frames * US_RTP_OPUS_CH * 2; // 2 for 16 bit
+
 	if (src->frames == 0) {
 		return;
+
 	} else if (dest->frames == 0) {
 		memcpy(dest->data, src->data, size);
 		dest->frames = src->frames;
+
 	} else if (dest->frames == src->frames) {
 		// https://stackoverflow.com/questions/12089662
 		for (uz index = 0; index < size; ++index) {

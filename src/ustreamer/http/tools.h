@@ -32,8 +32,8 @@
 
 evutil_socket_t us_evhttp_bind_unix(struct evhttp *http, const char *path, bool rm, mode_t mode);
 
-const char *us_evhttp_get_header(struct evhttp_request *request, const char *key);
-char *us_evhttp_get_hostport(struct evhttp_request *request);
+const char *us_evhttp_get_header(struct evhttp_request *req, const char *key);
+char *us_evhttp_get_hostport(struct evhttp_request *req);
 
 bool us_evkeyvalq_get_true(struct evkeyvalq *params, const char *key);
 char *us_evkeyvalq_get_string(struct evkeyvalq *params, const char *key);

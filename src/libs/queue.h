@@ -43,22 +43,22 @@ typedef struct {
 } us_queue_s;
 
 
-#define US_QUEUE_DELETE_WITH_ITEMS(x_queue, x_free_item) { \
-		if (x_queue) { \
-			while (!us_queue_is_empty(x_queue)) { \
+#define US_QUEUE_DELETE_WITH_ITEMS(x_q, x_free_item) { \
+		if (x_q) { \
+			while (!us_queue_is_empty(x_q)) { \
 				void *m_ptr; \
-				if (!us_queue_get(x_queue, &m_ptr, 0)) { \
+				if (!us_queue_get(x_q, &m_ptr, 0)) { \
 					US_DELETE(m_ptr, x_free_item); \
 				} \
 			} \
-			us_queue_destroy(x_queue); \
+			us_queue_destroy(x_q); \
 		} \
 	}
 
 
 us_queue_s *us_queue_init(uint capacity);
-void us_queue_destroy(us_queue_s *queue);
+void us_queue_destroy(us_queue_s *q);
 
-int us_queue_put(us_queue_s *queue, void *item, ldf timeout);
-int us_queue_get(us_queue_s *queue, void **item, ldf timeout);
-bool us_queue_is_empty(us_queue_s *queue);
+int us_queue_put(us_queue_s *q, void *item, ldf timeout);
+int us_queue_get(us_queue_s *q, void **item, ldf timeout);
+bool us_queue_is_empty(us_queue_s *q);

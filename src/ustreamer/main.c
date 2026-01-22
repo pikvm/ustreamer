@@ -83,13 +83,13 @@ int main(int argc, char *argv[]) {
 	US_LOGGING_INIT;
 	US_THREAD_RENAME("main");
 
-	us_options_s *options = us_options_init(argc, argv);
+	us_options_s *opts = us_options_init(argc, argv);
 	us_capture_s *cap = us_capture_init();
 	us_encoder_s *enc = us_encoder_init();
 	_g_stream = us_stream_init(cap, enc);
 	_g_server = us_server_init(_g_stream);
 
-	if ((exit_code = options_parse(options, cap, enc, _g_stream, _g_server)) == 0) {
+	if ((exit_code = us_options_parse(opts, cap, enc, _g_stream, _g_server)) == 0) {
 		us_stream_update_blank(_g_stream, cap);
 #		ifdef WITH_GPIO
 		us_gpio_init();
@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
 	us_stream_destroy(_g_stream);
 	us_encoder_destroy(enc);
 	us_capture_destroy(cap);
-	us_options_destroy(options);
+	us_options_destroy(opts);
 
 	if (exit_code == 0) {
 		US_LOG_INFO("Bye-bye");

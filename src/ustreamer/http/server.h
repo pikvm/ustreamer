@@ -38,7 +38,7 @@
 
 typedef struct {
 	struct us_server_sx		*server;
-	struct evhttp_request	*request;
+	struct evhttp_request	*req;
 
 	char	*key;
 	bool	extra_headers;
@@ -59,8 +59,8 @@ typedef struct {
 
 typedef struct {
 	struct us_server_sx		*server;
-	struct evhttp_request	*request;
-	ldf						request_ts;
+	struct evhttp_request	*req;
+	ldf						req_ts;
 
 	US_LIST_DECLARE;
 } us_snapshot_client_s;

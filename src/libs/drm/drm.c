@@ -61,11 +61,11 @@ static const char *_connector_type_to_string(u32 type);
 static float _get_refresh_rate(const drmModeModeInfo *mode);
 
 
-#define _LOG_ERROR(x_msg, ...)	US_LOG_ERROR("DRM: " x_msg, ##__VA_ARGS__)
-#define _LOG_PERROR(x_msg, ...)	US_LOG_PERROR("DRM: " x_msg, ##__VA_ARGS__)
+#define _LOG_ERROR(x_msg, ...)		US_LOG_ERROR("DRM: " x_msg, ##__VA_ARGS__)
+#define _LOG_PERROR(x_msg, ...)		US_LOG_PERROR("DRM: " x_msg, ##__VA_ARGS__)
 #define _LOG_INFO(x_msg, ...)		US_LOG_INFO("DRM: " x_msg, ##__VA_ARGS__)
 #define _LOG_VERBOSE(x_msg, ...)	US_LOG_VERBOSE("DRM: " x_msg, ##__VA_ARGS__)
-#define _LOG_DEBUG(x_msg, ...)	US_LOG_DEBUG("DRM: " x_msg, ##__VA_ARGS__)
+#define _LOG_DEBUG(x_msg, ...)		US_LOG_DEBUG("DRM: " x_msg, ##__VA_ARGS__)
 
 
 us_drm_s *us_drm_init(void) {
@@ -164,7 +164,12 @@ int us_drm_open(us_drm_s *drm, const us_capture_s *cap) {
 
 	run->saved_crtc = drmModeGetCrtc(run->fd, run->crtc_id);
 	_LOG_DEBUG("Setting up CRTC ...");
-	if (drmModeSetCrtc(run->fd, run->crtc_id, run->bufs[0].id, 0, 0, &run->conn_id, 1, &run->mode) < 0) {
+	if (drmModeSetCrtc(
+		run->fd,
+		run->crtc_id, run->bufs[0].id,
+		0, 0, // X, Y
+		&run->conn_id, 1, &run->mode
+	) < 0) {
 		_LOG_PERROR("Can't set CRTC");
 		goto error;
 	}
@@ -202,7 +207,8 @@ void us_drm_close(us_drm_s *drm) {
 
 	if (run->saved_crtc != NULL) {
 		_LOG_DEBUG("Restoring CRTC ...");
-		if (drmModeSetCrtc(run->fd,
+		if (drmModeSetCrtc(
+			run->fd,
 			run->saved_crtc->crtc_id, run->saved_crtc->buffer_id,
 			run->saved_crtc->x, run->saved_crtc->y,
 			&run->conn_id, 1, &run->saved_crtc->mode

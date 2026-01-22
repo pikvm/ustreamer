@@ -44,7 +44,7 @@ typedef struct {
 #	else
 	struct gpiod_line			*line;
 #	endif
-	bool						state;
+	bool						on;
 } us_gpio_output_s;
 
 typedef struct {
@@ -69,27 +69,27 @@ extern us_gpio_s us_g_gpio;
 
 void us_gpio_init(void);
 void us_gpio_destroy(void);
-int us_gpio_inner_set(us_gpio_output_s *output, bool state);
+int us_gpio_inner_set(us_gpio_output_s *out, bool on);
 
 
-#define SET_STATE(x_output, x_state) { \
-		if (x_output.line && x_output.state != x_state) { \
-			if (!us_gpio_inner_set(&x_output, x_state)) { \
-				x_output.state = x_state; \
+#define SET_ON(x_out, x_on) { \
+		if (x_out.line && x_out.on != x_on) { \
+			if (!us_gpio_inner_set(&x_out, x_on)) { \
+				x_out.on = x_on; \
 			} \
 		} \
 	}
 
-INLINE void us_gpio_set_prog_running(bool state) {
-	SET_STATE(us_g_gpio.prog_running, state);
+INLINE void us_gpio_set_prog_running(bool on) {
+	SET_ON(us_g_gpio.prog_running, on);
 }
 
-INLINE void us_gpio_set_stream_online(bool state) {
-	SET_STATE(us_g_gpio.stream_online, state);
+INLINE void us_gpio_set_stream_online(bool on) {
+	SET_ON(us_g_gpio.stream_online, on);
 }
 
-INLINE void us_gpio_set_has_http_clients(bool state) {
-	SET_STATE(us_g_gpio.has_http_clients, state);
+INLINE void us_gpio_set_has_http_clients(bool on) {
+	SET_ON(us_g_gpio.has_http_clients, on);
 }
 
-#undef SET_STATE
+#undef SET_ON

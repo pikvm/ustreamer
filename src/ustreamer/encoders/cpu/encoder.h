@@ -22,16 +22,7 @@
 
 #pragma once
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <assert.h>
-
-#include <jpeglib.h>
-
-#include <linux/videodev2.h>
-
-#include "../../../libs/tools.h"
+#include "../../../libs/types.h"
 #include "../../../libs/frame.h"
 
 

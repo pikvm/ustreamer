@@ -67,6 +67,6 @@ const char *us_guess_mime_type(const char *path) {
 		}
 	});
 
-	misc:
-		return "application/misc";
+misc:
+	return "application/misc";
 }

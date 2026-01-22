@@ -34,27 +34,27 @@
 
 
 us_queue_s *us_queue_init(uint capacity) {
-	us_queue_s *queue;
-	US_CALLOC(queue, 1);
-	US_CALLOC(queue->items, capacity);
-	queue->capacity = capacity;
-	US_MUTEX_INIT(queue->mutex);
+	us_queue_s *q;
+	US_CALLOC(q, 1);
+	US_CALLOC(q->items, capacity);
+	q->capacity = capacity;
+	US_MUTEX_INIT(q->mutex);
 
 	pthread_condattr_t attrs;
 	assert(!pthread_condattr_init(&attrs));
 	assert(!pthread_condattr_setclock(&attrs, CLOCK_MONOTONIC));
-	assert(!pthread_cond_init(&queue->full_cond, &attrs));
-	assert(!pthread_cond_init(&queue->empty_cond, &attrs));
+	assert(!pthread_cond_init(&q->full_cond, &attrs));
+	assert(!pthread_cond_init(&q->empty_cond, &attrs));
 	assert(!pthread_condattr_destroy(&attrs));
-	return queue;
+	return q;
 }
 
-void us_queue_destroy(us_queue_s *queue) {
-	US_COND_DESTROY(queue->empty_cond);
-	US_COND_DESTROY(queue->full_cond);
-	US_MUTEX_DESTROY(queue->mutex);
-	free(queue->items);
-	free(queue);
+void us_queue_destroy(us_queue_s *q) {
+	US_COND_DESTROY(q->empty_cond);
+	US_COND_DESTROY(q->full_cond);
+	US_MUTEX_DESTROY(q->mutex);
+	free(q->items);
+	free(q);
 }
 
 #define _WAIT_OR_UNLOCK(x_var, x_cond) { \
@@ -62,51 +62,51 @@ void us_queue_destroy(us_queue_s *queue) {
 		assert(!clock_gettime(CLOCK_MONOTONIC, &m_ts)); \
 		us_ld_to_timespec(us_timespec_to_ld(&m_ts) + timeout, &m_ts); \
 		while (x_var) { \
-			const int err = pthread_cond_timedwait(&(x_cond), &queue->mutex, &m_ts); \
+			const int err = pthread_cond_timedwait(&(x_cond), &q->mutex, &m_ts); \
 			if (err == ETIMEDOUT) { \
-				US_MUTEX_UNLOCK(queue->mutex); \
+				US_MUTEX_UNLOCK(q->mutex); \
 				return -1; \
 			} \
 			assert(!err); \
 		} \
 	}
 
-int us_queue_put(us_queue_s *queue, void *item, ldf timeout) {
-	US_MUTEX_LOCK(queue->mutex);
+int us_queue_put(us_queue_s *q, void *item, ldf timeout) {
+	US_MUTEX_LOCK(q->mutex);
 	if (timeout == 0) {
-		if (queue->size == queue->capacity) {
-			US_MUTEX_UNLOCK(queue->mutex);
+		if (q->size == q->capacity) {
+			US_MUTEX_UNLOCK(q->mutex);
 			return -1;
 		}
 	} else {
-		_WAIT_OR_UNLOCK(queue->size == queue->capacity, queue->full_cond);
+		_WAIT_OR_UNLOCK(q->size == q->capacity, q->full_cond);
 	}
-	queue->items[queue->in] = item;
-	++queue->size;
-	++queue->in;
-	queue->in %= queue->capacity;
-	US_MUTEX_UNLOCK(queue->mutex);
-	US_COND_BROADCAST(queue->empty_cond);
+	q->items[q->in] = item;
+	++q->size;
+	++q->in;
+	q->in %= q->capacity;
+	US_MUTEX_UNLOCK(q->mutex);
+	US_COND_BROADCAST(q->empty_cond);
 	return 0;
 }
 
-int us_queue_get(us_queue_s *queue, void **item, ldf timeout) {
-	US_MUTEX_LOCK(queue->mutex);
-	_WAIT_OR_UNLOCK(queue->size == 0, queue->empty_cond);
-	*item = queue->items[queue->out];
-	--queue->size;
-	++queue->out;
-	queue->out %= queue->capacity;
-	US_MUTEX_UNLOCK(queue->mutex);
-	US_COND_BROADCAST(queue->full_cond);
+int us_queue_get(us_queue_s *q, void **item, ldf timeout) {
+	US_MUTEX_LOCK(q->mutex);
+	_WAIT_OR_UNLOCK(q->size == 0, q->empty_cond);
+	*item = q->items[q->out];
+	--q->size;
+	++q->out;
+	q->out %= q->capacity;
+	US_MUTEX_UNLOCK(q->mutex);
+	US_COND_BROADCAST(q->full_cond);
 	return 0;
 }
 
 #undef _WAIT_OR_UNLOCK
 
-bool us_queue_is_empty(us_queue_s *queue) {
-	US_MUTEX_LOCK(queue->mutex);
-	const uint size = queue->size;
-	US_MUTEX_UNLOCK(queue->mutex);
-	return (bool)(queue->capacity - size);
+bool us_queue_is_empty(us_queue_s *q) {
+	US_MUTEX_LOCK(q->mutex);
+	const uint size = q->size;
+	US_MUTEX_UNLOCK(q->mutex);
+	return (bool)(q->capacity - size);
 }

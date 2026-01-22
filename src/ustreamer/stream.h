@@ -57,7 +57,7 @@ typedef struct {
 	us_ring_s		*jpeg_ring;
 	atomic_bool		has_clients;
 	atomic_uint		snapshot_requested;
-	atomic_ullong	last_request_ts; // Seconds
+	atomic_ullong	last_req_ts; // Seconds
 	us_fpsi_s		*captured_fpsi;
 } us_stream_http_s;
 

@@ -38,7 +38,7 @@ us_fpsi_s *us_fpsi_init(const char *name, bool with_meta) {
 	US_CALLOC(fpsi, 1);
 	fpsi->name = us_strdup(name);
 	fpsi->with_meta = with_meta;
-	atomic_init(&fpsi->state_sec_ts, 0);
+	atomic_init(&fpsi->state_ts, 0);
 	atomic_init(&fpsi->state, 0);
 	return fpsi;
 }
@@ -61,8 +61,8 @@ void us_fpsi_update(us_fpsi_s *fpsi, bool bump, const us_fpsi_meta_s *meta) {
 		assert(!fpsi->with_meta);
 	}
 
-	const sll now_sec_ts = us_floor_ms(us_get_now_monotonic());
-	if (atomic_load(&fpsi->state_sec_ts) != now_sec_ts) {
+	const sll now_ts = us_floor_ms(us_get_now_monotonic());
+	if (atomic_load(&fpsi->state_ts) != now_ts) {
 		US_LOG_PERF_FPS("FPS: %s: %u", fpsi->name, fpsi->accum);
 
 		// Fast mutex-less store method
@@ -74,7 +74,7 @@ void us_fpsi_update(us_fpsi_s *fpsi, bool bump, const us_fpsi_meta_s *meta) {
 			state |= (ull)(meta->online ? 1 : 0) << 48;
 		}
 		atomic_store(&fpsi->state, state); // Сначала инфа
-		atomic_store(&fpsi->state_sec_ts, now_sec_ts); // Потом время, это важно
+		atomic_store(&fpsi->state_ts, now_ts); // Потом время, это важно
 		fpsi->accum = 0;
 	}
 	if (bump) {
@@ -90,8 +90,8 @@ uint us_fpsi_get(us_fpsi_s *fpsi, us_fpsi_meta_s *meta) {
 	// Между чтением инфы и времени может быть гонка,
 	// но это неважно. Если время свежее, до данные тоже
 	// будут свежмими, обратный случай не так важен.
-	const sll now_sec_ts = us_floor_ms(us_get_now_monotonic());
-	const sll state_sec_ts = atomic_load(&fpsi->state_sec_ts); // Сначала время
+	const sll now_ts = us_floor_ms(us_get_now_monotonic());
+	const sll state_ts = atomic_load(&fpsi->state_ts); // Сначала время
 	const ull state = atomic_load(&fpsi->state); // Потом инфа
 
 	uint current = state & 0xFFFF;
@@ -101,7 +101,7 @@ uint us_fpsi_get(us_fpsi_s *fpsi, us_fpsi_meta_s *meta) {
 		meta->online = (state >> 48) & 1;
 	}
 
-	if (state_sec_ts != now_sec_ts && (state_sec_ts + 1) != now_sec_ts) {
+	if (state_ts != now_ts && (state_ts + 1) != now_ts) {
 		// Только текущая или прошлая секунда
 		current = 0;
 	}

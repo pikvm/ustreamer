@@ -38,7 +38,7 @@ typedef struct {
 	char			*name;
 	bool			with_meta;
 	uint			accum;
-	atomic_llong	state_sec_ts;
+	atomic_llong	state_ts;
 	atomic_ullong	state;
 } us_fpsi_s;
 

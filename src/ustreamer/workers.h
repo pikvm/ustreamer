@@ -75,8 +75,11 @@ typedef struct us_workers_pool_sx {
 
 
 us_workers_pool_s *us_workers_pool_init(
-	const char *name, const char *wr_prefix, uint n_workers,
-	us_workers_pool_job_init_f job_init, void *job_init_arg,
+	const char *name,
+	const char *wr_prefix,
+	uint n_workers,
+	us_workers_pool_job_init_f job_init,
+	void *job_init_arg,
 	us_workers_pool_job_destroy_f job_destroy,
 	us_workers_pool_run_job_f run_job);
 

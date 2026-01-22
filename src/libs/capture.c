@@ -103,12 +103,21 @@ static int _capture_open_export_to_dma(us_capture_s *cap);
 static int _capture_apply_resolution(us_capture_s *cap, uint width, uint height, float hz);
 
 static void _capture_apply_controls(const us_capture_s *cap);
+
 static int _capture_query_control(
-	const us_capture_s *cap, struct v4l2_queryctrl *query,
-	const char *name, uint cid, bool quiet);
+	const us_capture_s *cap,
+	struct v4l2_queryctrl *query,
+	const char *name,
+	uint cid,
+	bool quiet);
+
 static void _capture_set_control(
-	const us_capture_s *cap, const struct v4l2_queryctrl *query,
-	const char *name, uint cid, int value, bool quiet);
+	const us_capture_s *cap,
+	const struct v4l2_queryctrl *query,
+	const char *name,
+	uint cid,
+	int value,
+	bool quiet);
 
 static const char *_format_to_string_nullable(uint format);
 static const char *_format_to_string_supported(uint format);
@@ -306,15 +315,15 @@ void us_capture_close(us_capture_s *cap) {
 	if (run->bufs != NULL) {
 		say = true;
 		_LOG_DEBUG("Releasing HW buffers ...");
-		for (uint index = 0; index < run->n_bufs; ++index) {
-			us_capture_hwbuf_s *hw = &run->bufs[index];
+		for (uint i = 0; i < run->n_bufs; ++i) {
+			us_capture_hwbuf_s *hw = &run->bufs[i];
 
 			US_CLOSE_FD(hw->dma_fd);
 
 			if (cap->io_method == V4L2_MEMORY_MMAP) {
 				if (hw->raw.allocated > 0 && hw->raw.data != NULL) {
 					if (munmap(hw->raw.data, hw->raw.allocated) < 0) {
-						_LOG_PERROR("Can't unmap HW buffer=%u", index);
+						_LOG_PERROR("Can't unmap HW buffer=%u", i);
 					}
 				}
 			} else { // V4L2_MEMORY_USERPTR
@@ -451,7 +460,8 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 	(*hw)->raw.grab_end_ts = us_get_now_monotonic();
 
 	_LOG_DEBUG("Grabbed HW buffer=%u: bytesused=%u, grab_begin_ts=%.3Lf, grab_end_ts=%.3Lf, latency=%.3Lf, skipped=%u",
-		buf.index, buf.bytesused,
+		buf.index,
+		buf.bytesused,
 		(*hw)->raw.grab_begin_ts,
 		(*hw)->raw.grab_end_ts,
 		(*hw)->raw.grab_end_ts - (*hw)->raw.grab_begin_ts,
@@ -462,14 +472,14 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 
 int us_capture_hwbuf_release(const us_capture_s *cap, us_capture_hwbuf_s *hw) {
 	assert(atomic_load(&hw->refs) == 0);
-	const uint index = hw->buf.index;
-	_LOG_DEBUG("Releasing HW buffer=%u ...", index);
+	const uint i = hw->buf.index;
+	_LOG_DEBUG("Releasing HW buffer=%u ...", i);
 	if (us_xioctl(cap->run->fd, VIDIOC_QBUF, &hw->buf) < 0) {
-		_LOG_PERROR("Can't release HW buffer=%u", index);
+		_LOG_PERROR("Can't release HW buffer=%u", i);
 		return -1;
 	}
 	hw->grabbed = false;
-	_LOG_DEBUG("HW buffer=%u released", index);
+	_LOG_DEBUG("HW buffer=%u released", i);
 	return 0;
 }
 
@@ -850,31 +860,31 @@ static void _capture_open_hw_fps(us_capture_s *cap) { // cppcheck-suppress const
 		return;
 	}
 
-#	define SETFPS_TPF(x_next) setfps.parm.capture.timeperframe.x_next
+#	define TPF(x_next) setfps.parm.capture.timeperframe.x_next
 
 	US_MEMSET_ZERO(setfps);
 	setfps.type = run->capture_type;
-	SETFPS_TPF(numerator) = 1;
-	SETFPS_TPF(denominator) = -1; // Request maximum possible FPS
+	TPF(numerator) = 1;
+	TPF(denominator) = -1; // Request maximum possible FPS
 
 	if (us_xioctl(run->fd, VIDIOC_S_PARM, &setfps) < 0) {
 		_LOG_PERROR("Can't set HW FPS");
 		return;
 	}
 
-	if (SETFPS_TPF(numerator) != 1) {
-		_LOG_ERROR("Invalid HW FPS numerator: %u != 1", SETFPS_TPF(numerator));
+	if (TPF(numerator) != 1) {
+		_LOG_ERROR("Invalid HW FPS numerator: %u != 1", TPF(numerator));
 		return;
 	}
 
-	if (SETFPS_TPF(denominator) == 0) { // Не знаю, бывает ли так, но пускай на всякий случай
+	if (TPF(denominator) == 0) { // Не знаю, бывает ли так, но пускай на всякий случай
 		_LOG_ERROR("Invalid HW FPS denominator: 0");
 		return;
 	}
 
-	_LOG_INFO("Using HW FPS: %u/%u", SETFPS_TPF(numerator), SETFPS_TPF(denominator));
+	_LOG_INFO("Using HW FPS: %u/%u", TPF(numerator), TPF(denominator));
 
-#	undef SETFPS_TPF
+#	undef TPF
 }
 
 static void _capture_open_jpeg_quality(us_capture_s *cap) {
@@ -1017,12 +1027,12 @@ static int _capture_open_io_method_userptr(us_capture_s *cap) {
 static int _capture_open_queue_buffers(us_capture_s *cap) {
 	us_capture_runtime_s *const run = cap->run;
 
-	for (uint index = 0; index < run->n_bufs; ++index) {
+	for (uint i = 0; i < run->n_bufs; ++i) {
 		struct v4l2_buffer buf = {0};
 		struct v4l2_plane planes[VIDEO_MAX_PLANES] = {0};
 		buf.type = run->capture_type;
 		buf.memory = cap->io_method;
-		buf.index = index;
+		buf.index = i;
 		if (run->capture_mplane) {
 			buf.m.planes = planes;
 			buf.length = 1;
@@ -1031,11 +1041,11 @@ static int _capture_open_queue_buffers(us_capture_s *cap) {
 		if (cap->io_method == V4L2_MEMORY_USERPTR) {
 			// I am not sure, may be this is incorrect for mplane device, 
 			// but i don't have one which supports V4L2_MEMORY_USERPTR
-			buf.m.userptr = (unsigned long)run->bufs[index].raw.data;
-			buf.length = run->bufs[index].raw.allocated;
+			buf.m.userptr = (unsigned long)run->bufs[i].raw.data;
+			buf.length = run->bufs[i].raw.allocated;
 		}
 
-		_LOG_DEBUG("Calling us_xioctl(VIDIOC_QBUF) for buffer=%u ...", index);
+		_LOG_DEBUG("Calling us_xioctl(VIDIOC_QBUF) for buffer=%u ...", i);
 		if (us_xioctl(run->fd, VIDIOC_QBUF, &buf) < 0) {
 			_LOG_PERROR("Can't VIDIOC_QBUF");
 			return -1;
@@ -1047,23 +1057,23 @@ static int _capture_open_queue_buffers(us_capture_s *cap) {
 static int _capture_open_export_to_dma(us_capture_s *cap) {
 	us_capture_runtime_s *const run = cap->run;
 
-	for (uint index = 0; index < run->n_bufs; ++index) {
+	for (uint i = 0; i < run->n_bufs; ++i) {
 		struct v4l2_exportbuffer exp = {
 			.type = run->capture_type,
-			.index = index,
+			.index = i,
 		};
-		_LOG_DEBUG("Exporting device buffer=%u to DMA ...", index);
+		_LOG_DEBUG("Exporting device buffer=%u to DMA ...", i);
 		if (us_xioctl(run->fd, VIDIOC_EXPBUF, &exp) < 0) {
-			_LOG_PERROR("Can't export device buffer=%u to DMA", index);
+			_LOG_PERROR("Can't export device buffer=%u to DMA", i);
 			goto error;
 		}
-		run->bufs[index].dma_fd = exp.fd;
+		run->bufs[i].dma_fd = exp.fd;
 	}
 	return 0;
 
 error:
-	for (uint index = 0; index < run->n_bufs; ++index) {
-		US_CLOSE_FD(run->bufs[index].dma_fd);
+	for (uint i = 0; i < run->n_bufs; ++i) {
+		US_CLOSE_FD(run->bufs[i].dma_fd);
 	}
 	return -1;
 }
@@ -1142,9 +1152,12 @@ static void _capture_apply_controls(const us_capture_s *cap) {
 }
 
 static int _capture_query_control(
-	const us_capture_s *cap, struct v4l2_queryctrl *query,
-	const char *name, uint cid, bool quiet) {
-
+	const us_capture_s *cap,
+	struct v4l2_queryctrl *query,
+	const char *name,
+	uint cid,
+	bool quiet
+) {
 	// cppcheck-suppress redundantPointerOp
 	US_MEMSET_ZERO(*query);
 	query->id = cid;
@@ -1159,9 +1172,13 @@ static int _capture_query_control(
 }
 
 static void _capture_set_control(
-	const us_capture_s *cap, const struct v4l2_queryctrl *query,
-	const char *name, uint cid, int value, bool quiet) {
-
+	const us_capture_s *cap,
+	const struct v4l2_queryctrl *query,
+	const char *name,
+	uint cid,
+	int value,
+	bool quiet
+) {
 	if (value < query->minimum || value > query->maximum || value % query->step != 0) {
 		if (!quiet) {
 			_LOG_ERROR("Invalid value %d of control %s: min=%d, max=%d, default=%d, step=%u",

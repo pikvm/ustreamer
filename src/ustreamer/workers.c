@@ -37,11 +37,14 @@ static void *_worker_thread(void *v_worker);
 
 
 us_workers_pool_s *us_workers_pool_init(
-	const char *name, const char *wr_prefix, uint n_workers,
-	us_workers_pool_job_init_f job_init, void *job_init_arg,
+	const char *name,
+	const char *wr_prefix,
+	uint n_workers,
+	us_workers_pool_job_init_f job_init,
+	void *job_init_arg,
 	us_workers_pool_job_destroy_f job_destroy,
-	us_workers_pool_run_job_f run_job) {
-
+	us_workers_pool_run_job_f run_job
+) {
 	US_LOG_INFO("Creating pool %s with %u workers ...", name, n_workers);
 
 	us_workers_pool_s *pool;
@@ -57,12 +60,12 @@ us_workers_pool_s *us_workers_pool_init(
 	US_MUTEX_INIT(pool->free_workers_mutex);
 	US_COND_INIT(pool->free_workers_cond);
 
-	for (uint index = 0; index < pool->n_workers; ++index) {
+	for (uint i = 0; i < pool->n_workers; ++i) {
 		us_worker_s *wr;
 		US_CALLOC(wr, 1);
 
-		wr->number = index;
-		US_ASPRINTF(wr->name, "%s-%u", wr_prefix, index);
+		wr->number = i;
+		US_ASPRINTF(wr->name, "%s-%u", wr_prefix, i);
 
 		US_MUTEX_INIT(wr->has_job_mutex);
 		atomic_init(&wr->has_job, false);
@@ -112,7 +115,10 @@ us_worker_s *us_workers_pool_wait(us_workers_pool_s *pool) {
 
 	us_worker_s *found = NULL;
 	US_LIST_ITERATE(pool->workers, wr, { // cppcheck-suppress constStatement
-		if (!atomic_load(&wr->has_job) && (found == NULL || found->job_start_ts <= wr->job_start_ts)) {
+		if (
+			!atomic_load(&wr->has_job)
+			&& (found == NULL || found->job_start_ts <= wr->job_start_ts)
+		) {
 			found = wr;
 		}
 	});

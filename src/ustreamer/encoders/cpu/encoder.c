@@ -27,6 +27,19 @@
 
 #include "encoder.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <assert.h>
+
+#include <jpeglib.h>
+
+#include <linux/videodev2.h>
+
+#include "../../../libs/types.h"
+#include "../../../libs/tools.h"
+#include "../../../libs/frame.h"
+
 
 typedef struct {
 	struct jpeg_destination_mgr mgr; // Default manager

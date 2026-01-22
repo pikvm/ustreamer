@@ -27,9 +27,19 @@
 
 #include "encoder.h"
 
+#include <string.h>
+#include <assert.h>
+
+#include <linux/videodev2.h>
+
+#include "../../../libs/types.h"
+#include "../../../libs/frame.h"
+
+#include "huffman.h"
+
 
 void _copy_plus_huffman(const us_frame_s *src, us_frame_s *dest);
-static bool _is_huffman(const uint8_t *data);
+static bool _is_huffman(const u8 *data);
 
 
 void us_hw_encoder_compress(const us_frame_s *src, us_frame_s *dest) {
@@ -41,8 +51,8 @@ void _copy_plus_huffman(const us_frame_s *src, us_frame_s *dest) {
 	us_frame_encoding_begin(src, dest, V4L2_PIX_FMT_JPEG);
 
 	if (!_is_huffman(src->data)) {
-		const uint8_t *src_ptr = src->data;
-		const uint8_t *const src_end = src->data + src->used;
+		const u8 *src_ptr = src->data;
+		const u8 *const src_end = src->data + src->used;
 
 		while ((((src_ptr[0] << 8) | src_ptr[1]) != 0xFFC0) && (src_ptr < src_end)) {
 			src_ptr += 1;
@@ -52,7 +62,7 @@ void _copy_plus_huffman(const us_frame_s *src, us_frame_s *dest) {
 			return;
 		}
 
-		const size_t paste = src_ptr - src->data;
+		const uz paste = src_ptr - src->data;
 
 		us_frame_set_data(dest, src->data, paste);
 		us_frame_append_data(dest, US_HUFFMAN_TABLE, sizeof(US_HUFFMAN_TABLE));
@@ -65,14 +75,14 @@ void _copy_plus_huffman(const us_frame_s *src, us_frame_s *dest) {
 	us_frame_encoding_end(dest);
 }
 
-static bool _is_huffman(const uint8_t *data) {
-	unsigned count = 0;
+static bool _is_huffman(const u8 *data) {
+	uint count = 0;
 
-	while ((((uint16_t)data[0] << 8) | data[1]) != 0xFFDA) {
+	while ((((u16)data[0] << 8) | data[1]) != 0xFFDA) {
 		if (count++ > 2048) {
 			return false;
 		}
-		if ((((uint16_t)data[0] << 8) | data[1]) == 0xFFC4) {
+		if ((((u16)data[0] << 8) | data[1]) == 0xFFC4) {
 			return true;
 		}
 		data += 1;
