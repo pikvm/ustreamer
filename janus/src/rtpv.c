@@ -64,8 +64,7 @@ char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
 		"m=video 1 RTP/SAVPF %u" RN
 		"c=IN IP4 0.0.0.0" RN
 		"a=rtpmap:%u H264/90000" RN
-		"a=fmtp:%u profile-level-id=42E01F" RN
-		"a=fmtp:%u packetization-mode=1" RN
+		"a=fmtp:%u profile-level-id=42E01F;packetization-mode=1" RN
 		"a=rtcp-fb:%u nack" RN
 		"a=rtcp-fb:%u nack pli" RN
 		"a=rtcp-fb:%u goog-remb" RN
@@ -75,8 +74,7 @@ char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
 		"a=extmap:1 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay" RN
 		"a=extmap:2 urn:3gpp:video-orientation" RN
 		"a=sendonly" RN,
-		pl, pl, pl, pl,
-		pl, pl, pl,
+		pl, pl, pl, pl, pl, pl,
 		rtpv->rtp->ssrc
 	);
 	return sdp;
