@@ -71,8 +71,8 @@ char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
 		"a=mid:v" RN
 		"a=msid:video v" RN
 		"a=ssrc:%" PRIu32 " cname:ustreamer" RN
-		"a=extmap:1 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay" RN
-		"a=extmap:2 urn:3gpp:video-orientation" RN
+		"a=extmap:1/sendonly urn:3gpp:video-orientation" RN
+		"a=extmap:2/sendonly http://www.webrtc.org/experiments/rtp-hdrext/playout-delay" RN
 		"a=extmap:3/sendonly http://www.webrtc.org/experiments/rtp-hdrext/abs-capture-time" RN
 		"a=sendonly" RN,
 		pl, pl, pl, pl, pl, pl,
