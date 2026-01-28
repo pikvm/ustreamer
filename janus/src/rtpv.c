@@ -89,6 +89,8 @@ void us_rtpv_wrap(us_rtpv_s *rtpv, const us_frame_s *frame, bool zero_playout_de
 
 	assert(frame->format == V4L2_PIX_FMT_H264);
 
+	rtpv->rtp->first_of_frame = true;
+	rtpv->rtp->last_of_frame = false;
 	rtpv->rtp->zero_playout_delay = zero_playout_delay;
 	rtpv->rtp->grab_ntp_ts = us_get_now_ntp() - us_ld_to_ntp(us_get_now_monotonic() - frame->grab_begin_ts);
 
@@ -131,7 +133,9 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool 
 		us_rtp_write_header(rtpv->rtp, pts, marked);
 		memcpy(dg + US_RTP_HEADER_SIZE, data, size);
 		rtpv->rtp->used = size + US_RTP_HEADER_SIZE;
+		rtpv->rtp->last_of_frame = true;
 		rtpv->callback(rtpv->rtp);
+		rtpv->rtp->first_of_frame = false;
 		return;
 	}
 
@@ -163,7 +167,9 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool 
 
 		memcpy(dg + fu_overhead, src, frag_size);
 		rtpv->rtp->used = fu_overhead + frag_size;
+		rtpv->rtp->last_of_frame = last;
 		rtpv->callback(rtpv->rtp);
+		rtpv->rtp->first_of_frame = false;
 
 		src += frag_size;
 		remaining -= frag_size;

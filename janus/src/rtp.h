@@ -45,6 +45,9 @@ typedef struct {
 	u16		seq;
 	u8		datagram[US_RTP_DATAGRAM_SIZE];
 	uz		used;
+
+	bool	first_of_frame;
+	bool	last_of_frame;
 	bool	zero_playout_delay;
 	u64		grab_ntp_ts;
 } us_rtp_s;

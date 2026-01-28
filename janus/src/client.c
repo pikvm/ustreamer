@@ -193,20 +193,24 @@ static void *_video_or_acap_thread(void *v_client, bool video) {
 			};
 			janus_plugin_rtp_extensions_reset(&packet.extensions);
 
-			if (rtp.zero_playout_delay) {
-				// https://github.com/pikvm/pikvm/issues/784
-				packet.extensions.min_delay = 0;
-				packet.extensions.max_delay = 0;
-			} else {
-				// Эти дефолты используются в Chrome/Safari/Firefox.
-				// Работает всё одинаково, потому что у них общая кодовая база WebRTC.
-				packet.extensions.min_delay = 0;
-				packet.extensions.max_delay = 1000; // == 10s, i.e. 10ms granularity
+			if (rtp.first_of_frame) {
+				if (rtp.zero_playout_delay) {
+					// https://github.com/pikvm/pikvm/issues/784
+					packet.extensions.min_delay = 0;
+					packet.extensions.max_delay = 0;
+				} else {
+					// Эти дефолты используются в Chrome/Safari/Firefox.
+					// Работает всё одинаково, потому что у них общая кодовая база WebRTC.
+					packet.extensions.min_delay = 0;
+					packet.extensions.max_delay = 1000; // == 10s, i.e. 10ms granularity
+				}
 			}
 
-			if (rtp.video) {
+			if (rtp.video && rtp.first_of_frame) {
 				packet.extensions.abs_capture_ts = rtp.grab_ntp_ts;
+			}
 
+			if (rtp.video && rtp.last_of_frame) {
 				uint video_orient = atomic_load(&client->video_orient);
 				if (video_orient != 0) {
 					// The extension rotates the video clockwise, but want it counterclockwise.
