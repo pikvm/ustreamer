@@ -90,8 +90,7 @@ void us_rtpv_wrap(us_rtpv_s *rtpv, const us_frame_s *frame, bool zero_playout_de
 	assert(frame->format == V4L2_PIX_FMT_H264);
 
 	rtpv->rtp->zero_playout_delay = zero_playout_delay;
-	rtpv->rtp->grab_ntp_ts =
-		us_get_now_ntp() - (us_get_now_monotonic() - frame->grab_begin_ts) * NTP_TICKS_IN_SECOND;
+	rtpv->rtp->grab_ntp_ts = us_get_now_ntp() - us_ld_to_ntp(us_get_now_monotonic() - frame->grab_begin_ts);
 
 	const u32 pts = us_get_now_monotonic_u64() * 9 / 100; // PTS units are in 90 kHz
 	sz last_offset = -_PRE;

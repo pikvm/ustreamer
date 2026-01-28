@@ -85,8 +85,6 @@
 
 #define US_ONCE(...) US_ONCE_FOR(once, __LINE__, ##__VA_ARGS__)
 
-#define NTP_UNIX_TIME_DIFF 2208988800u // difference between Unix time and NTP time in seconds (1970 - 1900)
-#define NTP_TICKS_IN_SECOND 4294967296u // ticks per second in NTP time
 
 INLINE char *us_strdup(const char *str) {
 	char *const new = strdup(str);
@@ -143,12 +141,6 @@ INLINE u64 us_get_now_monotonic_u64(void) {
 	return (u64)(ts.tv_nsec / 1000) + (u64)ts.tv_sec * 1000000;
 }
 
-INLINE u64 us_get_now_ntp(void) {
-	struct timespec ts;
-	assert(!clock_gettime(CLOCK_REALTIME, &ts));
-	return (((u64)ts.tv_sec + NTP_UNIX_TIME_DIFF) << 32) + ((u64)ts.tv_nsec / 1000 * NTP_TICKS_IN_SECOND ) / 1000000;
-}
-
 INLINE u64 us_get_now_id(void) {
 	const u64 now = us_get_now_monotonic_u64();
 	return (u64)us_triple_u32(now) | ((u64)us_triple_u32(now + 12345) << 32);
@@ -159,12 +151,6 @@ INLINE ldf us_get_now_real(void) {
 	long msec;
 	us_get_now(CLOCK_REALTIME, &sec, &msec);
 	return (ldf)sec + ((ldf)msec) / 1000;
-}
-
-INLINE uint us_get_cores_available(void) {
-	long cores_sysconf = sysconf(_SC_NPROCESSORS_ONLN);
-	cores_sysconf = (cores_sysconf < 0 ? 0 : cores_sysconf);
-	return US_MAX(US_MIN(cores_sysconf, 4), 1);
 }
 
 INLINE void us_ld_to_timespec(ldf ld, struct timespec *ts) {
@@ -178,6 +164,28 @@ INLINE void us_ld_to_timespec(ldf ld, struct timespec *ts) {
 
 INLINE ldf us_timespec_to_ld(const struct timespec *ts) {
 	return ts->tv_sec + ((ldf)ts->tv_nsec) / 1000000000;
+}
+
+#define NTP_UNIX_TIME_DIFF	2208988800u // Difference between Unix time and NTP time in seconds (1970 - 1900)
+#define NTP_TICKS_IN_SECOND	4294967296u // Ticks per second in NTP time
+
+INLINE u64 us_get_now_ntp(void) {
+	struct timespec ts;
+	US_A(!clock_gettime(CLOCK_REALTIME, &ts));
+	return (((u64)ts.tv_sec + NTP_UNIX_TIME_DIFF) << 32) + ((u64)ts.tv_nsec / 1000 * NTP_TICKS_IN_SECOND) / 1000000;
+}
+
+INLINE u64 us_ld_to_ntp(ldf ld) {
+	return (ld > 0 ? ld * NTP_TICKS_IN_SECOND : 0);
+}
+
+#undef NTP_TICKS_IN_SECOND
+#undef NTP_UNIX_TIME_DIFF
+
+INLINE uint us_get_cores_available(void) {
+	long cores_sysconf = sysconf(_SC_NPROCESSORS_ONLN);
+	cores_sysconf = (cores_sysconf < 0 ? 0 : cores_sysconf);
+	return US_MAX(US_MIN(cores_sysconf, 4), 1);
 }
 
 INLINE int us_flock_timedwait_monotonic(int fd, ldf timeout) {
