@@ -24,7 +24,6 @@
 
 #include <string.h>
 #include <signal.h>
-#include <assert.h>
 
 #if defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 32
 #	define HAS_SIGABBREV_NP
@@ -58,25 +57,25 @@ char *us_signum_to_string(int signum) {
 void us_install_signals_handler(us_signal_handler_f handler, bool ignore_sigpipe) {
 	struct sigaction sig_act = {0};
 
-	assert(!sigemptyset(&sig_act.sa_mask));
+	US_A(!sigemptyset(&sig_act.sa_mask));
 	sig_act.sa_handler = handler;
-	assert(!sigaddset(&sig_act.sa_mask, SIGINT));
-	assert(!sigaddset(&sig_act.sa_mask, SIGTERM));
+	US_A(!sigaddset(&sig_act.sa_mask, SIGINT));
+	US_A(!sigaddset(&sig_act.sa_mask, SIGTERM));
 	if (!ignore_sigpipe) {
-	    assert(!sigaddset(&sig_act.sa_mask, SIGPIPE));
+	    US_A(!sigaddset(&sig_act.sa_mask, SIGPIPE));
 	}
 
 	US_LOG_DEBUG("Installing SIGINT handler ...");
-	assert(!sigaction(SIGINT, &sig_act, NULL));
+	US_A(!sigaction(SIGINT, &sig_act, NULL));
 
 	US_LOG_DEBUG("Installing SIGTERM handler ...");
-	assert(!sigaction(SIGTERM, &sig_act, NULL));
+	US_A(!sigaction(SIGTERM, &sig_act, NULL));
 
 	if (!ignore_sigpipe) {
 		US_LOG_DEBUG("Installing SIGPIPE handler ...");
-		assert(!sigaction(SIGPIPE, &sig_act, NULL));
+		US_A(!sigaction(SIGPIPE, &sig_act, NULL));
 	} else {
 		US_LOG_DEBUG("Ignoring SIGPIPE ...");
-		assert(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
+		US_A(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
 	}
 }

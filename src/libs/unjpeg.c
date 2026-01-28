@@ -24,12 +24,12 @@
 
 #include <stdio.h>
 #include <setjmp.h>
-#include <assert.h>
 
 #include <jpeglib.h>
 #include <linux/videodev2.h>
 
 #include "types.h"
+#include "tools.h"
 #include "logging.h"
 #include "frame.h"
 
@@ -45,7 +45,7 @@ static void _jpeg_error_handler(j_common_ptr jpeg);
 
 
 int us_unjpeg(const us_frame_s *src, us_frame_s *dest, bool decode) {
-	assert(us_is_jpeg(src->format));
+	US_A(us_is_jpeg(src->format));
 
 	volatile int retval = 0;
 

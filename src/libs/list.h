@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include <assert.h>
+#include "tools.h"
 
 
 #define US_LIST_DECLARE \
@@ -71,6 +71,6 @@
 
 #define US_LIST_REMOVE_C(x_first, x_item, x_count) { \
 		US_LIST_REMOVE(x_first, x_item); \
-		assert((x_count) >= 1); \
+		US_A((x_count) >= 1); \
 		--(x_count); \
 	}

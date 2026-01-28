@@ -20,8 +20,6 @@
 *****************************************************************************/
 
 
-#include <assert.h>
-
 #include "ring.h"
 
 #include "types.h"
@@ -43,7 +41,7 @@ us_ring_s *us_ring_init(uint capacity) {
 	ring->consumer = us_queue_init(capacity);
 	for (uint ri = 0; ri < capacity; ++ri) {
 		ring->places[ri] = ri; // XXX: Just to avoid casting between pointer and uint
-		assert(!us_queue_put(ring->producer, (void*)(ring->places + ri), 0));
+		US_A(!us_queue_put(ring->producer, (void*)(ring->places + ri), 0));
 	}
 	return ring;
 }
@@ -82,5 +80,5 @@ int _acquire(us_ring_s *ring, us_queue_s *q, ldf timeout) {
 }
 
 void _release(us_ring_s *ring, us_queue_s *q, uint ri) {
-	assert(!us_queue_put(q, (void*)(ring->places + ri), 0));
+	US_A(!us_queue_put(q, (void*)(ring->places + ri), 0));
 }

@@ -25,7 +25,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
-#include <assert.h>
 
 #include <sys/syscall.h>
 
@@ -47,8 +46,8 @@
 #	define US_THREAD_NAME_SIZE ((uz)16)
 #endif
 
-#define US_THREAD_CREATE(x_tid, x_func, x_arg)	assert(!pthread_create(&(x_tid), NULL, (x_func), (x_arg)))
-#define US_THREAD_JOIN(x_tid)					assert(!pthread_join((x_tid), NULL))
+#define US_THREAD_CREATE(x_tid, x_func, x_arg)	US_A(!pthread_create(&(x_tid), NULL, (x_func), (x_arg)))
+#define US_THREAD_JOIN(x_tid)					US_A(!pthread_join((x_tid), NULL))
 
 #ifdef WITH_PTHREAD_NP
 #	define US_THREAD_RENAME(x_fmt, ...) { \
@@ -65,16 +64,16 @@
 		us_thread_block_signals(); \
 	}
 
-#define US_MUTEX_INIT(x_mutex)		assert(!pthread_mutex_init(&(x_mutex), NULL))
-#define US_MUTEX_DESTROY(x_mutex)	assert(!pthread_mutex_destroy(&(x_mutex)))
-#define US_MUTEX_LOCK(x_mutex)		assert(!pthread_mutex_lock(&(x_mutex)))
-#define US_MUTEX_UNLOCK(x_mutex)	assert(!pthread_mutex_unlock(&(x_mutex)))
+#define US_MUTEX_INIT(x_mutex)		US_A(!pthread_mutex_init(&(x_mutex), NULL))
+#define US_MUTEX_DESTROY(x_mutex)	US_A(!pthread_mutex_destroy(&(x_mutex)))
+#define US_MUTEX_LOCK(x_mutex)		US_A(!pthread_mutex_lock(&(x_mutex)))
+#define US_MUTEX_UNLOCK(x_mutex)	US_A(!pthread_mutex_unlock(&(x_mutex)))
 
-#define US_COND_INIT(x_cond)		assert(!pthread_cond_init(&(x_cond), NULL))
-#define US_COND_DESTROY(x_cond)		assert(!pthread_cond_destroy(&(x_cond)))
-#define US_COND_SIGNAL(x_cond)		assert(!pthread_cond_signal(&(x_cond)))
-#define US_COND_BROADCAST(x_cond)	assert(!pthread_cond_broadcast(&(x_cond)))
-#define US_COND_WAIT_FOR(x_var, x_cond, x_mutex) { while(!(x_var)) assert(!pthread_cond_wait(&(x_cond), &(x_mutex))); }
+#define US_COND_INIT(x_cond)		US_A(!pthread_cond_init(&(x_cond), NULL))
+#define US_COND_DESTROY(x_cond)		US_A(!pthread_cond_destroy(&(x_cond)))
+#define US_COND_SIGNAL(x_cond)		US_A(!pthread_cond_signal(&(x_cond)))
+#define US_COND_BROADCAST(x_cond)	US_A(!pthread_cond_broadcast(&(x_cond)))
+#define US_COND_WAIT_FOR(x_var, x_cond, x_mutex) { while(!(x_var)) US_A(!pthread_cond_wait(&(x_cond), &(x_mutex))); }
 
 
 #ifdef WITH_PTHREAD_NP
@@ -114,7 +113,7 @@ INLINE void us_thread_get_name(char *name) { // Always required for logging
 		const pid_t tid = syscall(SYS_gettid);
 #elif defined(__FreeBSD__)
 		long id;
-		assert(!syscall(SYS_thr_self, &id));
+		US_A(!syscall(SYS_thr_self, &id));
 		const pid_t tid = id;
 #elif defined(__OpenBSD__)
 		const pid_t tid = syscall(SYS_getthrid);
@@ -135,8 +134,8 @@ INLINE void us_thread_get_name(char *name) { // Always required for logging
 
 INLINE void us_thread_block_signals(void) {
 	sigset_t mask;
-	assert(!sigemptyset(&mask));
-	assert(!sigaddset(&mask, SIGINT));
-	assert(!sigaddset(&mask, SIGTERM));
-	assert(!pthread_sigmask(SIG_BLOCK, &mask, NULL));
+	US_A(!sigemptyset(&mask));
+	US_A(!sigaddset(&mask, SIGINT));
+	US_A(!sigaddset(&mask, SIGTERM));
+	US_A(!pthread_sigmask(SIG_BLOCK, &mask, NULL));
 }

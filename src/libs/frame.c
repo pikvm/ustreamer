@@ -25,7 +25,6 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 #include <linux/videodev2.h>
 
@@ -107,7 +106,7 @@ uint us_frame_get_padding(const us_frame_s *frame) {
 			break;
 
 		default:
-			assert(0 && "Unknown format");
+			US_RAISE("Unknown format");
 	}
 	if (bytes_per_pixel > 0 && frame->stride > frame->width) {
 		return (frame->stride - frame->width * bytes_per_pixel);
@@ -120,7 +119,7 @@ bool us_is_jpeg(uint format) {
 }
 
 const char *us_fourcc_to_string(uint format, char *buf, uz size) {
-	assert(size >= 8);
+	US_A(size >= 8);
 	buf[0] = format & 0x7F;
 	buf[1] = (format >> 8) & 0x7F;
 	buf[2] = (format >> 16) & 0x7F;

@@ -24,7 +24,6 @@
 
 #include <errno.h>
 #include <time.h>
-#include <assert.h>
 
 #include <pthread.h>
 
@@ -41,11 +40,11 @@ us_queue_s *us_queue_init(uint capacity) {
 	US_MUTEX_INIT(q->mutex);
 
 	pthread_condattr_t attrs;
-	assert(!pthread_condattr_init(&attrs));
-	assert(!pthread_condattr_setclock(&attrs, CLOCK_MONOTONIC));
-	assert(!pthread_cond_init(&q->full_cond, &attrs));
-	assert(!pthread_cond_init(&q->empty_cond, &attrs));
-	assert(!pthread_condattr_destroy(&attrs));
+	US_A(!pthread_condattr_init(&attrs));
+	US_A(!pthread_condattr_setclock(&attrs, CLOCK_MONOTONIC));
+	US_A(!pthread_cond_init(&q->full_cond, &attrs));
+	US_A(!pthread_cond_init(&q->empty_cond, &attrs));
+	US_A(!pthread_condattr_destroy(&attrs));
 	return q;
 }
 
@@ -59,7 +58,7 @@ void us_queue_destroy(us_queue_s *q) {
 
 #define _WAIT_OR_UNLOCK(x_var, x_cond) { \
 		struct timespec m_ts; \
-		assert(!clock_gettime(CLOCK_MONOTONIC, &m_ts)); \
+		US_A(!clock_gettime(CLOCK_MONOTONIC, &m_ts)); \
 		us_ld_to_timespec(us_timespec_to_ld(&m_ts) + timeout, &m_ts); \
 		while (x_var) { \
 			const int err = pthread_cond_timedwait(&(x_cond), &q->mutex, &m_ts); \
@@ -67,7 +66,7 @@ void us_queue_destroy(us_queue_s *q) {
 				US_MUTEX_UNLOCK(q->mutex); \
 				return -1; \
 			} \
-			assert(!err); \
+			US_A(!err); \
 		} \
 	}
 

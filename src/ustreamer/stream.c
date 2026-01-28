@@ -27,7 +27,6 @@
 #include <limits.h>
 #include <unistd.h>
 #include <errno.h>
-#include <assert.h>
 #include <math.h>
 
 #include <pthread.h>
@@ -199,7 +198,7 @@ void us_stream_loop(us_stream_s *stream) {
 		CREATE_WORKER((stream->raw_sink != NULL), raw_ctx, _raw_thread, 2);
 		CREATE_WORKER((stream->h264_sink != NULL), h264_ctx, _h264_thread, cap->run->n_bufs);
 #		ifdef WITH_V4P
-		CREATE_WORKER((stream->drm != NULL), drm_ctx, _drm_thread, cap->run->n_bufs); // cppcheck-suppress assertWithSideEffect
+		CREATE_WORKER((stream->drm != NULL), drm_ctx, _drm_thread, cap->run->n_bufs);
 #		endif
 #		undef CREATE_WORKER
 
@@ -528,7 +527,7 @@ static us_capture_hwbuf_s *_get_latest_hw(us_queue_s *q) {
 	}
 	while (!us_queue_is_empty(q)) { // Берем только самый свежий кадр
 		us_capture_hwbuf_decref(hw);
-		assert(!us_queue_get(q, (void**)&hw, 0));
+		US_A(!us_queue_get(q, (void**)&hw, 0));
 	}
 	return hw;
 }

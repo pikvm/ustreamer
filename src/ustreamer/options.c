@@ -30,10 +30,10 @@
 #include <limits.h>
 #include <getopt.h>
 #include <errno.h>
-#include <assert.h>
 
 #include "../libs/types.h"
 #include "../libs/const.h"
+#include "../libs/tools.h"
 #include "../libs/logging.h"
 #include "../libs/process.h"
 #include "../libs/frame.h"
@@ -358,7 +358,7 @@ int us_options_parse(
 					printf("Invalid height of '%s=%s': min=%u, max=%u\n", x_name, optarg, US_VIDEO_MIN_HEIGHT, US_VIDEO_MAX_HEIGHT); \
 					return -1; \
 				case 0: break; \
-				default: assert(0 && "Unknown error"); \
+				default: US_RAISE("Unknown error"); \
 			} \
 			break; \
 		}

@@ -51,14 +51,17 @@
 
 #define INLINE inline __attribute__((always_inline))
 
-#define US_CALLOC(x_dest, x_nmemb)		assert(((x_dest) = calloc((x_nmemb), sizeof(*(x_dest)))) != NULL)
-#define US_REALLOC(x_dest, x_nmemb)		assert(((x_dest) = realloc((x_dest), (x_nmemb) * sizeof(*(x_dest)))) != NULL)
+#define US_A(x_arg)		{ const bool m_ar = (x_arg); assert(m_ar && #x_arg); }
+#define US_RAISE(x_msg)	assert(0 && x_msg)
+
+#define US_CALLOC(x_dest, x_nmemb)		US_A(((x_dest) = calloc((x_nmemb), sizeof(*(x_dest)))) != NULL)
+#define US_REALLOC(x_dest, x_nmemb)		US_A(((x_dest) = realloc((x_dest), (x_nmemb) * sizeof(*(x_dest)))) != NULL)
 #define US_DELETE(x_dest, x_free)		{ if (x_dest) { x_free(x_dest); x_dest = NULL; } }
 #define US_CLOSE_FD(x_dest)				{ if (x_dest >= 0) { close(x_dest); x_dest = -1; } }
 #define US_MEMSET_ZERO(x_obj)			memset(&(x_obj), 0, sizeof(x_obj))
 
-#define US_SNPRINTF(x_dest, x_size, x_fmt, ...)	assert(snprintf((x_dest), (x_size), (x_fmt), ##__VA_ARGS__) > 0)
-#define US_ASPRINTF(x_dest, x_fmt, ...)			assert(asprintf(&(x_dest), (x_fmt), ##__VA_ARGS__) > 0)
+#define US_SNPRINTF(x_dest, x_size, x_fmt, ...)	US_A(snprintf((x_dest), (x_size), (x_fmt), ##__VA_ARGS__) > 0)
+#define US_ASPRINTF(x_dest, x_fmt, ...)			US_A(asprintf(&(x_dest), (x_fmt), ##__VA_ARGS__) > 0)
 
 #define US_MIN(x_a, x_b) ({ \
 		__typeof__(x_a) m_a = (x_a); \
@@ -85,7 +88,7 @@
 
 INLINE char *us_strdup(const char *str) {
 	char *const new = strdup(str);
-	assert(new != NULL);
+	US_A(new != NULL);
 	return new;
 }
 
@@ -115,7 +118,7 @@ INLINE u32 us_triple_u32(u32 x) {
 
 INLINE void us_get_now(clockid_t clk_id, time_t *sec, long *msec) {
 	struct timespec ts;
-	assert(!clock_gettime(clk_id, &ts));
+	US_A(!clock_gettime(clk_id, &ts));
 	*sec = ts.tv_sec;
 	*msec = round(ts.tv_nsec / 1.0e6);
 
@@ -134,7 +137,7 @@ INLINE ldf us_get_now_monotonic(void) {
 
 INLINE u64 us_get_now_monotonic_u64(void) {
 	struct timespec ts;
-	assert(!clock_gettime(CLOCK_MONOTONIC, &ts));
+	US_A(!clock_gettime(CLOCK_MONOTONIC, &ts));
 	return (u64)(ts.tv_nsec / 1000) + (u64)ts.tv_sec * 1000000;
 }
 

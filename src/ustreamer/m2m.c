@@ -28,7 +28,6 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <errno.h>
-#include <assert.h>
 
 #include <sys/mman.h>
 
@@ -89,7 +88,7 @@ us_m2m_encoder_s *us_m2m_mjpeg_encoder_init(const char *name, const char *path, 
 	double bitrate = log10(quality) * (b_max - b_min) / 2 + b_min;
 	bitrate = step * round(bitrate / step);
 	bitrate *= 1000; // From Kbps
-	assert(bitrate > 0);
+	US_A(bitrate > 0);
 	return _m2m_encoder_init(name, path, V4L2_PIX_FMT_MJPEG, bitrate, 0, 0, true, false);
 }
 
@@ -417,7 +416,7 @@ static int _m2m_encoder_init_buffers(
 			_LOG_PERROR("Can't map %s buffer=%u", name, *n_bufs_ptr);
 			goto error;
 		}
-		assert((*bufs_ptr)[*n_bufs_ptr].data != NULL);
+		US_A((*bufs_ptr)[*n_bufs_ptr].data != NULL);
 		(*bufs_ptr)[*n_bufs_ptr].allocated = plane.length;
 
 		_LOG_DEBUG("Queuing %s buffer=%u ...", name, *n_bufs_ptr);
@@ -492,7 +491,7 @@ static int _m2m_encoder_compress_raw(
 ) {
 	us_m2m_encoder_runtime_s *const run = enc->run;
 
-	assert(run->ready);
+	US_A(run->ready);
 
 	if (force_key) {
 		struct v4l2_control ctl = {0};

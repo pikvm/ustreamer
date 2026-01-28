@@ -25,15 +25,15 @@
 #include <string.h>
 #include <ctype.h>
 #include <getopt.h>
-#include <assert.h>
 
 #include "types.h"
+#include "tools.h"
 
 
 void us_build_short_options(const struct option opts[], char *short_opts, uz size) {
 	memset(short_opts, 0, size);
     for (uint short_i = 0, opt_i = 0; opts[opt_i].name != NULL; ++opt_i) {
-		assert(short_i < size - 3);
+		US_A(short_i < size - 3);
         if (isalpha(opts[opt_i].val)) {
             short_opts[short_i] = opts[opt_i].val;
             ++short_i;

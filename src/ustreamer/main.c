@@ -46,10 +46,10 @@ static us_server_s	*_g_server = NULL;
 
 static void _block_thread_signals(void) {
 	sigset_t mask;
-	assert(!sigemptyset(&mask));
-	assert(!sigaddset(&mask, SIGINT));
-	assert(!sigaddset(&mask, SIGTERM));
-	assert(!pthread_sigmask(SIG_BLOCK, &mask, NULL));
+	US_A(!sigemptyset(&mask));
+	US_A(!sigaddset(&mask, SIGINT));
+	US_A(!sigaddset(&mask, SIGTERM));
+	US_A(!pthread_sigmask(SIG_BLOCK, &mask, NULL));
 }
 
 static void *_stream_loop_thread(void *arg) {
@@ -77,7 +77,7 @@ static void _signal_handler(int signum) {
 }
 
 int main(int argc, char *argv[]) {
-	assert(argc >= 0);
+	US_A(argc >= 0);
 	int exit_code = 0;
 
 	US_LOGGING_INIT;

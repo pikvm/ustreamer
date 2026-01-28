@@ -24,11 +24,11 @@
 
 #include <string.h>
 #include <strings.h>
-#include <assert.h>
 
 #include <sys/mman.h>
 
 #include "types.h"
+#include "tools.h"
 
 
 us_memsink_shared_s *us_memsink_shared_map(int fd, uz data_size) {
@@ -40,12 +40,12 @@ us_memsink_shared_s *us_memsink_shared_map(int fd, uz data_size) {
 	if (mem == MAP_FAILED) {
 		return NULL;
 	}
-	assert(mem != NULL);
+	US_A(mem != NULL);
 	return mem;
 }
 
 int us_memsink_shared_unmap(us_memsink_shared_s *mem, uz data_size) {
-	assert(mem != NULL);
+	US_A(mem != NULL);
 	return munmap(mem, sizeof(us_memsink_shared_s) + data_size);
 }
 

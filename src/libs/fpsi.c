@@ -56,9 +56,9 @@ void us_fpsi_frame_to_meta(const us_frame_s *frame, us_fpsi_meta_s *meta) {
 
 void us_fpsi_update(us_fpsi_s *fpsi, bool bump, const us_fpsi_meta_s *meta) {
 	if (meta != NULL) {
-		assert(fpsi->with_meta);
+		US_A(fpsi->with_meta);
 	} else {
-		assert(!fpsi->with_meta);
+		US_A(!fpsi->with_meta);
 	}
 
 	const sll now_ts = us_floor_ms(us_get_now_monotonic());
@@ -68,7 +68,7 @@ void us_fpsi_update(us_fpsi_s *fpsi, bool bump, const us_fpsi_meta_s *meta) {
 		// Fast mutex-less store method
 		ull state = (ull)fpsi->accum & 0xFFFF;
 		if (fpsi->with_meta) {
-			assert(meta != NULL);
+			US_A(meta != NULL);
 			state |= (ull)(meta->width & 0xFFFF) << 16;
 			state |= (ull)(meta->height & 0xFFFF) << 32;
 			state |= (ull)(meta->online ? 1 : 0) << 48;
@@ -84,7 +84,7 @@ void us_fpsi_update(us_fpsi_s *fpsi, bool bump, const us_fpsi_meta_s *meta) {
 
 uint us_fpsi_get(us_fpsi_s *fpsi, us_fpsi_meta_s *meta) {
 	if (meta != NULL) {
-		assert(fpsi->with_meta);
+		US_A(fpsi->with_meta);
 	}
 
 	// Между чтением инфы и времени может быть гонка,

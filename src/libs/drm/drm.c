@@ -99,7 +99,7 @@ void us_drm_destroy(us_drm_s *drm) {
 int us_drm_open(us_drm_s *drm, const us_capture_s *cap) {
 	us_drm_runtime_s *const run = drm->run;
 
-	assert(run->fd < 0);
+	US_A(run->fd < 0);
 
 	switch (_drm_check_status(drm)) {
 		case 0: break;
@@ -200,7 +200,7 @@ void us_drm_close(us_drm_s *drm) {
 	if (run->exposing_dma_fd >= 0) {
 		// Нужно подождать, пока dma_fd не освободится, прежде чем прерывать процесс.
 		// Просто на всякий случай.
-		assert(run->fd >= 0);
+		US_A(run->fd >= 0);
 		us_drm_wait_for_vsync(drm);
 		run->exposing_dma_fd = -1;
 	}
@@ -258,8 +258,8 @@ void us_drm_close(us_drm_s *drm) {
 int us_drm_ensure_no_signal(us_drm_s *drm) {
 	us_drm_runtime_s *const run = drm->run;
 
-	assert(run->fd >= 0);
-	assert(run->opened > 0);
+	US_A(run->fd >= 0);
+	US_A(run->opened > 0);
 
 	const ldf now_ts = us_get_now_monotonic();
 	if (run->blank_at_ts == 0) {
@@ -284,7 +284,7 @@ int us_drm_ensure_no_signal(us_drm_s *drm) {
 }
 
 int us_drm_dpms_power_off(us_drm_s *drm) {
-	assert(drm->run->fd >= 0);
+	US_A(drm->run->fd >= 0);
 	switch (_drm_check_status(drm)) {
 		case 0: break;
 		case US_ERROR_NO_DEVICE: return 0; // Unplugged, nice
@@ -300,7 +300,7 @@ int us_drm_dpms_power_off(us_drm_s *drm) {
 int us_drm_wait_for_vsync(us_drm_s *drm) {
 	us_drm_runtime_s *const run = drm->run;
 
-	assert(run->fd >= 0);
+	US_A(run->fd >= 0);
 	run->blank_at_ts = 0;
 
 	switch (_drm_check_status(drm)) {
@@ -355,8 +355,8 @@ static void _drm_vsync_callback(int fd, uint n_frame, uint sec, uint usec, void 
 int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_capture_s *cap) {
 	us_drm_runtime_s *const run = drm->run;
 
-	assert(run->fd >= 0);
-	assert(run->opened > 0);
+	US_A(run->fd >= 0);
+	US_A(run->opened > 0);
 	run->blank_at_ts = 0;
 
 	switch (_drm_check_status(drm)) {
@@ -369,7 +369,7 @@ int us_drm_expose_stub(us_drm_s *drm, us_drm_stub_e stub, const us_capture_s *ca
 #	define DRAW_MSG(x_msg) us_frametext_draw(run->ft, (x_msg), run->mode.hdisplay, run->mode.vdisplay)
 	switch (stub) {
 		case US_DRM_STUB_BAD_RESOLUTION: {
-			assert(cap != NULL);
+			US_A(cap != NULL);
 			char msg[1024];
 			US_SNPRINTF(msg, 1023,
 				"=== PiKVM ==="
@@ -420,8 +420,8 @@ int us_drm_expose_dma(us_drm_s *drm, const us_capture_hwbuf_s *hw) {
 	us_drm_runtime_s *const run = drm->run;
 	us_drm_buffer_s *const buf = &run->bufs[hw->buf.index];
 
-	assert(run->fd >= 0);
-	assert(run->opened == 0);
+	US_A(run->fd >= 0);
+	US_A(run->opened == 0);
 	run->blank_at_ts = 0;
 
 	switch (_drm_check_status(drm)) {
@@ -706,8 +706,8 @@ static drmModeModeInfo *_find_best_mode(drmModeConnector *conn, uint width, uint
 	if (best == NULL) {
 		best = (conn->count_modes > 0 ? &conn->modes[0] : NULL);
 	}
-	assert(best == NULL || best->hdisplay > 0);
-	assert(best == NULL || best->vdisplay > 0);
+	US_A(best == NULL || best->hdisplay > 0);
+	US_A(best == NULL || best->vdisplay > 0);
 	return best;
 }
 

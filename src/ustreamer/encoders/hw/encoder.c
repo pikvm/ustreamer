@@ -28,11 +28,11 @@
 #include "encoder.h"
 
 #include <string.h>
-#include <assert.h>
 
 #include <linux/videodev2.h>
 
 #include "../../../libs/types.h"
+#include "../../../libs/tools.h"
 #include "../../../libs/frame.h"
 
 #include "huffman.h"
@@ -43,7 +43,7 @@ static bool _is_huffman(const u8 *data);
 
 
 void us_hw_encoder_compress(const us_frame_s *src, us_frame_s *dest) {
-	assert(us_is_jpeg(src->format));
+	US_A(us_is_jpeg(src->format));
 	_copy_plus_huffman(src, dest);
 }
 

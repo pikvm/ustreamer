@@ -30,7 +30,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <assert.h>
 
 #include <sys/select.h>
 #include <sys/mman.h>
@@ -471,7 +470,7 @@ int us_capture_hwbuf_grab(us_capture_s *cap, us_capture_hwbuf_s **hw) {
 }
 
 int us_capture_hwbuf_release(const us_capture_s *cap, us_capture_hwbuf_s *hw) {
-	assert(atomic_load(&hw->refs) == 0);
+	US_A(atomic_load(&hw->refs) == 0);
 	const uint i = hw->buf.index;
 	_LOG_DEBUG("Releasing HW buffer=%u ...", i);
 	if (us_xioctl(cap->run->fd, VIDIOC_QBUF, &hw->buf) < 0) {
@@ -556,7 +555,7 @@ static void _v4l2_buffer_copy(const struct v4l2_buffer *src, struct v4l2_buffer 
 	struct v4l2_plane *dest_planes = dest->m.planes;
 	memcpy(dest, src, sizeof(struct v4l2_buffer));
 	if (src->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		assert(dest_planes);
+		US_A(dest_planes);
 		dest->m.planes = dest_planes;
 		memcpy(dest->m.planes, src->m.planes, sizeof(struct v4l2_plane) * VIDEO_MAX_PLANES);
 	}
@@ -911,7 +910,7 @@ static int _capture_open_io_method(us_capture_s *cap) {
 	switch (cap->io_method) {
 		case V4L2_MEMORY_MMAP: return _capture_open_io_method_mmap(cap);
 		case V4L2_MEMORY_USERPTR: return _capture_open_io_method_userptr(cap);
-		default: assert(0 && "Unsupported IO method");
+		default: US_RAISE("Unsupported IO method");
 	}
 	return -1;
 }
@@ -972,7 +971,7 @@ static int _capture_open_io_method_mmap(us_capture_s *cap) {
 			_LOG_PERROR("Can't map device buffer=%u", run->n_bufs);
 			return -1;
 		}
-		assert(hw->raw.data != NULL);
+		US_A(hw->raw.data != NULL);
 		hw->raw.allocated = buf_size;
 
 		if (run->capture_mplane) {
@@ -1014,7 +1013,7 @@ static int _capture_open_io_method_userptr(us_capture_s *cap) {
 
 	for (run->n_bufs = 0; run->n_bufs < req.count; ++run->n_bufs) {
 		us_capture_hwbuf_s *hw = &run->bufs[run->n_bufs];
-		assert((hw->raw.data = aligned_alloc(page_size, buf_size)) != NULL);
+		US_A((hw->raw.data = aligned_alloc(page_size, buf_size)) != NULL);
 		memset(hw->raw.data, 0, buf_size);
 		hw->raw.allocated = buf_size;
 		if (run->capture_mplane) {

@@ -122,7 +122,7 @@ us_worker_s *us_workers_pool_wait(us_workers_pool_s *pool) {
 			found = wr;
 		}
 	});
-	assert(found != NULL);
+	US_A(found != NULL);
 	US_LIST_REMOVE(pool->workers, found);
 	US_LIST_APPEND(pool->workers, found); // Перемещаем в конец списка
 

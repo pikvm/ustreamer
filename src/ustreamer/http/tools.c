@@ -25,7 +25,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <assert.h>
 
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -54,8 +53,8 @@ evutil_socket_t us_evhttp_bind_unix(struct evhttp *http, const char *path, bool 
 	addr.sun_family = AF_UNIX;
 
 	const evutil_socket_t fd = socket(AF_UNIX, SOCK_STREAM, 0);
-	assert(fd >= 0);
-	assert(!evutil_make_socket_nonblocking(fd));
+	US_A(fd >= 0);
+	US_A(!evutil_make_socket_nonblocking(fd));
 
 	if (rm && unlink(path) < 0) {
 		if (errno != ENOENT) {
@@ -99,7 +98,7 @@ char *us_evhttp_get_hostport(struct evhttp_request *req) {
 	const char *xff = us_evhttp_get_header(req, "X-Forwarded-For");
 	if (xff != NULL) {
 		US_DELETE(addr, free);
-		assert((addr = strndup(xff, 1024)) != NULL);
+		US_A((addr = strndup(xff, 1024)) != NULL);
 		for (uint i = 0; addr[i]; ++i) {
 			if (addr[i] == ',') {
 				addr[i] = '\0';

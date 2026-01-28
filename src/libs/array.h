@@ -22,14 +22,14 @@
 
 #pragma once
 
-#include <assert.h>
+#include "tools.h"
 
 
 #define US_ARRAY_LEN(x_array) (sizeof(x_array) / sizeof((x_array)[0]))
 
 #define US_ARRAY_ITERATE(x_array, x_start, x_item_ptr, ...) { \
 		const int m_len = US_ARRAY_LEN(x_array); \
-		assert(x_start <= m_len); \
+		US_A(x_start <= m_len); \
 		for (int m_i = x_start; m_i < m_len; ++m_i) { \
 			__typeof__((x_array)[0]) *const x_item_ptr = &x_array[m_i]; \
 			__VA_ARGS__ \

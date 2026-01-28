@@ -52,7 +52,7 @@ static void _gpio_output_destroy(us_gpio_output_s *out);
 
 void us_gpio_init(void) {
 #	ifndef HAVE_GPIOD2
-	assert(us_g_gpio.chip == NULL);
+	US_A(us_g_gpio.chip == NULL);
 #	endif
 	if (
 		us_g_gpio.prog_running.pin >= 0
@@ -96,10 +96,10 @@ int us_gpio_inner_set(us_gpio_output_s *out, bool on) {
 	int retval = 0;
 
 #	ifndef HAVE_GPIOD2
-	assert(us_g_gpio.chip != NULL);
+	US_A(us_g_gpio.chip != NULL);
 #	endif
-	assert(out->line != NULL);
-	assert(out->on != on); // Must be checked in macro for the performance
+	US_A(out->line != NULL);
+	US_A(out->on != on); // Must be checked in macro for the performance
 	US_MUTEX_LOCK(us_g_gpio.mutex);
 
 #	ifdef HAVE_GPIOD2
@@ -117,24 +117,24 @@ int us_gpio_inner_set(us_gpio_output_s *out, bool on) {
 }
 
 static void _gpio_output_init(us_gpio_output_s *out, struct gpiod_chip *chip) {
-	assert(out->line == NULL);
+	US_A(out->line == NULL);
 
 	US_ASPRINTF(out->consumer, "%s::%s", us_g_gpio.consumer_prefix, out->role);
 
 	if (out->pin >= 0) {
 #		ifdef HAVE_GPIOD2
 		struct gpiod_line_settings *line_settings;
-		assert(line_settings = gpiod_line_settings_new());
-		assert(!gpiod_line_settings_set_direction(line_settings, GPIOD_LINE_DIRECTION_OUTPUT));
-		assert(!gpiod_line_settings_set_output_value(line_settings, false));
+		US_A(line_settings = gpiod_line_settings_new());
+		US_A(!gpiod_line_settings_set_direction(line_settings, GPIOD_LINE_DIRECTION_OUTPUT));
+		US_A(!gpiod_line_settings_set_output_value(line_settings, false));
 
 		struct gpiod_line_config *line_config;
-		assert(line_config = gpiod_line_config_new());
+		US_A(line_config = gpiod_line_config_new());
 		const unsigned offset = out->pin;
-		assert(!gpiod_line_config_add_line_settings(line_config, &offset, 1, line_settings));
+		US_A(!gpiod_line_config_add_line_settings(line_config, &offset, 1, line_settings));
 
 		struct gpiod_request_config *req_config;
-		assert(req_config = gpiod_request_config_new());
+		US_A(req_config = gpiod_request_config_new());
 		gpiod_request_config_set_consumer(req_config, out->consumer);
 
 		if ((out->line = gpiod_chip_request_lines(chip, req_config, line_config)) == NULL) {

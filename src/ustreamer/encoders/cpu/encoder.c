@@ -30,7 +30,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <assert.h>
 
 #include <jpeglib.h>
 
@@ -140,7 +139,8 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, uint quali
 			_jpeg_write_scanlines_bgr24(&jpeg, src);
 #			endif
 			break;
-		default: assert(0 && "Unsupported input format for CPU encoder"); return;
+		default:
+			US_RAISE("Unsupported input format for CPU encoder");
 	}
 
 	jpeg_finish_compress(&jpeg);
@@ -151,7 +151,7 @@ void us_cpu_encoder_compress(const us_frame_s *src, us_frame_s *dest, uint quali
 
 static void _jpeg_set_dest_frame(j_compress_ptr jpeg, us_frame_s *frame) {
 	if (jpeg->dest == NULL) {
-		assert((jpeg->dest = (struct jpeg_destination_mgr*)(*jpeg->mem->alloc_small)(
+		US_A((jpeg->dest = (struct jpeg_destination_mgr*)(*jpeg->mem->alloc_small)(
 			(j_common_ptr) jpeg, JPOOL_PERMANENT, sizeof(_jpeg_dest_manager_s)
 		)) != NULL);
 	}
@@ -192,8 +192,7 @@ static void _jpeg_write_scanlines_yuv(struct jpeg_compress_struct *jpeg, const u
 				u = data[0];
 				v = data[2];
 			} else {
-				assert(0 && "Unsupported pixel format");
-				return; // Makes linter happy
+				US_RAISE("Unsupported pixel format");
 			}
 
 			ptr[0] = y;
@@ -247,8 +246,7 @@ static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, 
 					v = chroma1_data[chroma_position];
 					break;
 				default:
-					assert(0 && "Unsupported pixel format");
-					return; // Makes linter happy
+					US_RAISE("Unsupported pixel format");
 			}
 
 			ptr[0] = y;
@@ -371,7 +369,7 @@ static void _jpeg_init_destination(j_compress_ptr jpeg) {
 	_jpeg_dest_manager_s *const dest = (_jpeg_dest_manager_s*)jpeg->dest;
 
 	// Allocate the output buffer - it will be released when done with image
-	assert((dest->buf = (JOCTET*)(*jpeg->mem->alloc_small)(
+	US_A((dest->buf = (JOCTET*)(*jpeg->mem->alloc_small)(
 		(j_common_ptr) jpeg, JPOOL_IMAGE, JPEG_OUTPUT_BUFFER_SIZE * sizeof(JOCTET)
 	)) != NULL);
 

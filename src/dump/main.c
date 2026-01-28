@@ -28,7 +28,6 @@
 #include <float.h>
 #include <getopt.h>
 #include <errno.h>
-#include <assert.h>
 
 #include "../libs/const.h"
 #include "../libs/errors.h"

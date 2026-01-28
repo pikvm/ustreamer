@@ -84,8 +84,8 @@ To access the nth pixel in a row, right-shift by n.
 */
 
 void us_frametext_draw(us_frametext_s *ft, const char *text, uint width, uint height) {
-	assert(width > 0);
-	assert(height > 0);
+	US_A(width > 0);
+	US_A(height > 0);
 
 	us_frame_s *const frame = ft->frame;
 

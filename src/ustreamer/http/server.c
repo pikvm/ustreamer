@@ -31,7 +31,6 @@
 #include <inttypes.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <assert.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -102,12 +101,12 @@ static bool _expose_frame(us_server_s *server, const us_frame_s *frame);
 #define _LOG_VERBOSE(x_msg, ...)	US_LOG_VERBOSE("HTTP: " x_msg, ##__VA_ARGS__)
 #define _LOG_DEBUG(x_msg, ...)		US_LOG_DEBUG("HTTP: " x_msg, ##__VA_ARGS__)
 
-#define _A_EVBUFFER_NEW(x_buf)						assert((x_buf = evbuffer_new()) != NULL)
-#define _A_EVBUFFER_ADD(x_buf, x_data, x_size)		assert(!evbuffer_add(x_buf, x_data, x_size))
-#define _A_EVBUFFER_ADD_PRINTF(x_buf, x_fmt, ...)	assert(evbuffer_add_printf(x_buf, x_fmt, ##__VA_ARGS__) >= 0)
+#define _A_EVBUFFER_NEW(x_buf)						US_A((x_buf = evbuffer_new()) != NULL)
+#define _A_EVBUFFER_ADD(x_buf, x_data, x_size)		US_A(!evbuffer_add(x_buf, x_data, x_size))
+#define _A_EVBUFFER_ADD_PRINTF(x_buf, x_fmt, ...)	US_A(evbuffer_add_printf(x_buf, x_fmt, ##__VA_ARGS__) >= 0)
 
 #define _A_ADD_HEADER(x_req, x_key, x_value) \
-		assert(!evhttp_add_header(evhttp_request_get_output_headers(x_req), x_key, x_value))
+		US_A(!evhttp_add_header(evhttp_request_get_output_headers(x_req), x_key, x_value))
 
 
 us_server_s *us_server_init(us_stream_s *stream) {
@@ -135,9 +134,9 @@ us_server_s *us_server_init(us_stream_s *stream) {
 	server->stream = stream;
 	server->run = run;
 
-	assert(!evthread_use_pthreads());
-	assert((run->base = event_base_new()) != NULL);
-	assert((run->http = evhttp_new(run->base)) != NULL);
+	US_A(!evthread_use_pthreads());
+	US_A((run->base = event_base_new()) != NULL);
+	US_A((run->http = evhttp_new(run->base)) != NULL);
 	evhttp_set_allowed_methods(run->http, EVHTTP_REQ_GET|EVHTTP_REQ_HEAD|EVHTTP_REQ_OPTIONS);
 	return server;
 }
@@ -188,17 +187,17 @@ int us_server_listen(us_server_s *server) {
 			_LOG_INFO("Enabling the file server: %s", server->static_path);
 			evhttp_set_gencb(run->http, _http_callback_static, (void*)server);
 		} else {
-			assert(!evhttp_set_cb(run->http, "/", _http_callback_root, (void*)server));
-			assert(!evhttp_set_cb(run->http, "/favicon.ico", _http_callback_favicon, (void*)server));
+			US_A(!evhttp_set_cb(run->http, "/", _http_callback_root, (void*)server));
+			US_A(!evhttp_set_cb(run->http, "/favicon.ico", _http_callback_favicon, (void*)server));
 		}
-		assert(!evhttp_set_cb(run->http, "/state", _http_callback_state, (void*)server));
-		assert(!evhttp_set_cb(run->http, "/snapshot", _http_callback_snapshot, (void*)server));
-		assert(!evhttp_set_cb(run->http, "/stream", _http_callback_stream, (void*)server));
+		US_A(!evhttp_set_cb(run->http, "/state", _http_callback_state, (void*)server));
+		US_A(!evhttp_set_cb(run->http, "/snapshot", _http_callback_snapshot, (void*)server));
+		US_A(!evhttp_set_cb(run->http, "/stream", _http_callback_stream, (void*)server));
 	}
 
 	us_frame_copy(stream->run->blank->jpeg, ex->frame);
 
-	assert((run->refresher = event_new(run->base, -1, 0, _http_refresher, server)) != NULL);
+	US_A((run->refresher = event_new(run->base, -1, 0, _http_refresher, server)) != NULL);
 	stream->run->http->jpeg_refresher = run->refresher;
 
 	evhttp_set_timeout(run->http, server->timeout);
@@ -612,7 +611,7 @@ static void _http_callback_stream(struct evhttp_request *req, void *v_server) {
 		if (server->tcp_nodelay && run->ext_fd >= 0) {
 			_LOG_DEBUG("Setting up TCP_NODELAY to the client %s ...", client->hostport);
 			const evutil_socket_t fd = bufferevent_getfd(buf_event);
-			assert(fd >= 0);
+			US_A(fd >= 0);
 			int on = 1;
 			if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (void*)&on, sizeof(on)) != 0) {
 				_LOG_PERROR("Can't set TCP_NODELAY to the client %s", client->hostport);
@@ -703,7 +702,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			ADD_ADVANCE_HEADERS;
 		}
 
-		assert(!bufferevent_write_buffer(buf_event, buf));
+		US_A(!bufferevent_write_buffer(buf_event, buf));
 		client->need_initial = false;
 	}
 
@@ -763,7 +762,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 		ADD_ADVANCE_HEADERS;
 	}
 
-	assert(!bufferevent_write_buffer(buf_event, buf));
+	US_A(!bufferevent_write_buffer(buf_event, buf));
 	evbuffer_free(buf);
 
 	bufferevent_setcb(buf_event, NULL, NULL, _http_callback_stream_error, (void*)client);

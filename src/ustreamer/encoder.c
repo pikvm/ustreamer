@@ -24,7 +24,6 @@
 
 #include <stdlib.h>
 #include <strings.h>
-#include <assert.h>
 
 #include <pthread.h>
 
@@ -113,7 +112,7 @@ void us_encoder_open(us_encoder_s *enc, us_capture_s *cap) {
 	us_encoder_runtime_s *const run = enc->run;
 	us_capture_runtime_s *const cr = cap->run;
 
-	assert(run->pool == NULL);
+	US_A(run->pool == NULL);
 
 	us_encoder_type_e type = enc->type;
 	uint quality = cap->jpeg_quality;
@@ -176,7 +175,7 @@ void us_encoder_open(us_encoder_s *enc, us_capture_s *cap) {
 }
 
 void us_encoder_close(us_encoder_s *enc) {
-	assert(enc->run->pool != NULL);
+	US_A(enc->run->pool != NULL);
 	US_DELETE(enc->run->pool, us_workers_pool_destroy);
 }
 
@@ -226,7 +225,7 @@ static bool _worker_run_job(us_worker_s *wr) {
 		}
 
 	} else {
-		assert(0 && "Unknown encoder type");
+		US_RAISE("Unknown encoder type");
 	}
 
 	US_LOG_VERBOSE("Compressed new JPEG: size=%zu, time=%0.3Lf, worker=%s, buffer=%u",

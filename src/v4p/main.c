@@ -28,7 +28,6 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <errno.h>
-#include <assert.h>
 
 #include <pthread.h>
 
@@ -245,11 +244,11 @@ static void _main_loop(void) {
 static void *_follower_thread(void *v_unix_follow) { // cppcheck-suppress constParameterCallback
 	US_THREAD_SETTLE("follower");
 	const char *path = v_unix_follow;
-	assert(path != NULL);
+	US_A(path != NULL);
 
 	while (!atomic_load(&_g_stop)) {
 		int fd = socket(AF_UNIX, SOCK_STREAM, 0);
-		assert(fd >= 0);
+		US_A(fd >= 0);
 
 		struct sockaddr_un addr = {0};
 		strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);

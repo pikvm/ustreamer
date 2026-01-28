@@ -26,7 +26,6 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <assert.h>
 
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -110,7 +109,7 @@ bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame) {
 	// Если frame == NULL, то только проверяем наличие клиентов
 	// или необходимость инициализировать память.
 
-	assert(sink->server);
+	US_A(sink->server);
 
 	if (sink->mem->magic != US_MEMSINK_MAGIC || sink->mem->version != US_MEMSINK_VERSION) {
 		// Если регион памяти не был инициализирован, то нужно что-то туда положить.
@@ -162,7 +161,7 @@ bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame) {
 }
 
 int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key_requested) {
-	assert(sink->server);
+	US_A(sink->server);
 
 	const ldf now = us_get_now_monotonic();
 
@@ -210,7 +209,7 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key
 }
 
 int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_requested, bool key_required) {
-	assert(!sink->server); // Client only
+	US_A(!sink->server); // Client only
 
 	if (us_flock_timedwait_monotonic(sink->fd, sink->timeout) < 0) {
 		if (errno == EWOULDBLOCK) {

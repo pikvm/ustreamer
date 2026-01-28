@@ -23,7 +23,6 @@
 #include "systemd.h"
 
 #include <unistd.h>
-#include <assert.h>
 
 #include <event2/http.h>
 #include <event2/util.h>
@@ -47,7 +46,7 @@ evutil_socket_t us_evhttp_bind_systemd(struct evhttp *http) {
 	}
 	fd = SD_LISTEN_FDS_START;
 
-	assert(!evutil_make_socket_nonblocking(fd));
+	US_A(!evutil_make_socket_nonblocking(fd));
 
 	if (evhttp_accept_socket(http, fd) < 0) {
 		US_LOG_PERROR("HTTP: Can't evhttp_accept_socket() systemd socket");

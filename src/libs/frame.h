@@ -84,7 +84,7 @@ typedef struct {
 
 
 static inline void us_frame_encoding_begin(const us_frame_s *src, us_frame_s *dest, uint format) {
-	assert(src->used > 0);
+	US_A(src->used > 0);
 	US_FRAME_COPY_META(src, dest);
 	dest->encode_begin_ts = us_get_now_monotonic();
 	dest->format = format;
@@ -93,7 +93,7 @@ static inline void us_frame_encoding_begin(const us_frame_s *src, us_frame_s *de
 }
 
 static inline void us_frame_encoding_end(us_frame_s *dest) {
-	assert(dest->used > 0);
+	US_A(dest->used > 0);
 	dest->encode_end_ts = us_get_now_monotonic();
 }
 
