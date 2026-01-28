@@ -205,6 +205,8 @@ static void *_video_or_acap_thread(void *v_client, bool video) {
 			}
 
 			if (rtp.video) {
+				packet.extensions.abs_capture_ts = rtp.grab_ntp_ts;
+
 				uint video_orient = atomic_load(&client->video_orient);
 				if (video_orient != 0) {
 					// The extension rotates the video clockwise, but want it counterclockwise.

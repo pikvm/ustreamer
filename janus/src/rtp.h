@@ -46,6 +46,7 @@ typedef struct {
 	u8		datagram[US_RTP_DATAGRAM_SIZE];
 	uz		used;
 	bool	zero_playout_delay;
+	u64		grab_ntp_ts;
 } us_rtp_s;
 
 typedef void (*us_rtp_callback_f)(const us_rtp_s *rtp);
