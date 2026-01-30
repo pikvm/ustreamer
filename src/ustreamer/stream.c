@@ -770,7 +770,7 @@ static void _stream_check_suicide(us_stream_s *stream) {
 		return;
 	}
 
-	const atomic_ullong *last_req_ts = &stream->run->http->last_req_ts;
+	atomic_ullong *last_req_ts = &stream->run->http->last_req_ts;
 	const ldf now_ts = us_get_now_monotonic();
 
 	if (_stream_has_any_clients_cached(stream)) {
