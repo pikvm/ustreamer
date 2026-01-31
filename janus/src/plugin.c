@@ -22,7 +22,6 @@
 
 #include <stdatomic.h>
 #include <stdlib.h>
-#include <inttypes.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -56,6 +55,7 @@
 #include "rtp.h"
 #include "rtpv.h"
 #include "rtpa.h"
+#include "sdp.h"
 #include "memsinkfd.h"
 #include "config.h"
 
@@ -641,31 +641,13 @@ static struct janus_plugin_result *_plugin_handle_message(
 		}
 
 		{
-			char *sdp;
-			char *const video_sdp = us_rtpv_make_sdp(_g_rtpv);
-			char *const audio_sdp = (with_acap ? us_rtpa_make_sdp(_g_rtpa, with_aplay) : us_strdup(""));
-			US_ASPRINTF(sdp,
-				"v=0" RN
-				"o=- %" PRIu64 " 1 IN IP4 0.0.0.0" RN
-				"s=PiKVM uStreamer" RN
-				"t=0 0" RN
-				"%s%s",
-				us_get_now_id() >> 1,
-#				if JANUS_PLUGIN_API_VERSION >= 100
-				// Place video SDP before audio SDP so that the video and audio streams
-				// have predictable indices, even if audio is not available.
-				// See also client.c.
-				video_sdp, audio_sdp
-#				else
-				// For versions of Janus prior to 1.x, place the audio SDP first.
-				audio_sdp, video_sdp
-#				endif
-			);
+			char *const sdp = us_sdp_create(
+				_g_rtpv,
+				(with_acap ? _g_rtpa : NULL),
+				(with_acap && with_aplay));
 			json_t *const offer_jsep = json_pack("{ssss}", "type", "offer", "sdp", sdp);
 			PUSH_STATUS("started", NULL, offer_jsep);
 			json_decref(offer_jsep);
-			free(audio_sdp);
-			free(video_sdp);
 			free(sdp);
 		}
 

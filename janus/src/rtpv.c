@@ -35,6 +35,8 @@
 #include "uslibs/tools.h"
 #include "uslibs/frame.h"
 
+#include "rtp.h"
+
 
 void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool marked);
 
@@ -53,32 +55,6 @@ us_rtpv_s *us_rtpv_init(us_rtp_callback_f callback) {
 void us_rtpv_destroy(us_rtpv_s *rtpv) {
 	us_rtp_destroy(rtpv->rtp);
 	free(rtpv);
-}
-
-char *us_rtpv_make_sdp(us_rtpv_s *rtpv) {
-	// https://tools.ietf.org/html/rfc6184
-	// https://github.com/meetecho/janus-gateway/issues/2443
-	const uint pl = rtpv->rtp->payload;
-	char *sdp;
-	US_ASPRINTF(sdp,
-		"m=video 1 RTP/SAVPF %u" RN
-		"c=IN IP4 0.0.0.0" RN
-		"a=rtpmap:%u H264/90000" RN
-		"a=fmtp:%u profile-level-id=42E01F;packetization-mode=1" RN
-		"a=rtcp-fb:%u nack" RN
-		"a=rtcp-fb:%u nack pli" RN
-		"a=rtcp-fb:%u goog-remb" RN
-		"a=mid:v" RN
-		"a=msid:video v" RN
-		"a=ssrc:%" PRIu32 " cname:ustreamer" RN
-		"a=extmap:1/sendonly urn:3gpp:video-orientation" RN
-		"a=extmap:2/sendonly http://www.webrtc.org/experiments/rtp-hdrext/playout-delay" RN
-		"a=extmap:3/sendonly http://www.webrtc.org/experiments/rtp-hdrext/abs-capture-time" RN
-		"a=sendonly" RN,
-		pl, pl, pl, pl, pl, pl,
-		rtpv->rtp->ssrc
-	);
-	return sdp;
 }
 
 #define _PRE 3 // Annex B prefix length

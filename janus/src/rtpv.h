@@ -37,5 +37,4 @@ typedef struct {
 us_rtpv_s *us_rtpv_init(us_rtp_callback_f callback);
 void us_rtpv_destroy(us_rtpv_s *rtpv);
 
-char *us_rtpv_make_sdp(us_rtpv_s *rtpv);
 void us_rtpv_wrap(us_rtpv_s *rtpv, const us_frame_s *frame, bool zero_playout_delay);

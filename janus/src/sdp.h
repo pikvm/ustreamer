@@ -20,35 +20,12 @@
 *****************************************************************************/
 
 
-#include "rtpa.h"
-
-#include <stdlib.h>
+#pragma once
 
 #include "uslibs/types.h"
-#include "uslibs/tools.h"
 
-#include "rtp.h"
+#include "rtpv.h"
+#include "rtpa.h"
 
 
-us_rtpa_s *us_rtpa_init(us_rtp_callback_f callback) {
-	us_rtpa_s *rtpa;
-	US_CALLOC(rtpa, 1);
-	rtpa->rtp = us_rtp_init();
-	us_rtp_assign(rtpa->rtp, US_RTP_OPUS_PAYLOAD, false);
-	rtpa->callback = callback;
-	return rtpa;
-}
-
-void us_rtpa_destroy(us_rtpa_s *rtpa) {
-	us_rtp_destroy(rtpa->rtp);
-	free(rtpa);
-}
-
-void us_rtpa_wrap(us_rtpa_s *rtpa, const u8 *data, uz size, u32 pts) {
-    if (size + US_RTP_HEADER_SIZE <= US_RTP_DATAGRAM_SIZE) {
-        us_rtp_write_header(rtpa->rtp, pts, false);
-        memcpy(rtpa->rtp->datagram + US_RTP_HEADER_SIZE, data, size);
-		rtpa->rtp->used = size + US_RTP_HEADER_SIZE;
-        rtpa->callback(rtpa->rtp);
-	}
-}
+char *us_sdp_create(us_rtpv_s *rtpv, us_rtpa_s *rtpa, bool mic);
