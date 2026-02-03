@@ -300,10 +300,11 @@ us_options_s *us_options_init(uint argc, char *argv[]) {
 	opts->argc = argc;
 	opts->argv = argv;
 
-	US_CALLOC(opts->argv_copy, argc);
+	US_CALLOC(opts->argv_copy, argc + 1);
 	for (uint i = 0; i < argc; ++i) {
 		opts->argv_copy[i] = us_strdup(argv[i]);
 	}
+	opts->argv_copy[argc] = NULL;
 	return opts;
 }
 
