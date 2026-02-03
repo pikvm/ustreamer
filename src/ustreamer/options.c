@@ -712,7 +712,7 @@ static void _help(
 	SAY("    -t|--dv-timings  ───────────────────── Enable DV-timings querying and events processing");
 	SAY("                                           to automatic resolution change. Default: disabled.\n");
 	SAY("    -b|--buffers <N>  ──────────────────── The number of buffers to receive data from the device.");
-	SAY("                                           Each buffer may processed using an independent thread.");
+	SAY("                                           Each buffer may be processed using an independent thread.");
 	SAY("                                           Default: %u (the number of CPU cores (but not more than 4) + 1).\n", cap->n_bufs);
 	SAY("    -w|--workers <N>  ──────────────────── The number of worker threads but not more than buffers.");
 	SAY("                                           Default: %u (the number of CPU cores (but not more than 4)).\n", enc->n_workers);
