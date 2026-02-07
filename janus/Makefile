@@ -19,7 +19,7 @@ _BUILD = build
 
 
 # =====
-ifneq ($(shell sh -c 'uname 2>/dev/null || echo Unknown'),FreeBSD)
+ifeq ($(findstring bsd,$(shell $(CC) -dumpmachine)),)
 override _LDFLAGS += -latomic
 endif
 

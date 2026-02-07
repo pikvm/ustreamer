@@ -46,7 +46,7 @@ _OBJS = $(_USTR_SRCS:%.c=$(_BUILD)/%.o) $(_DUMP_SRCS:%.c=$(_BUILD)/%.o)
 
 
 # =====
-ifneq ($(shell sh -c 'uname 2>/dev/null || echo Unknown'),FreeBSD)
+ifeq ($(findstring bsd,$(shell $(CC) -dumpmachine)),)
 override _USTR_LDFLAGS += -latomic
 override _DUMP_LDFLAGS += -latomic
 override _V4P_LDFLAGS += -latomic
@@ -78,7 +78,7 @@ endif
 
 ifneq ($(MK_WITH_SETPROCTITLE),)
 override _CFLAGS += -DMK_WITH_SETPROCTITLE -DWITH_SETPROCTITLE
-ifeq ($(shell uname -s | tr A-Z a-z),linux)
+ifneq ($(findstring linux,$(shell $(CC) -dumpmachine)),)
 override _USTR_LDFLAGS += -lbsd
 endif
 endif
