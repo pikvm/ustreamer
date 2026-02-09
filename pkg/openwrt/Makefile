@@ -2,6 +2,9 @@
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
 #
+# This package is just an example. For OpenWRT it is recommended to use upstream package:
+#   - https://github.com/openwrt/packages/tree/master/multimedia/ustreamer
+#
 
 include $(TOPDIR)/rules.mk
 

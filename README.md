@@ -35,13 +35,14 @@ If you're going to live-stream from your backyard webcam and need to control it,
 # Installation
 
 ## Building
-You need to download the µStreamer onto your system and build it from the sources.
+You need to download the µStreamer onto your system and build it from the sources, or use a package:
 
-* AUR has a package for Arch Linux: https://aur.archlinux.org/packages/ustreamer.
-* Fedora: https://src.fedoraproject.org/rpms/ustreamer.
-* Ubuntu: https://packages.ubuntu.com/jammy/ustreamer.
+* Arch Linux: https://aur.archlinux.org/packages/ustreamer
+* Fedora: https://src.fedoraproject.org/rpms/ustreamer
+* Ubuntu: https://packages.ubuntu.com/jammy/ustreamer
 * Debian: https://packages.debian.org/sid/ustreamer
-* FreeBSD port: https://www.freshports.org/multimedia/ustreamer.
+* OpenWRT: https://github.com/openwrt/packages/tree/master/multimedia/ustreamer
+* FreeBSD port: https://www.freshports.org/multimedia/ustreamer
 
 ### Preconditions
 You'll need  ```make```, ```gcc```, ```pkg-config```, ```libevent``` with ```pthreads``` support, ```libjpeg9```/```libjpeg-turbo``` and ```libbsd``` (only for Linux).
