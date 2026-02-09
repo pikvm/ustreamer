@@ -23,7 +23,7 @@ For example, the recommended way of running µStreamer with TC358743-based captu
 .RS
 \fB\-\-format=uyvy \e\fR # Device input format
 .nf
-\fB\-\-encoder=m2m-image \e\fR # Hardware encoding with V4L2 M2M intraface
+\fB\-\-encoder=m2m-image \e\fR # Hardware encoding with V4L2 M2M interface
 .nf
 \fB\-\-workers=3 \e\fR # Maximum workers for V4L2 encoder
 .nf
@@ -66,7 +66,7 @@ Available: MMAP, USERPTR; default: MMAP.
 Desired FPS. Default: maximum possible.
 .TP
 .BR \-z\ \fIN ", " \-\-min\-frame\-size\ \fIN
-Drop frames smaller then this limit. Useful if the device produces small\-sized garbage frames. Default: 128 bytes.
+Drop frames smaller than this limit. Useful if the device produces small\-sized garbage frames. Default: 128 bytes.
 .TP
 .BR \-T ", " \-\-allow\-truncated\-frames
 Allows to handle truncated frames. Useful if the device produces incorrect but still acceptable frames. Default: disabled.
