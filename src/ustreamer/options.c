@@ -705,7 +705,7 @@ static void _help(
 	SAY("                                           Changing of this parameter may increase the performance. Or not.");
 	SAY("                                           Available: %s; default: MMAP.\n", US_IO_METHODS_STR);
 	SAY("    -f|--desired-fps <N>  ──────────────── Desired FPS. Default: maximum possible.\n");
-	SAY("    -z|--min-frame-size <N>  ───────────── Drop frames smaller then this limit. Useful if the device");
+	SAY("    -z|--min-frame-size <N>  ───────────── Drop frames smaller than this limit. Useful if the device");
 	SAY("                                           produces small-sized garbage frames. Default: %zu bytes.\n", cap->min_frame_size);
 	SAY("    -T|--allow-truncated-frames  ───────── Allows to handle truncated frames. Useful if the device");
 	SAY("                                           produces incorrect but still acceptable frames. Default: disabled.\n");
