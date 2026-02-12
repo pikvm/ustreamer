@@ -105,13 +105,28 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool 
 	const uint type = data[0] & 0x1F;
 	u8 *dg = rtpv->rtp->datagram;
 
+	// Set *_of_frame flags only for non-SPS/PPS packages
+#	define CALL_FOR_SERVICE { \
+			const bool m_fof = rtpv->rtp->first_of_frame; \
+			const bool m_lof = rtpv->rtp->last_of_frame; \
+			rtpv->rtp->first_of_frame = false; \
+			rtpv->rtp->last_of_frame = false; \
+			rtpv->callback(rtpv->rtp); \
+			rtpv->rtp->first_of_frame = m_fof; \
+			rtpv->rtp->last_of_frame = m_lof; \
+		}
+
 	if (size + US_RTP_HEADER_SIZE <= US_RTP_DATAGRAM_SIZE) {
 		us_rtp_write_header(rtpv->rtp, pts, marked);
 		memcpy(dg + US_RTP_HEADER_SIZE, data, size);
 		rtpv->rtp->used = size + US_RTP_HEADER_SIZE;
-		rtpv->rtp->last_of_frame = true;
-		rtpv->callback(rtpv->rtp);
-		rtpv->rtp->first_of_frame = false;
+		if (type == 7 || type == 8) {
+			CALL_FOR_SERVICE;
+		} else {
+			rtpv->rtp->last_of_frame = true;
+			rtpv->callback(rtpv->rtp);
+			rtpv->rtp->first_of_frame = false;
+		}
 		return;
 	}
 
@@ -143,14 +158,20 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool 
 
 		memcpy(dg + fu_overhead, src, frag_size);
 		rtpv->rtp->used = fu_overhead + frag_size;
-		rtpv->rtp->last_of_frame = last;
-		rtpv->callback(rtpv->rtp);
-		rtpv->rtp->first_of_frame = false;
+		if (type == 7 || type == 8) {
+			CALL_FOR_SERVICE;
+		} else {
+			rtpv->rtp->last_of_frame = last;
+			rtpv->callback(rtpv->rtp);
+			rtpv->rtp->first_of_frame = false;
+		}
 
 		src += frag_size;
 		remaining -= frag_size;
 		first = false;
 	}
+
+#	undef CALL_FOR_SERVICE
 }
 
 static sz _find_annexb(const u8 *data, uz size) {
