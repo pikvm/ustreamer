@@ -279,7 +279,7 @@ static void *_acap_thread(void *arg) {
 			if (_get_acap_hz(&hz) < 0 || acap->pcm_hz != hz) {
 				goto close_acap;
 			}
-			uz size = US_RTP_DATAGRAM_SIZE - US_RTP_HEADER_SIZE;
+			uz size = US_RTP_TOTAL_SIZE - US_RTP_HEADER_SIZE;
 			u8 data[size];
 			u64 pts;
 			const int result = us_acap_get_encoded(acap, data, &size, &pts);

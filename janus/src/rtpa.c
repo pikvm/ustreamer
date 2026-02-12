@@ -45,7 +45,7 @@ void us_rtpa_destroy(us_rtpa_s *rtpa) {
 }
 
 void us_rtpa_wrap(us_rtpa_s *rtpa, const u8 *data, uz size, u32 pts) {
-    if (size + US_RTP_HEADER_SIZE <= US_RTP_DATAGRAM_SIZE) {
+    if (size + US_RTP_HEADER_SIZE <= US_RTP_TOTAL_SIZE) {
         us_rtp_write_header(rtpa->rtp, pts, false);
         memcpy(rtpa->rtp->datagram + US_RTP_HEADER_SIZE, data, size);
 		rtpa->rtp->used = size + US_RTP_HEADER_SIZE;

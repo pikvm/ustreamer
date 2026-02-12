@@ -116,7 +116,7 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool 
 			rtpv->rtp->last_of_frame = m_lof; \
 		}
 
-	if (size + US_RTP_HEADER_SIZE <= US_RTP_DATAGRAM_SIZE) {
+	if (size + US_RTP_HEADER_SIZE <= US_RTP_TOTAL_SIZE) {
 		us_rtp_write_header(rtpv->rtp, pts, marked);
 		memcpy(dg + US_RTP_HEADER_SIZE, data, size);
 		rtpv->rtp->used = size + US_RTP_HEADER_SIZE;
@@ -137,7 +137,7 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool 
 
 	bool first = true;
 	while (remaining > 0) {
-		sz frag_size = US_RTP_DATAGRAM_SIZE - fu_overhead;
+		sz frag_size = US_RTP_TOTAL_SIZE - fu_overhead;
 		const bool last = (remaining <= frag_size);
 		if (last) {
 			frag_size = remaining;
