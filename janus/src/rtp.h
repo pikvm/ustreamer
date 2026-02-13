@@ -27,8 +27,13 @@
 
 // Max RTP size for WebRTC is 1200 bytes:
 //   - https://stackoverflow.com/questions/47635545/why-webrtc-chose-rtp-max-packet-size-to-1200-bytes
-// We take this and substract 50 bytes for possible RTP extensions, see sdp.c
-#define US_RTP_TOTAL_SIZE		(1200 - 50)
+// But(!) Tailscale has 1200 MTU. So to fit it required to substract:
+// 1. possible RTP extensions (see sdp.c)
+// 2. additional SRTP fields (>= 10 bytes)
+// 3. UDP header (8 bytes)
+// 4. IPv6 header (40 bytes)
+// Finally it looks like 100 bytes for all above should be enough
+#define US_RTP_TOTAL_SIZE		(1200 - 100)
 #define US_RTP_HEADER_SIZE		12
 #define US_RTP_PAYLOAD_SIZE		(US_RTP_TOTAL_SIZE - US_RTP_HEADER_SIZE)
 
