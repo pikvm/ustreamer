@@ -61,7 +61,7 @@ uz us_memsink_calculate_size(const char *obj) {
 		} else if (!strcasecmp(ptr, "h264")) {
 			return 2 * 1024 * 1024;
 		} else if (!strcasecmp(ptr, "raw")) {
-			return 1920 * 1200 * 3; // RGB
+			return 3840 * 2160 * 3; // RGB
 		}
 	}
 	return 0;
