@@ -36,9 +36,12 @@
 #include "rtp.h"
 
 
-void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu);
-
 static sz _find_annexb(const u8 *data, uz size);
+static bool _is_nalu_small(uz size);
+
+void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu);
+void _rtpv_process_nalu_small(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu);
+void _rtpv_process_nalu_big(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu);
 
 
 us_rtpv_s *us_rtpv_init(us_rtp_callback_f callback) {
@@ -107,23 +110,60 @@ void us_rtpv_wrap(us_rtpv_s *rtpv, const us_frame_s *frame, bool zero_playout_de
 	}
 }
 
+static sz _find_annexb(const u8 *data, uz size) {
+	// Parses buffer for 00 00 01 start codes
+	if (size >= _PRE) {
+		for (uz i = 0; i <= size - _PRE; ++i) {
+			if (
+				data[i] == 0
+				&& data[i + 1] == 0
+				&& data[i + 2] == 1
+			) {
+				return i;
+			}
+		}
+	}
+	return -1;
+}
+
+#undef _PRE
+
+static bool _is_nalu_small(uz size) {
+	return (size + US_RTP_HEADER_SIZE <= US_RTP_TOTAL_SIZE);
+}
+
 void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu) {
 	US_A(size > 1);
+	if (_is_nalu_small(size)) {
+		_rtpv_process_nalu_small(rtpv, data, size, pts, first_nalu, last_nalu);
+	} else {
+		_rtpv_process_nalu_big(rtpv, data, size, pts, first_nalu, last_nalu);
+	}
+}
+
+void _rtpv_process_nalu_small(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu) {
+	US_A(size > 1);
+	US_A(_is_nalu_small(size));
+
+	us_rtp_s *rtp = rtpv->rtp;
+	u8 *dg = rtp->datagram;
+
+	us_rtp_write_header(rtp, pts, last_nalu);
+	memcpy(dg + US_RTP_HEADER_SIZE, data, size);
+	rtp->used = size + US_RTP_HEADER_SIZE;
+	rtp->first_of_frame = first_nalu;
+	rtp->last_of_frame = last_nalu;
+	rtpv->callback(rtp);
+}
+
+void _rtpv_process_nalu_big(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu) {
+	US_A(size > 1);
+	US_A(!_is_nalu_small(size));
 
 	const uint ref_idc = (data[0] >> 5) & 3;
 	const uint type = data[0] & 0x1F;
 	us_rtp_s *rtp = rtpv->rtp;
 	u8 *dg = rtp->datagram;
-
-	if (size + US_RTP_HEADER_SIZE <= US_RTP_TOTAL_SIZE) {
-		us_rtp_write_header(rtp, pts, last_nalu);
-		memcpy(dg + US_RTP_HEADER_SIZE, data, size);
-		rtp->used = size + US_RTP_HEADER_SIZE;
-		rtp->first_of_frame = first_nalu;
-		rtp->last_of_frame = last_nalu;
-		rtpv->callback(rtp);
-		return;
-	}
 
 	const uz fu_overhead = US_RTP_HEADER_SIZE + 2; // FU-A overhead
 
@@ -153,8 +193,8 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool 
 
 		memcpy(dg + fu_overhead, src, frag_size);
 		rtp->used = fu_overhead + frag_size;
-		rtp->first_of_frame = first_nalu && first;
-		rtp->last_of_frame = last_nalu && last;
+		rtp->first_of_frame = (first_nalu && first);
+		rtp->last_of_frame = (last_nalu && last);
 		rtpv->callback(rtp);
 
 		src += frag_size;
@@ -162,21 +202,3 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool 
 		first = false;
 	}
 }
-
-static sz _find_annexb(const u8 *data, uz size) {
-	// Parses buffer for 00 00 01 start codes
-	if (size >= _PRE) {
-		for (uz i = 0; i <= size - _PRE; ++i) {
-			if (
-				data[i] == 0
-				&& data[i + 1] == 0
-				&& data[i + 2] == 1
-			) {
-				return i;
-			}
-		}
-	}
-	return -1;
-}
-
-#undef _PRE
