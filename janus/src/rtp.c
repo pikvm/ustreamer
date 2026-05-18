@@ -47,9 +47,9 @@ void us_rtp_assign(us_rtp_s *rtp, uint payload, bool video) {
 	rtp->ssrc = us_triple_u32(us_get_now_monotonic_u64());
 }
 
-void us_rtp_write_header(us_rtp_s *rtp, u32 pts, bool marked) {
+void us_rtp_write_header(us_rtp_s *rtp, u32 pts, bool last_header) {
 	u32 word0 = 0x80000000;
-	if (marked) {
+	if (last_header) {
 		word0 |= 1 << 23;
 	}
 	word0 |= (rtp->payload & 0x7F) << 16;
