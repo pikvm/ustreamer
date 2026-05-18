@@ -9,12 +9,11 @@ all: root
 root: $(shell find src -type f,l) setup.py
 	$(info == PY_BUILD ustreamer-*.so)
 	rm -rf root
-	$(ECHO) $(PY) -m build --skip-dependency-check --no-isolation
-	$(ECHO) $(PY) -m pip install dist/*.whl --ignore-installed --root=./root
+	$(ECHO) $(PY) -m build --wheel --skip-dependency-check --no-isolation
 
 
 install:
-	$(PY) -m pip install dist/*.whl --ignore-installed --prefix=$(PREFIX) --root=$(if $(R_DESTDIR),$(R_DESTDIR),/)
+	$(PY) -m installer --prefix=$(PREFIX) $(if $(R_DESTDIR),--destdir=$(R_DESTDIR),) dist/*.whl
 
 
 clean:
