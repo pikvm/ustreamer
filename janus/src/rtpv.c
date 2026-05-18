@@ -39,9 +39,9 @@
 static sz _find_annexb(const u8 *data, uz size);
 static bool _is_nalu_small(uz size);
 
-void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu);
-void _rtpv_process_nalu_small(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu);
-void _rtpv_process_nalu_big(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu);
+static void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu);
+static void _rtpv_process_nalu_small(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu);
+static void _rtpv_process_nalu_big(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu);
 
 
 us_rtpv_s *us_rtpv_init(us_rtp_callback_f callback) {
@@ -132,7 +132,7 @@ static bool _is_nalu_small(uz size) {
 	return (size + US_RTP_HEADER_SIZE <= US_RTP_TOTAL_SIZE);
 }
 
-void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu) {
+static void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu) {
 	US_A(size > 1);
 	if (_is_nalu_small(size)) {
 		_rtpv_process_nalu_small(rtpv, data, size, pts, first_nalu, last_nalu);
@@ -141,7 +141,7 @@ void _rtpv_process_nalu(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool 
 	}
 }
 
-void _rtpv_process_nalu_small(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu) {
+static void _rtpv_process_nalu_small(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu) {
 	US_A(size > 1);
 	US_A(_is_nalu_small(size));
 
@@ -156,7 +156,7 @@ void _rtpv_process_nalu_small(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts,
 	rtpv->callback(rtp);
 }
 
-void _rtpv_process_nalu_big(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu) {
+static void _rtpv_process_nalu_big(us_rtpv_s *rtpv, const u8 *data, uz size, u32 pts, bool first_nalu, bool last_nalu) {
 	US_A(size > 1);
 	US_A(!_is_nalu_small(size));
 
