@@ -72,7 +72,7 @@ apps:
 
 python:
 	$(MAKE) -C python
-	$(ECHO) ln -sf python/root/usr/lib/python*/site-packages/*.so .
+	$(ECHO) ln -sf python/build/lib.linux-*/*.so -t .
 
 
 janus:
