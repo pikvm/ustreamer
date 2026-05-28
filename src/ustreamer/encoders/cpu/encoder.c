@@ -216,15 +216,11 @@ static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, 
 	US_CALLOC(line_buf, frame->width * 3);
 
 	const uint padding = us_frame_get_padding(frame);
-	const uint image_size = frame->width * frame->height;
-	const uint chroma_array_size = (frame->used - image_size) / 2;
-	const uint chroma_matrix_order = (image_size / chroma_array_size) == 16 ? 4 : 2;
+	const uint luma_array_size = (frame->width + padding) * frame->height;
+	const uint chroma_array_size = (frame->used - luma_array_size) >> 1;
 	const u8 *data = frame->data;
-	const u8 *chroma1_data = frame->data + image_size;
-	const u8 *chroma2_data = frame->data + image_size + chroma_array_size;
-
-	//US_LOG_DEBUG("Planar data: Image Size %u, Chroma Array Size %u, Chroma Matrix Order %u",
-	//	image_size, chroma_array_size, chroma_matrix_order);
+	const u8 *chroma1_data = frame->data + luma_array_size;
+	const u8 *chroma2_data = frame->data + luma_array_size + chroma_array_size;
 
 	while (jpeg->next_scanline < frame->height) {
 		u8 *ptr = line_buf;
@@ -234,7 +230,7 @@ static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, 
 			u8 y = data[x];
 			u8 u;
 			u8 v;
-			uint chroma_position = x / chroma_matrix_order;
+			uint chroma_position = x >> 1;
 
 			switch (frame->format) {
 				case V4L2_PIX_FMT_YUV420:
@@ -257,9 +253,9 @@ static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, 
 
 		data += frame->width + padding;
 
-		if (jpeg->next_scanline > 0 && jpeg->next_scanline % chroma_matrix_order == 0) {
-			chroma1_data += (frame->width + padding) / chroma_matrix_order;
-			chroma2_data += (frame->width + padding) / chroma_matrix_order;
+		if (jpeg->next_scanline > 0 && jpeg->next_scanline % 2 == 0) {
+			chroma1_data += (frame->width + padding) >> 1;
+			chroma2_data += (frame->width + padding) >> 1;
 		}
 
 		JSAMPROW scanlines[1] = {line_buf};
