@@ -34,7 +34,7 @@
 #include "rtpa.h"
 
 
-char *us_sdp_create(u32 video_ssrc, u32 audio_ssrc, bool acap, bool aplay) {
+char *us_sdp_create(u32 video_ssrc, u32 audio_ssrc, bool acap, bool aplay, bool vplay) {
 	char *video_sdp;
 	{
 		// https://tools.ietf.org/html/rfc6184
@@ -56,9 +56,10 @@ char *us_sdp_create(u32 video_ssrc, u32 audio_ssrc, bool acap, bool aplay) {
 			"a=extmap:1/sendonly urn:3gpp:video-orientation" RN
 			"a=extmap:2/sendonly http://www.webrtc.org/experiments/rtp-hdrext/playout-delay" RN
 			"a=extmap:3/sendonly http://www.webrtc.org/experiments/rtp-hdrext/abs-capture-time" RN
-			"a=sendonly" RN,
+			"a=%s" RN,
 			pl, pl, pl, pl, pl, pl, pl,
-			video_ssrc);
+			video_ssrc,
+			(vplay ? "sendrecv" : "sendonly"));
 	}
 
 	char *audio_sdp;

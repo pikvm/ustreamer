@@ -70,6 +70,7 @@ us_config_s *us_config_init(const char *config_dir_path) {
 		}
 	}
 	config->aplay_dev_name = _get_value(jcfg, "aplay", "device");
+	config->vplay_sink_name = _get_value(jcfg, "vplay", "sink");
 
 	goto ok;
 
@@ -87,6 +88,7 @@ void us_config_destroy(us_config_s *config) {
 	US_DELETE(config->acap_dev_name, free);
 	US_DELETE(config->tc358743_dev_path, free);
 	US_DELETE(config->aplay_dev_name, free);
+	US_DELETE(config->vplay_sink_name, free);
 	free(config);
 }
 

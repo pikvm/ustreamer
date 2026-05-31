@@ -612,21 +612,20 @@ static struct janus_plugin_result *_plugin_handle_message(
 		uint video_orient = 0;
 		bool with_acap = false;
 		bool with_aplay = false;
+		bool with_vplay = false;
 		{
 			json_t *const params = json_object_get(msg, "params");
 			if (params != NULL) {
-				{
-					json_t *const obj = json_object_get(params, "audio");
-					if (obj != NULL && json_is_boolean(obj)) {
-						with_acap = (us_au_probe(_g_config->acap_dev_name) && json_boolean_value(obj));
+#				define READ_BOOL(x_target, x_key, x_cond) { \
+						json_t *const m_obj = json_object_get(params, x_key); \
+						if (m_obj != NULL && json_is_boolean(m_obj)) { \
+							x_target = (json_boolean_value(m_obj) && (x_cond)); \
+						} \
 					}
-				}
-				{
-					json_t *const obj = json_object_get(params, "mic");
-					if (obj != NULL && json_is_boolean(obj)) {
-						with_aplay = (us_au_probe(_g_config->aplay_dev_name) && json_boolean_value(obj));
-					}
-				}
+				READ_BOOL(with_acap, "audio", us_au_probe(_g_config->acap_dev_name));
+				READ_BOOL(with_aplay, "mic", us_au_probe(_g_config->aplay_dev_name));
+				READ_BOOL(with_vplay, "camera", (_g_config->vplay_sink_name != NULL));
+#				undef READ_BOOL
 				{
 					json_t *const obj = json_object_get(params, "orientation");
 					if (obj != NULL && json_is_integer(obj)) {
@@ -642,29 +641,21 @@ static struct janus_plugin_result *_plugin_handle_message(
 
 		{
 			_LOCK_ALL;
+			bool has_listeners = false;
+			bool has_speakers = false;
 			US_LIST_ITERATE(_g_clients, client, {
 				if (client->session == session) {
 					char *const sdp = us_sdp_create(
 						client->video_ssrc,
 						client->audio_ssrc,
 						with_acap,
-						with_aplay);
+						with_aplay,
+						with_vplay);
 					json_t *const offer_jsep = json_pack("{ssss}", "type", "offer", "sdp", sdp);
 					PUSH_STATUS("started", NULL, offer_jsep);
 					json_decref(offer_jsep);
 					free(sdp);
-					break;
-				}
-			});
-			_UNLOCK_ALL;
-		}
 
-		{
-			_LOCK_ALL;
-			bool has_listeners = false;
-			bool has_speakers = false;
-			US_LIST_ITERATE(_g_clients, client, {
-				if (client->session == session) {
 					atomic_store(&client->transmit_acap, with_acap);
 					atomic_store(&client->transmit_aplay, with_aplay);
 					atomic_store(&client->video_orient, video_orient);

@@ -25,4 +25,4 @@
 #include "uslibs/types.h"
 
 
-char *us_sdp_create(u32 video_ssrc, u32 audio_ssrc, bool acap, bool aplay);
+char *us_sdp_create(u32 video_ssrc, u32 audio_ssrc, bool acap, bool aplay, bool vplay);

@@ -34,6 +34,7 @@ typedef struct {
 	char	*tc358743_dev_path;
 
 	char	*aplay_dev_name;
+	char	*vplay_sink_name;
 } us_config_s;
 
 
