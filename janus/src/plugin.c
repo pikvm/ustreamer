@@ -345,7 +345,7 @@ static void *_aplay_thread(void *arg) {
 				}
 			}
 
-			if (!_HAS_WATCHERS || !_HAS_LISTENERS || !_HAS_SPEAKERS) {
+			if (!_HAS_WATCHERS || !_HAS_SPEAKERS) {
 				goto close_aplay;
 			}
 
