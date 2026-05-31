@@ -68,8 +68,8 @@ us_config_s *us_config_init(const char *config_dir_path) {
 			US_JLOG_ERROR("config", "Either acap.sampling_rate or acap.tc358743 required");
 			goto error;
 		}
-		config->aplay_dev_name = _get_value(jcfg, "aplay", "device");
 	}
+	config->aplay_dev_name = _get_value(jcfg, "aplay", "device");
 
 	goto ok;
 

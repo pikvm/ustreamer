@@ -65,7 +65,26 @@ char *us_sdp_create(us_rtpv_s *rtpv, us_rtpa_s *rtpa, bool mic) {
 	if (rtpa == NULL) {
 		audio_sdp = us_strdup("");
 	} else {
-		const uint pl = rtpa->rtp->payload;
+
+
+	if (rtpa != NULL || mic) {
+		uint pl;
+		u32 ssrc;
+		if (rtpa != NULL) {
+			pl = rtpa->rtp->payload;
+			ssrc = rtpa->rtp->ssrc;
+		} else {
+			pl = US_RTP_OPUS_PAYLOAD;
+			ssrc = us_triple_u32(us_get_now_monotonic_u64());
+		}
+
+		char *dir = "sendrecv";
+		if (rtpa == NULL) {
+			dir = "recvonly";
+		} else if (!mic) {
+			dir = "sendonly";
+		}
+
 		US_ASPRINTF(
 			audio_sdp,
 			"m=audio 1 RTP/SAVPF %u" RN
@@ -79,8 +98,8 @@ char *us_sdp_create(us_rtpv_s *rtpv, us_rtpa_s *rtpa, bool mic) {
 			pl, pl,
 			US_RTP_OPUS_HZ, US_RTP_OPUS_CH,
 			pl,
-			rtpa->rtp->ssrc,
-			(mic ? "sendrecv" : "sendonly"));
+			ssrc,
+			dir);
 	}
 
 	char *sdp;

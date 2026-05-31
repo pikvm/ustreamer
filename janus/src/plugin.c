@@ -443,9 +443,9 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	if (_g_config->acap_dev_name != NULL) {
 		_g_rtpa = us_rtpa_init(_relay_rtp_clients);
 		US_THREAD_CREATE(_g_acap_tid, _acap_thread, NULL);
-		if (_g_config->aplay_dev_name != NULL) {
-			US_THREAD_CREATE(_g_aplay_tid, _aplay_thread, NULL);
-		}
+	}
+	if (_g_config->aplay_dev_name != NULL) {
+		US_THREAD_CREATE(_g_aplay_tid, _aplay_thread, NULL);
 	}
 	US_THREAD_CREATE(_g_video_rtp_tid, _video_rtp_thread, NULL);
 	US_THREAD_CREATE(_g_video_sink_tid, _video_sink_thread, NULL);
@@ -644,7 +644,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 			char *const sdp = us_sdp_create(
 				_g_rtpv,
 				(with_acap ? _g_rtpa : NULL),
-				(with_acap && with_aplay));
+				with_aplay);
 			json_t *const offer_jsep = json_pack("{ssss}", "type", "offer", "sdp", sdp);
 			PUSH_STATUS("started", NULL, offer_jsep);
 			json_decref(offer_jsep);
@@ -671,11 +671,10 @@ static struct janus_plugin_result *_plugin_handle_message(
 
 	} else if (!strcmp(request_str, "features")) {
 		const char *const ice_url = getenv("JANUS_USTREAMER_WEB_ICE_URL");
-		const bool acap_avail = us_au_probe(_g_config->acap_dev_name);
 		json_t *const features = json_pack(
 			"{s:b, s:b, s:{s:s?}}",
-			"audio", acap_avail,
-			"mic", (acap_avail && us_au_probe(_g_config->aplay_dev_name)),
+			"audio", us_au_probe(_g_config->acap_dev_name),
+			"mic", us_au_probe(_g_config->aplay_dev_name),
 			"ice", "url", (ice_url != NULL ? ice_url : default_ice_url)
 		);
 		PUSH_STATUS("features", features, NULL);
