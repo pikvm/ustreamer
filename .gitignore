@@ -6,6 +6,7 @@
 /python/dist/
 /python/ustreamer.egg-info/
 /python/root/
+/python/build/
 /janus/build/
 /ustreamer
 /ustreamer-*

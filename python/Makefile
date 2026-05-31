@@ -17,4 +17,4 @@ install:
 
 
 clean:
-	rm -rf root dist ustreamer.egg-info
+	rm -rf root dist build ustreamer.egg-info
