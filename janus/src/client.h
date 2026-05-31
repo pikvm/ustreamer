@@ -37,6 +37,9 @@
 typedef struct {
 	janus_callbacks			*gw;
 	janus_plugin_session	*session;
+	u32						video_ssrc;
+	u32						audio_ssrc;
+
 	atomic_bool				transmit;
 	atomic_bool				transmit_acap;
 	atomic_bool				transmit_aplay;

@@ -55,6 +55,9 @@ us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_sessio
 	US_CALLOC(client, 1);
 	client->gw = gw;
 	client->session = session;
+	client->video_ssrc = us_get_ssrc();
+	client->audio_ssrc = us_get_ssrc();
+
 	atomic_init(&client->transmit, false);
 	atomic_init(&client->transmit_acap, false);
 	atomic_init(&client->transmit_aplay, false);
@@ -181,6 +184,8 @@ static void *_video_or_acap_thread(void *v_client, bool video) {
 			atomic_load(&client->transmit)
 			&& (video || atomic_load(&client->transmit_acap))
 		) {
+			us_rtp_write_ssrc(&rtp, (rtp.video ? client->video_ssrc : client->audio_ssrc));
+
 			janus_plugin_rtp packet = {
 				.video = rtp.video,
 				.buffer = (char*)rtp.datagram,

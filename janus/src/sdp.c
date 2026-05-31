@@ -34,12 +34,12 @@
 #include "rtpa.h"
 
 
-char *us_sdp_create(us_rtpv_s *rtpv, us_rtpa_s *rtpa, bool mic) {
+char *us_sdp_create(u32 video_ssrc, u32 audio_ssrc, bool acap, bool aplay) {
 	char *video_sdp;
 	{
 		// https://tools.ietf.org/html/rfc6184
 		// https://github.com/meetecho/janus-gateway/issues/2443
-		const uint pl = rtpv->rtp->payload;
+		const uint pl = US_RTP_H264_PAYLOAD;
 		US_ASPRINTF(
 			video_sdp,
 			"m=video 1 RTP/SAVPF %u" RN
@@ -58,31 +58,20 @@ char *us_sdp_create(us_rtpv_s *rtpv, us_rtpa_s *rtpa, bool mic) {
 			"a=extmap:3/sendonly http://www.webrtc.org/experiments/rtp-hdrext/abs-capture-time" RN
 			"a=sendonly" RN,
 			pl, pl, pl, pl, pl, pl, pl,
-			rtpv->rtp->ssrc);
+			video_ssrc);
 	}
 
 	char *audio_sdp;
-	if (rtpa == NULL) {
-		audio_sdp = us_strdup("");
-	} else {
+	if (acap || aplay) {
+		const uint pl = US_RTP_OPUS_PAYLOAD;
 
-
-	if (rtpa != NULL || mic) {
-		uint pl;
-		u32 ssrc;
-		if (rtpa != NULL) {
-			pl = rtpa->rtp->payload;
-			ssrc = rtpa->rtp->ssrc;
-		} else {
-			pl = US_RTP_OPUS_PAYLOAD;
-			ssrc = us_triple_u32(us_get_now_monotonic_u64());
-		}
-
-		char *dir = "sendrecv";
-		if (rtpa == NULL) {
-			dir = "recvonly";
-		} else if (!mic) {
+		char *dir = "";
+		if (acap && aplay) {
+			dir = "sendrecv";
+		} else if (acap && !aplay) {
 			dir = "sendonly";
+		} else if (!acap && aplay) {
+			dir = "recvonly";
 		}
 
 		US_ASPRINTF(
@@ -98,8 +87,10 @@ char *us_sdp_create(us_rtpv_s *rtpv, us_rtpa_s *rtpa, bool mic) {
 			pl, pl,
 			US_RTP_OPUS_HZ, US_RTP_OPUS_CH,
 			pl,
-			ssrc,
+			audio_ssrc,
 			dir);
+	} else {
+		audio_sdp = us_strdup("");
 	}
 
 	char *sdp;

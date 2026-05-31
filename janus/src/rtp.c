@@ -44,8 +44,10 @@ void us_rtp_destroy(us_rtp_s *rtp) {
 void us_rtp_assign(us_rtp_s *rtp, uint payload, bool video) {
 	rtp->payload = payload;
 	rtp->video = video;
-	rtp->ssrc = us_triple_u32(us_get_now_monotonic_u64());
 }
+
+#define WRITE_BE_U32(x_offset, x_value) \
+	*((u32*)(rtp->datagram + x_offset)) = __builtin_bswap32(x_value)
 
 void us_rtp_write_header(us_rtp_s *rtp, u32 pts, bool last_header) {
 	u32 word0 = 0x80000000;
@@ -56,10 +58,13 @@ void us_rtp_write_header(us_rtp_s *rtp, u32 pts, bool last_header) {
 	word0 |= rtp->seq;
 	++rtp->seq;
 
-#	define WRITE_BE_U32(x_offset, x_value) \
-		*((u32*)(rtp->datagram + x_offset)) = __builtin_bswap32(x_value)
 	WRITE_BE_U32(0, word0);
 	WRITE_BE_U32(4, pts);
-	WRITE_BE_U32(8, rtp->ssrc);
-#	undef WRITE_BE_U32
+	WRITE_BE_U32(8, 0); // SSRC should be written separately for each client
 }
+
+void us_rtp_write_ssrc(us_rtp_s *rtp, u32 ssrc) {
+	WRITE_BE_U32(8, ssrc);
+}
+
+#undef WRITE_BE_U32

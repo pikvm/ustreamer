@@ -641,14 +641,22 @@ static struct janus_plugin_result *_plugin_handle_message(
 		}
 
 		{
-			char *const sdp = us_sdp_create(
-				_g_rtpv,
-				(with_acap ? _g_rtpa : NULL),
-				with_aplay);
-			json_t *const offer_jsep = json_pack("{ssss}", "type", "offer", "sdp", sdp);
-			PUSH_STATUS("started", NULL, offer_jsep);
-			json_decref(offer_jsep);
-			free(sdp);
+			_LOCK_ALL;
+			US_LIST_ITERATE(_g_clients, client, {
+				if (client->session == session) {
+					char *const sdp = us_sdp_create(
+						client->video_ssrc,
+						client->audio_ssrc,
+						with_acap,
+						with_aplay);
+					json_t *const offer_jsep = json_pack("{ssss}", "type", "offer", "sdp", sdp);
+					PUSH_STATUS("started", NULL, offer_jsep);
+					json_decref(offer_jsep);
+					free(sdp);
+					break;
+				}
+			});
+			_UNLOCK_ALL;
 		}
 
 		{

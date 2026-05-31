@@ -24,8 +24,5 @@
 
 #include "uslibs/types.h"
 
-#include "rtpv.h"
-#include "rtpa.h"
 
-
-char *us_sdp_create(us_rtpv_s *rtpv, us_rtpa_s *rtpa, bool mic);
+char *us_sdp_create(u32 video_ssrc, u32 audio_ssrc, bool acap, bool aplay);

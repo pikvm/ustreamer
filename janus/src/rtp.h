@@ -23,6 +23,7 @@
 #pragma once
 
 #include "uslibs/types.h"
+#include "uslibs/tools.h"
 
 
 // Max RTP size for WebRTC is 1200 bytes:
@@ -47,7 +48,6 @@
 typedef struct {
 	uint	payload;
 	bool	video;
-	u32		ssrc;
 
 	u16		seq;
 	u8		datagram[US_RTP_TOTAL_SIZE];
@@ -62,8 +62,13 @@ typedef struct {
 typedef void (*us_rtp_callback_f)(const us_rtp_s *rtp);
 
 
+static inline u32 us_get_ssrc(void) {
+	return us_triple_u32(us_get_now_monotonic_u64());
+}
+
 us_rtp_s *us_rtp_init(void);
 void us_rtp_destroy(us_rtp_s *rtp);
 
 void us_rtp_assign(us_rtp_s *rtp, uint payload, bool video);
 void us_rtp_write_header(us_rtp_s *rtp, u32 pts, bool last_header);
+void us_rtp_write_ssrc(us_rtp_s *rtp, u32 ssrc);
