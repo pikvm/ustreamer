@@ -72,23 +72,6 @@ extern pthread_mutex_t us_g_log_mutex;
 #define US_COLOR_RESET		"\x1b[0m"
 
 
-#define US_SEP_INFO(x_ch) { \
-		US_LOGGING_LOCK; \
-		for (int m_i = 0; m_i < 80; ++m_i) { \
-			fputc((x_ch), stderr); \
-		} \
-		fputc('\n', stderr); \
-		fflush(stderr); \
-		US_LOGGING_UNLOCK; \
-	}
-
-#define US_SEP_DEBUG(x_ch) { \
-		if (us_g_log_level >= US_LOG_LEVEL_DEBUG) { \
-			US_SEP_INFO(x_ch); \
-		} \
-	}
-
-
 #define US_LOG_PRINTF_NOLOCK(x_label_color, x_label, x_msg_color, x_msg, ...) { \
 		char m_tname_buf[US_THREAD_NAME_SIZE] = {0}; \
 		us_thread_get_name(m_tname_buf); \
@@ -108,6 +91,10 @@ extern pthread_mutex_t us_g_log_mutex;
 		US_LOGGING_LOCK; \
 		US_LOG_PRINTF_NOLOCK(x_label_color, x_label, x_msg_color, x_msg, ##__VA_ARGS__); \
 		US_LOGGING_UNLOCK; \
+	}
+
+#define US_LOG_SEP_INFO { \
+		US_LOG_PRINTF(US_COLOR_GREEN, "INFO ", US_COLOR_GREEN, "============================================="); \
 	}
 
 #define US_LOG_ERROR(x_msg, ...) { \

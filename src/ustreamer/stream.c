@@ -272,7 +272,7 @@ void us_stream_loop(us_stream_s *stream) {
 		us_capture_close(cap);
 
 		if (!atomic_load(&run->stop)) {
-			US_SEP_INFO('=');
+			US_LOG_SEP_INFO;
 		}
 	}
 
