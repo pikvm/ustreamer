@@ -94,12 +94,12 @@ INLINE void us_thread_get_name(char *name) { // Always required for logging
 #ifdef WITH_PTHREAD_NP
 	int retval = -1;
 #	if defined(__linux__) || defined (__NetBSD__)
-	retval = pthread_getname_np(pthread_self(), name, US_THREAD_NAME_SIZE - 1);
+	retval = pthread_getname_np(pthread_self(), name, US_THREAD_NAME_SIZE); // Always null-terminated
 #	elif \
 		(defined(__FreeBSD__) && defined(__FreeBSD_version) && __FreeBSD_version >= 1103500) \
 		|| (defined(__OpenBSD__) && defined(OpenBSD) && OpenBSD >= 201905) \
 		|| defined(__DragonFly__)
-	pthread_get_name_np(pthread_self(), name, US_THREAD_NAME_SIZE - 1);
+	pthread_get_name_np(pthread_self(), name, US_THREAD_NAME_SIZE); // Also null-terminated
 	if (name[0] != '\0') {
 		retval = 0;
 	}
