@@ -42,13 +42,13 @@
 #include "uslibs/errors.h"
 #include "uslibs/tools.h"
 #include "uslibs/threading.h"
+#include "uslibs/logging.h"
 #include "uslibs/list.h"
 #include "uslibs/ring.h"
 #include "uslibs/memsinksh.h"
 #include "uslibs/tc358743.h"
 
 #include "const.h"
-#include "logging.h"
 #include "client.h"
 #include "au.h"
 #include "acap.h"
@@ -430,6 +430,8 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	// sysctl -w net.core.rmem_max=1000000 
 	// sysctl -w net.core.wmem_max=1000000
 
+	US_LOGGING_INIT;
+
 	US_JLOG_INFO("main", "Initializing PiKVM uStreamer plugin %s ...", US_VERSION);
 	if (gw == NULL || config_dir_path == NULL || ((_g_config = us_config_init(config_dir_path)) == NULL)) {
 		return -1;
@@ -475,6 +477,8 @@ static void _plugin_destroy(void) {
 	US_DELETE(_g_rtpa, us_rtpa_destroy);
 	US_DELETE(_g_rtpv, us_rtpv_destroy);
 	US_DELETE(_g_config, us_config_destroy);
+
+	US_LOGGING_DESTROY;
 }
 
 static void _plugin_create_session(janus_plugin_session *session, int *err) {

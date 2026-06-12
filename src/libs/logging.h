@@ -34,6 +34,7 @@
 #include "types.h"
 #include "tools.h"
 #include "threading.h"
+#include "logging_base.h"
 
 
 enum us_log_level_t {
@@ -72,20 +73,7 @@ extern pthread_mutex_t us_g_log_mutex;
 #define US_COLOR_RESET		"\x1b[0m"
 
 
-#define US_LOG_PRINTF_NOLOCK(x_label_color, x_label, x_msg_color, x_msg, ...) { \
-		char m_tname_buf[US_THREAD_NAME_SIZE] = {0}; \
-		us_thread_get_name(m_tname_buf); \
-		if (us_g_log_colored) { \
-			fprintf(stderr, US_COLOR_GRAY "-- " x_label_color x_label US_COLOR_GRAY \
-				" [%.03Lf %9s]" " -- " US_COLOR_RESET x_msg_color x_msg US_COLOR_RESET, \
-				us_get_now_monotonic(), m_tname_buf, ##__VA_ARGS__); \
-		} else { \
-			fprintf(stderr, "-- " x_label " [%.03Lf %9s] -- " x_msg, \
-				us_get_now_monotonic(), m_tname_buf, ##__VA_ARGS__); \
-		} \
-		fputc('\n', stderr); \
-		fflush(stderr); \
-	}
+// XXX: See the definition of US_LOG_PRINTF_NOLOCK() in logging_base.h
 
 #define US_LOG_PRINTF(x_label_color, x_label, x_msg_color, x_msg, ...) { \
 		US_LOGGING_LOCK; \

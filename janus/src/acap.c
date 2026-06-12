@@ -34,13 +34,13 @@
 #include "uslibs/types.h"
 #include "uslibs/errors.h"
 #include "uslibs/tools.h"
+#include "uslibs/threading.h"
+#include "uslibs/logging.h"
 #include "uslibs/array.h"
 #include "uslibs/ring.h"
-#include "uslibs/threading.h"
 
 #include "rtp.h"
 #include "au.h"
-#include "logging.h"
 
 
 static void *_pcm_thread(void *v_acap);

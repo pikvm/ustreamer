@@ -30,9 +30,9 @@
 
 #include "uslibs/types.h"
 #include "uslibs/tools.h"
+#include "uslibs/logging.h"
 
 #include "const.h"
-#include "logging.h"
 
 
 static char *_get_value(janus_config *jcfg, const char *section, const char *option);

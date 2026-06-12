@@ -20,60 +20,29 @@
 *****************************************************************************/
 
 
-#include "memsinkfd.h"
+#pragma once
 
-#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include <linux/videodev2.h>
+#include <pthread.h>
 
-#include "uslibs/types.h"
-#include "uslibs/errors.h"
-#include "uslibs/tools.h"
-#include "uslibs/logging.h"
-#include "uslibs/frame.h"
-#include "uslibs/memsinksh.h"
+#include "types.h"
+#include "tools.h"
+#include "threading.h"
 
 
-int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s *mem, u64 last_id) {
-	const ldf deadline_ts = us_get_now_monotonic() + 1; // wait_timeout
-	ldf now_ts;
-	do {
-		const int result = us_flock_timedwait_monotonic(fd, 1); // lock_timeout
-		now_ts = us_get_now_monotonic();
-		if (result < 0 && errno != EWOULDBLOCK) {
-			US_JLOG_PERROR("video", "Can't lock memsink");
-			return -1;
-		} else if (result == 0) {
-			if (mem->magic == US_MEMSINK_MAGIC && mem->version == US_MEMSINK_VERSION && mem->id != last_id) {
-				return 0;
-			}
-			if (flock(fd, LOCK_UN) < 0) {
-				US_JLOG_PERROR("video", "Can't unlock memsink");
-				return -1;
-			}
-		}
-		usleep(1000); // lock_polling
-	} while (now_ts < deadline_ts);
-	return US_ERROR_NO_DATA;
-}
-
-int us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, us_frame_s *frame, u64 *frame_id, bool key_required) {
-	us_frame_set_data(frame, us_memsink_get_data(mem), mem->used);
-	US_FRAME_COPY_META(mem, frame);
-	*frame_id = mem->id;
-	mem->last_client_ts = us_get_now_monotonic();
-	if (key_required) {
-		mem->key_requested = true;
+#define US_LOG_PRINTF_NOLOCK(x_label_color, x_label, x_msg_color, x_msg, ...) { \
+		char m_tname_buf[US_THREAD_NAME_SIZE] = {0}; \
+		us_thread_get_name(m_tname_buf); \
+		if (us_g_log_colored) { \
+			fprintf(stderr, US_COLOR_GRAY "-- " x_label_color x_label US_COLOR_GRAY \
+				" [%.03Lf %9s]" " -- " US_COLOR_RESET x_msg_color x_msg US_COLOR_RESET, \
+				us_get_now_monotonic(), m_tname_buf, ##__VA_ARGS__); \
+		} else { \
+			fprintf(stderr, "-- " x_label " [%.03Lf %9s] -- " x_msg, \
+				us_get_now_monotonic(), m_tname_buf, ##__VA_ARGS__); \
+		} \
+		fputc('\n', stderr); \
+		fflush(stderr); \
 	}
-
-	bool retval = 0;
-	if (frame->format != V4L2_PIX_FMT_H264) {
-		US_JLOG_ERROR("video", "Got non-H264 frame from memsink");
-		retval = -1;
-	}
-	if (flock(fd, LOCK_UN) < 0) {
-		US_JLOG_PERROR("video", "Can't unlock memsink");
-		retval = -1;
-	}
-	return retval;
-}
