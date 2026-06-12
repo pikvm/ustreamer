@@ -45,7 +45,7 @@
 #include "uslibs/logging.h"
 #include "uslibs/list.h"
 #include "uslibs/ring.h"
-#include "uslibs/memsinksh.h"
+#include "uslibs/memsink.h"
 #include "uslibs/tc358743.h"
 
 #include "const.h"
@@ -56,7 +56,6 @@
 #include "rtpv.h"
 #include "rtpa.h"
 #include "sdp.h"
-#include "memsinkfd.h"
 #include "config.h"
 
 
@@ -139,8 +138,7 @@ static void *_video_sink_thread(void *arg) {
 	US_THREAD_SETTLE("us_p_vcap");
 	atomic_store(&_g_video_sink_tid_created, true);
 
-	us_frame_s *drop = us_frame_init();
-	u64 frame_id = 0;
+	us_frame_s *tmp = us_frame_init();
 	int once = 0;
 
 	while (!_STOP) {
@@ -150,22 +148,8 @@ static void *_video_sink_thread(void *arg) {
 			continue;
 		}
 
-		int fd = -1;
-		us_memsink_shared_s *mem = NULL;
-
-		const uz data_size = us_memsink_calculate_size(_g_config->video_sink_name);
-		if (data_size == 0) {
-			US_ONCE({ US_LOG_ERROR("Invalid memsink object suffix"); });
-			goto close_memsink;
-		}
-
-		if ((fd = shm_open(_g_config->video_sink_name, O_RDWR, 0)) <= 0) {
-			US_ONCE({ US_LOG_PERROR("Can't open memsink"); });
-			goto close_memsink;
-		}
-
-		if ((mem = us_memsink_shared_map(fd, data_size)) == NULL) {
-			US_ONCE({ US_LOG_PERROR("Can't map memsink"); });
+		us_memsink_s *sink = us_memsink_init_opened("vcap", _g_config->video_sink_name, false, 0, false, 0, 1);
+		if (sink == NULL) {
 			goto close_memsink;
 		}
 
@@ -173,44 +157,31 @@ static void *_video_sink_thread(void *arg) {
 
 		US_LOG_INFO("Memsink opened; reading frames ...");
 		while (!_STOP && _HAS_WATCHERS) {
-			const int waited = us_memsink_fd_wait_frame(fd, mem, frame_id);
-			if (waited == 0) {
+			const int got = us_memsink_client_get(sink, tmp, NULL, atomic_load(&_g_key_required));
+			if (got == 0) {
 				const int ri = us_ring_producer_acquire(_g_video_ring, 0);
-				us_frame_s *frame;
 				if (ri >= 0) {
-					frame = _g_video_ring->items[ri];
-				} else {
-					US_ONCE({ US_LOG_PERROR("Video ring is full"); });
-					frame = drop;
-				}
-
-				const int got = us_memsink_fd_get_frame(fd, mem, frame, &frame_id, atomic_load(&_g_key_required));
-				if (ri >= 0) {
+					us_frame_s *dest = _g_video_ring->items[ri];
+					us_frame_copy(tmp, dest);
 					us_ring_producer_release(_g_video_ring, ri);
+					if (tmp->key) {
+						atomic_store(&_g_key_required, false);
+					}
+				} else {
+					US_ONCE({ US_LOG_ERROR("Video ring is full"); });
 				}
-				if (got < 0) {
-					goto close_memsink;
-				}
-
-				if (ri >= 0 && frame->key) {
-					atomic_store(&_g_key_required, false);
-				}
-			} else if (waited != US_ERROR_NO_DATA) {
+			} else if (got != US_ERROR_NO_DATA) {
 				goto close_memsink;
 			}
 		}
 
 	close_memsink:
-		if (mem != NULL) {
-			us_memsink_shared_unmap(mem, data_size);
-			mem = NULL;
-		}
-		US_CLOSE_FD(fd);
+		US_DELETE(sink, us_memsink_destroy);
 		US_LOG_INFO("Memsink closed");
 		sleep(1); // error_delay
 	}
 
-	us_frame_destroy(drop);
+	us_frame_destroy(tmp);
 	return NULL;
 }
 
