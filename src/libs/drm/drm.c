@@ -56,7 +56,7 @@ static int _drm_find_sink(us_drm_s *drm, uint width, uint height, float hz);
 
 static drmModeModeInfo *_find_best_mode(drmModeConnector *conn, uint width, uint height, float hz);
 static u32 _find_dpms(int fd, drmModeConnector *conn);
-static u32 _find_crtc(int fd, drmModeRes *res, drmModeConnector *conn, u32 *taken_crtcs);
+static u32 _find_crtc(int fd, const drmModeRes *res, drmModeConnector *conn, u32 *taken_crtcs);
 static const char *_connector_type_to_string(u32 type);
 static float _get_refresh_rate(const drmModeModeInfo *mode);
 
@@ -726,7 +726,7 @@ static u32 _find_dpms(int fd, drmModeConnector *conn) {
 	return 0;
 }
 
-static u32 _find_crtc(int fd, drmModeRes *res, drmModeConnector *conn, u32 *taken_crtcs) {
+static u32 _find_crtc(int fd, const drmModeRes *res, drmModeConnector *conn, u32 *taken_crtcs) {
 	for (int ei = 0; ei < conn->count_encoders; ++ei) {
 		drmModeEncoder *enc = drmModeGetEncoder(fd, conn->encoders[ei]);
 		if (enc == NULL) {

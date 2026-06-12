@@ -112,7 +112,7 @@ void us_frametext_draw(us_frametext_s *ft, const char *text, uint width, uint he
 	}
 
 	char *str = us_strdup(text);
-	char *line;
+	const char *line;
 	char *rest;
 
 	uint block_width = 0;
