@@ -41,14 +41,14 @@ int us_memsink_fd_wait_frame(int fd, us_memsink_shared_s *mem, u64 last_id) {
 		const int result = us_flock_timedwait_monotonic(fd, 1); // lock_timeout
 		now_ts = us_get_now_monotonic();
 		if (result < 0 && errno != EWOULDBLOCK) {
-			US_JLOG_PERROR("video", "Can't lock memsink");
+			US_LOG_PERROR("Can't lock memsink");
 			return -1;
 		} else if (result == 0) {
 			if (mem->magic == US_MEMSINK_MAGIC && mem->version == US_MEMSINK_VERSION && mem->id != last_id) {
 				return 0;
 			}
 			if (flock(fd, LOCK_UN) < 0) {
-				US_JLOG_PERROR("video", "Can't unlock memsink");
+				US_LOG_PERROR("Can't unlock memsink");
 				return -1;
 			}
 		}
@@ -68,11 +68,11 @@ int us_memsink_fd_get_frame(int fd, us_memsink_shared_s *mem, us_frame_s *frame,
 
 	bool retval = 0;
 	if (frame->format != V4L2_PIX_FMT_H264) {
-		US_JLOG_ERROR("video", "Got non-H264 frame from memsink");
+		US_LOG_ERROR("Got non-H264 frame from memsink");
 		retval = -1;
 	}
 	if (flock(fd, LOCK_UN) < 0) {
-		US_JLOG_PERROR("video", "Can't unlock memsink");
+		US_LOG_PERROR("Can't unlock memsink");
 		retval = -1;
 	}
 	return retval;

@@ -48,24 +48,24 @@ us_config_s *us_config_init(const char *config_dir_path) {
 	janus_config *jcfg = NULL;
 
 	US_ASPRINTF(config_file_path, "%s/%s.jcfg", config_dir_path, US_PLUGIN_PACKAGE);
-	US_JLOG_INFO("config", "Reading config file '%s' ...", config_file_path);
+	US_LOG_INFO("Reading config file '%s' ...", config_file_path);
 
 	jcfg = janus_config_parse(config_file_path);
 	if (jcfg == NULL) {
-		US_JLOG_ERROR("config", "Can't read config");
+		US_LOG_ERROR("Can't read config");
 		goto error;
 	}
 	janus_config_print(jcfg);
 
 	if ((config->video_sink_name = _get_value(jcfg, "video", "sink")) == NULL) {
-		US_JLOG_ERROR("config", "Missing config value: video.sink");
+		US_LOG_ERROR("Missing config value: video.sink");
 		goto error;
 	}
 	if ((config->acap_dev_name = _get_value(jcfg, "acap", "device")) != NULL) {
 		config->acap_hz = _get_uint(jcfg, "acap", "sampling_rate", 0);
 		config->tc358743_dev_path = _get_value(jcfg, "acap", "tc358743");
 		if (config->acap_hz == 0 && config->tc358743_dev_path == NULL) {
-			US_JLOG_ERROR("config", "Either acap.sampling_rate or acap.tc358743 required");
+			US_LOG_ERROR("Either acap.sampling_rate or acap.tc358743 required");
 			goto error;
 		}
 	}

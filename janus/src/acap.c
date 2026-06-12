@@ -60,14 +60,14 @@ us_acap_s *us_acap_init(const char *name, uint pcm_hz) {
 	{
 		if ((err = snd_pcm_open(&acap->dev, name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
 			acap->dev = NULL;
-			US_JLOG_PERROR_ALSA(err, "acap", "Can't open PCM capture");
+			US_LOG_PERROR_ALSA(err, "Can't open PCM capture");
 			goto error;
 		}
 		assert(!snd_pcm_hw_params_malloc(&acap->dev_params));
 
 #		define SET_PARAM(_msg, _func, ...) { \
 				if ((err = _func(acap->dev, acap->dev_params, ##__VA_ARGS__)) < 0) { \
-					US_JLOG_PERROR_ALSA(err, "acap", _msg); \
+					US_LOG_PERROR_ALSA(err, _msg); \
 					goto error; \
 				} \
 			}
@@ -78,7 +78,7 @@ us_acap_s *us_acap_init(const char *name, uint pcm_hz) {
 		SET_PARAM("Can't set PCM sampling format",	snd_pcm_hw_params_set_format, SND_PCM_FORMAT_S16_LE);
 		SET_PARAM("Can't set PCM sampling rate",	snd_pcm_hw_params_set_rate_near, &acap->pcm_hz, 0);
 		if (acap->pcm_hz < US_AU_MIN_PCM_HZ || acap->pcm_hz > US_AU_MAX_PCM_HZ) {
-			US_JLOG_ERROR("acap", "Unsupported PCM freq: %u; should be: %u <= F <= %u",
+			US_LOG_ERROR("Unsupported PCM freq: %u; should be: %u <= F <= %u",
 				acap->pcm_hz, US_AU_MIN_PCM_HZ, US_AU_MAX_PCM_HZ);
 			goto error;
 		}
@@ -93,7 +93,7 @@ us_acap_s *us_acap_init(const char *name, uint pcm_hz) {
 		acap->res = speex_resampler_init(US_RTP_OPUS_CH, acap->pcm_hz, US_RTP_OPUS_HZ, SPEEX_RESAMPLER_QUALITY_DESKTOP, &err);
 		if (err < 0) {
 			acap->res = NULL;
-			US_JLOG_PERROR_RES(err, "acap", "Can't create resampler");
+			US_LOG_PERROR_RES(err, "Can't create resampler");
 			goto error;
 		}
 	}
@@ -110,7 +110,7 @@ us_acap_s *us_acap_init(const char *name, uint pcm_hz) {
 		// OPUS_SET_INBAND_FEC(1), OPUS_SET_PACKET_LOSS_PERC(10): see rtpa.c
 	}
 
-	US_JLOG_INFO("acap", "Capture configured on %uHz; capturing ...", acap->pcm_hz);
+	US_LOG_INFO("Capture configured on %uHz; capturing ...", acap->pcm_hz);
 	acap->tids_created = true;
 	US_THREAD_CREATE(acap->enc_tid, _encoder_thread, acap);
 	US_THREAD_CREATE(acap->pcm_tid, _pcm_thread, acap);
@@ -135,7 +135,7 @@ void us_acap_destroy(us_acap_s *acap) {
 	US_RING_DELETE_WITH_ITEMS(acap->enc_ring, us_au_encoded_destroy);
 	US_RING_DELETE_WITH_ITEMS(acap->pcm_ring, us_au_pcm_destroy);
 	if (acap->tids_created) {
-		US_JLOG_INFO("acap", "Capture closed");
+		US_LOG_INFO("Capture closed");
 	}
 	free(acap);
 }
@@ -161,7 +161,7 @@ int us_acap_get_encoded(us_acap_s *acap, u8 *data, uz *size, u64 *pts) {
 }
 
 static void *_pcm_thread(void *v_acap) {
-	US_THREAD_SETTLE("us_ac_pcm");
+	US_THREAD_SETTLE("us_acap_pcm");
 
 	us_acap_s *const acap = v_acap;
 	u8 in[US_AU_MAX_BUF8];
@@ -169,10 +169,10 @@ static void *_pcm_thread(void *v_acap) {
 	while (!atomic_load(&acap->stop)) {
 		const int frames = snd_pcm_readi(acap->dev, in, acap->pcm_frames);
 		if (frames < 0) {
-			US_JLOG_PERROR_ALSA(frames, "acap", "Fatal: Can't capture PCM frames");
+			US_LOG_PERROR_ALSA(frames, "Fatal: Can't capture PCM frames");
 			break;
 		} else if (frames < (int)acap->pcm_frames) {
-			US_JLOG_ERROR("acap", "Fatal: Too few PCM frames captured");
+			US_LOG_ERROR("Fatal: Too few PCM frames captured");
 			break;
 		}
 
@@ -182,7 +182,7 @@ static void *_pcm_thread(void *v_acap) {
 			memcpy(out->data, in, acap->pcm_size);
 			us_ring_producer_release(acap->pcm_ring, ri);
 		} else {
-			US_JLOG_ERROR("acap", "PCM ring is full");
+			US_LOG_ERROR("PCM ring is full");
 		}
 	}
 
@@ -191,7 +191,7 @@ static void *_pcm_thread(void *v_acap) {
 }
 
 static void *_encoder_thread(void *v_acap) {
-	US_THREAD_SETTLE("us_ac_enc");
+	US_THREAD_SETTLE("us_acap_enc");
 
 	us_acap_s *const acap = v_acap;
 	s16 in_res[US_AU_MAX_BUF16];
@@ -217,7 +217,7 @@ static void *_encoder_thread(void *v_acap) {
 
 		const int out_ri = us_ring_producer_acquire(acap->enc_ring, 0);
 		if (out_ri < 0) {
-			US_JLOG_ERROR("acap", "OPUS encoder queue is full");
+			US_LOG_ERROR("OPUS encoder queue is full");
 			us_ring_consumer_release(acap->pcm_ring, in_ri);
 			continue;
 		}
@@ -233,7 +233,7 @@ static void *_encoder_thread(void *v_acap) {
 			acap->pts += US_AU_HZ_TO_FRAMES(US_RTP_OPUS_HZ);
 		} else {
 			out->used = 0;
-			US_JLOG_PERROR_OPUS(size, "acap", "Fatal: Can't encode PCM frame to OPUS");
+			US_LOG_PERROR_OPUS(size, "Fatal: Can't encode PCM frame to OPUS");
 		}
 		us_ring_producer_release(acap->enc_ring, out_ri);
 	}

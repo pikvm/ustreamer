@@ -102,7 +102,7 @@ void us_janus_client_send(us_janus_client_s *client, const us_rtp_s *rtp) {
 		us_ring_s *const ring = (rtp->video ? client->video_ring : client->acap_ring);
 		const int ri = us_ring_producer_acquire(ring, 0);
 		if (ri < 0) {
-			US_JLOG_ERROR("client", "Session %p %s ring is full",
+			US_LOG_ERROR("Session %p %s ring is full",
 				client->session, (rtp->video ? "video" : "acap"));
 			return;
 		}
@@ -142,7 +142,7 @@ void us_janus_client_recv(us_janus_client_s *client, janus_plugin_rtp *packet) {
 		us_ring_s *const ring = client->aplay_enc_ring;
 		const int ri = us_ring_producer_acquire(ring, 0);
 		if (ri < 0) {
-			// US_JLOG_ERROR("client", "Session %p aplay ring is full", client->session);
+			// US_LOG_ERROR("Session %p aplay ring is full", client->session);
 			return;
 		}
 		us_au_encoded_s *enc = ring->items[ri];
@@ -157,12 +157,12 @@ void us_janus_client_recv(us_janus_client_s *client, janus_plugin_rtp *packet) {
 }
 
 static void *_video_thread(void *v_client) {
-	US_THREAD_SETTLE("us_cx_vid");
+	US_THREAD_SETTLE("us_cx_vcap");
 	return _video_or_acap_thread(v_client, true);
 }
 
 static void *_acap_thread(void *v_client) {
-	US_THREAD_SETTLE("us_cx_ac");
+	US_THREAD_SETTLE("us_cx_acap");
 	return _video_or_acap_thread(v_client, false);
 }
 
@@ -236,7 +236,7 @@ static void *_video_or_acap_thread(void *v_client, bool video) {
 }
 
 static void *_aplay_thread(void *v_client) {
-	US_THREAD_SETTLE("us_cx_ap");
+	US_THREAD_SETTLE("us_cx_aplay");
 
 	us_janus_client_s *const client = v_client;
 
@@ -258,7 +258,7 @@ static void *_aplay_thread(void *v_client) {
 
 		const int out_ri = us_ring_producer_acquire(client->aplay_pcm_ring, 0);
 		if (out_ri < 0) {
-			US_JLOG_ERROR("aplay", "OPUS decoder queue is full");
+			US_LOG_ERROR("OPUS decoder queue is full");
 			us_ring_consumer_release(client->aplay_enc_ring, in_ri);
 			continue;
 		}
@@ -271,7 +271,7 @@ static void *_aplay_thread(void *v_client) {
 			out->frames = frames;
 		} else {
 			out->frames = 0;
-			US_JLOG_PERROR_OPUS(frames, "aplay", "Fatal: Can't decode OPUS to PCM frame");
+			US_LOG_PERROR_OPUS(frames, "Fatal: Can't decode OPUS to PCM frame");
 		}
 		us_ring_producer_release(client->aplay_pcm_ring, out_ri);
 	}

@@ -95,6 +95,11 @@ extern pthread_mutex_t us_g_log_mutex;
 		free(m_perror_str); \
 	}
 
+// We don't include alsa, speex and opus headers here
+#define US_LOG_PERROR_ALSA(x_err, x_msg, ...)	US_LOG_ERROR(x_msg ": %s", ##__VA_ARGS__, snd_strerror(x_err))
+#define US_LOG_PERROR_RES(x_err, x_msg, ...)	US_LOG_ERROR(x_msg ": %s", ##__VA_ARGS__, speex_resampler_strerror(x_err))
+#define US_LOG_PERROR_OPUS(x_err, x_msg, ...)	US_LOG_ERROR(x_msg ": %s", ##__VA_ARGS__, opus_strerror(x_err))
+
 #define US_LOG_INFO(x_msg, ...) { \
 		US_LOG_PRINTF(US_COLOR_GREEN, "INFO ", "", x_msg, ##__VA_ARGS__); \
 	}

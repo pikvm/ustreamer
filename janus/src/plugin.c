@@ -136,7 +136,7 @@ static void *_video_rtp_thread(void *arg) {
 
 static void *_video_sink_thread(void *arg) {
 	(void)arg;
-	US_THREAD_SETTLE("us_p_vsink");
+	US_THREAD_SETTLE("us_p_vcap");
 	atomic_store(&_g_video_sink_tid_created, true);
 
 	us_frame_s *drop = us_frame_init();
@@ -145,7 +145,7 @@ static void *_video_sink_thread(void *arg) {
 
 	while (!_STOP) {
 		if (!_HAS_WATCHERS) {
-			US_ONCE({ US_JLOG_INFO("video", "No active watchers, memsink disconnected"); });
+			US_ONCE({ US_LOG_INFO("No active watchers, memsink disconnected"); });
 			usleep(_g_watchers_polling);
 			continue;
 		}
@@ -155,23 +155,23 @@ static void *_video_sink_thread(void *arg) {
 
 		const uz data_size = us_memsink_calculate_size(_g_config->video_sink_name);
 		if (data_size == 0) {
-			US_ONCE({ US_JLOG_ERROR("video", "Invalid memsink object suffix"); });
+			US_ONCE({ US_LOG_ERROR("Invalid memsink object suffix"); });
 			goto close_memsink;
 		}
 
 		if ((fd = shm_open(_g_config->video_sink_name, O_RDWR, 0)) <= 0) {
-			US_ONCE({ US_JLOG_PERROR("video", "Can't open memsink"); });
+			US_ONCE({ US_LOG_PERROR("Can't open memsink"); });
 			goto close_memsink;
 		}
 
 		if ((mem = us_memsink_shared_map(fd, data_size)) == NULL) {
-			US_ONCE({ US_JLOG_PERROR("video", "Can't map memsink"); });
+			US_ONCE({ US_LOG_PERROR("Can't map memsink"); });
 			goto close_memsink;
 		}
 
 		once = 0;
 
-		US_JLOG_INFO("video", "Memsink opened; reading frames ...");
+		US_LOG_INFO("Memsink opened; reading frames ...");
 		while (!_STOP && _HAS_WATCHERS) {
 			const int waited = us_memsink_fd_wait_frame(fd, mem, frame_id);
 			if (waited == 0) {
@@ -180,7 +180,7 @@ static void *_video_sink_thread(void *arg) {
 				if (ri >= 0) {
 					frame = _g_video_ring->items[ri];
 				} else {
-					US_ONCE({ US_JLOG_PERROR("video", "Video ring is full"); });
+					US_ONCE({ US_LOG_PERROR("Video ring is full"); });
 					frame = drop;
 				}
 
@@ -206,7 +206,7 @@ static void *_video_sink_thread(void *arg) {
 			mem = NULL;
 		}
 		US_CLOSE_FD(fd);
-		US_JLOG_INFO("video", "Memsink closed");
+		US_LOG_INFO("Memsink closed");
 		sleep(1); // error_delay
 	}
 
@@ -220,17 +220,17 @@ static int _get_acap_hz(uint *hz) {
 		return 0;
 	}
 	if (_g_config->tc358743_dev_path == NULL) {
-		US_JLOG_ERROR("acap", "No configured sampling rate");
+		US_LOG_ERROR("No configured sampling rate");
 		return -1;
 	}
 	int fd;
 	if ((fd = open(_g_config->tc358743_dev_path, O_RDWR)) < 0) {
-		US_JLOG_PERROR("acap", "Can't open TC358743 V4L2 device");
+		US_LOG_PERROR("Can't open TC358743 V4L2 device");
 		return -1;
 	}
 	const int checked = us_tc358743_xioctl_get_audio_hz(fd, hz);
 	if (checked < 0) {
-		US_JLOG_PERROR("acap", "Can't check TC358743 audio state (%d)", checked);
+		US_LOG_PERROR("Can't check TC358743 audio state (%d)", checked);
 		close(fd);
 		return -1;
 	}
@@ -240,7 +240,7 @@ static int _get_acap_hz(uint *hz) {
 
 static void *_acap_thread(void *arg) {
 	(void)arg;
-	US_THREAD_SETTLE("us_p_ac");
+	US_THREAD_SETTLE("us_p_acap");
 	atomic_store(&_g_acap_tid_created, true);
 
 	assert(_g_config->acap_dev_name != NULL);
@@ -258,17 +258,17 @@ static void *_acap_thread(void *arg) {
 		us_acap_s *acap = NULL;
 
 		if (!us_au_probe(_g_config->acap_dev_name)) {
-			US_ONCE({ US_JLOG_ERROR("acap", "No PCM capture device"); });
+			US_ONCE({ US_LOG_ERROR("No PCM capture device"); });
 			goto close_acap;
 		}
 		if (_get_acap_hz(&hz) < 0) {
 			goto close_acap;
 		}
 		if (hz == 0) {
-			US_ONCE({ US_JLOG_INFO("acap", "No audio presented from the host"); });
+			US_ONCE({ US_LOG_INFO("No audio presented from the host"); });
 			goto close_acap;
 		}
-		US_ONCE({ US_JLOG_INFO("acap", "Detected host audio"); });
+		US_ONCE({ US_LOG_INFO("Detected host audio"); });
 		if ((acap = us_acap_init(_g_config->acap_dev_name, hz)) == NULL) {
 			goto close_acap;
 		}
@@ -301,7 +301,7 @@ static void *_acap_thread(void *arg) {
 
 static void *_aplay_thread(void *arg) {
 	(void)arg;
-	US_THREAD_SETTLE("us_p_ap");
+	US_THREAD_SETTLE("us_p_aplay");
 	atomic_store(&_g_aplay_tid_created, true);
 
 	assert(_g_config->aplay_dev_name != NULL);
@@ -330,10 +330,10 @@ static void *_aplay_thread(void *arg) {
 					}
 				} while (skip && !_STOP);
 				us_au_pcm_mix(&mixed, &last);
-				// US_JLOG_INFO("++++++", "mixed %p", client);
+				// US_LOG_INFO("++++++ mixed %p", client);
 			});
 			_UNLOCK_APLAY;
-			// US_JLOG_INFO("++++++", "--------------");
+			// US_LOG_INFO("++++++ --------------");
 
 			if (skip) {
 				static uint skipped = 0;
@@ -351,13 +351,13 @@ static void *_aplay_thread(void *arg) {
 
 			if (dev == NULL) {
 				if (!us_au_probe(_g_config->aplay_dev_name)) {
-					US_ONCE({ US_JLOG_ERROR("aplay", "No PCM playback device"); });
+					US_ONCE({ US_LOG_ERROR("No PCM playback device"); });
 					goto close_aplay;
 				}
 
 				int err = snd_pcm_open(&dev, _g_config->aplay_dev_name, SND_PCM_STREAM_PLAYBACK, 0);
 				if (err < 0) {
-					US_ONCE({ US_JLOG_PERROR_ALSA(err, "aplay", "Can't open PCM playback"); });
+					US_ONCE({ US_LOG_PERROR_ALSA(err, "Can't open PCM playback"); });
 					goto close_aplay;
 				}
 
@@ -365,11 +365,11 @@ static void *_aplay_thread(void *arg) {
 					US_RTP_OPUS_CH, US_RTP_OPUS_HZ, 1 /* soft resample */, 50000 /* 50000 = 0.05sec */
 				);
 				if (err < 0) {
-					US_ONCE({ US_JLOG_PERROR_ALSA(err, "aplay", "Can't configure PCM playback"); });
+					US_ONCE({ US_LOG_PERROR_ALSA(err, "Can't configure PCM playback"); });
 					goto close_aplay;
 				}
 
-				US_JLOG_INFO("aplay", "Playback opened, playing ...");
+				US_LOG_INFO("Playback opened, playing ...");
 				once = 0;
 			}
 
@@ -379,20 +379,20 @@ static void *_aplay_thread(void *arg) {
 					frames = snd_pcm_recover(dev, frames, 1);
 				} else {
 					if (once != 0) {
-						US_JLOG_INFO("aplay", "Playing resumed (snd_pcm_writei) ...");
+						US_LOG_INFO("Playing resumed (snd_pcm_writei) ...");
 					}
 					once = 0;
 					skip = false;
 				}
 				if (frames < 0) {
-					US_ONCE({ US_JLOG_PERROR_ALSA(frames, "aplay", "Can't play to PCM playback"); });
+					US_ONCE({ US_LOG_PERROR_ALSA(frames, "Can't play to PCM playback"); });
 					if (frames == -ENODEV) {
 						goto close_aplay;
 					}
 					skip = true;
 				} else {
 					if (once != 0) {
-						US_JLOG_INFO("aplay", "Playing resumed (snd_pcm_recover) ...");
+						US_LOG_INFO("Playing resumed (snd_pcm_recover) ...");
 					}
 					once = 0;
 					skip = false;
@@ -403,7 +403,7 @@ static void *_aplay_thread(void *arg) {
 	close_aplay:
 		if (dev != NULL) {
 			US_DELETE(dev, snd_pcm_close);
-			US_JLOG_INFO("aplay", "Playback closed");
+			US_LOG_INFO("Playback closed");
 		}
 	}
 	return NULL;
@@ -432,7 +432,7 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 
 	US_LOGGING_INIT;
 
-	US_JLOG_INFO("main", "Initializing PiKVM uStreamer plugin %s ...", US_VERSION);
+	US_LOG_INFO("Initializing PiKVM uStreamer plugin %s ...", US_VERSION);
 	if (gw == NULL || config_dir_path == NULL || ((_g_config = us_config_init(config_dir_path)) == NULL)) {
 		return -1;
 	}
@@ -457,7 +457,7 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 }
 
 static void _plugin_destroy(void) {
-	US_JLOG_INFO("main", "Destroying plugin ...");
+	US_LOG_INFO("Destroying plugin ...");
 
 	atomic_store(&_g_stop, true);
 #	define JOIN(_tid) { if (atomic_load(&_tid##_created)) { US_THREAD_JOIN(_tid); } }
@@ -484,7 +484,7 @@ static void _plugin_destroy(void) {
 static void _plugin_create_session(janus_plugin_session *session, int *err) {
 	_IF_DISABLED({ *err = -1; return; });
 	_LOCK_ALL;
-	US_JLOG_INFO("main", "Creating session %p ...", session);
+	US_LOG_INFO("Creating session %p ...", session);
 	us_janus_client_s *const client = us_janus_client_init(_g_gw, session);
 	US_LIST_APPEND(_g_clients, client);
 	atomic_store(&_g_has_watchers, true);
@@ -500,7 +500,7 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 	bool has_speakers = false;
 	US_LIST_ITERATE(_g_clients, client, {
 		if (client->session == session) {
-			US_JLOG_INFO("main", "Removing session %p ...", session);
+			US_LOG_INFO("Removing session %p ...", session);
 			US_LIST_REMOVE(_g_clients, client);
 			us_janus_client_destroy(client);
 			found = true;
@@ -511,7 +511,7 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 		}
 	});
 	if (!found) {
-		US_JLOG_WARN("main", "No session %p", session);
+		US_LOG_ERROR("No session %p", session);
 		*err = -2;
 	}
 	atomic_store(&_g_has_watchers, has_watchers);
@@ -543,13 +543,13 @@ static void _set_transmit(janus_plugin_session *session, const char *msg, bool t
 	US_LIST_ITERATE(_g_clients, client, {
 		if (client->session == session) {
 			atomic_store(&client->transmit, transmit);
-			// US_JLOG_INFO("main", "%s session %p", msg, session);
+			// US_LOG_INFO("%s session %p", msg, session);
 			found = true;
 		}
 		has_watchers = (has_watchers || atomic_load(&client->transmit));
 	});
 	if (!found) {
-		US_JLOG_WARN("main", "No session %p", session);
+		US_LOG_ERROR("No session %p", session);
 	}
 	atomic_store(&_g_has_watchers, has_watchers);
 	_UNLOCK_ALL;
@@ -571,7 +571,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 	}
 
 #	define PUSH_ERROR(x_error, x_reason) { \
-			/*US_JLOG_ERROR("main", "Message error in session %p: %s", session, x_reason);*/ \
+			/*US_LOG_ERROR("Message error in session %p: %s", session, x_reason);*/ \
 			json_t *m_event = json_object(); \
 			json_object_set_new(m_event, "ustreamer", json_string("event")); \
 			json_object_set_new(m_event, "error_code", json_integer(x_error)); \
@@ -591,7 +591,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 		PUSH_ERROR(400, "Request not a string");
 		goto done;
 	}
-	// US_JLOG_INFO("main", "Message: %s", request_str);
+	// US_LOG_INFO("Message: %s", request_str);
 
 #	define PUSH_STATUS(x_status, x_payload, x_jsep) { \
 			json_t *const m_event = json_object(); \
@@ -684,7 +684,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 		json_decref(features);
 
 	} else if (!strcmp(request_str, "key_required")) {
-		// US_JLOG_INFO("main", "Got key_required message");
+		// US_LOG_INFO("Got key_required message");
 		atomic_store(&_g_key_required, true);
 
 	} else {
