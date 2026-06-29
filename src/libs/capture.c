@@ -38,6 +38,7 @@
 #include <pthread.h>
 #include <linux/videodev2.h>
 #include <linux/v4l2-controls.h>
+#include <linux/v4l2-subdev.h>
 
 #include "types.h"
 #include "errors.h"
@@ -63,18 +64,19 @@ static const struct {
 static const struct {
 	const char *name; // cppcheck-suppress unusedStructMember
 	const uint format; // cppcheck-suppress unusedStructMember
+	const uint subdev_format; // cppcheck-suppress unusedStructMember
 } _FORMATS[] = {
-	{"YUYV",	V4L2_PIX_FMT_YUYV},
-	{"YVYU",	V4L2_PIX_FMT_YVYU},
-	{"UYVY",	V4L2_PIX_FMT_UYVY},
-	{"YUV420",	V4L2_PIX_FMT_YUV420},
-	{"YVU420",	V4L2_PIX_FMT_YVU420},
-	{"GREY",	V4L2_PIX_FMT_GREY},
-	{"RGB565",	V4L2_PIX_FMT_RGB565},
-	{"RGB24",	V4L2_PIX_FMT_RGB24},
-	{"BGR24",	V4L2_PIX_FMT_BGR24},
-	{"MJPEG",	V4L2_PIX_FMT_MJPEG},
-	{"JPEG",	V4L2_PIX_FMT_JPEG},
+	{"YUYV",	V4L2_PIX_FMT_YUYV,   MEDIA_BUS_FMT_YUYV8_2X8},
+	{"YVYU",	V4L2_PIX_FMT_YVYU,   MEDIA_BUS_FMT_YVYU8_2X8},
+	{"UYVY",	V4L2_PIX_FMT_UYVY,   MEDIA_BUS_FMT_UYVY8_2X8},
+	{"YUV420",	V4L2_PIX_FMT_YUV420, MEDIA_BUS_FMT_YUV8_1X24},
+	{"YVU420",	V4L2_PIX_FMT_YVU420, 0},
+	{"GREY",	V4L2_PIX_FMT_GREY,   MEDIA_BUS_FMT_Y8_1X8},
+	{"RGB565",	V4L2_PIX_FMT_RGB565, MEDIA_BUS_FMT_RGB565_1X16},
+	{"RGB24",	V4L2_PIX_FMT_RGB24,  MEDIA_BUS_FMT_RGB888_1X24},
+	{"BGR24",	V4L2_PIX_FMT_BGR24,  MEDIA_BUS_FMT_BGR888_1X24},
+	{"MJPEG",	V4L2_PIX_FMT_MJPEG,  0},
+	{"JPEG",	V4L2_PIX_FMT_JPEG,   MEDIA_BUS_FMT_JPEG_1X8},
 };
 
 static const struct {
@@ -122,6 +124,7 @@ static const char *_format_to_string_nullable(uint format);
 static const char *_format_to_string_supported(uint format);
 static const char *_standard_to_string(v4l2_std_id standard);
 static const char *_io_method_to_string_supported(enum v4l2_memory io_method);
+static int _capture_format_v4l_to_subdev(uint format);
 
 
 #define _LOG_ERROR(x_msg, ...)	US_LOG_ERROR("CAP: " x_msg, ##__VA_ARGS__)
@@ -1229,4 +1232,13 @@ static const char *_io_method_to_string_supported(enum v4l2_memory io_method) {
 		}
 	});
 	return "unsupported";
+}
+
+static int _capture_format_v4l_to_subdev(uint format) {
+	US_ARRAY_ITERATE(_FORMATS, 0, item, {
+		if (item->format == format) {
+			return item->subdev_format;
+		}
+	});
+	return 0;
 }
