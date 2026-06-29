@@ -34,10 +34,13 @@
 #include <sys/select.h>
 #include <sys/mman.h>
 #include <sys/time.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
 
 #include <pthread.h>
 #include <linux/videodev2.h>
 #include <linux/v4l2-controls.h>
+#include <linux/media.h>
 #include <linux/v4l2-subdev.h>
 
 #include "types.h"
@@ -88,10 +91,12 @@ static const struct {
 };
 
 static int _capture_wait_buffer(us_capture_s *cap);
-static int _capture_consume_event(const us_capture_s *cap);
+static int _capture_consume_event(int fd);
 static void _v4l2_buffer_copy(const struct v4l2_buffer *src, struct v4l2_buffer *dest);
 static bool _capture_is_buffer_valid(const us_capture_s *cap, const struct v4l2_buffer *buf, const u8 *data);
 static int _capture_open_check_cap(us_capture_s *cap);
+static int _capture_find_and_open_v4l_subdev(const us_capture_s *cap, us_media_pad_s media_pads[3]);
+static int _capture_open_media_format(const us_capture_s *cap, const us_media_pad_s *pad);
 static int _capture_open_dv_timings(us_capture_s *cap, bool apply);
 static int _capture_open_format(us_capture_s *cap, bool first);
 static void _capture_open_hw_fps(us_capture_s *cap);
@@ -138,6 +143,8 @@ us_capture_s *us_capture_init(void) {
 	us_capture_runtime_s *run;
 	US_CALLOC(run, 1);
 	run->fd = -1;
+	run->dv_timings_fd = -1;
+	US_ARRAY_ITERATE(run->media_pads, 0, item, { item->fd = -1; });
 
 	us_capture_s *cap;
 	US_CALLOC(cap, 1);
@@ -204,6 +211,15 @@ int us_capture_open(us_capture_s *cap) {
 	}
 	_LOG_DEBUG("Capture device fd=%d opened", run->fd);
 
+	if (cap->dv_timings && cap->media_path) {
+		if ((run->dv_timings_fd = _capture_find_and_open_v4l_subdev(cap, run->media_pads)) < 0) {
+			_LOG_PERROR("Can't open v4l subdevice");
+			goto error_no_device;
+		}
+	} else {
+		run->dv_timings_fd = run->fd;
+	}
+
 	if (cap->dv_timings && cap->persistent) {
 		struct v4l2_control ctl = {.id = V4L2_CID_DV_RX_POWER_PRESENT};
 		if (!us_xioctl(run->fd, VIDIOC_G_CTRL, &ctl)) {
@@ -230,6 +246,13 @@ int us_capture_open(us_capture_s *cap) {
 	}
 	if (cap->dv_timings && _capture_open_dv_timings(cap, true) < 0) {
 		goto error;
+	}
+	if (cap->dv_timings && cap->media_path) {
+		US_ARRAY_ITERATE(run->media_pads, 0, item, {
+			if (item->fd >= -1 && _capture_open_media_format(cap, item) < 0) {
+				goto error;
+			}
+		});
 	}
 	if (_capture_open_format(cap, true) < 0) {
 		goto error;
@@ -340,6 +363,10 @@ void us_capture_close(us_capture_s *cap) {
 		run->n_bufs = 0;
 	}
 
+	if (run->dv_timings_fd != run->fd) {
+		US_CLOSE_FD(run->dv_timings_fd);
+	}
+	US_ARRAY_ITERATE(run->media_pads, 0, item, { US_CLOSE_FD(item->fd); });
 	US_CLOSE_FD(run->fd);
 
 	if (say) {
@@ -501,6 +528,7 @@ int _capture_wait_buffer(us_capture_s *cap) {
 	INIT_FD_SET(read_fds);
 	INIT_FD_SET(error_fds);
 #	undef INIT_FD_SET
+	FD_SET(run->dv_timings_fd, &error_fds);
 
 	// Раньше мы проверяли и has_write, но потом выяснилось, что libcamerify зачем-то
 	// генерирует эвенты на запись, вероятно ошибочно. Судя по всему, игнорирование
@@ -514,10 +542,15 @@ int _capture_wait_buffer(us_capture_s *cap) {
 
 	bool has_read = false;
 	bool has_error = false;
-	const int selected = select(run->fd + 1, &read_fds, NULL, &error_fds, &timeout);
+	bool has_dv_error = false;
+	const int max_fd = US_MAX(run->fd, run->dv_timings_fd);
+	const int selected = select(max_fd + 1, &read_fds, NULL, &error_fds, &timeout);
 	if (selected > 0) {
 		has_read = FD_ISSET(run->fd, &read_fds);
 		has_error = FD_ISSET(run->fd, &error_fds);
+		if (run->fd != run->dv_timings_fd) {
+			has_dv_error = FD_ISSET(run->dv_timings_fd, &error_fds);
+		}
 	}
 	_LOG_DEBUG("Device select() --> %d; has_read=%d, has_error=%d", selected, has_read, has_error);
 
@@ -530,16 +563,19 @@ int _capture_wait_buffer(us_capture_s *cap) {
 		_LOG_ERROR("Device select() timeout");
 		return -1;
 	} else {
-		if (has_error && _capture_consume_event(cap) < 0) {
+		if (has_error && _capture_consume_event(run->fd) < 0) {
+			return -1; // Restart required
+		}
+		if (has_dv_error && _capture_consume_event(run->dv_timings_fd) < 0) {
 			return -1; // Restart required
 		}
 	}
 	return 0;
 }
 
-static int _capture_consume_event(const us_capture_s *cap) {
+static int _capture_consume_event(int fd) {
 	struct v4l2_event event;
-	if (us_xioctl(cap->run->fd, VIDIOC_DQEVENT, &event) < 0) {
+	if (us_xioctl(fd, VIDIOC_DQEVENT, &event) < 0) {
 		_LOG_PERROR("Can't consume V4L2 event");
 		return -1;
 	}
@@ -664,6 +700,312 @@ static int _capture_open_check_cap(us_capture_s *cap) {
 	return 0;
 }
 
+static int _capture_media_lookup_link(struct media_v2_topology *topology, u32 link_type, int source_id, int sink_id, u32 *link_flags) {
+	struct media_v2_link *links = (struct media_v2_link *)topology->ptr_links;
+
+	for (uint i = 0; i < topology->num_links; i++) {
+		if ((links[i].flags & MEDIA_LNK_FL_LINK_TYPE) != link_type)
+			continue;
+		if (source_id >= 0 && (u32)source_id == links[i].source_id) {
+			if (link_flags)
+				*link_flags = links[i].flags;
+			return links[i].sink_id;
+		}
+		if (sink_id >= 0 && (u32)sink_id == links[i].sink_id) {
+			if (link_flags)
+				*link_flags = links[i].flags;
+			return links[i].source_id;
+		}
+	}
+	return -1;
+}
+
+static const struct media_v2_pad *_capture_media_lookup_pad(const struct media_v2_topology *topology, u32 pad_type, u32 pad_id) {
+	const struct media_v2_pad *pads = (const struct media_v2_pad *)topology->ptr_pads;
+
+	for (uint i = 0; i < topology->num_pads; i++) {
+		if ((pads[i].flags & pad_type) && pads[i].id == pad_id) {
+			return &pads[i];
+		}
+	}
+	return NULL;
+}
+
+static int _capture_media_lookup_entity_by_name(const struct media_v2_topology *topology, const char *entity_name) {
+	const struct media_v2_entity *entities = (struct media_v2_entity *)topology->ptr_entities;
+
+	for (uint i = 0; i < topology->num_entities; i++) {
+		if (!strcmp(entities[i].name, entity_name)) {
+			return entities[i].id;
+		}
+	}
+	return -1;
+}
+
+static int _capture_media_lookup_entity_by_devnode(struct media_v2_topology *topology, const dev_t devnode) {
+	const struct media_v2_interface *interfaces = (struct media_v2_interface *)topology->ptr_interfaces;
+
+	for (uint i = 0; i < topology->num_interfaces; i++) {
+		if (interfaces[i].intf_type == MEDIA_INTF_T_V4L_VIDEO &&
+				interfaces[i].devnode.major == major(devnode) &&
+				interfaces[i].devnode.minor == minor(devnode)) {
+			return _capture_media_lookup_link(
+				topology, MEDIA_LNK_FL_INTERFACE_LINK,
+				interfaces[i].id, -1, NULL);
+		}
+	}
+	return -1;
+}
+
+
+static int _capture_media_configure_link(int fd, const struct media_v2_pad *source_pad, const struct media_v2_pad *sink_pad, u32 link_flags) {
+	struct media_link_desc link_desc = {0};
+
+	link_desc.source.entity = source_pad->entity_id;
+	link_desc.source.index = source_pad->index;
+	link_desc.sink.entity = sink_pad->entity_id;
+	link_desc.sink.index = sink_pad->index;
+	link_desc.flags = link_flags;
+
+	return us_xioctl(fd, MEDIA_IOC_SETUP_LINK, &link_desc);
+}
+
+static int _open_subdev_for_entity(struct media_v2_topology *topology, int entity_id) {
+	struct media_v2_interface *interfaces = (struct media_v2_interface *)topology->ptr_interfaces;
+	int subdev_intf = _capture_media_lookup_link(topology, MEDIA_LNK_FL_INTERFACE_LINK, -1, entity_id, NULL);
+	int dev_major = -1, dev_minor = -1;
+	char dev_path[sizeof("/dev/char/256:256")];
+	int fd;
+
+	if (subdev_intf < 0) {
+		_LOG_ERROR("Failed to find interface for entity %d",
+				entity_id);
+		return -1;
+	}
+
+	for (uint i = 0; i < topology->num_interfaces; i++) {
+		if (interfaces[i].intf_type == MEDIA_INTF_T_V4L_SUBDEV &&
+				interfaces[i].id == (u32)subdev_intf) {
+			dev_major = interfaces[i].devnode.major;
+			dev_minor = interfaces[i].devnode.minor;
+		}
+	}
+
+	if (dev_major == -1 || dev_minor == -1) {
+		_LOG_ERROR("Cannot find interface %d", subdev_intf);
+		return -1;
+	}
+
+
+	US_SNPRINTF(dev_path, sizeof(dev_path)-1, "/dev/char/%d:%d",
+			dev_major, dev_minor);
+
+	if ((fd = open(dev_path, O_RDWR | O_NONBLOCK)) < 0) {
+		_LOG_PERROR("Failed to open %s", dev_path);
+		return -1;
+	}
+
+	return fd;
+}
+
+static int _capture_find_and_open_v4l_subdev(const us_capture_s *cap, us_media_pad_s media_pads[3]) {
+	// This function needs to:
+	// 1. Find entity related to actual input signal
+	// 2. Find entity related to the selected v4l2 device (cap->path)
+	// 3. Figure out links to connect them
+	// The whole path is:
+	// - source_intf_id (points at relevant /dev/v4l-subdev*)
+	// - source_entity_id
+	// - source_pad
+	// - mux_source_pad_id, mux_source_pad
+	// - mux_entity_id (usually named "csi2" here)
+	// - mux_sink_pad_id, mux_sink_pad
+	// - sink_pad
+	// - sink_entity_id
+	// - sink_intf_id (points at cap->path / run->fd)
+	// Pads need saving both ID (for links lookup) and index (for
+	// MEDIA_IOC_SETUP_LINK ioctl), so lookup relevant media_v2_pad structure.
+	// Walk the relevant paths from both ends in parallel to reduce numbers of
+	// loops.
+	const us_capture_runtime_s *const run = cap->run;
+	int media_fd;
+	struct stat statbuf = {0};
+	int source_subdev_fd = -1;
+	int mux_subdev_fd = -1;
+	struct media_device_info dev_info = {0};
+	struct media_v2_topology topology_info = {0};
+	u32 source_link_flags = 0, sink_link_flags = 0;
+
+	if (!cap->media_entity_name) {
+		_LOG_ERROR("Media entity name not set");
+		return -1;
+	}
+
+	if (fstat(run->fd, &statbuf) < 0) {
+		_LOG_PERROR("Failed to stat video device");
+		return -1;
+	}
+
+	if ((media_fd = open(cap->media_path, O_RDWR | O_NONBLOCK)) < 0) {
+		_LOG_PERROR("Can't open media device");
+		return -1;
+	}
+
+	if (us_xioctl(media_fd, MEDIA_IOC_DEVICE_INFO, &dev_info) < 0) {
+		_LOG_PERROR("Failed to query device info");
+		close(media_fd);
+		return -1;
+	}
+
+	if (!MEDIA_V2_PAD_HAS_INDEX(dev_info.media_version)) {
+		_LOG_ERROR("Media topology doesn't have pad indices, too old kernel?");
+		close(media_fd);
+		return -1;
+	}
+
+
+	if (us_xioctl(media_fd, MEDIA_IOC_G_TOPOLOGY, &topology_info) < 0) {
+		_LOG_PERROR("Failed to query topology info");
+		close(media_fd);
+		return -1;
+	}
+
+	struct media_v2_entity entities[topology_info.num_entities]; // cppcheck-suppress constVariable
+	struct media_v2_link links[topology_info.num_links]; // cppcheck-suppress constVariable
+	struct media_v2_interface interfaces[topology_info.num_interfaces]; // cppcheck-suppress constVariable
+	struct media_v2_pad pads[topology_info.num_pads]; // cppcheck-suppress constVariable
+
+	topology_info.ptr_entities = (uintptr_t)entities;
+	topology_info.ptr_links = (uintptr_t)links;
+	topology_info.ptr_interfaces = (uintptr_t)interfaces;
+	topology_info.ptr_pads = (uintptr_t)pads;
+
+	if (us_xioctl(media_fd, MEDIA_IOC_G_TOPOLOGY, &topology_info) < 0) {
+		_LOG_PERROR("Failed to retrieve topology info");
+		close(media_fd);
+		goto error;
+	}
+
+	close(media_fd);
+
+	const int source_entity_id = _capture_media_lookup_entity_by_name(
+		&topology_info, cap->media_entity_name);
+	if (source_entity_id == -1) {
+		_LOG_ERROR("Failed to find media entity '%s'", cap->media_entity_name);
+		goto error;
+	}
+
+	const int sink_entity_id = _capture_media_lookup_entity_by_devnode(
+		&topology_info, statbuf.st_rdev);
+	if (sink_entity_id == -1) {
+		_LOG_ERROR("Cannot find media entity for %s", cap->path);
+		goto error;
+	}
+
+	const struct media_v2_pad *source_pad = NULL;
+	const struct media_v2_pad *sink_pad = NULL;
+
+	for (uint i = 0; i < topology_info.num_pads; i++) {
+		if (pads[i].flags & MEDIA_PAD_FL_SOURCE &&
+				pads[i].entity_id == (u32)source_entity_id) {
+			source_pad = &pads[i];
+		}
+		if (pads[i].flags & MEDIA_PAD_FL_SINK &&
+				pads[i].entity_id == (u32)sink_entity_id) {
+			sink_pad = &pads[i];
+		}
+	}
+
+	if (!sink_pad) {
+		_LOG_ERROR("Failed to find pad for entity %d ('%s')",
+				sink_entity_id, cap->path);
+		goto error;
+	}
+
+	if (!source_pad) {
+		_LOG_ERROR("Failed to find pad for entity %d ('%s')",
+				source_entity_id, cap->media_entity_name);
+		goto error;
+	}
+
+	int mux_source_pad_id = _capture_media_lookup_link(
+		&topology_info, MEDIA_LNK_FL_DATA_LINK, source_pad->id, -1, &source_link_flags);
+	int mux_sink_pad_id = _capture_media_lookup_link(
+		&topology_info, MEDIA_LNK_FL_DATA_LINK, -1, sink_pad->id, &sink_link_flags);
+
+	const struct media_v2_pad *mux_source_pad = _capture_media_lookup_pad(
+		&topology_info, MEDIA_PAD_FL_SINK, mux_source_pad_id);
+	const struct media_v2_pad *mux_sink_pad = _capture_media_lookup_pad(
+		&topology_info, MEDIA_PAD_FL_SOURCE, mux_sink_pad_id);
+
+	// Those were referenced by relevant links, not finding them means kernel gave us incomplete info
+	US_A(mux_source_pad);
+	US_A(mux_sink_pad);
+
+	if (mux_source_pad->entity_id != mux_sink_pad->entity_id) {
+		_LOG_ERROR("Media source entity %d '%s' connected to a different entity (%d) than the sink entity %d '%s' (connected to %d). Select a different device.",
+				source_entity_id, cap->media_entity_name, mux_source_pad->entity_id,
+				sink_entity_id, cap->path, mux_sink_pad->entity_id);
+		goto error;
+	}
+
+	const int mux_entity_id = mux_source_pad->entity_id;
+
+	if (mux_entity_id == -1) {
+		_LOG_ERROR("Failed to find media mux entity");
+		goto error;
+	}
+
+	// this one is usually MEDIA_LNK_FL_IMMUTABLE, so it's always enabled,
+	// but check anyway
+	if (!(source_link_flags & MEDIA_LNK_FL_ENABLED)) {
+		if (_capture_media_configure_link(media_fd,
+					source_pad, mux_source_pad,
+					source_link_flags | MEDIA_LNK_FL_ENABLED) < 0) {
+			_LOG_PERROR("Failed to enable source link");
+			goto error;
+		}
+	}
+
+	if (!(sink_link_flags & MEDIA_LNK_FL_ENABLED)) {
+		if (_capture_media_configure_link(media_fd,
+					mux_sink_pad, sink_pad,
+					sink_link_flags | MEDIA_LNK_FL_ENABLED) < 0) {
+			_LOG_PERROR("Failed to enable sink link");
+			goto error;
+		}
+	}
+
+	if ((source_subdev_fd = _open_subdev_for_entity(&topology_info, source_entity_id)) < 0) {
+		_LOG_PERROR("Failed to open source v4l2 subdevice");
+		goto error;
+	}
+
+	if ((mux_subdev_fd = _open_subdev_for_entity(&topology_info, mux_entity_id)) < 0) {
+		_LOG_PERROR("Failed to open mux v4l2 subdevice");
+		goto error;
+	}
+
+	// Save PAD indices for VIDIOC_SUBDEV_S_FMT
+	media_pads[0].fd = source_subdev_fd;
+	media_pads[0].pad = source_pad->index;
+	media_pads[1].fd = mux_subdev_fd;
+	media_pads[1].pad = mux_source_pad->index;
+	media_pads[2].fd = mux_subdev_fd;
+	media_pads[2].pad = mux_sink_pad->index;
+
+	return source_subdev_fd;
+
+error:
+	if (source_subdev_fd >= 0) {
+		close(source_subdev_fd);
+	}
+	if (mux_subdev_fd >= 0) {
+		close(mux_subdev_fd);
+	}
+	return -1;
+}
+
 static int _capture_open_dv_timings(us_capture_s *cap, bool apply) {
 	// Just probe only if @apply is false
 
@@ -673,7 +1015,7 @@ static int _capture_open_dv_timings(us_capture_s *cap, bool apply) {
 
 	struct v4l2_dv_timings dv = {0};
 	_LOG_DEBUG("Querying DV-timings (apply=%u) ...", apply);
-	if (us_xioctl(run->fd, VIDIOC_QUERY_DV_TIMINGS, &dv) < 0) {
+	if (us_xioctl(run->dv_timings_fd, VIDIOC_QUERY_DV_TIMINGS, &dv) < 0) {
 		// TC358743 errors here (see in the kernel: drivers/media/i2c/tc358743.c):
 		//   - ENOLINK: No valid signal (SYS_STATUS & MASK_S_TMDS)
 		//   - ENOLCK:  No sync on signal (SYS_STATUS & MASK_S_SYNC)
@@ -704,7 +1046,7 @@ static int _capture_open_dv_timings(us_capture_s *cap, bool apply) {
 	}
 
 	_LOG_DEBUG("Applying DV-timings ...");
-	if (us_xioctl(run->fd, VIDIOC_S_DV_TIMINGS, &dv) < 0) {
+	if (us_xioctl(run->dv_timings_fd, VIDIOC_S_DV_TIMINGS, &dv) < 0) {
 		_LOG_PERROR("Failed to apply DV-timings");
 		return -1;
 	}
@@ -715,7 +1057,7 @@ static int _capture_open_dv_timings(us_capture_s *cap, bool apply) {
 
 querystd:
 	_LOG_DEBUG("Failed to query DV-timings, trying QuerySTD ...");
-	if (us_xioctl(run->fd, VIDIOC_QUERYSTD, &cap->standard) < 0) {
+	if (us_xioctl(run->dv_timings_fd, VIDIOC_QUERYSTD, &cap->standard) < 0) {
 		if (apply) {
 			char *std_error = us_errno_to_string(errno); // Read the errno first
 			char *dv_error = us_errno_to_string(dv_errno);
@@ -727,7 +1069,7 @@ querystd:
 	} else if (!apply) {
 		goto probe_only;
 	}
-	if (us_xioctl(run->fd, VIDIOC_S_STD, &cap->standard) < 0) {
+	if (us_xioctl(run->dv_timings_fd, VIDIOC_S_STD, &cap->standard) < 0) {
 		_LOG_PERROR("Can't set apply standard: %s", _standard_to_string(cap->standard));
 		return -1;
 	}
@@ -737,12 +1079,50 @@ subscribe:
 	; // Empty statement for the goto label above
 	struct v4l2_event_subscription sub = {.type = V4L2_EVENT_SOURCE_CHANGE};
 	_LOG_DEBUG("Subscribing to V4L2_EVENT_SOURCE_CHANGE ...")
-	if (us_xioctl(cap->run->fd, VIDIOC_SUBSCRIBE_EVENT, &sub) < 0) {
+	if (us_xioctl(cap->run->dv_timings_fd, VIDIOC_SUBSCRIBE_EVENT, &sub) < 0) {
 		_LOG_PERROR("Can't subscribe to V4L2_EVENT_SOURCE_CHANGE");
 		return -1;
 	}
 
 probe_only:
+	return 0;
+}
+
+static int _capture_open_media_format(const us_capture_s *cap, const us_media_pad_s *pad) {
+	const us_capture_runtime_s *const run = cap->run;
+	struct v4l2_subdev_format fmt = {0};
+	uint format_code = _capture_format_v4l_to_subdev(cap->format);
+
+	if (!format_code) {
+		_LOG_ERROR("Format not supported for v4l-subdev: %#x", cap->format);
+		return -1;
+	}
+	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	fmt.pad = pad->pad;
+	fmt.format.width = run->width;
+	fmt.format.height = run->height;
+	fmt.format.code = format_code;
+	fmt.format.field = V4L2_FIELD_NONE;
+	// Thankfully fmt.stream seems to be irrelevant on RPi5:
+	// # v4l2-ctl -d /dev/v4l-subdev0 --get-routing
+	// Streams API not supported.
+
+	if (us_xioctl(pad->fd, VIDIOC_SUBDEV_S_FMT, &fmt) < 0) {
+		_LOG_PERROR("Can't set device format");
+		return -1;
+	}
+
+	// This could use negotiation similar to _capture_open_format
+	if (fmt.format.width != run->width ||
+			fmt.format.height != run->height ||
+			fmt.format.code != format_code) {
+		_LOG_ERROR("Format not accepted by pad %u: attempted %ux%u format %#x, got %ux%u format %#x",
+				pad->pad,
+				run->width, run->height, format_code,
+				fmt.format.width, fmt.format.height, fmt.format.code);
+		return -1;
+	}
+
 	return 0;
 }
 

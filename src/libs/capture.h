@@ -52,7 +52,14 @@ typedef struct {
 } us_capture_hwbuf_s;
 
 typedef struct {
+	int fd;
+	uint pad;
+} us_media_pad_s;
+
+typedef struct {
 	int					fd;
+	int					dv_timings_fd;
+	us_media_pad_s				media_pads[3]; // for VIDIOC_SUBDEV_S_FMT
 	uint				width;
 	uint				height;
 	uint				format;
@@ -76,7 +83,7 @@ typedef enum {
 	CTL_MODE_DEFAULT,
 } us_control_mode_e;
 
-typedef struct {
+typedef struct _FD{
 	us_control_mode_e	mode;
 	int					value;
 } us_control_s;
@@ -103,6 +110,8 @@ typedef struct {
 	uint				width;
 	uint				height;
 	uint				format;
+	char				*media_path;
+	char				*media_entity_name;
 
 	bool				format_swap_rgb;
 	uint				jpeg_quality;
