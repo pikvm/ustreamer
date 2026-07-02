@@ -9,7 +9,7 @@ RUN pacman -Syu --noconfirm \
 	&& pacman -S --needed --noconfirm \
 		vim \
 		git \
-		libjpeg \
+		libjpeg-turbo \
 		libevent \
 		libutil-linux \
 		libbsd \
