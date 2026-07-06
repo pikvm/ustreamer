@@ -236,8 +236,9 @@ static int _dump_sink(
 	long double last_ts = 0;
 
 	while (!_g_stop) {
-		bool key_requested;
-		const int got = us_memsink_client_get(sink, frame, &key_requested, key_required);
+		us_memsink_wants_s w_get = {0};
+		us_memsink_wants_s w_put = {.key = key_required};
+		const int got = us_memsink_client_get(sink, frame, &w_get, (key_required ? &w_put : NULL));
 		if (got == 0) {
 			key_required = false;
 
@@ -252,7 +253,7 @@ static int _dump_sink(
 				frame->height,
 				frame->gop,
 				frame->key,
-				key_requested,
+				w_get.key,
 				frame->grab_end_ts - frame->grab_begin_ts,
 				frame->encode_begin_ts - frame->grab_end_ts,
 				frame->encode_end_ts - frame->encode_begin_ts,

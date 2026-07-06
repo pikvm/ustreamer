@@ -157,7 +157,8 @@ static void *_video_sink_thread(void *arg) {
 
 		US_LOG_INFO("Memsink opened; reading frames ...");
 		while (!_STOP && _HAS_WATCHERS) {
-			const int got = us_memsink_client_get(sink, tmp, NULL, atomic_load(&_g_key_required));
+			const us_memsink_wants_s w_put = {.key = atomic_load(&_g_key_required)};
+			const int got = us_memsink_client_get(sink, tmp, NULL, &w_put);
 			if (got == 0) {
 				const int ri = us_ring_producer_acquire(_g_video_ring, 0);
 				if (ri >= 0) {

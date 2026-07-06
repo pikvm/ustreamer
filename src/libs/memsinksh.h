@@ -27,8 +27,17 @@
 
 
 #define US_MEMSINK_MAGIC	((u64)0xCAFEBABECAFEBABE)
-#define US_MEMSINK_VERSION	((u32)8)
+#define US_MEMSINK_VERSION	((u32)9)
 
+
+typedef struct {
+	uint	width;
+	uint	height;
+	uint	format;
+	uint	stride;
+	uint	fps;
+	bool	key;
+} us_memsink_wants_s;
 
 typedef struct {
 	u64		magic;
@@ -37,7 +46,7 @@ typedef struct {
 	uz		used;
 
 	ldf		last_client_ts;
-	bool	key_requested;
+	us_memsink_wants_s	wants;
 
 	US_FRAME_META_DECLARE;
 } us_memsink_shared_s;

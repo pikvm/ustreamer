@@ -758,7 +758,9 @@ static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *fr
 		force_key = true;
 	}
 	if (!us_m2m_encoder_compress(run->h264_enc, frame, run->h264_dest, force_key)) {
-		meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &run->h264_key_requested);
+		us_memsink_wants_s wants = {0};
+		meta.online = !us_memsink_server_put(stream->h264_sink, run->h264_dest, &wants);
+		run->h264_key_requested = wants.key;
 	}
 
 done:

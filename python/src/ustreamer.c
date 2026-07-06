@@ -230,7 +230,7 @@ static PyObject *_MemsinkObject_wait_frame(_MemsinkObject *self, PyObject *args,
 	self->frame_id = mem->id;
 	self->frame_ts = us_get_now_monotonic();
 	if (key_required) {
-		mem->key_requested = true;
+		mem->wants.key = true;
 	}
 
 	if (flock(self->fd, LOCK_UN) < 0) {

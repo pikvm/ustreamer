@@ -57,6 +57,14 @@ us_memsink_s *us_memsink_init_opened(
 void us_memsink_destroy(us_memsink_s *sink);
 
 bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame);
-int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key_requested);
 
-int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_requested, bool key_required);
+int us_memsink_server_put(
+	us_memsink_s *sink,
+	const us_frame_s *frame,
+	us_memsink_wants_s *wants);
+
+int us_memsink_client_get(
+	us_memsink_s *sink,
+	us_frame_s *frame,
+	us_memsink_wants_s *get,
+	const us_memsink_wants_s *put);

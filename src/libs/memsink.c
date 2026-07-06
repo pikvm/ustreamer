@@ -41,8 +41,8 @@
 
 us_memsink_s *us_memsink_init_opened(
 	const char *name, const char *obj, bool server,
-	mode_t mode, bool rm, uint client_ttl, uint timeout) {
-
+	mode_t mode, bool rm, uint client_ttl, uint timeout
+) {
 	us_memsink_s *sink;
 	US_CALLOC(sink, 1);
 	sink->name = name;
@@ -160,7 +160,11 @@ bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame) {
 	return false;
 }
 
-int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key_requested) {
+int us_memsink_server_put(
+	us_memsink_s *sink,
+	const us_frame_s *frame,
+	us_memsink_wants_s *wants
+) {
 	US_A(sink->server);
 
 	const ldf now = us_get_now_monotonic();
@@ -175,11 +179,11 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key
 		US_LOG_VERBOSE("%s-sink: >>>>> Exposing new frame ...", sink->name);
 
 		sink->mem->id = us_get_now_id();
-		if (sink->mem->key_requested && frame->key) {
-			sink->mem->key_requested = false;
+		if (sink->mem->wants.key && frame->key) {
+			sink->mem->wants.key = false;
 		}
-		if (key_requested != NULL) { // We don't need it for non-H264 sinks
-			*key_requested = sink->mem->key_requested;
+		if (wants != NULL) {
+			memcpy(wants, &sink->mem->wants, sizeof(us_memsink_wants_s));
 		}
 
 		memcpy(us_memsink_get_data(sink->mem), frame->data, frame->used);
@@ -189,7 +193,8 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key
 		sink->mem->magic = US_MEMSINK_MAGIC;
 		sink->mem->version = US_MEMSINK_VERSION;
 
-		atomic_store(&sink->has_clients, (sink->mem->last_client_ts + sink->client_ttl > us_get_now_monotonic()));
+		const bool has_clients = (sink->mem->last_client_ts + sink->client_ttl > us_get_now_monotonic());
+		atomic_store(&sink->has_clients, has_clients);
 
 		if (flock(sink->fd, LOCK_UN) < 0) {
 			US_LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
@@ -208,7 +213,12 @@ int us_memsink_server_put(us_memsink_s *sink, const us_frame_s *frame, bool *key
 	return 0;
 }
 
-int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_requested, bool key_required) {
+int us_memsink_client_get(
+	us_memsink_s *sink,
+	us_frame_s *frame,
+	us_memsink_wants_s *get,
+	const us_memsink_wants_s *put
+) {
 	US_A(!sink->server); // Client only
 
 	if (us_flock_timedwait_monotonic(sink->fd, sink->timeout) < 0) {
@@ -243,11 +253,16 @@ int us_memsink_client_get(us_memsink_s *sink, us_frame_s *frame, bool *key_reque
 	sink->last_readed_id = sink->mem->id;
 	us_frame_set_data(frame, us_memsink_get_data(sink->mem), sink->mem->used);
 	US_FRAME_COPY_META(sink->mem, frame);
-	if (key_requested != NULL) { // We don't need it for non-H264 sinks
-		*key_requested = sink->mem->key_requested;
+
+	if (get != NULL) {
+		memcpy(get, &sink->mem->wants, sizeof(us_memsink_wants_s));
 	}
-	if (key_required) {
-		sink->mem->key_requested = true;
+	if (put != NULL) {
+		const bool key = sink->mem->wants.key;
+		memcpy(&sink->mem->wants, put, sizeof(us_memsink_wants_s));
+		if (key) {
+			sink->mem->wants.key = key;
+		}
 	}
 
 done:
