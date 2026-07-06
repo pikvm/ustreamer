@@ -190,8 +190,8 @@ static const struct option _LONG_OPTS[] = {
 	{"device-timeout",			required_argument,	NULL,	_O_DEVICE_TIMEOUT},
 	{"device-error-delay",		required_argument,	NULL,	_O_DEVICE_ERROR_DELAY},
 	{"m2m-device",				required_argument,	NULL,	_O_M2M_DEVICE},
-	{"media-device",			required_argument, 	NULL,	_O_MEDIA_DEVICE},
-	{"media-entity-name",			required_argument,      NULL,	_O_MEDIA_ENTITY_NAME},
+	{"media-device",			required_argument,	NULL,	_O_MEDIA_DEVICE},
+	{"media-entity-name",		required_argument,	NULL,	_O_MEDIA_ENTITY_NAME},
 
 	{"image-default",			no_argument,		NULL,	_O_IMAGE_DEFAULT},
 	{"brightness",				required_argument,	NULL,	_O_BRIGHTNESS},
@@ -450,8 +450,8 @@ int us_options_parse(
 			case _O_DEVICE_TIMEOUT:		OPT_NUMBER("--device-timeout", cap->timeout, 1, 60, 0);
 			case _O_DEVICE_ERROR_DELAY:	OPT_NUMBER("--device-error-delay", stream->error_delay, 1, 60, 0);
 			case _O_M2M_DEVICE:			OPT_SET(enc->m2m_path, optarg);
-			case _O_MEDIA_DEVICE:			OPT_SET(cap->media_path, optarg);
-			case _O_MEDIA_ENTITY_NAME:		OPT_SET(cap->media_entity_name, optarg);
+			case _O_MEDIA_DEVICE:		OPT_SET(cap->media_path, optarg);
+			case _O_MEDIA_ENTITY_NAME:	OPT_SET(cap->media_entity_name, optarg);
 
 			case _O_IMAGE_DEFAULT:
 				OPT_CTL_DEFAULT_NOBREAK(brightness);
@@ -744,8 +744,10 @@ static void _help(
 	SAY("    --device-error-delay <sec>  ────────── Delay before trying to connect to the device again");
 	SAY("                                           after an error (timeout for example). Default: %u.\n", stream->error_delay);
 	SAY("    --m2m-device </dev/path>  ──────────── Path to V4L2 M2M encoder device. Default: auto select.\n");
-	SAY("    --media-device </dev/path>  ────────── Path to V4L2 /dev/media* device for setting subdevices (currently necessary for RPi5). Default: none.\n");
-	SAY("    --media-entity-name <name>  ────────── Name of the V4L2 entity to grab video from, will be routed to --device. Default: none.\n");
+	SAY("    --media-device </dev/path>  ────────── Path to V4L2 /dev/media* device for setting subdevices");
+	SAY("                                           (currently necessary for RPi5). Default: unset.\n");
+	SAY("    --media-entity-name <name>  ────────── Name of the V4L2 entity to grab video from,");
+	SAY("                                           will be routed to --device. Default: none.\n");
 	SAY("Image control options:");
 	SAY("══════════════════════");
 	SAY("    --image-default  ────────────────────── Reset all image settings below to default. Default: no change.\n");

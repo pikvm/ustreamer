@@ -59,7 +59,7 @@ typedef struct {
 typedef struct {
 	int					fd;
 	int					dv_timings_fd;
-	us_media_pad_s				media_pads[3]; // for VIDIOC_SUBDEV_S_FMT
+	us_media_pad_s		media_pads[3]; // for VIDIOC_SUBDEV_S_FMT
 	uint				width;
 	uint				height;
 	uint				format;
@@ -83,7 +83,7 @@ typedef enum {
 	CTL_MODE_DEFAULT,
 } us_control_mode_e;
 
-typedef struct _FD{
+typedef struct {
 	us_control_mode_e	mode;
 	int					value;
 } us_control_s;

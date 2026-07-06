@@ -120,6 +120,12 @@ Delay before trying to connect to the device again after an error (timeout for e
 .TP
 .BR \-\-m2m\-device\ \fI/dev/path
 Path to V4L2 mem-to-mem encoder device. Default: auto-select.
+.TP
+.BR \-\-media\-device \fI/dev/path
+Path to V4L2 /dev/media* device for setting subdevices (currently necessary for Raspberry Pi 5). Default: unset.
+.TP
+.BR \-\-media\-entity\-name \fIname
+Name of the V4L2 entity to grab video from, will be router to \-\-device, for example "tc358743 10-000f". Default: unset.
 
 .SS "Image control options"
 .TP
