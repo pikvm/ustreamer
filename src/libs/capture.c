@@ -365,7 +365,7 @@ void us_capture_close(us_capture_s *cap) {
 
 	US_ARRAY_ITERATE(run->media_pads, 0, pad, { US_CLOSE_FD(pad->fd); });
 	US_CLOSE_FD(run->fd);
-	run->dv_timings_fd = 0; // It's just a copy of the media or device descriptor
+	run->dv_timings_fd = -1; // It's just a copy of the media or device descriptor
 
 	if (say) {
 		_LOG_INFO("Capturing stopped");
