@@ -27,14 +27,13 @@
 
 
 #define US_MEMSINK_MAGIC	((u64)0xCAFEBABECAFEBABE)
-#define US_MEMSINK_VERSION	((u32)9)
+#define US_MEMSINK_VERSION	((u32)10)
 
 
 typedef struct {
 	uint	width;
 	uint	height;
 	uint	format;
-	uint	stride;
 	uint	fps;
 	bool	key;
 } us_memsink_wants_s;
