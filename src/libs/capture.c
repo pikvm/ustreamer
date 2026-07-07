@@ -35,7 +35,6 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <sys/sysmacros.h>
 
 #include <pthread.h>
 #include <linux/videodev2.h>
@@ -52,6 +51,7 @@
 #include "frame.h"
 #include "xioctl.h"
 #include "tc358743.h"
+#include "media.h"
 
 
 static const struct {
@@ -149,6 +149,8 @@ us_capture_s *us_capture_init(void) {
 	us_capture_s *cap;
 	US_CALLOC(cap, 1);
 	cap->path = "/dev/video0";
+	cap->media_path = "";
+	cap->media_entity_name = "tc358743 10-000f"; // Will not be enabled without media_path
 	cap->width = 640;
 	cap->height = 480;
 	cap->format = V4L2_PIX_FMT_YUYV;
@@ -211,7 +213,7 @@ int us_capture_open(us_capture_s *cap) {
 	}
 	_LOG_DEBUG("Capture device fd=%d opened", run->fd);
 
-	if (cap->dv_timings && cap->media_path) {
+	if (cap->dv_timings && cap->media_path[0] != '\0') {
 		if (_capture_open_media_pads(cap) < 0) {
 			goto error_no_device;
 		}
@@ -247,7 +249,7 @@ int us_capture_open(us_capture_s *cap) {
 	if (cap->dv_timings && _capture_open_dv_timings(cap, true) < 0) {
 		goto error;
 	}
-	if (cap->dv_timings && cap->media_path) {
+	if (cap->dv_timings && cap->media_path[0] != '\0') {
 		US_ARRAY_ITERATE(run->media_pads, 0, pad, {
 			if (pad->fd >= -1 && _capture_open_media_format(cap, pad) < 0) {
 				goto error;
@@ -699,125 +701,12 @@ static int _capture_open_check_cap(us_capture_s *cap) {
 	return 0;
 }
 
-static int _media_find_link(
-	struct media_v2_topology *topology,
-	u32 link_type,
-	int source_id,
-	int sink_id,
-	u32 *link_flags
-) {
-	struct media_v2_link *links = (struct media_v2_link *)topology->ptr_links;
-
-	for (uint i = 0; i < topology->num_links; ++i) {
-		if ((links[i].flags & MEDIA_LNK_FL_LINK_TYPE) != link_type) {
-			continue;
-		}
-		if (source_id >= 0 && (u32)source_id == links[i].source_id) {
-			if (link_flags) {
-				*link_flags = links[i].flags;
-			}
-			return links[i].sink_id;
-		}
-		if (sink_id >= 0 && (u32)sink_id == links[i].sink_id) {
-			if (link_flags) {
-				*link_flags = links[i].flags;
-			}
-			return links[i].source_id;
-		}
-	}
-	return -1;
-}
-
-static int _media_find_entity_by_name(
-	const struct media_v2_topology *topology,
-	const char *name
-) {
-	const struct media_v2_entity *entities = (struct media_v2_entity *)topology->ptr_entities;
-
-	for (uint i = 0; i < topology->num_entities; ++i) {
-		if (!strcmp(entities[i].name, name)) {
-			return entities[i].id;
-		}
-	}
-	return -1;
-}
-
-static int _media_find_entity_by_devnode(
-	struct media_v2_topology *topology,
-	const dev_t devnode
-) {
-	const struct media_v2_interface *interfaces = (struct media_v2_interface *)topology->ptr_interfaces;
-
-	for (uint i = 0; i < topology->num_interfaces; ++i) {
-		if (
-			interfaces[i].intf_type == MEDIA_INTF_T_V4L_VIDEO
-			&& interfaces[i].devnode.major == major(devnode)
-			&& interfaces[i].devnode.minor == minor(devnode)
-		) {
-			return _media_find_link(
-				topology, MEDIA_LNK_FL_INTERFACE_LINK,
-				interfaces[i].id, -1, NULL);
-		}
-	}
-	return -1;
-}
-
-static const struct media_v2_pad *_media_find_pad_by_entity(
-	const struct media_v2_topology *topology,
-	u32 pad_type,
-	u32 entity_id
-) {
-	const struct media_v2_pad *pads = (const struct media_v2_pad *)topology->ptr_pads;
-
-	for (uint i = 0; i < topology->num_pads; ++i) {
-		if ((pads[i].flags & pad_type) && pads[i].entity_id == entity_id) {
-			return &pads[i];
-		}
-	}
-	return NULL;
-}
-
-static const struct media_v2_pad *_media_find_pad(
-	const struct media_v2_topology *topology,
-	u32 pad_type,
-	u32 pad_id
-) {
-	const struct media_v2_pad *pads = (const struct media_v2_pad *)topology->ptr_pads;
-
-	for (uint i = 0; i < topology->num_pads; ++i) {
-		if ((pads[i].flags & pad_type) && pads[i].id == pad_id) {
-			return &pads[i];
-		}
-	}
-	return NULL;
-}
-
-static int _media_xioctl_setup_link(
-	int fd,
-	const struct media_v2_pad *source_pad,
-	const struct media_v2_pad *sink_pad,
-	u32 link_flags
-) {
-	struct media_link_desc link_desc = {
-		.source = {
-			.entity = source_pad->entity_id,
-			.index = source_pad->index,
-		},
-		.sink = {
-			.entity = sink_pad->entity_id,
-			.index = sink_pad->index,
-		},
-		.flags = link_flags,
-	};
-	return us_xioctl(fd, MEDIA_IOC_SETUP_LINK, &link_desc);
-}
-
 static int _open_subdev_for_entity(
 	struct media_v2_topology *topology,
 	int entity_id
 ) {
 	struct media_v2_interface *interfaces = (struct media_v2_interface *)topology->ptr_interfaces;
-	int subdev_intf = _media_find_link(topology, MEDIA_LNK_FL_INTERFACE_LINK, -1, entity_id, NULL);
+	int subdev_intf = us_media_find_link(topology, MEDIA_LNK_FL_INTERFACE_LINK, -1, entity_id, NULL);
 	int dev_major = -1;
 	int dev_minor = -1;
 	char *dev_path = NULL;
@@ -874,62 +763,26 @@ static int _capture_open_media_pads(const us_capture_s *cap) {
 	// Walk the relevant paths from both ends in parallel to reduce numbers of loops.
 
 	us_capture_runtime_s *const run = cap->run;
-	struct media_v2_entity *ptr_entities = NULL;
-	struct media_v2_link *ptr_links = NULL;
-	struct media_v2_interface *ptr_interfaces = NULL;
-	struct media_v2_pad *ptr_pads = NULL;
+	struct media_v2_topology *topology = NULL;
 	int media_fd = -1;
 	int mux_subdev_fd = -1;
 	int source_subdev_fd = -1;
-
-	if (!cap->media_entity_name) {
-		_LOG_ERROR("Media entity name not set");
-		goto error;
-	}
 
 	if ((media_fd = open(cap->media_path, O_RDWR | O_NONBLOCK)) < 0) {
 		_LOG_PERROR("Can't open media device");
 		goto error;
 	}
 
-	{
-		struct media_device_info dev_info = {0};
-		if (us_xioctl(media_fd, MEDIA_IOC_DEVICE_INFO, &dev_info) < 0) {
-			_LOG_PERROR("Can't to query media device info");
-			goto error;
-		}
-		if (!MEDIA_V2_PAD_HAS_INDEX(dev_info.media_version)) {
-			_LOG_ERROR("Media topology doesn't have pad indices, too old kernel?");
-			goto error;
-		}
-	}
-
-	struct media_v2_topology topology = {0};
-	if (us_xioctl(media_fd, MEDIA_IOC_G_TOPOLOGY, &topology) < 0) {
-		_LOG_PERROR("Can't query media topology info");
-		goto error;
-	}
-#	define ALLOCATE_TP(x_field, x_type) { \
-			ptr_##x_field = calloc(topology.num_##x_field, sizeof(x_type)); \
-			US_A(ptr_##x_field); \
-			topology.ptr_##x_field = (uintptr_t)ptr_##x_field; \
-		}
-	ALLOCATE_TP(entities, struct media_v2_entity);
-	ALLOCATE_TP(links, struct media_v2_link);
-	ALLOCATE_TP(interfaces, struct media_v2_interface);
-	ALLOCATE_TP(pads, struct media_v2_pad);
-#	undef ALLOCATE_TP
-	if (us_xioctl(media_fd, MEDIA_IOC_G_TOPOLOGY, &topology) < 0) {
-		_LOG_PERROR("Failed to retrieve topology info");
+	if ((topology = us_media_topology_init(media_fd)) == NULL) {
 		goto error;
 	}
 
-	const int source_entity_id = _media_find_entity_by_name(&topology, cap->media_entity_name);
+	const int source_entity_id = us_media_find_entity_by_name(topology, cap->media_entity_name);
 	if (source_entity_id == -1) {
 		_LOG_ERROR("Can't find source media entity '%s'", cap->media_entity_name);
 		goto error;
 	}
-	const struct media_v2_pad *source_pad = _media_find_pad_by_entity(&topology, MEDIA_PAD_FL_SOURCE, source_entity_id);
+	const struct media_v2_pad *source_pad = us_media_find_pad_by_entity(topology, MEDIA_PAD_FL_SOURCE, source_entity_id);
 	if (source_pad == NULL) {
 		_LOG_ERROR("Failed to find pad for entity %d ('%s')", source_entity_id, cap->media_entity_name);
 		goto error;
@@ -940,12 +793,12 @@ static int _capture_open_media_pads(const us_capture_s *cap) {
 		_LOG_PERROR("Can't stat() video device");
 		goto error;
 	}
-	const int sink_entity_id = _media_find_entity_by_devnode(&topology, st.st_rdev);
+	const int sink_entity_id = us_media_find_entity_by_devnode(topology, st.st_rdev);
 	if (sink_entity_id == -1) {
 		_LOG_ERROR("Can't find sink media entity '%s'", cap->path);
 		goto error;
 	}
-	const struct media_v2_pad *sink_pad = _media_find_pad_by_entity(&topology, MEDIA_PAD_FL_SINK, sink_entity_id);
+	const struct media_v2_pad *sink_pad = us_media_find_pad_by_entity(topology, MEDIA_PAD_FL_SINK, sink_entity_id);
 	if (sink_pad == NULL) {
 		_LOG_ERROR("Failed to find pad for entity %d ('%s')", sink_entity_id, cap->path);
 		goto error;
@@ -953,11 +806,11 @@ static int _capture_open_media_pads(const us_capture_s *cap) {
 
 	u32 source_link_flags = 0;
 	u32 sink_link_flags = 0;
-	int mux_source_pad_id = _media_find_link(&topology, MEDIA_LNK_FL_DATA_LINK, source_pad->id, -1, &source_link_flags);
-	int mux_sink_pad_id = _media_find_link(&topology, MEDIA_LNK_FL_DATA_LINK, -1, sink_pad->id, &sink_link_flags);
+	int mux_source_pad_id = us_media_find_link(topology, MEDIA_LNK_FL_DATA_LINK, source_pad->id, -1, &source_link_flags);
+	int mux_sink_pad_id = us_media_find_link(topology, MEDIA_LNK_FL_DATA_LINK, -1, sink_pad->id, &sink_link_flags);
 
-	const struct media_v2_pad *mux_source_pad = _media_find_pad(&topology, MEDIA_PAD_FL_SINK, mux_source_pad_id);
-	const struct media_v2_pad *mux_sink_pad = _media_find_pad(&topology, MEDIA_PAD_FL_SOURCE, mux_sink_pad_id);
+	const struct media_v2_pad *mux_source_pad = us_media_find_pad(topology, MEDIA_PAD_FL_SINK, mux_source_pad_id);
+	const struct media_v2_pad *mux_sink_pad = us_media_find_pad(topology, MEDIA_PAD_FL_SOURCE, mux_sink_pad_id);
 
 	// Those were referenced by relevant links, not finding them means kernel gave us incomplete info
 	US_A(mux_source_pad);
@@ -982,7 +835,7 @@ static int _capture_open_media_pads(const us_capture_s *cap) {
 	// this one is usually MEDIA_LNK_FL_IMMUTABLE, so it's always enabled,
 	// but check anyway
 	if (!(source_link_flags & MEDIA_LNK_FL_ENABLED)) {
-		if (_media_xioctl_setup_link(
+		if (us_media_xioctl_setup_link(
 			media_fd,
 			source_pad, mux_source_pad,
 			source_link_flags | MEDIA_LNK_FL_ENABLED
@@ -993,7 +846,7 @@ static int _capture_open_media_pads(const us_capture_s *cap) {
 	}
 
 	if (!(sink_link_flags & MEDIA_LNK_FL_ENABLED)) {
-		if (_media_xioctl_setup_link(
+		if (us_media_xioctl_setup_link(
 			media_fd,
 			mux_sink_pad, sink_pad,
 			sink_link_flags | MEDIA_LNK_FL_ENABLED
@@ -1003,12 +856,12 @@ static int _capture_open_media_pads(const us_capture_s *cap) {
 		}
 	}
 
-	if ((source_subdev_fd = _open_subdev_for_entity(&topology, source_entity_id)) < 0) {
+	if ((source_subdev_fd = _open_subdev_for_entity(topology, source_entity_id)) < 0) {
 		_LOG_PERROR("Failed to open source v4l2 subdevice");
 		goto error;
 	}
 
-	if ((mux_subdev_fd = _open_subdev_for_entity(&topology, mux_entity_id)) < 0) {
+	if ((mux_subdev_fd = _open_subdev_for_entity(topology, mux_entity_id)) < 0) {
 		_LOG_PERROR("Failed to open mux v4l2 subdevice");
 		goto error;
 	}
@@ -1030,10 +883,7 @@ error:
 
 ok:
 	US_CLOSE_FD(media_fd); // cppcheck-suppress unreadVariable
-	US_DELETE(ptr_pads, free);
-	US_DELETE(ptr_interfaces, free);
-	US_DELETE(ptr_links, free);
-	US_DELETE(ptr_entities, free);
+	US_DELETE(topology, us_media_topology_destroy);
 	return (source_subdev_fd >= 0 ? 0 : -1);
 }
 
