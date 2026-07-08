@@ -28,6 +28,8 @@
 
 #include "types.h"
 #include "frame.h"
+#include "media.h"
+#include "controls.h"
 
 
 #define US_VIDEO_MIN_WIDTH		((uint)160)
@@ -52,11 +54,6 @@ typedef struct {
 } us_capture_hwbuf_s;
 
 typedef struct {
-	int fd;
-	uint pad;
-} us_media_pad_s;
-
-typedef struct {
 	int					fd;
 	int					dv_timings_fd;
 	us_media_pad_s		media_pads[3]; // for VIDIOC_SUBDEV_S_FMT
@@ -75,34 +72,6 @@ typedef struct {
 	bool				streamon;
 	int					open_error_once;
 } us_capture_runtime_s;
-
-typedef enum {
-	CTL_MODE_NONE = 0,
-	CTL_MODE_VALUE,
-	CTL_MODE_AUTO,
-	CTL_MODE_DEFAULT,
-} us_control_mode_e;
-
-typedef struct {
-	us_control_mode_e	mode;
-	int					value;
-} us_control_s;
-
-typedef struct {
-	us_control_s	brightness;
-	us_control_s	contrast;
-	us_control_s	saturation;
-	us_control_s	hue;
-	us_control_s	gamma;
-	us_control_s	sharpness;
-	us_control_s	backlight_compensation;
-	us_control_s	white_balance;
-	us_control_s	gain;
-	us_control_s	color_effect;
-	us_control_s	rotate;
-	us_control_s	flip_vertical;
-	us_control_s	flip_horizontal;
-} us_controls_s;
 
 typedef struct {
 	char				*path;
@@ -125,7 +94,7 @@ typedef struct {
 	bool				allow_truncated_frames;
 	bool				persistent;
 	uint				timeout;
-	us_controls_s 		ctl;
+	us_controls_s 		*ctl;
 	us_capture_runtime_s *run;
 } us_capture_s;
 

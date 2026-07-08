@@ -22,49 +22,39 @@
 
 #pragma once
 
-#include <linux/videodev2.h>
-#include <linux/media.h>
-#include <linux/v4l2-subdev.h>
-
 #include "types.h"
 
 
+typedef enum {
+	US_CTL_MODE_NONE = 0,
+	US_CTL_MODE_VALUE,
+	US_CTL_MODE_AUTO,
+	US_CTL_MODE_DEFAULT,
+} us_control_mode_e;
+
 typedef struct {
-	int		fd;
-	uint	pad;
-} us_media_pad_s;
+	us_control_mode_e	mode;
+	int					value;
+} us_control_s;
+
+typedef struct {
+	us_control_s	brightness;
+	us_control_s	contrast;
+	us_control_s	saturation;
+	us_control_s	hue;
+	us_control_s	gamma;
+	us_control_s	sharpness;
+	us_control_s	backlight_compensation;
+	us_control_s	white_balance;
+	us_control_s	gain;
+	us_control_s	color_effect;
+	us_control_s	rotate;
+	us_control_s	flip_vertical;
+	us_control_s	flip_horizontal;
+} us_controls_s;
 
 
-int us_media_find_link(
-	struct media_v2_topology *topology,
-	u32 link_type,
-	int source_id,
-	int sink_id,
-	u32 *link_flags);
+us_controls_s *us_controls_init(void);
+void us_controls_destroy(us_controls_s *ctl);
 
-int us_media_find_entity_by_name(
-	const struct media_v2_topology *topology,
-	const char *name);
-
-int us_media_find_entity_by_devnode(
-	struct media_v2_topology *topology,
-	const dev_t devnode);
-
-const struct media_v2_pad *us_media_find_pad_by_entity(
-	const struct media_v2_topology *topology,
-	u32 pad_type,
-	u32 entity_id);
-
-const struct media_v2_pad *us_media_find_pad(
-	const struct media_v2_topology *topology,
-	u32 pad_type,
-	u32 pad_id);
-
-int us_media_xioctl_setup_link(
-	int fd,
-	const struct media_v2_pad *source_pad,
-	const struct media_v2_pad *sink_pad,
-	u32 link_flags);
-
-struct media_v2_topology *us_media_topology_init(int fd);
-void us_media_topology_destroy(struct media_v2_topology *topology);
+void us_controls_apply(const us_controls_s *ctl, int fd);

@@ -379,15 +379,15 @@ int us_options_parse(
 		}
 
 #	define OPT_CTL_DEFAULT_NOBREAK(x_dest) { \
-			cap->ctl.x_dest.mode = CTL_MODE_DEFAULT; \
+			cap->ctl->x_dest.mode = US_CTL_MODE_DEFAULT; \
 		}
 
 #	define OPT_CTL_MANUAL(x_dest) { \
 			if (!strcasecmp(optarg, "default")) { \
 				OPT_CTL_DEFAULT_NOBREAK(x_dest); \
 			} else { \
-				cap->ctl.x_dest.mode = CTL_MODE_VALUE; \
-				OPT_NUMBER("--"#x_dest, cap->ctl.x_dest.value, INT_MIN, INT_MAX, 0); \
+				cap->ctl->x_dest.mode = US_CTL_MODE_VALUE; \
+				OPT_NUMBER("--"#x_dest, cap->ctl->x_dest.value, INT_MIN, INT_MAX, 0); \
 			} \
 			break; \
 		}
@@ -396,10 +396,10 @@ int us_options_parse(
 			if (!strcasecmp(optarg, "default")) { \
 				OPT_CTL_DEFAULT_NOBREAK(x_dest); \
 			} else if (!strcasecmp(optarg, "auto")) { \
-				cap->ctl.x_dest.mode = CTL_MODE_AUTO; \
+				cap->ctl->x_dest.mode = US_CTL_MODE_AUTO; \
 			} else { \
-				cap->ctl.x_dest.mode = CTL_MODE_VALUE; \
-				OPT_NUMBER("--"#x_dest, cap->ctl.x_dest.value, INT_MIN, INT_MAX, 0); \
+				cap->ctl->x_dest.mode = US_CTL_MODE_VALUE; \
+				OPT_NUMBER("--"#x_dest, cap->ctl->x_dest.value, INT_MIN, INT_MAX, 0); \
 			} \
 			break; \
 		}

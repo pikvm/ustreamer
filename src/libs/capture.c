@@ -108,23 +108,6 @@ static int _capture_open_queue_buffers(us_capture_s *cap);
 static int _capture_open_export_to_dma(us_capture_s *cap);
 static int _capture_apply_resolution(us_capture_s *cap, uint width, uint height, float hz);
 
-static void _capture_apply_controls(const us_capture_s *cap);
-
-static int _capture_query_control(
-	const us_capture_s *cap,
-	struct v4l2_queryctrl *query,
-	const char *name,
-	uint cid,
-	bool quiet);
-
-static void _capture_set_control(
-	const us_capture_s *cap,
-	const struct v4l2_queryctrl *query,
-	const char *name,
-	uint cid,
-	int value,
-	bool quiet);
-
 static const char *_format_to_string_nullable(uint format);
 static const char *_format_to_string_supported(uint format);
 static const char *_standard_to_string(v4l2_std_id standard);
@@ -160,11 +143,13 @@ us_capture_s *us_capture_init(void) {
 	cap->n_bufs = us_get_cores_available() + 1;
 	cap->min_frame_size = 128;
 	cap->timeout = 1;
+	cap->ctl = us_controls_init();
 	cap->run = run;
 	return cap;
 }
 
 void us_capture_destroy(us_capture_s *cap) {
+	us_controls_destroy(cap->ctl);
 	free(cap->run);
 	free(cap);
 }
@@ -283,7 +268,7 @@ int us_capture_open(us_capture_s *cap) {
 			goto error;
 		}
 	}
-	_capture_apply_controls(cap);
+	us_controls_apply(cap->ctl, cap->run->fd);
 
 	enum v4l2_buf_type type = run->capture_type;
 	if (us_xioctl(run->fd, VIDIOC_STREAMON, &type) < 0) {
@@ -1359,111 +1344,6 @@ static int _capture_apply_resolution(us_capture_s *cap, uint width, uint height,
 	cap->run->height = height;
 	cap->run->hz = hz;
 	return 0;
-}
-
-static void _capture_apply_controls(const us_capture_s *cap) {
-#	define SET_CID_VALUE(x_cid, x_field, x_value, x_quiet) { \
-			struct v4l2_queryctrl m_query; \
-			if (_capture_query_control(cap, &m_query, #x_field, x_cid, x_quiet) == 0) { \
-				_capture_set_control(cap, &m_query, #x_field, x_cid, x_value, x_quiet); \
-			} \
-		}
-
-#	define SET_CID_DEFAULT(x_cid, x_field, x_quiet) { \
-			struct v4l2_queryctrl m_query; \
-			if (_capture_query_control(cap, &m_query, #x_field, x_cid, x_quiet) == 0) { \
-				_capture_set_control(cap, &m_query, #x_field, x_cid, m_query.default_value, x_quiet); \
-			} \
-		}
-
-#	define CONTROL_MANUAL_CID(x_cid, x_field) { \
-			if (cap->ctl.x_field.mode == CTL_MODE_VALUE) { \
-				SET_CID_VALUE(x_cid, x_field, cap->ctl.x_field.value, false); \
-			} else if (cap->ctl.x_field.mode == CTL_MODE_DEFAULT) { \
-				SET_CID_DEFAULT(x_cid, x_field, false); \
-			} \
-		}
-
-#	define CONTROL_AUTO_CID(x_cid_auto, x_cid_manual, x_field) { \
-			if (cap->ctl.x_field.mode == CTL_MODE_VALUE) { \
-				SET_CID_VALUE(x_cid_auto, x_field##_auto, 0, true); \
-				SET_CID_VALUE(x_cid_manual, x_field, cap->ctl.x_field.value, false); \
-			} else if (cap->ctl.x_field.mode == CTL_MODE_AUTO) { \
-				SET_CID_VALUE(x_cid_auto, x_field##_auto, 1, false); \
-			} else if (cap->ctl.x_field.mode == CTL_MODE_DEFAULT) { \
-				SET_CID_VALUE(x_cid_auto, x_field##_auto, 0, true); /* Reset inactive flag */ \
-				SET_CID_DEFAULT(x_cid_manual, x_field, false); \
-				SET_CID_DEFAULT(x_cid_auto, x_field##_auto, false); \
-			} \
-		}
-
-	CONTROL_AUTO_CID	(V4L2_CID_AUTOBRIGHTNESS,		V4L2_CID_BRIGHTNESS,				brightness);
-	CONTROL_MANUAL_CID	(								V4L2_CID_CONTRAST,					contrast);
-	CONTROL_MANUAL_CID	(								V4L2_CID_SATURATION,				saturation);
-	CONTROL_AUTO_CID	(V4L2_CID_HUE_AUTO,				V4L2_CID_HUE,						hue);
-	CONTROL_MANUAL_CID	(								V4L2_CID_GAMMA,						gamma);
-	CONTROL_MANUAL_CID	(								V4L2_CID_SHARPNESS,					sharpness);
-	CONTROL_MANUAL_CID	(								V4L2_CID_BACKLIGHT_COMPENSATION,	backlight_compensation);
-	CONTROL_AUTO_CID	(V4L2_CID_AUTO_WHITE_BALANCE,	V4L2_CID_WHITE_BALANCE_TEMPERATURE,	white_balance);
-	CONTROL_AUTO_CID	(V4L2_CID_AUTOGAIN,				V4L2_CID_GAIN,						gain);
-	CONTROL_MANUAL_CID	(								V4L2_CID_COLORFX,					color_effect);
-	CONTROL_MANUAL_CID	(								V4L2_CID_ROTATE,	   				rotate);
-	CONTROL_MANUAL_CID	(								V4L2_CID_VFLIP,						flip_vertical);
-	CONTROL_MANUAL_CID	(								V4L2_CID_HFLIP,						flip_horizontal);
-
-#	undef CONTROL_AUTO_CID
-#	undef CONTROL_MANUAL_CID
-#	undef SET_CID_DEFAULT
-#	undef SET_CID_VALUE
-}
-
-static int _capture_query_control(
-	const us_capture_s *cap,
-	struct v4l2_queryctrl *query,
-	const char *name,
-	uint cid,
-	bool quiet
-) {
-	// cppcheck-suppress redundantPointerOp
-	US_MEMSET_ZERO(*query);
-	query->id = cid;
-
-	if (us_xioctl(cap->run->fd, VIDIOC_QUERYCTRL, query) < 0 || query->flags & V4L2_CTRL_FLAG_DISABLED) {
-		if (!quiet) {
-			_LOG_ERROR("Changing control %s is unsupported", name);
-		}
-		return -1;
-	}
-	return 0;
-}
-
-static void _capture_set_control(
-	const us_capture_s *cap,
-	const struct v4l2_queryctrl *query,
-	const char *name,
-	uint cid,
-	int value,
-	bool quiet
-) {
-	if (value < query->minimum || value > query->maximum || value % query->step != 0) {
-		if (!quiet) {
-			_LOG_ERROR("Invalid value %d of control %s: min=%d, max=%d, default=%d, step=%u",
-				value, name, query->minimum, query->maximum, query->default_value, query->step);
-		}
-		return;
-	}
-
-	struct v4l2_control ctl = {
-		.id = cid,
-		.value = value,
-	};
-	if (us_xioctl(cap->run->fd, VIDIOC_S_CTRL, &ctl) < 0) {
-		if (!quiet) {
-			_LOG_PERROR("Can't set control %s", name);
-		}
-	} else if (!quiet) {
-		_LOG_INFO("Applying control %s: %d", name, ctl.value);
-	}
 }
 
 static const char *_format_to_string_nullable(uint format) {
