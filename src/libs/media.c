@@ -170,6 +170,8 @@ struct media_v2_topology *us_media_topology_init(int fd) {
 		goto error;
 	}
 
+	US_CALLOC(topology, 1);
+
 	if (us_xioctl(fd, MEDIA_IOC_G_TOPOLOGY, topology) < 0) {
 		_LOG_PERROR("Can't query media topology info");
 		goto error;
