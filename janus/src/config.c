@@ -64,7 +64,7 @@ us_config_s *us_config_init(const char *config_dir_path) {
 	if ((config->acap_dev_name = _get_value(jcfg, "acap", "device")) != NULL) {
 		config->acap_hz = _get_uint(jcfg, "acap", "sampling_rate", 0);
 		config->tc358743_dev_path = _get_value(jcfg, "acap", "tc358743");
-		if (config->acap_hz == 0 && config->tc358743_dev_path == NULL) {
+		if (config->acap_hz == 0 && !us_str_is_ok(config->tc358743_dev_path)) {
 			US_LOG_ERROR("Either acap.sampling_rate or acap.tc358743 required");
 			goto error;
 		}
@@ -95,7 +95,7 @@ void us_config_destroy(us_config_s *config) {
 static char *_get_value(janus_config *jcfg, const char *section, const char *option) {
 	janus_config_category *section_obj = janus_config_get_create(jcfg, NULL, janus_config_type_category, section);
 	janus_config_item *option_obj = janus_config_get(jcfg, section_obj, janus_config_type_item, option);
-	if (option_obj == NULL || option_obj->value == NULL || option_obj->value[0] == '\0') {
+	if (option_obj == NULL || !us_str_is_ok(option_obj->value)) {
 		return NULL;
 	}
 	return us_strdup(option_obj->value);

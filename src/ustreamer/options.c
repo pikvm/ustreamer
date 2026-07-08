@@ -569,7 +569,7 @@ int us_options_parse(
 	US_LOG_INFO("Starting PiKVM uStreamer %s ...", US_VERSION);
 
 #	define ADD_SINK(x_label, x_prefix) { \
-			if (x_prefix##_name && x_prefix##_name[0] != '\0') { \
+			if (us_str_is_ok(x_prefix##_name)) { \
 				opts->x_prefix = us_memsink_init_opened( \
 					x_label, \
 					x_prefix##_name, \

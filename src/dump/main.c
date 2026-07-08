@@ -177,14 +177,14 @@ int main(int argc, char *argv[]) {
 #	undef OPT_NUMBER
 #	undef OPT_SET
 
-	if (sink_name == NULL || sink_name[0] == '\0') {
+	if (!us_str_is_ok(sink_name)) {
 		puts("Missing option --sink. See --help for details.");
 		return 1;
 	}
 
 	_output_context_s ctx = {0};
 
-	if (out_path && out_path[0] != '\0') {
+	if (us_str_is_ok(out_path)) {
 		if ((ctx.v_out = (void*)us_output_file_init(out_path, out_json)) == NULL) {
 			return 1;
 		}

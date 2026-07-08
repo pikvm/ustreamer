@@ -183,7 +183,7 @@ int us_server_listen(us_server_s *server) {
 	us_stream_s *const stream = server->stream;
 
 	{
-		if (server->static_path[0] != '\0') {
+		if (us_str_is_ok(server->static_path)) {
 			_LOG_INFO("Enabling the file server: %s", server->static_path);
 			evhttp_set_gencb(run->http, _http_callback_static, (void*)server);
 		} else {
@@ -202,7 +202,7 @@ int us_server_listen(us_server_s *server) {
 
 	evhttp_set_timeout(run->http, server->timeout);
 
-	if (server->user[0] != '\0') {
+	if (us_str_is_ok(server->user)) {
 		char *encoded_token = NULL;
 
 		char *raw_token;
@@ -216,7 +216,7 @@ int us_server_listen(us_server_s *server) {
 		_LOG_INFO("Using HTTP basic auth");
 	}
 
-	if (server->unix_path[0] != '\0') {
+	if (us_str_is_ok(server->unix_path)) {
 		_LOG_DEBUG("Binding server to UNIX socket '%s' ...", server->unix_path);
 		if ((run->ext_fd = us_evhttp_bind_unix(
 			run->http,
@@ -264,7 +264,7 @@ static int _http_preprocess_request(struct evhttp_request *req, us_server_s *ser
 
 	atomic_store(&server->stream->run->http->last_req_ts, us_get_now_monotonic());
 
-	if (server->allow_origin[0] != '\0') {
+	if (us_str_is_ok(server->allow_origin)) {
 		const char *const cors_headers = us_evhttp_get_header(req, "Access-Control-Request-Headers");
 		const char *const cors_method = us_evhttp_get_header(req, "Access-Control-Request-Method");
 
@@ -666,7 +666,7 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 	if (client->need_initial) {
 		_A_EVBUFFER_ADD_PRINTF(buf, "HTTP/1.0 200 OK" RN);
 		
-		if (client->server->allow_origin[0] != '\0') {
+		if (us_str_is_ok(client->server->allow_origin)) {
 			const char *const cors_headers = us_evhttp_get_header(client->req, "Access-Control-Request-Headers");
 			const char *const cors_method = us_evhttp_get_header(client->req, "Access-Control-Request-Method");
 
@@ -693,8 +693,8 @@ static void _http_callback_stream_write(struct bufferevent *buf_event, void *v_c
 			"Content-Type: multipart/x-mixed-replace;boundary=" BOUNDARY RN
 			RN
 			"--" BOUNDARY RN,
-			(server->instance_id[0] == '\0' ? "" : "_"),
-			server->instance_id,
+			(us_str_is_ok(server->instance_id) ? "_" : ""),
+			(us_str_is_ok(server->instance_id) ? server->instance_id : ""),
 			(client->key != NULL ? client->key : "0"),
 			client->id);
 

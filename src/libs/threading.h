@@ -100,7 +100,7 @@ INLINE void us_thread_get_name(char *name) { // Always required for logging
 		|| (defined(__OpenBSD__) && defined(OpenBSD) && OpenBSD >= 201905) \
 		|| defined(__DragonFly__)
 	pthread_get_name_np(pthread_self(), name, US_THREAD_NAME_SIZE); // Also null-terminated
-	if (name[0] != '\0') {
+	if (us_str_is_ok(name)) {
 		retval = 0;
 	}
 #	else

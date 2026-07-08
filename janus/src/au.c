@@ -38,7 +38,7 @@ bool us_au_probe(const char *name) {
 	// the existence of it in /proc/asound/.
 	// It's enough for our case.
 
-	if (name == NULL) {
+	if (!us_str_is_ok(name)) {
 		return false;
 	}
 

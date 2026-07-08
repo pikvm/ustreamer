@@ -92,6 +92,10 @@ INLINE char *us_strdup(const char *str) {
 	return new;
 }
 
+INLINE bool us_str_is_ok(const char *str) {
+	return (str != NULL && str[0] != '\0');
+}
+
 INLINE const char *us_bool_to_string(bool flag) {
 	return (flag ? "true" : "false");
 }

@@ -197,7 +197,7 @@ int us_capture_open(us_capture_s *cap) {
 	}
 	_LOG_DEBUG("Capture device fd=%d opened", run->fd);
 
-	if (cap->dv_timings && cap->media_path[0] != '\0') {
+	if (cap->dv_timings && us_str_is_ok(cap->media_path)) {
 		if (_capture_open_media_pads(cap) < 0) {
 			goto error_no_device;
 		}
@@ -232,7 +232,7 @@ int us_capture_open(us_capture_s *cap) {
 	if (cap->dv_timings && _capture_open_dv_timings(cap, true) < 0) {
 		goto error;
 	}
-	if (cap->dv_timings && cap->media_path[0] != '\0') {
+	if (cap->dv_timings && us_str_is_ok(cap->media_path)) {
 		US_ARRAY_ITERATE(run->media_pads, 0, pad, {
 			if (pad->fd >= -1 && _capture_open_media_format(cap, pad) < 0) {
 				goto error;

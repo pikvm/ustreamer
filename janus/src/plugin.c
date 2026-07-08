@@ -192,10 +192,7 @@ static int _get_acap_hz(uint *hz) {
 		*hz = _g_config->acap_hz;
 		return 0;
 	}
-	if (_g_config->tc358743_dev_path == NULL) {
-		US_LOG_ERROR("No configured sampling rate");
-		return -1;
-	}
+	US_A(us_str_is_ok(_g_config->tc358743_dev_path));
 	const int fd = open(_g_config->tc358743_dev_path, O_RDWR);
 	if (fd < 0) {
 		US_LOG_PERROR("Can't open TC358743 V4L2 device");
@@ -408,7 +405,10 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	US_LOGGING_INIT;
 
 	US_LOG_INFO("Initializing PiKVM uStreamer plugin %s ...", US_VERSION);
-	if (gw == NULL || config_dir_path == NULL || ((_g_config = us_config_init(config_dir_path)) == NULL)) {
+	if (gw == NULL || !us_str_is_ok(config_dir_path)) {
+		return -1;
+	}
+	if ((_g_config = us_config_init(config_dir_path)) == NULL) {
 		return -1;
 	}
 	_g_gw = gw;
