@@ -186,30 +186,6 @@ static void *_video_sink_thread(void *arg) {
 	return NULL;
 }
 
-static int _get_acap_hz(uint *hz) {
-	*hz = 0;
-	if (_g_config->acap_hz != 0) {
-		*hz = _g_config->acap_hz;
-		return 0;
-	}
-	US_A(us_str_is_ok(_g_config->tc358743_dev_path));
-	const int fd = open(_g_config->tc358743_dev_path, O_RDWR);
-	if (fd < 0) {
-		US_LOG_PERROR("Can't open TC358743 V4L2 device");
-		return -1;
-	}
-	const int result = us_chip_tc358743_get_audio_hz(fd);
-	if (result > 0) {
-		*hz = result;
-	} else if (result != US_ERROR_NO_SIGNAL) {
-		US_LOG_PERROR("Can't check TC358743 audio state (%d)", result);
-		close(fd);
-		return -1;
-	}
-	close(fd);
-	return 0;
-}
-
 static void *_acap_thread(void *arg) {
 	(void)arg;
 	US_THREAD_SETTLE("us_p_acap");
@@ -226,21 +202,34 @@ static void *_acap_thread(void *arg) {
 			continue;
 		}
 
-		uint hz = 0;
+		int chip_fd = -1;
 		us_acap_s *acap = NULL;
 
 		if (!us_au_probe(_g_config->acap_dev_name)) {
 			US_ONCE({ US_LOG_ERROR("No PCM capture device"); });
 			goto close_acap;
 		}
-		if (_get_acap_hz(&hz) < 0) {
-			goto close_acap;
+
+		int hz = _g_config->acap_hz;
+		if (hz <= 0) {
+			US_A(us_str_is_ok(_g_config->tc358743_dev_path));
+			chip_fd = open(_g_config->tc358743_dev_path, O_RDWR);
+			if (chip_fd < 0) {
+				US_ONCE({ US_LOG_PERROR("Can't open TC358743 for the audio request"); });
+				goto close_acap;
+			}
+
+			int hz = us_chip_tc358743_get_audio_hz(chip_fd);
+			if (hz == US_ERROR_NO_SIGNAL) {
+				US_ONCE({ US_LOG_INFO("No audio presented from the host"); });
+				goto close_acap;
+			} else if (hz <= 0) {
+				US_ONCE({ US_LOG_PERROR("Can't get audio HZ"); });
+				goto close_acap;
+			}
+			US_ONCE({ US_LOG_INFO("Detected host audio"); });
 		}
-		if (hz == 0) {
-			US_ONCE({ US_LOG_INFO("No audio presented from the host"); });
-			goto close_acap;
-		}
-		US_ONCE({ US_LOG_INFO("Detected host audio"); });
+
 		if ((acap = us_acap_init(_g_config->acap_dev_name, hz)) == NULL) {
 			goto close_acap;
 		}
@@ -248,7 +237,7 @@ static void *_acap_thread(void *arg) {
 		once = 0;
 
 		while (!_STOP && _HAS_WATCHERS && _HAS_LISTENERS) {
-			if (_get_acap_hz(&hz) < 0 || acap->pcm_hz != hz) {
+			if (chip_fd >= 0 && us_chip_tc358743_get_audio_hz(chip_fd) != (int)acap->pcm_hz) {
 				goto close_acap;
 			}
 			uz size = US_RTP_TOTAL_SIZE - US_RTP_HEADER_SIZE;
@@ -266,6 +255,7 @@ static void *_acap_thread(void *arg) {
 
 	close_acap:
 		US_DELETE(acap, us_acap_destroy);
+		US_CLOSE_FD(chip_fd);
 		sleep(1); // error_delay
 	}
 	return NULL;
