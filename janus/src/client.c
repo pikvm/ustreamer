@@ -25,7 +25,6 @@
 #include <stdlib.h>
 #include <stdatomic.h>
 #include <string.h>
-#include <assert.h>
 
 #include <pthread.h>
 #include <janus/plugins/plugin.h>
@@ -169,7 +168,7 @@ static void *_acap_thread(void *v_client) {
 static void *_video_or_acap_thread(void *v_client, bool video) {
 	us_janus_client_s *const client = v_client;
 	us_ring_s *const ring = (video ? client->video_ring : client->acap_ring);
-	assert(ring != NULL);
+	US_A(ring != NULL);
 
 	while (!atomic_load(&client->stop)) {
 		const int ri = us_ring_consumer_acquire(ring, 0.1);
@@ -242,7 +241,7 @@ static void *_aplay_thread(void *v_client) {
 
 	int err;
 	OpusDecoder *dec = opus_decoder_create(US_RTP_OPUS_HZ, US_RTP_OPUS_CH, &err);
-	assert(err == 0);
+	US_A(err == 0);
 
 	while (!atomic_load(&client->stop)) {
 		const int in_ri = us_ring_consumer_acquire(client->aplay_enc_ring, 0.1);

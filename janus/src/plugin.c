@@ -25,7 +25,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <assert.h>
 
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -191,8 +190,8 @@ static void *_acap_thread(void *arg) {
 	US_THREAD_SETTLE("us_p_acap");
 	atomic_store(&_g_acap_tid_created, true);
 
-	assert(_g_config->acap_dev_name != NULL);
-	assert(_g_rtpa != NULL);
+	US_A(_g_config->acap_dev_name != NULL);
+	US_A(_g_rtpa != NULL);
 
 	int once = 0;
 
@@ -266,7 +265,7 @@ static void *_aplay_thread(void *arg) {
 	US_THREAD_SETTLE("us_p_aplay");
 	atomic_store(&_g_aplay_tid_created, true);
 
-	assert(_g_config->aplay_dev_name != NULL);
+	US_A(_g_config->aplay_dev_name != NULL);
 
 	int once = 0;
 

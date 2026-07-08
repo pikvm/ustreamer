@@ -24,7 +24,6 @@
 
 #include <stdlib.h>
 #include <stdatomic.h>
-#include <assert.h>
 
 #include <pthread.h>
 #include <alsa/asoundlib.h>
@@ -63,7 +62,7 @@ us_acap_s *us_acap_init(const char *name, uint pcm_hz) {
 			US_LOG_PERROR_ALSA(err, "Can't open PCM capture");
 			goto error;
 		}
-		assert(!snd_pcm_hw_params_malloc(&acap->dev_params));
+		US_A(!snd_pcm_hw_params_malloc(&acap->dev_params));
 
 #		define SET_PARAM(_msg, _func, ...) { \
 				if ((err = _func(acap->dev, acap->dev_params, ##__VA_ARGS__)) < 0) { \
@@ -101,12 +100,12 @@ us_acap_s *us_acap_init(const char *name, uint pcm_hz) {
 	{
 		// OPUS_APPLICATION_VOIP, OPUS_APPLICATION_RESTRICTED_LOWDELAY
 		acap->enc = opus_encoder_create(US_RTP_OPUS_HZ, US_RTP_OPUS_CH, OPUS_APPLICATION_AUDIO, &err);
-		assert(err == 0);
+		US_A(err == 0);
 		// https://github.com/meetecho/janus-gateway/blob/3cdd6ff/src/plugins/janus_audiobridge.c#L2272
 		// https://datatracker.ietf.org/doc/html/rfc7587#section-3.1.1
-		assert(!opus_encoder_ctl(acap->enc, OPUS_SET_BITRATE(128000)));
-		assert(!opus_encoder_ctl(acap->enc, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_FULLBAND)));
-		assert(!opus_encoder_ctl(acap->enc, OPUS_SET_SIGNAL(OPUS_SIGNAL_MUSIC)));
+		US_A(!opus_encoder_ctl(acap->enc, OPUS_SET_BITRATE(128000)));
+		US_A(!opus_encoder_ctl(acap->enc, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_FULLBAND)));
+		US_A(!opus_encoder_ctl(acap->enc, OPUS_SET_SIGNAL(OPUS_SIGNAL_MUSIC)));
 		// OPUS_SET_INBAND_FEC(1), OPUS_SET_PACKET_LOSS_PERC(10): see rtpa.c
 	}
 
@@ -205,13 +204,13 @@ static void *_encoder_thread(void *v_acap) {
 
 		s16 *in_ptr;
 		if (acap->res != NULL) {
-			assert(acap->pcm_hz != US_RTP_OPUS_HZ);
+			US_A(acap->pcm_hz != US_RTP_OPUS_HZ);
 			u32 in_count = acap->pcm_frames;
 			u32 out_count = US_AU_HZ_TO_FRAMES(US_RTP_OPUS_HZ);
 			speex_resampler_process_interleaved_int(acap->res, in->data, &in_count, in_res, &out_count);
 			in_ptr = in_res;
 		} else {
-			assert(acap->pcm_hz == US_RTP_OPUS_HZ);
+			US_A(acap->pcm_hz == US_RTP_OPUS_HZ);
 			in_ptr = in->data;
 		}
 
