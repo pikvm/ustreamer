@@ -38,7 +38,6 @@
 
 #include <pthread.h>
 #include <linux/videodev2.h>
-#include <linux/v4l2-controls.h>
 #include <linux/media.h>
 #include <linux/v4l2-subdev.h>
 
@@ -50,8 +49,8 @@
 #include "threading.h"
 #include "frame.h"
 #include "xioctl.h"
-#include "tc358743.h"
 #include "media.h"
+#include "chip.h"
 
 
 static const struct {
@@ -208,11 +207,10 @@ int us_capture_open(us_capture_s *cap) {
 	}
 
 	if (cap->dv_timings && cap->persistent) {
-		struct v4l2_control ctl = {.id = V4L2_CID_DV_RX_POWER_PRESENT};
-		if (!us_xioctl(run->fd, VIDIOC_G_CTRL, &ctl)) {
-			if (!ctl.value) {
-				goto error_no_cable;
-			}
+		_LOG_DEBUG("Probing the cable ...")
+		switch (us_chip_check_cable(run->fd)) {
+			case 0: break;
+			case US_ERROR_NO_CABLE: goto error_no_cable;
 		}
 		_LOG_DEBUG("Probing DV-timings or QuerySTD ...");
 		switch (_capture_open_dv_timings(cap, false)) {
@@ -245,12 +243,9 @@ int us_capture_open(us_capture_s *cap) {
 		goto error;
 	}
 	if (cap->dv_timings && cap->persistent) {
-		struct v4l2_control ctl = {.id = TC358743_CID_LANES_ENOUGH};
-		if (!us_xioctl(run->fd, VIDIOC_G_CTRL, &ctl)) {
-			if (!ctl.value) {
-				_LOG_ERROR("Not enough lanes, hardware can't handle this signal");
-				goto error_no_lanes;
-			}
+		switch (us_chip_tc358743_check_lanes(run->fd)) {
+			case 0: break;
+			case US_ERROR_NO_LANES: goto error_no_lanes;
 		}
 	}
 	_capture_open_hw_fps(cap);
@@ -300,6 +295,7 @@ error_no_sync:
 	return US_ERROR_NO_SYNC;
 
 error_no_lanes:
+	US_ONCE_FOR(run->open_error_once, __LINE__, { _LOG_ERROR("Not enough lanes, the hardware can't handle this signal"); });
 	us_capture_close(cap);
 	return US_ERROR_NO_LANES;
 

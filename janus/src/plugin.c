@@ -46,7 +46,7 @@
 #include "uslibs/list.h"
 #include "uslibs/ring.h"
 #include "uslibs/memsink.h"
-#include "uslibs/tc358743.h"
+#include "uslibs/chip.h"
 
 #include "const.h"
 #include "client.h"
@@ -187,6 +187,7 @@ static void *_video_sink_thread(void *arg) {
 }
 
 static int _get_acap_hz(uint *hz) {
+	*hz = 0;
 	if (_g_config->acap_hz != 0) {
 		*hz = _g_config->acap_hz;
 		return 0;
@@ -195,14 +196,16 @@ static int _get_acap_hz(uint *hz) {
 		US_LOG_ERROR("No configured sampling rate");
 		return -1;
 	}
-	int fd;
-	if ((fd = open(_g_config->tc358743_dev_path, O_RDWR)) < 0) {
+	const int fd = open(_g_config->tc358743_dev_path, O_RDWR);
+	if (fd < 0) {
 		US_LOG_PERROR("Can't open TC358743 V4L2 device");
 		return -1;
 	}
-	const int checked = us_tc358743_xioctl_get_audio_hz(fd, hz);
-	if (checked < 0) {
-		US_LOG_PERROR("Can't check TC358743 audio state (%d)", checked);
+	const int result = us_chip_tc358743_get_audio_hz(fd);
+	if (result > 0) {
+		*hz = result;
+	} else if (result != US_ERROR_NO_SIGNAL) {
+		US_LOG_PERROR("Can't check TC358743 audio state (%d)", result);
 		close(fd);
 		return -1;
 	}
