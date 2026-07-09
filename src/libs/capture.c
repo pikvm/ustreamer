@@ -68,9 +68,9 @@ static const struct {
 	const uint format; // cppcheck-suppress unusedStructMember
 	const uint media_format; // cppcheck-suppress unusedStructMember
 } _FORMATS[] = {
-	{"YUYV",	V4L2_PIX_FMT_YUYV,		MEDIA_BUS_FMT_YUYV8_2X8},
-	{"YVYU",	V4L2_PIX_FMT_YVYU,		MEDIA_BUS_FMT_YVYU8_2X8},
-	{"UYVY",	V4L2_PIX_FMT_UYVY,		MEDIA_BUS_FMT_UYVY8_2X8},
+	{"YUYV",	V4L2_PIX_FMT_YUYV,		MEDIA_BUS_FMT_YUYV8_1X16},
+	{"YVYU",	V4L2_PIX_FMT_YVYU,		MEDIA_BUS_FMT_YVYU8_1X16},
+	{"UYVY",	V4L2_PIX_FMT_UYVY,		MEDIA_BUS_FMT_UYVY8_1X16},
 	{"YUV420",	V4L2_PIX_FMT_YUV420,	MEDIA_BUS_FMT_YUV8_1X24},
 	{"YVU420",	V4L2_PIX_FMT_YVU420,	0},
 	{"GREY",	V4L2_PIX_FMT_GREY,		MEDIA_BUS_FMT_Y8_1X8},
