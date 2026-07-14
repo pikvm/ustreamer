@@ -218,7 +218,7 @@ static void *_acap_thread(void *arg) {
 				goto close_acap;
 			}
 
-			int hz = us_chip_tc358743_get_audio_hz(chip_fd);
+			hz = us_chip_tc358743_get_audio_hz(chip_fd);
 			if (hz == US_ERROR_NO_SIGNAL) {
 				US_ONCE({ US_LOG_INFO("No audio presented from the host"); });
 				goto close_acap;
