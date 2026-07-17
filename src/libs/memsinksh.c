@@ -71,7 +71,7 @@ u8 *us_memsinksh_get_data(us_memsink_shared_s *mem) {
 	return (u8*)(mem) + sizeof(us_memsink_shared_s);
 }
 
-bool us_memsinksh_has_clients(us_memsink_shared_s *mem, u32 ttl) {
+bool us_memsinksh_has_clients(const us_memsink_shared_s *mem, u32 ttl) {
 	return (
 		mem->client_magic == US_MEMSINK_MAGIC
 		&& mem->last_client_ts + ttl > us_get_now_monotonic()

@@ -57,4 +57,4 @@ int us_memsinksh_unmap(us_memsink_shared_s *mem, uz data_size);
 
 uz us_memsinksh_calculate_size(const char *obj);
 u8 *us_memsinksh_get_data(us_memsink_shared_s *mem);
-bool us_memsinksh_has_clients(us_memsink_shared_s *mem, u32 ttl);
+bool us_memsinksh_has_clients(const us_memsink_shared_s *mem, u32 ttl);
