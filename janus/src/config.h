@@ -37,6 +37,7 @@ typedef struct {
 
 	char	*vplay_sink_name;
 	uint	vplay_sink_mode;
+	char	*vplay_dev_path;
 } us_config_s;
 
 

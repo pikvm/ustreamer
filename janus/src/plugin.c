@@ -386,6 +386,7 @@ static void *_aplay_thread(void *arg) {
 	return NULL;
 }
 
+static bool _is_camera_enabled(void);
 static void _camera_set_active(uint width, uint height, uint fps);
 static void _camera_set_inactive();
 
@@ -615,6 +616,16 @@ static void _push_camera_event(us_janus_client_s *client, bool requested) {
 	json_decref(event);
 }
 
+static bool _is_camera_enabled(void) {
+	bool enabled = us_str_is_ok(_g_config->vplay_sink_name);
+	if (enabled && us_str_is_ok(_g_config->vplay_dev_path)) {
+		if (access(_g_config->vplay_dev_path, F_OK) != 0) {
+			enabled = false;
+		}
+	}
+	return enabled;
+}
+
 static void _camera_set_active(uint width, uint height, uint fps) {
 	_LOCK_VPLAY;
 	US_A(!_g_camera.active);
@@ -787,7 +798,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 					}
 				READ_BOOL(with_acap, "audio", us_au_probe(_g_config->acap_dev_name));
 				READ_BOOL(with_aplay, "mic", us_au_probe(_g_config->aplay_dev_name));
-				READ_BOOL(with_vplay, "camera", us_str_is_ok(_g_config->vplay_sink_name));
+				READ_BOOL(with_vplay, "camera", _is_camera_enabled());
 #				undef READ_BOOL
 				{
 					json_t *const obj = json_object_get(params, "orientation");
@@ -858,7 +869,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 			"audio", us_au_probe(_g_config->acap_dev_name),
 			"mic", us_au_probe(_g_config->aplay_dev_name),
 			"camera",
-				"enabled", us_str_is_ok(_g_config->vplay_sink_name),
+				"enabled", _is_camera_enabled(),
 				"request", camera_req,
 			"ice",
 				"url", (ice_url != NULL ? ice_url : _g_default_ice_url)

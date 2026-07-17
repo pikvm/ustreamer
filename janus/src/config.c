@@ -77,6 +77,7 @@ us_config_s *us_config_init(const char *config_dir_path) {
 
 	config->vplay_sink_name = _get_value(jcfg, "vplay", "sink");
 	config->vplay_sink_mode = _get_uint(jcfg, "vplay", "sink_mode", 0660, 8);
+	config->vplay_dev_path = _get_value(jcfg, "vplay", "device");
 
 	goto ok;
 
@@ -95,6 +96,7 @@ void us_config_destroy(us_config_s *config) {
 	US_DELETE(config->tc358743_dev_path, free);
 	US_DELETE(config->aplay_dev_name, free);
 	US_DELETE(config->vplay_sink_name, free);
+	US_DELETE(config->vplay_dev_path, free);
 	free(config);
 }
 
