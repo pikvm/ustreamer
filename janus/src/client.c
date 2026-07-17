@@ -38,10 +38,13 @@
 #include "uslibs/array.h"
 #include "uslibs/list.h"
 #include "uslibs/ring.h"
+#include "uslibs/frame.h"
 
 #include "au.h"
 #include "rtp.h"
 
+
+static us_frame_s *_add_vplay_frame_to_ring(us_frame_s *frame, void *v_client);
 
 static void *_video_thread(void *v_client);
 static void *_acap_thread(void *v_client);
@@ -60,6 +63,7 @@ us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_sessio
 	atomic_init(&client->transmit, false);
 	atomic_init(&client->transmit_acap, false);
 	atomic_init(&client->transmit_aplay, false);
+	atomic_init(&client->transmit_vplay, false);
 	atomic_init(&client->video_orient, 0);
 
 	atomic_init(&client->stop, false);
@@ -73,6 +77,8 @@ us_janus_client_s *us_janus_client_init(janus_callbacks *gw, janus_plugin_sessio
 	US_RING_INIT_WITH_ITEMS(client->aplay_enc_ring, 64, us_au_encoded_init);
 	US_RING_INIT_WITH_ITEMS(client->aplay_pcm_ring, 64, us_au_pcm_init);
 	US_THREAD_CREATE(client->aplay_tid, _aplay_thread, client);
+
+	client->rtpc = us_rtpc_init(_add_vplay_frame_to_ring, client);
 
 	return client;
 }
@@ -89,6 +95,9 @@ void us_janus_client_destroy(us_janus_client_s *client) {
 	US_THREAD_JOIN(client->aplay_tid);
 	US_RING_DELETE_WITH_ITEMS(client->aplay_enc_ring, us_au_encoded_destroy);
 	US_RING_DELETE_WITH_ITEMS(client->aplay_pcm_ring, us_au_pcm_destroy);
+
+	us_rtpc_destroy(client->rtpc);
+	// us_janus_client_stop_vplay(client);
 
 	free(client);
 }
@@ -110,50 +119,99 @@ void us_janus_client_send(us_janus_client_s *client, const us_rtp_s *rtp) {
 	}
 }
 
+static us_frame_s *_add_vplay_frame_to_ring(us_frame_s *ready_frame, void *v_client) {
+	us_janus_client_s *const client = v_client;
+
+	us_ring_s *const ring = client->vplay_enc_ring;
+	if (!ring) {
+		US_LOG_ERROR("Session %p has no vplay ring", client->session);
+		return ready_frame;
+	}
+
+	const int ri = us_ring_producer_acquire(ring, 0);
+	if (ri < 0) {
+		US_LOG_ERROR("Session %p vplay ring is full", client->session);
+		return ready_frame;
+	}
+
+	us_frame_s *const next_frame = ring->items[ri];
+	ring->items[ri] = ready_frame;
+	us_ring_producer_release(ring, ri);
+
+	return next_frame;
+}
+
 void us_janus_client_recv(us_janus_client_s *client, janus_plugin_rtp *packet) {
-	if (
-		packet->video
-		|| packet->length < sizeof(janus_rtp_header)
-		|| !atomic_load(&client->transmit)
-		|| !atomic_load(&client->transmit_aplay)
-	) {
+	if (packet->length < sizeof(janus_rtp_header) || !atomic_load(&client->transmit)) {
 		return;
 	}
 
+	int payload_size = 0;
+	const u8 *const payload = (u8 *)janus_rtp_payload(packet->buffer, packet->length, &payload_size);
+	if (payload == NULL || payload_size < 1) {
+		return;
+	}
 	const janus_rtp_header *const header = (janus_rtp_header*)packet->buffer;
-	if (header->type != US_RTP_OPUS_PAYLOAD) {
-		return;
-	}
-
 	const u16 seq = ntohs(header->seq_number);
-	if (
-		seq >= client->aplay_seq_next // In order or missing
-		|| (client->aplay_seq_next - seq) > 50 // In late sequence or sequence wrapped
-	) {
-		client->aplay_seq_next = seq + 1;
 
-		int size = 0;
-		const char *const data = janus_rtp_payload(packet->buffer, packet->length, &size);
-		if (data == NULL || size <= 0) {
-			return;
+	if (packet->video) {
+		if (header->type == US_RTP_H264_PAYLOAD && atomic_load(&client->transmit_vplay)) {
+			const u32 rts = ntohl(header->timestamp); // RTS == RTP TimeStamp
+			bool retry;
+			do {
+				retry = false;
+				switch (us_rtpc_unwrap(client->rtpc, payload, payload_size, seq, rts)) {
+					case US_RUR_SUCCESS:
+					case US_RUR_BAD_PACKET:
+					case US_RUR_INVALID_SEQ:
+					case US_RUR_UNSUPPORTED_UNIT_TYPE:
+					case US_RUR_DEPACKETIZATION_SKIPPED:
+						break;
+					case US_RUR_DEPACKETIZATION_FAILED_RETRY:
+						retry = true;
+						// fall through
+					case US_RUR_DEPACKETIZATION_FAILED:
+						client->gw->send_pli(client->session);
+						break;
+				}
+			} while (retry);
 		}
-
-		us_ring_s *const ring = client->aplay_enc_ring;
-		const int ri = us_ring_producer_acquire(ring, 0);
-		if (ri < 0) {
-			// US_LOG_ERROR("Session %p aplay ring is full", client->session);
-			return;
+	} else {
+		if (header->type == US_RTP_OPUS_PAYLOAD && atomic_load(&client->transmit_aplay)) {
+			if (seq >= client->aplay_seq_next || (client->aplay_seq_next - seq) > 50) {
+				// ^^^ In order or missing   |OR| ^^^ In late sequence or sequence wrapped
+				client->aplay_seq_next = seq + 1;
+				us_ring_s *const ring = client->aplay_enc_ring;
+				const int ri = us_ring_producer_acquire(ring, 0);
+				if (ri < 0) {
+					// US_LOG_ERROR("Session %p aplay ring is full", client->session);
+					return;
+				}
+				us_au_encoded_s *enc = ring->items[ri];
+				if ((uz)payload_size < US_ARRAY_LEN(enc->data)) {
+					memcpy(enc->data, payload, payload_size);
+					enc->used = payload_size;
+				} else {
+					enc->used = 0;
+				}
+				us_ring_producer_release(ring, ri);
+			}
 		}
-		us_au_encoded_s *enc = ring->items[ri];
-		if ((uz)size < US_ARRAY_LEN(enc->data)) {
-			memcpy(enc->data, data, size);
-			enc->used = size;
-		} else {
-			enc->used = 0;
-		}
-		us_ring_producer_release(ring, ri);
 	}
 }
+
+void us_janus_client_start_vplay(us_janus_client_s *client, us_ring_s* vplay_enc_ring) {
+	if (atomic_exchange(&client->transmit_vplay, true)) {
+		return;
+	}
+	US_A(client->vplay_enc_ring == NULL);
+	client->vplay_enc_ring = vplay_enc_ring;
+}
+
+/*void us_janus_client_stop_vplay(us_janus_client_s *client) {
+	atomic_store(&client->transmit_vplay, false);
+	client->vplay_enc_ring = NULL;
+}*/
 
 static void *_video_thread(void *v_client) {
 	US_THREAD_SETTLE("us_cx_vcap");

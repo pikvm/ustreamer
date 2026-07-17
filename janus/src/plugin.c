@@ -26,15 +26,13 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include <sys/mman.h>
-#include <sys/stat.h>
-
 #include <pthread.h>
 #include <jansson.h>
 #include <janus/plugins/plugin.h>
 #include <janus/rtp.h>
 #include <janus/rtcp.h>
 #include <alsa/asoundlib.h>
+#include <linux/videodev2.h>
 
 #include "uslibs/types.h"
 #include "uslibs/const.h"
@@ -46,6 +44,7 @@
 #include "uslibs/ring.h"
 #include "uslibs/memsink.h"
 #include "uslibs/chip.h"
+#include "uslibs/memsink.h"
 
 #include "const.h"
 #include "client.h"
@@ -58,7 +57,7 @@
 #include "config.h"
 
 
-static const char *const	default_ice_url = "stun:stun.l.google.com:19302";
+static const char *const	_g_default_ice_url = "stun:stun.l.google.com:19302";
 
 static us_config_s		*_g_config = NULL;
 static const useconds_t	_g_watchers_polling = 100000;
@@ -66,6 +65,7 @@ static const useconds_t	_g_watchers_polling = 100000;
 static us_janus_client_s	*_g_clients = NULL;
 static janus_callbacks		*_g_gw = NULL;
 static us_ring_s			*_g_video_ring = NULL;
+static us_ring_s			*_g_vplay_ring = NULL;
 static us_rtpv_s			*_g_rtpv = NULL;
 static us_rtpa_s			*_g_rtpa = NULL;
 
@@ -73,12 +73,15 @@ static pthread_t		_g_video_rtp_tid;
 static atomic_bool		_g_video_rtp_tid_created = false;
 static pthread_t		_g_video_sink_tid;
 static atomic_bool		_g_video_sink_tid_created = false;
+static pthread_t		_g_vplay_tid;
+static atomic_bool		_g_vplay_tid_created = false;
 static pthread_t		_g_acap_tid;
 static atomic_bool		_g_acap_tid_created = false;
 static pthread_t		_g_aplay_tid;
 static atomic_bool		_g_aplay_tid_created = false;
 
 static pthread_mutex_t	_g_video_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t	_g_vplay_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t	_g_acap_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t	_g_aplay_lock = PTHREAD_MUTEX_INITIALIZER;
 static atomic_bool		_g_ready = false;
@@ -88,9 +91,20 @@ static atomic_bool		_g_has_listeners = false;
 static atomic_bool		_g_has_speakers = false;
 static atomic_bool		_g_key_required = false;
 
+static struct {
+	bool	active;
+	us_janus_client_s *client;
+	uint	width;
+	uint	height;
+	uint	fps;
+} _g_camera = {0}; // Access should be protected by _g_vplay_lock
+
 
 #define _LOCK_VIDEO		US_MUTEX_LOCK(_g_video_lock)
 #define _UNLOCK_VIDEO	US_MUTEX_UNLOCK(_g_video_lock)
+
+#define _LOCK_VPLAY		US_MUTEX_LOCK(_g_vplay_lock)
+#define _UNLOCK_VPLAY	US_MUTEX_UNLOCK(_g_vplay_lock)
 
 #define _LOCK_ACAP		US_MUTEX_LOCK(_g_acap_lock)
 #define _UNLOCK_ACAP	US_MUTEX_UNLOCK(_g_acap_lock)
@@ -98,8 +112,8 @@ static atomic_bool		_g_key_required = false;
 #define _LOCK_APLAY		US_MUTEX_LOCK(_g_aplay_lock)
 #define _UNLOCK_APLAY	US_MUTEX_UNLOCK(_g_aplay_lock)
 
-#define _LOCK_ALL		{ _LOCK_VIDEO; _LOCK_ACAP; _LOCK_APLAY; }
-#define _UNLOCK_ALL		{ _UNLOCK_APLAY; _UNLOCK_ACAP; _UNLOCK_VIDEO; }
+#define _LOCK_ALL		{ _LOCK_VIDEO; _LOCK_VPLAY; _LOCK_ACAP; _LOCK_APLAY; }
+#define _UNLOCK_ALL		{ _UNLOCK_APLAY; _UNLOCK_ACAP; _UNLOCK_VPLAY; _UNLOCK_VIDEO; }
 
 #define _READY			atomic_load(&_g_ready)
 #define _STOP			atomic_load(&_g_stop)
@@ -372,6 +386,120 @@ static void *_aplay_thread(void *arg) {
 	return NULL;
 }
 
+static void _camera_set_active(uint width, uint height, uint fps);
+static void _camera_set_inactive();
+
+static void *_vplay_thread(void *arg) {
+	(void)arg;
+	US_THREAD_SETTLE("us_p_vplay");
+	atomic_store(&_g_vplay_tid_created, true);
+
+	us_frame_s *frame = us_frame_init();
+
+	while (!_STOP) {
+		us_memsink_s* sink = us_memsink_init_opened(
+			"H264-CAM",
+			_g_config->vplay_sink_name,
+			true, // Server
+			_g_config->vplay_sink_mode,
+			false, // Don't remote sink on destroy
+			1, // Client TTL
+			1); // Timeout
+		if (sink == NULL) {
+			goto close_memsink;
+		}
+
+		const ldf memsink_check_interval = 1;
+		ldf last_memsink_check_time = 0;
+
+		int once = 0;
+		while (!_STOP) {
+			if (!_g_camera.active) {
+				frame->used = 0;
+			}
+
+			if (frame->used > 0 && (_g_camera.width != frame->width || _g_camera.height != frame->height)) {
+				US_ONCE({ US_LOG_INFO("Got WebRTC frame with wrong resolution"); });
+				frame->used = 0;
+			}
+
+			const ldf now_ts = us_get_now_monotonic();
+			if (frame->used > 0 || last_memsink_check_time + memsink_check_interval < now_ts) {
+				last_memsink_check_time = now_ts;
+
+				us_memsink_wants_s w_get = {0};
+				switch (us_memsink_server_x_lock(sink, &w_get)) {
+					case US_MSS_SUCCESS:
+						if (w_get.format == V4L2_PIX_FMT_H264) {
+							if (w_get.width == _g_camera.width && w_get.height == _g_camera.height) {
+								if (us_memsink_server_x_is_consumed(sink)) {
+									if (!_g_camera.active) {
+										_camera_set_active(w_get.width, w_get.height, w_get.fps);
+									} else if (frame->used > 0) {
+										US_ONCE({ US_LOG_INFO("Streaming to the camera ..."); });
+										us_memsink_server_x_put(sink, frame);
+										frame->used = 0;
+									}
+								} else {
+									if (!_g_camera.active) {
+										us_memsink_server_x_set_consumed(sink);
+									}
+								}
+							} else {
+								if (_g_camera.active) {
+									_camera_set_inactive();
+								}
+								_camera_set_active(w_get.width, w_get.height, w_get.fps);
+							}
+						} else {
+							US_ONCE({ US_LOG_ERROR("Got invalid format from the camera: %u", w_get.format); });
+						}
+						if (us_memsink_server_x_unlock(sink) < 0) {
+							goto close_memsink;
+						}
+						break;
+
+					case US_MSS_NO_CLIENT:
+						if (_g_camera.active) {
+							_camera_set_inactive();
+						}
+						break;
+
+					case US_MSS_BUSY: // Busy by some client
+						break;
+
+					case US_MSS_ERROR:
+					default:
+						goto close_memsink;
+				}
+			}
+
+			if (frame->used == 0) { // Frame sent, get a new one from a client
+				const int in_ri = us_ring_consumer_acquire(_g_vplay_ring, 0.1);
+				if (in_ri >= 0) {
+					us_frame_s *tmp_frame = frame;
+					frame = _g_vplay_ring->items[in_ri];
+					_g_vplay_ring->items[in_ri] = tmp_frame;
+					us_ring_consumer_release(_g_vplay_ring, in_ri);
+				}
+			} else {
+				if (_g_camera.active) {
+					US_ONCE({ US_LOG_INFO("No frames from WebRTC"); });
+				}
+				usleep(1000); // Don't iterate too frequently
+			}
+		}
+
+	close_memsink:
+		US_DELETE(sink, us_memsink_destroy);
+		US_LOG_INFO("Memsink closed");
+		sleep(1);
+	}
+
+	us_frame_destroy(frame);
+	return NULL;
+}
+
 static void _relay_rtp_clients(const us_rtp_s *rtp) {
 	US_LIST_ITERATE(_g_clients, client, {
 		us_janus_client_send(client, rtp);
@@ -408,13 +536,21 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 
 	US_RING_INIT_WITH_ITEMS(_g_video_ring, 64, us_frame_init);
 	_g_rtpv = us_rtpv_init(_relay_rtp_clients);
+
+	if (_g_config->vplay_sink_name != NULL) {
+		US_RING_INIT_WITH_ITEMS(_g_vplay_ring, 15, us_frame_init);
+		US_THREAD_CREATE(_g_vplay_tid, _vplay_thread, NULL);
+	}
+
 	if (_g_config->acap_dev_name != NULL) {
 		_g_rtpa = us_rtpa_init(_relay_rtp_clients);
 		US_THREAD_CREATE(_g_acap_tid, _acap_thread, NULL);
 	}
+
 	if (_g_config->aplay_dev_name != NULL) {
 		US_THREAD_CREATE(_g_aplay_tid, _aplay_thread, NULL);
 	}
+
 	US_THREAD_CREATE(_g_video_rtp_tid, _video_rtp_thread, NULL);
 	US_THREAD_CREATE(_g_video_sink_tid, _video_sink_thread, NULL);
 
@@ -427,17 +563,22 @@ static void _plugin_destroy(void) {
 
 	atomic_store(&_g_stop, true);
 #	define JOIN(_tid) { if (atomic_load(&_tid##_created)) { US_THREAD_JOIN(_tid); } }
+	JOIN(_g_aplay_tid);
+	JOIN(_g_acap_tid);
+	JOIN(_g_vplay_tid);
 	JOIN(_g_video_sink_tid);
 	JOIN(_g_video_rtp_tid);
-	JOIN(_g_acap_tid);
-	JOIN(_g_aplay_tid);
 #	undef JOIN
 
 	US_LIST_ITERATE(_g_clients, client, {
+		if (_g_camera.client == client) {
+			_g_camera.client = NULL;
+		}
 		US_LIST_REMOVE(_g_clients, client);
 		us_janus_client_destroy(client);
 	});
 
+	US_RING_DELETE_WITH_ITEMS(_g_vplay_ring, us_frame_destroy);
 	US_RING_DELETE_WITH_ITEMS(_g_video_ring, us_frame_destroy);
 
 	US_DELETE(_g_rtpa, us_rtpa_destroy);
@@ -445,6 +586,53 @@ static void _plugin_destroy(void) {
 	US_DELETE(_g_config, us_config_destroy);
 
 	US_LOGGING_DESTROY;
+}
+
+static void _push_camera_event(us_janus_client_s *client, bool requested) {
+	json_t *const json_event_type = json_string(requested ? "requested" : "released");
+
+	json_t *const camera = json_object();
+	json_object_set_new(camera, "action", json_event_type);
+
+	json_t *const result = json_object();
+	json_object_set_new(result, "ustreamer", json_string("event"));
+	json_object_set_new(result, "status", json_string("camera"));
+	json_object_set_new(result, "camera", camera);
+
+	json_t *const event = json_object();
+	json_object_set_new(event, "result", result);
+
+	if (client) {
+		_g_gw->push_event(client->session, create(), NULL, event, NULL);
+	} else {
+		US_LIST_ITERATE(_g_clients, client, {
+			_g_gw->push_event(client->session, create(), NULL, event, NULL);
+		});
+	}
+
+	json_decref(event);
+}
+
+static void _camera_set_active(uint width, uint height, uint fps) {
+	_LOCK_VPLAY;
+	US_A(!_g_camera.active);
+	_g_camera.active = true;
+	_g_camera.width = width;
+	_g_camera.height = height;
+	_g_camera.fps = fps;
+	_push_camera_event(_g_camera.client, true);
+	_UNLOCK_VPLAY;
+	US_LOG_INFO("Camera requested: %ux%u@%u", width, height, fps);
+}
+
+static void _camera_set_inactive() {
+	_LOCK_VPLAY;
+	US_A(_g_camera.active);
+	_g_camera.active = false;
+	_g_camera.client = NULL;
+	_push_camera_event(NULL, false);
+	_UNLOCK_VPLAY;
+	US_LOG_INFO("Camera released");
 }
 
 static void _plugin_create_session(janus_plugin_session *session, int *err) {
@@ -467,6 +655,9 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 	US_LIST_ITERATE(_g_clients, client, {
 		if (client->session == session) {
 			US_LOG_INFO("Removing session %p ...", session);
+			if (_g_camera.client == client) {
+				_g_camera.client = NULL; // Is it required to notify other clients?
+			}
 			US_LIST_REMOVE(_g_clients, client);
 			us_janus_client_destroy(client);
 			found = true;
@@ -611,6 +802,8 @@ static struct janus_plugin_result *_plugin_handle_message(
 
 		{
 			_LOCK_ALL;
+			with_vplay = (with_vplay && _g_camera.active && !_g_camera.client);
+
 			bool has_listeners = false;
 			bool has_speakers = false;
 			US_LIST_ITERATE(_g_clients, client, {
@@ -629,6 +822,10 @@ static struct janus_plugin_result *_plugin_handle_message(
 					atomic_store(&client->transmit_acap, with_acap);
 					atomic_store(&client->transmit_aplay, with_aplay);
 					atomic_store(&client->video_orient, video_orient);
+					if (with_vplay) {
+						us_janus_client_start_vplay(client, _g_vplay_ring);
+						_g_camera.client = client;
+					}
 				}
 				has_listeners = (has_listeners || atomic_load(&client->transmit_acap));
 				has_speakers = (has_speakers || atomic_load(&client->transmit_aplay));
@@ -640,12 +837,31 @@ static struct janus_plugin_result *_plugin_handle_message(
 
 	} else if (!strcmp(request_str, "features")) {
 		const char *const ice_url = getenv("JANUS_USTREAMER_WEB_ICE_URL");
+
+		_LOCK_VPLAY
+		json_t *camera_req = NULL;
+		if (_g_camera.active) {
+			json_t *resolution = json_object();
+			json_object_set_new(resolution, "width", json_integer(_g_camera.width));
+			json_object_set_new(resolution, "height", json_integer(_g_camera.height));
+
+			camera_req = json_object();
+			json_object_set_new(camera_req, "resolution", resolution);
+			json_object_set_new(camera_req, "fps", json_integer(_g_camera.fps));
+		}
+		_UNLOCK_VPLAY
+
 		json_t *const features = json_pack(
-			"{s:b, s:b, s:{s:s?}}",
+			"{s:b, s:b, s:{s:b, s:o*}, s:{s:s?}}",
 			"audio", us_au_probe(_g_config->acap_dev_name),
 			"mic", us_au_probe(_g_config->aplay_dev_name),
-			"ice", "url", (ice_url != NULL ? ice_url : default_ice_url)
+			"camera",
+				"enabled", (_g_config->vplay_sink_name != NULL),
+				"request", camera_req,
+			"ice",
+				"url", (ice_url != NULL ? ice_url : _g_default_ice_url)
 		);
+
 		PUSH_STATUS("features", features, NULL);
 		json_decref(features);
 
@@ -672,29 +888,59 @@ done:
 
 static void _plugin_incoming_rtp(janus_plugin_session *session, janus_plugin_rtp *packet) {
 	_IF_DISABLED({ return; });
-	if (session == NULL || packet == NULL || packet->video) {
-		return; // Accept only valid audio
+	if (session == NULL || packet == NULL) {
+		return; // Accept only valid packets
 	}
-	_LOCK_APLAY;
-	US_LIST_ITERATE(_g_clients, client, {
-		if (client->session == session) {
-			us_janus_client_recv(client, packet);
-			break;
+	if (packet->video) {
+		_LOCK_VPLAY;
+		if (_g_camera.client != NULL && _g_camera.client->session == session) {
+			us_janus_client_recv(_g_camera.client, packet);
 		}
-	});
-	_UNLOCK_APLAY;
+		_UNLOCK_VPLAY;
+	} else {
+		_LOCK_APLAY;
+		US_LIST_ITERATE(_g_clients, client, {
+			if (client->session == session) {
+				us_janus_client_recv(client, packet);
+				break;
+			}
+		});
+		_UNLOCK_APLAY;
+	}
 }
 
 static void _plugin_incoming_rtcp(janus_plugin_session *session, janus_plugin_rtcp *packet) {
 	_IF_DISABLED({ return; });
-	if (session == NULL || packet == NULL || !packet->video) {
-		return; // Accept only valid video
+	if (
+		session == NULL || packet == NULL || !packet->video
+		|| packet->length < sizeof(janus_rtcp_header)
+	) {
+		return;
 	}
+
 	if (
 		janus_rtcp_has_pli(packet->buffer, packet->length)
 		|| janus_rtcp_has_fir(packet->buffer, packet->length)
 	) {
 		atomic_store(&_g_key_required, true);
+	}
+
+	janus_rtcp_header *header = (janus_rtcp_header *)packet->buffer;
+
+	if (header->type == RTCP_SR && janus_rtcp_check_sr(header, packet->length)) {
+		const janus_rtcp_sr *const sr = (janus_rtcp_sr *)header;
+
+		if (sr->si.ntp_ts_msw && sr->si.ntp_ts_lsw) {
+			_LOCK_VPLAY;
+			US_LIST_ITERATE(_g_clients, client, {
+				if (client->session == session) {
+					const ldf ntp_ts = ntohl(sr->si.ntp_ts_msw) + ntohl(sr->si.ntp_ts_lsw) / 4294967296.L;
+					us_rtpc_sync_timestamp(client->rtpc, ntp_ts, ntohl(sr->si.rtp_ts));
+					break;
+				}
+			});
+			_UNLOCK_VPLAY;
+		}
 	}
 }
 

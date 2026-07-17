@@ -32,32 +32,39 @@
 #include "uslibs/ring.h"
 
 #include "rtp.h"
+#include "rtpv.h"
+#include "rtpc.h"
 
 
 typedef struct {
 	janus_callbacks			*gw;
 	janus_plugin_session	*session;
-	u32						video_ssrc;
-	u32						audio_ssrc;
 
-	atomic_bool				transmit;
-	atomic_bool				transmit_acap;
-	atomic_bool				transmit_aplay;
-	atomic_uint				video_orient;
+	u32			video_ssrc;
+	u32			audio_ssrc;
 
-	pthread_t				video_tid;
-	pthread_t				acap_tid;
-	pthread_t				aplay_tid;
-	atomic_bool				stop;
+	atomic_bool	transmit;
+	atomic_bool	transmit_acap;
+	atomic_bool	transmit_vplay;
+	atomic_bool	transmit_aplay;
+	atomic_uint	video_orient;
 
-	us_ring_s				*video_ring;
-	us_ring_s				*acap_ring;
+	pthread_t	video_tid;
+	pthread_t	acap_tid;
+	pthread_t	aplay_tid;
+	atomic_bool	stop;
 
-	us_ring_s				*aplay_enc_ring;
-	u16						aplay_seq_next;
-	us_ring_s				*aplay_pcm_ring;
+	us_ring_s	*video_ring;
+	us_ring_s	*acap_ring;
 
-    US_LIST_DECLARE;
+	us_ring_s	*aplay_enc_ring;
+	u16			aplay_seq_next;
+	us_ring_s	*aplay_pcm_ring;
+
+	us_rtpc_s	*rtpc;
+	us_ring_s	*vplay_enc_ring;
+
+	US_LIST_DECLARE;
 } us_janus_client_s;
 
 
@@ -66,3 +73,6 @@ void us_janus_client_destroy(us_janus_client_s *client);
 
 void us_janus_client_send(us_janus_client_s *client, const us_rtp_s *rtp);
 void us_janus_client_recv(us_janus_client_s *client, janus_plugin_rtp *packet);
+
+void us_janus_client_start_vplay(us_janus_client_s *client, us_ring_s* vplay_enc_ring);
+// void us_janus_client_stop_vplay(us_janus_client_s *client);

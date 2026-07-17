@@ -20,60 +20,9 @@
 *****************************************************************************/
 
 
-#include "memsinksh.h"
+#pragma once
 
-#include <string.h>
-#include <strings.h>
-
-#include <sys/mman.h>
-
-#include "types.h"
-#include "tools.h"
+#include "uslibs/types.h"
 
 
-us_memsink_shared_s *us_memsinksh_map(int fd, uz data_size) {
-	us_memsink_shared_s *mem = mmap(
-		NULL,
-		sizeof(us_memsink_shared_s) + data_size,
-		PROT_READ | PROT_WRITE, MAP_SHARED,
-		fd, 0);
-	if (mem == MAP_FAILED) {
-		return NULL;
-	}
-	US_A(mem != NULL);
-	return mem;
-}
-
-int us_memsinksh_unmap(us_memsink_shared_s *mem, uz data_size) {
-	US_A(mem != NULL);
-	return munmap(mem, sizeof(us_memsink_shared_s) + data_size);
-}
-
-uz us_memsinksh_calculate_size(const char *obj) {
-	const char *ptr = strrchr(obj, ':');
-	if (ptr == NULL) {
-		ptr = strrchr(obj, '.');
-	}
-	if (ptr != NULL) {
-		ptr += 1;
-		if (!strcasecmp(ptr, "jpeg")) {
-			return 4 * 1024 * 1024;
-		} else if (!strcasecmp(ptr, "h264")) {
-			return 2 * 1024 * 1024;
-		} else if (!strcasecmp(ptr, "raw")) {
-			return 3840 * 2160 * 3; // RGB
-		}
-	}
-	return 0;
-}
-
-u8 *us_memsinksh_get_data(us_memsink_shared_s *mem) {
-	return (u8*)(mem) + sizeof(us_memsink_shared_s);
-}
-
-bool us_memsinksh_has_clients(us_memsink_shared_s *mem, u32 ttl) {
-	return (
-		mem->client_magic == US_MEMSINK_MAGIC
-		&& mem->last_client_ts + ttl > us_get_now_monotonic()
-	);
-}
+int us_h264_parse_sps_nalu(const u8 *buf, uz size, uint *width, uint *height);

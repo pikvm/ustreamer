@@ -36,7 +36,7 @@
 
 
 static char *_get_value(janus_config *jcfg, const char *section, const char *option);
-static uint _get_uint(janus_config *jcfg, const char *section, const char *option, uint def);
+static uint _get_uint(janus_config *jcfg, const char *section, const char *option, uint def, uint base);
 // static bool _get_bool(janus_config *jcfg, const char *section, const char *option, bool def);
 
 
@@ -61,16 +61,20 @@ us_config_s *us_config_init(const char *config_dir_path) {
 		US_LOG_ERROR("Missing config value: video.sink");
 		goto error;
 	}
+
 	if ((config->acap_dev_name = _get_value(jcfg, "acap", "device")) != NULL) {
-		config->acap_hz = _get_uint(jcfg, "acap", "sampling_rate", 0);
+		config->acap_hz = _get_uint(jcfg, "acap", "sampling_rate", 0, 10);
 		config->tc358743_dev_path = _get_value(jcfg, "acap", "tc358743");
 		if (config->acap_hz == 0 && !us_str_is_ok(config->tc358743_dev_path)) {
 			US_LOG_ERROR("Either acap.sampling_rate or acap.tc358743 required");
 			goto error;
 		}
 	}
+
 	config->aplay_dev_name = _get_value(jcfg, "aplay", "device");
-	// config->vplay_sink_name = _get_value(jcfg, "vplay", "sink");
+
+	config->vplay_sink_name = _get_value(jcfg, "vplay", "sink");
+	config->vplay_sink_mode = _get_uint(jcfg, "vplay", "sink_mode", 0660, 8);
 
 	goto ok;
 
@@ -101,12 +105,12 @@ static char *_get_value(janus_config *jcfg, const char *section, const char *opt
 	return us_strdup(option_obj->value);
 }
 
-static uint _get_uint(janus_config *jcfg, const char *section, const char *option, uint def) {
+static uint _get_uint(janus_config *jcfg, const char *section, const char *option, uint def, uint base) {
 	char *const tmp = _get_value(jcfg, section, option);
 	uint value = def;
 	if (tmp != NULL) {
 		errno = 0;
-		value = (uint)strtoul(tmp, NULL, 10);
+		value = (uint)strtoul(tmp, NULL, base);
 		if (errno != 0) {
 			value = def;
 		}

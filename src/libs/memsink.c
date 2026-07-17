@@ -56,7 +56,7 @@ us_memsink_s *us_memsink_init_opened(
 
 	US_LOG_INFO("Using %s-sink: %s", name, obj);
 
-	if ((sink->data_size = us_memsink_calculate_size(obj)) == 0) {
+	if ((sink->data_size = us_memsinksh_calculate_size(obj)) == 0) {
 		US_LOG_ERROR("%s-sink: Invalid object suffix", name);
 		goto error;
 	}
@@ -75,7 +75,7 @@ us_memsink_s *us_memsink_init_opened(
 		goto error;
 	}
 
-	if ((sink->mem = us_memsink_shared_map(sink->fd, sink->data_size)) == NULL) {
+	if ((sink->mem = us_memsinksh_map(sink->fd, sink->data_size)) == NULL) {
 		US_LOG_PERROR("%s-sink: Can't mmap shared memory", name);
 		goto error;
 	}
@@ -88,7 +88,7 @@ error:
 
 void us_memsink_destroy(us_memsink_s *sink) {
 	if (sink->mem != NULL) {
-		if (us_memsink_shared_unmap(sink->mem, sink->data_size) < 0) {
+		if (us_memsinksh_unmap(sink->mem, sink->data_size) < 0) {
 			US_LOG_PERROR("%s-sink: Can't unmap shared memory", sink->name);
 		}
 	}
@@ -143,11 +143,10 @@ bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame) {
 	}
 
 	// Проверяем, есть ли у нас живой клиент по таймауту
-	const bool has_clients = (sink->mem->last_client_ts + sink->client_ttl > us_get_now_monotonic());
+	const bool has_clients = us_memsinksh_has_clients(sink->mem, sink->client_ttl);
 	atomic_store(&sink->has_clients, has_clients);
 
-	if (flock(sink->fd, LOCK_UN) < 0) {
-		US_LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
+	if (us_memsink_server_x_unlock(sink) < 0) {
 		return false;
 	}
 	if (has_clients) {
@@ -163,45 +162,34 @@ bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame) {
 int us_memsink_server_put(
 	us_memsink_s *sink,
 	const us_frame_s *frame,
-	us_memsink_wants_s *wants
+	us_memsink_wants_s *w_get
 ) {
 	US_A(sink->server);
 
 	const ldf now = us_get_now_monotonic();
 
-	if (frame->used > sink->data_size) {
-		US_LOG_ERROR("%s-sink: Can't put frame: is too big (%zu > %zu)",
-			sink->name, frame->used, sink->data_size);
-		return 0;
-	}
-
 	if (us_flock_timedwait_monotonic(sink->fd, 1) == 0) {
-		US_LOG_VERBOSE("%s-sink: >>>>> Exposing new frame ...", sink->name);
-
-		sink->mem->id = us_get_now_id();
-		if (sink->mem->wants.key && frame->key) {
-			sink->mem->wants.key = false;
-		}
-		if (wants != NULL) {
-			memcpy(wants, &sink->mem->wants, sizeof(us_memsink_wants_s));
-		}
-
-		memcpy(us_memsink_get_data(sink->mem), frame->data, frame->used);
-		sink->mem->used = frame->used;
-		US_FRAME_COPY_META(frame, sink->mem);
-
-		sink->mem->magic = US_MEMSINK_MAGIC;
-		sink->mem->version = US_MEMSINK_VERSION;
-
-		const bool has_clients = (sink->mem->last_client_ts + sink->client_ttl > us_get_now_monotonic());
+		const bool has_clients = us_memsinksh_has_clients(sink->mem, sink->client_ttl);
 		atomic_store(&sink->has_clients, has_clients);
 
-		if (flock(sink->fd, LOCK_UN) < 0) {
-			US_LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
+		US_LOG_VERBOSE("%s-sink: >>>>> Exposing new frame ...", sink->name);
+		const bool exposed = !us_memsink_server_x_put(sink, frame);
+
+		if (w_get != NULL) {
+			if (has_clients) {
+				memcpy(w_get, &sink->mem->wants, sizeof(us_memsink_wants_s));
+			} else {
+				US_MEMSET_ZERO(*w_get);
+			}
+		}
+
+		if (us_memsink_server_x_unlock(sink) < 0) {
 			return -1;
 		}
-		US_LOG_VERBOSE("%s-sink: Exposed new frame; full exposition time = %.3Lf",
-			sink->name, us_get_now_monotonic() - now);
+		if (exposed) {
+			US_LOG_VERBOSE("%s-sink: Exposed new frame; full exposition time = %.3Lf",
+				sink->name, us_get_now_monotonic() - now);
+		}
 
 	} else if (errno == EWOULDBLOCK) {
 		US_LOG_VERBOSE("%s-sink: ===== Shared memory is busy now; frame skipped", sink->name);
@@ -216,8 +204,8 @@ int us_memsink_server_put(
 int us_memsink_client_get(
 	us_memsink_s *sink,
 	us_frame_s *frame,
-	us_memsink_wants_s *get,
-	const us_memsink_wants_s *put
+	us_memsink_wants_s *w_get,
+	const us_memsink_wants_s *w_put
 ) {
 	US_A(!sink->server); // Client only
 
@@ -242,33 +230,121 @@ int us_memsink_client_get(
 		goto done;
 	}
 
+	const bool had_client_magic = (sink->mem->client_magic == US_MEMSINK_MAGIC);
 	// Let the sink know that the client is alive
 	sink->mem->last_client_ts = us_get_now_monotonic();
+	sink->mem->client_magic = US_MEMSINK_MAGIC;
 
-	if (sink->mem->id == sink->last_readed_id) {
-		retval = US_ERROR_NO_DATA; // Not updated
+	if (sink->mem->used == 0 || sink->mem->id == sink->last_readed_id) {
+		// ^ Zero frame     |OR| ^ Not updated
+		retval = US_ERROR_NO_DATA;
 		goto done;
 	}
 
 	sink->last_readed_id = sink->mem->id;
-	us_frame_set_data(frame, us_memsink_get_data(sink->mem), sink->mem->used);
+	us_frame_set_data(frame, us_memsinksh_get_data(sink->mem), sink->mem->used);
 	US_FRAME_COPY_META(sink->mem, frame);
 
-	if (get != NULL) {
-		memcpy(get, &sink->mem->wants, sizeof(us_memsink_wants_s));
-	}
-	if (put != NULL) {
-		const bool key = sink->mem->wants.key;
-		memcpy(&sink->mem->wants, put, sizeof(us_memsink_wants_s));
-		if (key) {
-			sink->mem->wants.key = key;
+	if (w_get != NULL) {
+		if (had_client_magic) { // Чтобы не прочитать мусор, если не было клиентов
+			memcpy(w_get, &sink->mem->wants, sizeof(us_memsink_wants_s));
+		} else {
+			US_MEMSET_ZERO(*w_get);
 		}
 	}
 
+	if (w_put != NULL) {
+		const bool key = sink->mem->wants.key;
+		memcpy(&sink->mem->wants, w_put, sizeof(us_memsink_wants_s));
+		if (key) {
+			sink->mem->wants.key = key;
+		}
+	} else {
+		US_MEMSET_ZERO(sink->mem->wants);
+	}
+
 done:
-	if (flock(sink->fd, LOCK_UN) < 0) {
-		US_LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
+	if (us_memsink_server_x_unlock(sink) < 0) {
 		retval = -1;
 	}
 	return retval;
+}
+
+us_mss_lock_result_e us_memsink_server_x_lock(
+	us_memsink_s *sink,
+	us_memsink_wants_s *w_get
+) {
+	US_A(sink->server);
+
+	if (us_flock_timedwait_monotonic(sink->fd, 1) < 0) {
+		if (errno == EWOULDBLOCK) {
+			return US_MSS_BUSY;
+		}
+		US_LOG_PERROR("%s-sink: Can't lock memory", sink->name);
+		return US_MSS_ERROR;
+	}
+
+	if (sink->mem->magic == US_MEMSINK_MAGIC && sink->mem->version == US_MEMSINK_VERSION) {
+		// Если инициализировано - значит клиенту что-то уже могли написать
+		const bool has_clients = us_memsinksh_has_clients(sink->mem, sink->client_ttl);
+		atomic_store(&sink->has_clients, has_clients);
+		if (has_clients) {
+			if (w_get != NULL) {
+				memcpy(w_get, &sink->mem->wants, sizeof(us_memsink_wants_s));
+			}
+			// sink->unsafe_last_client_ts = sink->mem->last_client_ts; // _x_ functions don't use it
+			return US_MSS_SUCCESS;
+		}
+	} else {
+		// А иначе скормим клиентам инициализацию с пустым фреймом,
+		// в следующий раз прочтем от них что-то путное.
+		us_memsink_server_x_put(sink, NULL);
+	}
+
+	if (us_memsink_server_x_unlock(sink) < 0) {
+		return US_MSS_ERROR;
+	}
+	return US_MSS_NO_CLIENT;
+}
+
+bool us_memsink_server_x_is_consumed(us_memsink_s *sink) {
+	return (sink->mem->used == 0);
+}
+
+void us_memsink_server_x_set_consumed(us_memsink_s *sink) {
+	sink->mem->used = 0;
+}
+
+int us_memsink_server_x_put(us_memsink_s *sink, const us_frame_s *frame) {
+	if (frame != NULL) {
+		if (frame->used > sink->data_size) {
+			US_LOG_ERROR("%s-sink: Can't put frame: it's too big (%zu > %zu)",
+				sink->name, frame->used, sink->data_size);
+			return -1;
+		}
+
+		memcpy(us_memsinksh_get_data(sink->mem), frame->data, frame->used);
+		sink->mem->used = frame->used;
+		US_FRAME_COPY_META(frame, sink->mem);
+
+		if (sink->mem->wants.key && frame->key) {
+			// Можем писать в мусор, но пофигу
+			sink->mem->wants.key = false;
+		}
+	} else {
+		sink->mem->used = 0;
+	}
+
+	sink->mem->id = us_get_now_id();
+	sink->mem->version = US_MEMSINK_VERSION;
+	sink->mem->magic = US_MEMSINK_MAGIC;
+	return 0;
+}
+
+int us_memsink_server_x_unlock(us_memsink_s *sink) {
+	if (flock(sink->fd, LOCK_UN) < 0) {
+		US_LOG_PERROR("%s-sink: Can't unlock memory", sink->name);
+		return -1;
+	}
+	return 0;
 }

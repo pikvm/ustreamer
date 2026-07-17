@@ -22,23 +22,61 @@
 
 #pragma once
 
+#include <janus/rtp.h>
 
 #include "uslibs/types.h"
+#include "uslibs/frame.h"
 
 
-typedef struct {
-	char	*video_sink_name;
+// Should return:
+// * input frame
+// * replacement frame - to use it in following parsing
+typedef us_frame_s *(*us_frame_callback_f)(us_frame_s *frame, void *user_data);
 
-	char	*acap_dev_name;
-	uint	acap_hz;
-	char	*tc358743_dev_path;
+typedef struct { // *_rts == [R]TP [T]ime[S]tamp
+	us_frame_callback_f		callback;
+	void					*user_data;
 
-	char	*aplay_dev_name;
+	bool		had_packets; // Были ли вообще какие-то пакеты когда-то, взводится один раз
 
-	char	*vplay_sink_name;
-	uint	vplay_sink_mode;
-} us_config_s;
+	ldf			reference_local_ts; // Локальное время
+	u32			reference_packet_rts;
+	ldf			reference_ntp_ts;
 
+	u16			last_packet_seq;
+	u32			last_packet_rts; // Время из последнего полученного пакета
 
-us_config_s *us_config_init(const char *config_dir_path);
-void us_config_destroy(us_config_s *config);
+	bool		fu;
+	u16			fu_seq;
+	u32			fu_rts;
+	bool		fu_is_bad;
+
+	us_frame_s	*frame;
+	uint		frame_width;
+	uint		frame_height;
+	ldf			frame_ts; // in case of fu, time of very first packet
+} us_rtpc_s;
+
+typedef enum {
+	US_RUR_SUCCESS = 0,
+	US_RUR_BAD_PACKET = -1,
+	US_RUR_INVALID_SEQ = -2,
+	US_RUR_DEPACKETIZATION_FAILED = -3,
+	// Incomplete FU found. Current packet not handled.
+	// It's required to call us_rtpc_unwrap one else time with the same packet.
+	US_RUR_DEPACKETIZATION_FAILED_RETRY = -4,
+	US_RUR_DEPACKETIZATION_SKIPPED = -5,
+	US_RUR_UNSUPPORTED_UNIT_TYPE = -6,
+} us_rtpc_unwrap_result_e;
+
+us_rtpc_s *us_rtpc_init(us_frame_callback_f callback, void *user_data);
+void us_rtpc_destroy(us_rtpc_s *rtpc);
+
+us_rtpc_unwrap_result_e us_rtpc_unwrap(
+	us_rtpc_s *rtpc,
+	const u8 *payload,
+	int payload_size,
+	u16 seq,
+	u32 rts);
+
+void us_rtpc_sync_timestamp(us_rtpc_s *rtpc, ldf ntp_ts, u32 packet_rts);

@@ -61,10 +61,32 @@ bool us_memsink_server_check(us_memsink_s *sink, const us_frame_s *frame);
 int us_memsink_server_put(
 	us_memsink_s *sink,
 	const us_frame_s *frame,
-	us_memsink_wants_s *wants);
+	us_memsink_wants_s *w_get);
 
 int us_memsink_client_get(
 	us_memsink_s *sink,
 	us_frame_s *frame,
-	us_memsink_wants_s *get,
-	const us_memsink_wants_s *put);
+	us_memsink_wants_s *w_get,
+	const us_memsink_wants_s *w_put);
+
+
+// Low-level
+
+typedef enum {
+	US_MSS_SUCCESS = 0,
+	US_MSS_ERROR = -1,
+	US_MSS_BUSY = -2,
+	US_MSS_NO_CLIENT = -3,
+} us_mss_lock_result_e;
+
+
+us_mss_lock_result_e us_memsink_server_x_lock(
+	us_memsink_s *sink,
+	us_memsink_wants_s *w_get);
+
+bool us_memsink_server_x_is_consumed(us_memsink_s *sink);
+void us_memsink_server_x_set_consumed(us_memsink_s *sink);
+
+int us_memsink_server_x_put(us_memsink_s *sink, const us_frame_s *frame);
+
+int us_memsink_server_x_unlock(us_memsink_s *sink);
