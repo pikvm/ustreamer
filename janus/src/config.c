@@ -57,12 +57,14 @@ us_config_s *us_config_init(const char *config_dir_path) {
 	}
 	janus_config_print(jcfg);
 
-	if ((config->video_sink_name = _get_value(jcfg, "video", "sink")) == NULL) {
+	config->video_sink_name = _get_value(jcfg, "video", "sink");
+	if (!us_str_is_ok(config->video_sink_name)) {
 		US_LOG_ERROR("Missing config value: video.sink");
 		goto error;
 	}
 
-	if ((config->acap_dev_name = _get_value(jcfg, "acap", "device")) != NULL) {
+	config->acap_dev_name = _get_value(jcfg, "acap", "device");
+	if (us_str_is_ok(config->acap_dev_name)) {
 		config->acap_hz = _get_uint(jcfg, "acap", "sampling_rate", 0, 10);
 		config->tc358743_dev_path = _get_value(jcfg, "acap", "tc358743");
 		if (config->acap_hz == 0 && !us_str_is_ok(config->tc358743_dev_path)) {

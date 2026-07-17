@@ -206,7 +206,7 @@ static void *_acap_thread(void *arg) {
 	US_THREAD_SETTLE("us_p_acap");
 	atomic_store(&_g_acap_tid_created, true);
 
-	US_A(_g_config->acap_dev_name != NULL);
+	US_A(us_str_is_ok(_g_config->acap_dev_name));
 	US_A(_g_rtpa != NULL);
 
 	int once = 0;
@@ -281,7 +281,7 @@ static void *_aplay_thread(void *arg) {
 	US_THREAD_SETTLE("us_p_aplay");
 	atomic_store(&_g_aplay_tid_created, true);
 
-	US_A(_g_config->aplay_dev_name != NULL);
+	US_A(us_str_is_ok(_g_config->aplay_dev_name));
 
 	int once = 0;
 
@@ -393,6 +393,8 @@ static void *_vplay_thread(void *arg) {
 	(void)arg;
 	US_THREAD_SETTLE("us_p_vplay");
 	atomic_store(&_g_vplay_tid_created, true);
+
+	US_A(us_str_is_ok(_g_config->vplay_sink_name));
 
 	us_frame_s *frame = us_frame_init();
 
@@ -537,17 +539,17 @@ static int _plugin_init(janus_callbacks *gw, const char *config_dir_path) {
 	US_RING_INIT_WITH_ITEMS(_g_video_ring, 64, us_frame_init);
 	_g_rtpv = us_rtpv_init(_relay_rtp_clients);
 
-	if (_g_config->vplay_sink_name != NULL) {
+	if (us_str_is_ok(_g_config->vplay_sink_name)) {
 		US_RING_INIT_WITH_ITEMS(_g_vplay_ring, 15, us_frame_init);
 		US_THREAD_CREATE(_g_vplay_tid, _vplay_thread, NULL);
 	}
 
-	if (_g_config->acap_dev_name != NULL) {
+	if (us_str_is_ok(_g_config->acap_dev_name)) {
 		_g_rtpa = us_rtpa_init(_relay_rtp_clients);
 		US_THREAD_CREATE(_g_acap_tid, _acap_thread, NULL);
 	}
 
-	if (_g_config->aplay_dev_name != NULL) {
+	if (us_str_is_ok(_g_config->aplay_dev_name)) {
 		US_THREAD_CREATE(_g_aplay_tid, _aplay_thread, NULL);
 	}
 
@@ -785,7 +787,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 					}
 				READ_BOOL(with_acap, "audio", us_au_probe(_g_config->acap_dev_name));
 				READ_BOOL(with_aplay, "mic", us_au_probe(_g_config->aplay_dev_name));
-				READ_BOOL(with_vplay, "camera", (_g_config->vplay_sink_name != NULL));
+				READ_BOOL(with_vplay, "camera", us_str_is_ok(_g_config->vplay_sink_name));
 #				undef READ_BOOL
 				{
 					json_t *const obj = json_object_get(params, "orientation");
@@ -856,7 +858,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 			"audio", us_au_probe(_g_config->acap_dev_name),
 			"mic", us_au_probe(_g_config->aplay_dev_name),
 			"camera",
-				"enabled", (_g_config->vplay_sink_name != NULL),
+				"enabled", us_str_is_ok(_g_config->vplay_sink_name),
 				"request", camera_req,
 			"ice",
 				"url", (ice_url != NULL ? ice_url : _g_default_ice_url)
