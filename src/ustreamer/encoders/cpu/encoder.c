@@ -223,6 +223,11 @@ static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, 
 	const u8 *chroma2_data = frame->data + luma_array_size + chroma_array_size;
 
 	while (jpeg->next_scanline < frame->height) {
+		if (jpeg->next_scanline > 0 && jpeg->next_scanline % 2 == 0) {
+			chroma1_data += (frame->width + padding) >> 1;
+			chroma2_data += (frame->width + padding) >> 1;
+		}
+
 		u8 *ptr = line_buf;
 
 		for (uint x = 0; x < frame->width; ++x) {
@@ -252,11 +257,6 @@ static void _jpeg_write_scanlines_yuv_planar(struct jpeg_compress_struct *jpeg, 
 		}
 
 		data += frame->width + padding;
-
-		if (jpeg->next_scanline > 0 && jpeg->next_scanline % 2 == 0) {
-			chroma1_data += (frame->width + padding) >> 1;
-			chroma2_data += (frame->width + padding) >> 1;
-		}
 
 		JSAMPROW scanlines[1] = {line_buf};
 		jpeg_write_scanlines(jpeg, scanlines, 1);
