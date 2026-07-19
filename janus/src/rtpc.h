@@ -2,7 +2,8 @@
 #                                                                            #
 #    uStreamer - Lightweight and fast MJPEG-HTTP streamer.                   #
 #                                                                            #
-#    Copyright (C) 2018-2024  Maxim Devaev <mdevaev@gmail.com>               #
+#    Copyright (C)  2026  Maxim Devaev <mdevaev@gmail.com>                   #
+#    Copyright (C)  2026  Sergey Radionov <rsatom@gmail.com>                 #
 #                                                                            #
 #    This program is free software: you can redistribute it and/or modify    #
 #    it under the terms of the GNU General Public License as published by    #
