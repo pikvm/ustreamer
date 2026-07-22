@@ -170,7 +170,9 @@ static void *_video_sink_thread(void *arg) {
 				} else {
 					US_ONCE({ US_LOG_ERROR("Video ring is full"); });
 				}
-			} else if (got != US_ERROR_NO_DATA) {
+			} else if (got == US_ERROR_NO_DATA) {
+				usleep(1000);
+			} else {
 				goto close_memsink;
 			}
 		}
