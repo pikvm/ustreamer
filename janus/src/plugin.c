@@ -386,8 +386,8 @@ static void *_aplay_thread(void *arg) {
 	return NULL;
 }
 
-static void _push_camera_event(bool requested) {
-	json_t *const json_event_type = json_string(requested ? "requested" : "released");
+static void _unsafe_camera_push_event(const char *str) {
+	json_t *const json_event_type = json_string(str);
 
 	json_t *const camera = json_object();
 	json_object_set_new(camera, "action", json_event_type);
@@ -407,28 +407,45 @@ static void _push_camera_event(bool requested) {
 	json_decref(event);
 }
 
-static void _camera_set_active(uint width, uint height, uint fps) {
+static void _camera_push_online(uint width, uint height, uint fps) {
 	bool again = false;
 	_LOCK_VPLAY;
 	if (_g_camera.active) {
-		_push_camera_event(false);
+		_unsafe_camera_push_event("offline");
 		again = true;
 	}
+	const uint old_width = _g_camera.width;
+	const uint old_height = _g_camera.height;
+	const uint old_fps = _g_camera.fps;
 	_g_camera.active = true;
 	_g_camera.width = width;
 	_g_camera.height = height;
 	_g_camera.fps = fps;
-	_push_camera_event(true);
+	_unsafe_camera_push_event("online");
 	_UNLOCK_VPLAY;
-	US_LOG_INFO("Camera requested%s: %ux%u@%u", (again ? " again" : ""), width, height, fps);
+	if (again) {
+		US_LOG_INFO("Camera changed: %ux%u@%u -> %ux%u@%u",
+			old_width, old_height, old_fps, width, height, fps);
+	} else {
+		US_LOG_INFO("Camera online: %ux%u@%u", width, height, fps);
+	}
 }
 
-static void _camera_set_inactive() {
+static void _camera_push_offline() {
 	_LOCK_VPLAY;
 	if (_g_camera.active) {
 		_g_camera.active = false;
-		_push_camera_event(false);
-		US_LOG_INFO("Camera released");
+		_unsafe_camera_push_event("offline");
+		US_LOG_INFO("Camera offline");
+	}
+	_UNLOCK_VPLAY;
+}
+
+static void _camera_push_lost() {
+	_LOCK_VPLAY;
+	if (_g_camera.active) {
+		_unsafe_camera_push_event("lost");
+		US_LOG_INFO("Camera's source client is lost");
 	}
 	_UNLOCK_VPLAY;
 }
@@ -486,7 +503,7 @@ static void *_vplay_thread(void *arg) {
 							if (w_get.width == c_width && w_get.height == c_height) {
 								if (us_memsink_server_x_is_consumed(sink)) {
 									if (!c_active) {
-										_camera_set_active(w_get.width, w_get.height, w_get.fps);
+										_camera_push_online(w_get.width, w_get.height, w_get.fps);
 									} else if (frame->used > 0) {
 										US_ONCE({ US_LOG_INFO("Streaming to the camera ..."); });
 										us_memsink_server_x_put(sink, frame);
@@ -498,7 +515,7 @@ static void *_vplay_thread(void *arg) {
 									}
 								}
 							} else { // Notify to changed resolution
-								_camera_set_active(w_get.width, w_get.height, w_get.fps);
+								_camera_push_online(w_get.width, w_get.height, w_get.fps);
 							}
 						} else {
 							US_ONCE({ US_LOG_ERROR("Got invalid format from the camera: %u", w_get.format); });
@@ -509,7 +526,7 @@ static void *_vplay_thread(void *arg) {
 						break;
 
 					case US_MSS_NO_CLIENT:
-						_camera_set_inactive();
+						_camera_push_offline();
 						break;
 
 					case US_MSS_BUSY: // Busy by some client
@@ -657,11 +674,13 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 	bool has_watchers = false;
 	bool has_listeners = false;
 	bool has_speakers = false;
+	bool camera_lost = false;
 	US_LIST_ITERATE(_g_clients, client, {
 		if (client->session == session) {
 			US_LOG_INFO("Removing session %p ...", session);
 			if (_g_camera.client == client) {
-				_g_camera.client = NULL; // Is it required to notify other clients?
+				_g_camera.client = NULL;
+				camera_lost = true;
 			}
 			US_LIST_REMOVE(_g_clients, client);
 			us_janus_client_destroy(client);
@@ -680,6 +699,9 @@ static void _plugin_destroy_session(janus_plugin_session* session, int *err) {
 	atomic_store(&_g_has_listeners, has_listeners);
 	atomic_store(&_g_has_speakers, has_speakers);
 	_UNLOCK_ALL;
+	if (camera_lost) {
+		_camera_push_lost();
+	}
 }
 
 static json_t *_plugin_query_session(janus_plugin_session *session) {
