@@ -386,9 +386,52 @@ static void *_aplay_thread(void *arg) {
 	return NULL;
 }
 
-static bool _is_camera_enabled(void);
-static void _camera_set_active(uint width, uint height, uint fps);
-static void _camera_set_inactive();
+static void _push_camera_event(bool requested) {
+	json_t *const json_event_type = json_string(requested ? "requested" : "released");
+
+	json_t *const camera = json_object();
+	json_object_set_new(camera, "action", json_event_type);
+
+	json_t *const result = json_object();
+	json_object_set_new(result, "ustreamer", json_string("event"));
+	json_object_set_new(result, "status", json_string("camera"));
+	json_object_set_new(result, "camera", camera);
+
+	json_t *const event = json_object();
+	json_object_set_new(event, "result", result);
+
+	US_LIST_ITERATE(_g_clients, client, {
+		_g_gw->push_event(client->session, create(), NULL, event, NULL);
+	});
+
+	json_decref(event);
+}
+
+static void _camera_set_active(uint width, uint height, uint fps) {
+	bool again = false;
+	_LOCK_VPLAY;
+	if (_g_camera.active) {
+		_push_camera_event(false);
+		again = true;
+	}
+	_g_camera.active = true;
+	_g_camera.width = width;
+	_g_camera.height = height;
+	_g_camera.fps = fps;
+	_push_camera_event(true);
+	_UNLOCK_VPLAY;
+	US_LOG_INFO("Camera requested%s: %ux%u@%u", (again ? " again" : ""), width, height, fps);
+}
+
+static void _camera_set_inactive() {
+	_LOCK_VPLAY;
+	if (_g_camera.active) {
+		_g_camera.active = false;
+		_push_camera_event(false);
+		US_LOG_INFO("Camera released");
+	}
+	_UNLOCK_VPLAY;
+}
 
 static void *_vplay_thread(void *arg) {
 	(void)arg;
@@ -417,11 +460,17 @@ static void *_vplay_thread(void *arg) {
 
 		int once = 0;
 		while (!_STOP) {
-			if (!_g_camera.active) {
+			_LOCK_VPLAY;
+			const bool c_active = _g_camera.active;
+			const uint c_width = _g_camera.width;
+			const uint c_height = _g_camera.height;
+			_UNLOCK_VPLAY;
+
+			if (!c_active) {
 				frame->used = 0;
 			}
 
-			if (frame->used > 0 && (_g_camera.width != frame->width || _g_camera.height != frame->height)) {
+			if (frame->used > 0 && (c_width != frame->width || c_height != frame->height)) {
 				US_ONCE({ US_LOG_INFO("Got WebRTC frame with wrong resolution"); });
 				frame->used = 0;
 			}
@@ -434,9 +483,9 @@ static void *_vplay_thread(void *arg) {
 				switch (us_memsink_server_x_lock(sink, &w_get)) {
 					case US_MSS_SUCCESS:
 						if (w_get.format == V4L2_PIX_FMT_H264) {
-							if (w_get.width == _g_camera.width && w_get.height == _g_camera.height) {
+							if (w_get.width == c_width && w_get.height == c_height) {
 								if (us_memsink_server_x_is_consumed(sink)) {
-									if (!_g_camera.active) {
+									if (!c_active) {
 										_camera_set_active(w_get.width, w_get.height, w_get.fps);
 									} else if (frame->used > 0) {
 										US_ONCE({ US_LOG_INFO("Streaming to the camera ..."); });
@@ -444,14 +493,11 @@ static void *_vplay_thread(void *arg) {
 										frame->used = 0;
 									}
 								} else {
-									if (!_g_camera.active) {
+									if (!c_active) {
 										us_memsink_server_x_set_consumed(sink);
 									}
 								}
-							} else {
-								if (_g_camera.active) {
-									_camera_set_inactive();
-								}
+							} else { // Notify to changed resolution
 								_camera_set_active(w_get.width, w_get.height, w_get.fps);
 							}
 						} else {
@@ -463,9 +509,7 @@ static void *_vplay_thread(void *arg) {
 						break;
 
 					case US_MSS_NO_CLIENT:
-						if (_g_camera.active) {
-							_camera_set_inactive();
-						}
+						_camera_set_inactive();
 						break;
 
 					case US_MSS_BUSY: // Busy by some client
@@ -477,18 +521,23 @@ static void *_vplay_thread(void *arg) {
 				}
 			}
 
-			if (frame->used == 0) { // Frame sent, get a new one from a client
+			if (frame->used == 0) { // Frame sent (or discarded), get a new one from a client
 				const int in_ri = us_ring_consumer_acquire(_g_vplay_ring, 0.1);
 				if (in_ri >= 0) {
 					us_frame_s *tmp_frame = frame;
 					frame = _g_vplay_ring->items[in_ri];
 					_g_vplay_ring->items[in_ri] = tmp_frame;
 					us_ring_consumer_release(_g_vplay_ring, in_ri);
+				} else {
+					US_ONCE({
+						_LOCK_VPLAY;
+						if (_g_camera.active) {
+							US_LOG_INFO("No frames have got from WebRTC");
+						}
+						_UNLOCK_VPLAY;
+					});
 				}
 			} else {
-				if (_g_camera.active) {
-					US_ONCE({ US_LOG_INFO("No frames from WebRTC"); });
-				}
 				usleep(1000); // Don't iterate too frequently
 			}
 		}
@@ -591,63 +640,6 @@ static void _plugin_destroy(void) {
 	US_LOGGING_DESTROY;
 }
 
-static void _push_camera_event(us_janus_client_s *client, bool requested) {
-	json_t *const json_event_type = json_string(requested ? "requested" : "released");
-
-	json_t *const camera = json_object();
-	json_object_set_new(camera, "action", json_event_type);
-
-	json_t *const result = json_object();
-	json_object_set_new(result, "ustreamer", json_string("event"));
-	json_object_set_new(result, "status", json_string("camera"));
-	json_object_set_new(result, "camera", camera);
-
-	json_t *const event = json_object();
-	json_object_set_new(event, "result", result);
-
-	if (client) {
-		_g_gw->push_event(client->session, create(), NULL, event, NULL);
-	} else {
-		US_LIST_ITERATE(_g_clients, client, {
-			_g_gw->push_event(client->session, create(), NULL, event, NULL);
-		});
-	}
-
-	json_decref(event);
-}
-
-static bool _is_camera_enabled(void) {
-	bool enabled = us_str_is_ok(_g_config->vplay_sink_name);
-	if (enabled && us_str_is_ok(_g_config->vplay_dev_path)) {
-		if (access(_g_config->vplay_dev_path, F_OK) != 0) {
-			enabled = false;
-		}
-	}
-	return enabled;
-}
-
-static void _camera_set_active(uint width, uint height, uint fps) {
-	_LOCK_VPLAY;
-	US_A(!_g_camera.active);
-	_g_camera.active = true;
-	_g_camera.width = width;
-	_g_camera.height = height;
-	_g_camera.fps = fps;
-	_push_camera_event(_g_camera.client, true);
-	_UNLOCK_VPLAY;
-	US_LOG_INFO("Camera requested: %ux%u@%u", width, height, fps);
-}
-
-static void _camera_set_inactive() {
-	_LOCK_VPLAY;
-	US_A(_g_camera.active);
-	_g_camera.active = false;
-	_g_camera.client = NULL;
-	_push_camera_event(NULL, false);
-	_UNLOCK_VPLAY;
-	US_LOG_INFO("Camera released");
-}
-
 static void _plugin_create_session(janus_plugin_session *session, int *err) {
 	_IF_DISABLED({ *err = -1; return; });
 	_LOCK_ALL;
@@ -727,6 +719,16 @@ static void _set_transmit(janus_plugin_session *session, const char *msg, bool t
 
 static void _plugin_setup_media(janus_plugin_session *session) { _set_transmit(session, "Unmuted", true); }
 static void _plugin_hangup_media(janus_plugin_session *session) { _set_transmit(session, "Muted", false); }
+
+static bool _is_camera_enabled(void) {
+	bool enabled = us_str_is_ok(_g_config->vplay_sink_name);
+	if (enabled && us_str_is_ok(_g_config->vplay_dev_path)) {
+		if (access(_g_config->vplay_dev_path, F_OK) != 0) {
+			enabled = false;
+		}
+	}
+	return enabled;
+}
 
 static struct janus_plugin_result *_plugin_handle_message(
 	janus_plugin_session *session, char *transaction, json_t *msg, json_t *jsep) {
@@ -853,7 +855,7 @@ static struct janus_plugin_result *_plugin_handle_message(
 
 		_LOCK_VPLAY
 		json_t *camera_req = NULL;
-		if (_g_camera.active) {
+		if (_g_camera.active && _g_camera.client == NULL) {
 			json_t *resolution = json_object();
 			json_object_set_new(resolution, "width", json_integer(_g_camera.width));
 			json_object_set_new(resolution, "height", json_integer(_g_camera.height));
