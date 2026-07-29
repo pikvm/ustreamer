@@ -545,14 +545,14 @@ static void *_vplay_thread(void *arg) {
 					frame = _g_vplay_ring->items[in_ri];
 					_g_vplay_ring->items[in_ri] = tmp_frame;
 					us_ring_consumer_release(_g_vplay_ring, in_ri);
-				} else {
+				/*} else { // FIXME: Leads to spam with "Streaming to the camera ..."
 					US_ONCE({
 						_LOCK_VPLAY;
 						if (_g_camera.active) {
 							US_LOG_INFO("No frames have got from WebRTC");
 						}
 						_UNLOCK_VPLAY;
-					});
+					});*/
 				}
 			} else {
 				usleep(1000); // Don't iterate too frequently
