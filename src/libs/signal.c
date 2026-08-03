@@ -25,7 +25,7 @@
 #include <string.h>
 #include <signal.h>
 
-#if defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 32
+#if defined(_GNU_SOURCE) && defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 32
 #	define HAS_SIGABBREV_NP
 #endif
 
