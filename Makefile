@@ -132,7 +132,7 @@ linters:
 
 
 bump:
-	bumpversion $(if $(V),$(V),minor)
+	./bump.py $(if $(V),$(V),minor)
 
 
 push:
