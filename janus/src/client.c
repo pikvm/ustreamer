@@ -171,10 +171,16 @@ void us_janus_client_recv(us_janus_client_s *client, janus_plugin_rtp *packet) {
 						retry = true;
 						// fall through
 					case US_RUR_DEPACKETIZATION_FAILED:
+						client->last_key_req_ts = us_get_now_monotonic();
 						client->gw->send_pli(client->session);
 						break;
 				}
 			} while (retry);
+		}
+		const ldf now_ts = us_get_now_monotonic();
+		if (client->last_key_req_ts + 2 < now_ts) {
+			client->last_key_req_ts = now_ts;
+			client->gw->send_pli(client->session);
 		}
 	} else {
 		if (header->type == US_RTP_OPUS_PAYLOAD && atomic_load(&client->transmit_aplay)) {

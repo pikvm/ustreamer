@@ -64,6 +64,8 @@ typedef struct {
 	us_rtpc_s	*rtpc;
 	us_ring_s	*vplay_enc_ring;
 
+	ldf			last_key_req_ts;
+
 	US_LIST_DECLARE;
 } us_janus_client_s;
 
