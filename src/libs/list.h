@@ -25,9 +25,9 @@
 #include "tools.h"
 
 
-#define US_LIST_DECLARE \
-	void *prev; \
-	void *next;
+#define US_LIST_DECLARE(x_type) \
+	x_type *prev; \
+	x_type *next;
 
 #define US_LIST_ITERATE(x_first, x_item, ...) { \
 		for (__typeof__(x_first) x_item = x_first; x_item;) { \

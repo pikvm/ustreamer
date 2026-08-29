@@ -36,7 +36,7 @@
 #include "rtpc.h"
 
 
-typedef struct {
+typedef struct us_janus_client_sx {
 	janus_callbacks			*gw;
 	janus_plugin_session	*session;
 
@@ -66,7 +66,7 @@ typedef struct {
 
 	ldf			last_key_req_ts;
 
-	US_LIST_DECLARE;
+	US_LIST_DECLARE(struct us_janus_client_sx);
 } us_janus_client_s;
 
 

@@ -47,7 +47,7 @@ typedef struct us_worker_sx {
 
 	struct us_workers_pool_sx	*pool;
 
-	US_LIST_DECLARE;
+	US_LIST_DECLARE(struct us_worker_sx);
 } us_worker_s;
 
 typedef void *(*us_workers_pool_job_init_f)(void *arg);
