@@ -43,7 +43,9 @@ enum {
 };
 
 enum {
-	_NALU_SPS = 7
+	_NALU_IDR = 5,
+	_NALU_SPS = 7,
+	_NALU_PPS = 8,
 };
 
 
@@ -92,6 +94,7 @@ us_rtpc_unwrap_result_e us_rtpc_unwrap(
 	if (rtpc->fu && (rtpc->fu_rts != rts || fragment_type != _FR_FU_A)) {
 		rtpc->fu = false;
 		if (!rtpc->fu_is_bad) { // Not reported yet
+			rtpc->skip_until_key = true;
 			return US_RUR_DEPACKETIZATION_FAILED_RETRY;
 		}
 	}
@@ -156,6 +159,7 @@ us_rtpc_unwrap_result_e us_rtpc_unwrap(
 			if (!first_fragment) {
 				// US_LOG_INFO("Ignoring FU without a first fragment: seq=%u, rts=%u", seq, rts);
 				rtpc->fu_is_bad = true;
+				rtpc->skip_until_key = true;
 				return US_RUR_DEPACKETIZATION_FAILED;
 			}
 			rtpc->fu_is_bad = false;
@@ -181,6 +185,7 @@ us_rtpc_unwrap_result_e us_rtpc_unwrap(
 		} else {
 			// US_LOG_ERROR("Something went wrong with FU processing: seq=%u, rts=%u", seq, rts);
 			rtpc->fu_is_bad = true;
+			rtpc->skip_until_key = true;
 			return US_RUR_DEPACKETIZATION_FAILED;
 		}
 
@@ -282,6 +287,18 @@ static void _unwrapping_begin(us_rtpc_s *rtpc) {
 
 static void _unwrapping_end(us_rtpc_s *rtpc) {
 	us_frame_s *const frame = rtpc->frame;
+
+	US_A(frame->used > 4); // NAL unit start code
+
+	const u8 nalu_type = (frame->data[4] & 0x1F);
+	if (rtpc->skip_until_key && nalu_type != _NALU_SPS && nalu_type != _NALU_PPS) {
+		if (nalu_type != _NALU_IDR) {
+			frame->used = 0;
+			return;
+		} else
+			rtpc->skip_until_key = false;
+	}
+
 	frame->format = V4L2_PIX_FMT_H264;
 	frame->width = rtpc->frame_width;
 	frame->height = rtpc->frame_height;

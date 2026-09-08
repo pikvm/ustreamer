@@ -52,6 +52,8 @@ typedef struct { // *_rts == [R]TP [T]ime[S]tamp
 	u32			fu_rts;
 	bool		fu_is_bad;
 
+	bool		skip_until_key;
+
 	us_frame_s	*frame;
 	uint		frame_width;
 	uint		frame_height;
