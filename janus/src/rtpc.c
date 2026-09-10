@@ -295,8 +295,9 @@ static void _unwrapping_end(us_rtpc_s *rtpc) {
 		if (nalu_type != _NALU_IDR) {
 			frame->used = 0;
 			return;
-		} else
+		} else {
 			rtpc->skip_until_key = false;
+		}
 	}
 
 	frame->format = V4L2_PIX_FMT_H264;
