@@ -87,6 +87,9 @@ typedef struct {
 	bool			exit_on_device_error;
 	uint			exit_on_no_clients;
 
+	char			*governor_idle;
+	char			*governor_active;
+
 	us_memsink_s	*jpeg_sink;
 	us_memsink_s	*raw_sink;
 

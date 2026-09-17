@@ -94,7 +94,8 @@ static void _stream_drm_ensure_no_signal(us_stream_s *stream);
 static void _stream_expose_jpeg(us_stream_s *stream, const us_frame_s *frame);
 static void _stream_expose_raw(us_stream_s *stream, const us_frame_s *frame);
 static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *frame, bool force_key);
-static void _stream_check_suicide(us_stream_s *stream);
+static void _stream_check_suicide(us_stream_s *stream, bool has_any_clients);
+static void _stream_set_governor(us_stream_s *stream, bool active);
 
 
 us_stream_s *us_stream_init(us_capture_s *cap, us_encoder_s *enc) {
@@ -204,7 +205,7 @@ void us_stream_loop(us_stream_s *stream) {
 
 		US_LOG_INFO("Capturing ...");
 
-		uint slowdown_count = 0;
+		int has_any_clients_prev = -1;
 		while (!atomic_load(&run->stop) && !atomic_load(&threads_stop)) {
 			us_capture_hwbuf_s *hw;
 			switch (us_capture_hwbuf_grab(cap, &hw)) {
@@ -233,17 +234,23 @@ void us_stream_loop(us_stream_s *stream) {
 			us_queue_put(releasers[hw->buf.index].q, hw, 0); // Plan to release
 
 			// Мы не обновляем здесь состояние синков, потому что это происходит внутри обслуживающих их потоков
-			_stream_check_suicide(stream);
-			if (stream->slowdown && !_stream_has_any_clients_cached(stream)) {
+			const bool has_any_clients = _stream_has_any_clients_cached(stream);
+
+			if (has_any_clients_prev != has_any_clients) {
+				_stream_set_governor(stream, has_any_clients);
+				has_any_clients_prev = has_any_clients;
+			}
+
+			_stream_check_suicide(stream, has_any_clients);
+
+			if (stream->slowdown && !has_any_clients) {
 				usleep(100 * 1000);
-				slowdown_count = (slowdown_count + 1) % 10;
-				if (slowdown_count > 0) {
-					continue;
-				}
 			}
 		}
 
 	close:
+		_stream_set_governor(stream, false);
+
 		atomic_store(&threads_stop, true);
 
 #		define DELETE_WORKER(x_ctx) if (x_ctx != NULL) { \
@@ -571,7 +578,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 		UPDATE_SINK(stream->h264_sink);
 #		undef UPDATE_SINK
 
-		_stream_check_suicide(stream);
+		_stream_check_suicide(stream, _stream_has_any_clients_cached(stream));
 
 		stream->cap->dma_export = (
 			stream->enc->type == US_ENCODER_TYPE_M2M_VIDEO
@@ -767,7 +774,7 @@ done:
 	us_fpsi_update(run->http->h264_fpsi, meta.online, &meta);
 }
 
-static void _stream_check_suicide(us_stream_s *stream) {
+static void _stream_check_suicide(us_stream_s *stream, bool has_any_clients) {
 	if (stream->exit_on_no_clients == 0) {
 		return;
 	}
@@ -775,7 +782,7 @@ static void _stream_check_suicide(us_stream_s *stream) {
 	atomic_ullong *last_req_ts = &stream->run->http->last_req_ts;
 	const ldf now_ts = us_get_now_monotonic();
 
-	if (_stream_has_any_clients_cached(stream)) {
+	if (has_any_clients) {
 		atomic_store(last_req_ts, now_ts);
 	} else if (atomic_load(last_req_ts) + stream->exit_on_no_clients < now_ts) {
 		US_LOG_INFO("No requests or HTTP/sink clients found in last %u seconds, exiting ...",
@@ -783,4 +790,27 @@ static void _stream_check_suicide(us_stream_s *stream) {
 		atomic_store(last_req_ts, now_ts); // Prevent a signal spam
 		us_process_suicide();
 	}
+}
+
+static void _stream_set_governor(us_stream_s *stream, bool active) {
+	if (!us_str_is_ok(stream->governor_idle) || !us_str_is_ok(stream->governor_active)) {
+		return;
+	}
+
+	const char *const path = "/sys/devices/system/cpu/cpufreq/policy0/scaling_governor";
+	const int fd = open(path, O_RDWR);
+	if (fd < 0) {
+		US_LOG_PERROR("Can't open CPU governor file");
+		return;
+	}
+
+	const char *const gov = (active ? stream->governor_active : stream->governor_idle);
+	const sz len = strlen(gov);
+	if (write(fd, gov, len) != len) {
+		US_LOG_PERROR("Can't set CPU governor to %s", gov);
+	} else {
+		US_LOG_INFO("CPU governor changed to %s", gov);
+	}
+
+	close(fd);
 }

@@ -156,6 +156,9 @@ enum _US_OPT_VALUES {
 #	endif
 	_O_NOTIFY_PARENT,
 
+	_O_CPU_SCALING_GOVERNOR_IDLE,
+	_O_CPU_SCALING_GOVERNOR_ACTIVE,
+
 	_O_LOG_LEVEL,
 	_O_PERF,
 	_O_VERBOSE,
@@ -269,6 +272,9 @@ static const struct option _LONG_OPTS[] = {
 	{"process-name-prefix",		required_argument,	NULL,	_O_PROCESS_NAME_PREFIX},
 #	endif
 	{"notify-parent",			no_argument,		NULL,	_O_NOTIFY_PARENT},
+
+	{"cpu-scaling-governor-idle",	required_argument,	NULL,	_O_CPU_SCALING_GOVERNOR_IDLE},
+	{"cpu-scaling-governor-active",	required_argument,	NULL,	_O_CPU_SCALING_GOVERNOR_ACTIVE},
 
 	{"log-level",				required_argument,	NULL,	_O_LOG_LEVEL},
 	{"perf",					no_argument,		NULL,	_O_PERF},
@@ -549,6 +555,9 @@ int us_options_parse(
 			case _O_PROCESS_NAME_PREFIX:	OPT_SET(process_name_prefix, optarg);
 #			endif
 			case _O_NOTIFY_PARENT:			OPT_SET(stream->notify_parent, true);
+
+			case _O_CPU_SCALING_GOVERNOR_IDLE:		OPT_SET(stream->governor_idle, optarg);
+			case _O_CPU_SCALING_GOVERNOR_ACTIVE:	OPT_SET(stream->governor_active, optarg);
 
 			case _O_LOG_LEVEL:			OPT_NUMBER("--log-level", us_g_log_level, US_LOG_LEVEL_INFO, US_LOG_LEVEL_DEBUG, 0);
 			case _O_PERF:				OPT_SET(us_g_log_level, US_LOG_LEVEL_PERF);
