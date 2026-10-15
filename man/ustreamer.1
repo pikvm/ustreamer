@@ -112,6 +112,9 @@ It doesn't do anything. Still here for compatibility.
 .BR \-l ", " \-\-slowdown
 Slowdown capturing to 1 FPS or less when no stream or sink clients are connected. Useful to reduce CPU consumption. Default: disabled.
 .TP
+.BR \-\-open\-on\-demand
+Don't open the capture device until at least one stream or sink client is connected, and close it again 3 seconds after the last one disconnects. Clients see a blank screen while the device is closed. Default: disabled.
+.TP
 .BR \-\-device\-timeout\ \fIsec
 Timeout for device querying. Default: 1.
 .TP

@@ -89,7 +89,8 @@ enum _US_OPT_VALUES {
 
 	// Longs only
 
-	_O_DEVICE_TIMEOUT = 10000,
+	_O_OPEN_ON_DEMAND = 10000,
+	_O_DEVICE_TIMEOUT,
 	_O_DEVICE_ERROR_DELAY,
 	_O_FORMAT_SWAP_RGB,
 	_O_M2M_DEVICE,
@@ -190,6 +191,7 @@ static const struct option _LONG_OPTS[] = {
 	{"blank",					required_argument,	NULL,	_O_BLANK},
 	{"last-as-blank",			required_argument,	NULL,	_O_LAST_AS_BLANK},
 	{"slowdown",				no_argument,		NULL,	_O_SLOWDOWN},
+	{"open-on-demand",			no_argument,		NULL,	_O_OPEN_ON_DEMAND},
 	{"device-timeout",			required_argument,	NULL,	_O_DEVICE_TIMEOUT},
 	{"device-error-delay",		required_argument,	NULL,	_O_DEVICE_ERROR_DELAY},
 	{"m2m-device",				required_argument,	NULL,	_O_M2M_DEVICE},
@@ -453,6 +455,7 @@ int us_options_parse(
 			case _O_BLANK:				break; // Deprecated
 			case _O_LAST_AS_BLANK:		break; // Deprecated
 			case _O_SLOWDOWN:			OPT_SET(stream->slowdown, true);
+			case _O_OPEN_ON_DEMAND:		OPT_SET(stream->open_on_demand, true);
 			case _O_DEVICE_TIMEOUT:		OPT_NUMBER("--device-timeout", cap->timeout, 1, 60, 0);
 			case _O_DEVICE_ERROR_DELAY:	OPT_NUMBER("--device-error-delay", stream->error_delay, 1, 60, 0);
 			case _O_M2M_DEVICE:			OPT_SET(enc->m2m_path, optarg);
@@ -749,6 +752,10 @@ static void _help(
 	SAY("    -K|--last-as-blank <sec>  ──────────── It doesn't do anything. Still here for compatibility.\n");
 	SAY("    -l|--slowdown  ─────────────────────── Slowdown capturing to 1 FPS or less when no stream or sink clients");
 	SAY("                                           are connected. Useful to reduce CPU consumption. Default: disabled.\n");
+	SAY("    --open-on-demand  ──────────────────── Don't open the capture device until at least one stream");
+	SAY("                                           or sink client is connected, and close it again %u seconds", US_ON_DEMAND_CLOSE_DELAY);
+	SAY("                                           after the last one disconnects. Clients see a blank");
+	SAY("                                           screen while the device is closed. Default: disabled.\n");
 	SAY("    --device-timeout <sec>  ────────────── Timeout for device querying. Default: %u.\n", cap->timeout);
 	SAY("    --device-error-delay <sec>  ────────── Delay before trying to connect to the device again");
 	SAY("                                           after an error (timeout for example). Default: %u.\n", stream->error_delay);

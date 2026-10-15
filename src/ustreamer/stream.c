@@ -91,6 +91,7 @@ static void _stream_update_captured_fpsi(us_stream_s *stream, const us_frame_s *
 #ifdef WITH_V4P
 static void _stream_drm_ensure_no_signal(us_stream_s *stream);
 #endif
+static void _stream_publish_blank(us_stream_s *stream, const char *reason);
 static void _stream_expose_jpeg(us_stream_s *stream, const us_frame_s *frame);
 static void _stream_expose_raw(us_stream_s *stream, const us_frame_s *frame);
 static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *frame, bool force_key);
@@ -206,7 +207,23 @@ void us_stream_loop(us_stream_s *stream) {
 		US_LOG_INFO("Capturing ...");
 
 		int has_any_clients_prev = -1;
+		ldf no_clients_since_ts = 0;
 		while (!atomic_load(&run->stop) && !atomic_load(&threads_stop)) {
+			if (stream->open_on_demand) {
+				if (_stream_has_any_clients_cached(stream)) {
+					no_clients_since_ts = 0;
+				} else {
+					const ldf now_ts = us_get_now_monotonic();
+					if (no_clients_since_ts == 0) {
+						no_clients_since_ts = now_ts;
+					} else if (no_clients_since_ts + US_ON_DEMAND_CLOSE_DELAY < now_ts) {
+						US_LOG_INFO("No stream or sink clients found in last %u seconds, closing the device ...",
+							US_ON_DEMAND_CLOSE_DELAY);
+						goto close;
+					}
+				}
+			}
+
 			us_capture_hwbuf_s *hw;
 			switch (us_capture_hwbuf_grab(cap, &hw)) {
 				case 0 ... INT_MAX: break; // Grabbed buffer number
@@ -580,6 +597,23 @@ static int _stream_init_loop(us_stream_s *stream) {
 
 		_stream_check_suicide(stream, _stream_has_any_clients_cached(stream));
 
+		if (stream->open_on_demand && !_stream_has_any_clients_cached(stream)) {
+			US_ONCE({ US_LOG_INFO("Waiting for the stream or sink clients to open the device ..."); });
+			_stream_publish_blank(stream, (
+				"< CAMERA IS IDLE >\n \n"
+				"  The device will  \n \n"
+				"  be opened on the \n \n"
+				"  first client     "
+			));
+			for (uint i = 0; i < 10; ++i) {
+				if (atomic_load(&run->stop) || _stream_has_any_clients_cached(stream)) {
+					break;
+				}
+				usleep(100 * 1000);
+			}
+			continue;
+		}
+
 		stream->cap->dma_export = (
 			stream->enc->type == US_ENCODER_TYPE_M2M_VIDEO
 			|| stream->enc->type == US_ENCODER_TYPE_M2M_IMAGE
@@ -659,22 +693,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 			}
 			if (i % 10 == 0) {
 				// Каждую секунду повторяем blank
-				uint width = stream->cap->run->width;
-				uint height = stream->cap->run->height;
-				if (width == 0 || height == 0) {
-					width = stream->cap->width;
-					height = stream->cap->height;
-				}
-				us_blank_draw(run->blank, blank_reason, width, height);
-
-				_stream_update_captured_fpsi(stream, run->blank->raw, false);
-				_stream_expose_jpeg(stream, run->blank->jpeg);
-				_stream_expose_raw(stream, run->blank->raw);
-				_stream_encode_expose_h264(stream, run->blank->raw, true);
-
-#				ifdef WITH_V4P
-				_stream_drm_ensure_no_signal(stream);
-#				endif
+				_stream_publish_blank(stream, blank_reason);
 			}
 			usleep(100 * 1000);
 		}
@@ -719,6 +738,27 @@ close:
 	us_drm_close(stream->drm);
 }
 #endif
+
+static void _stream_publish_blank(us_stream_s *stream, const char *reason) {
+	us_stream_runtime_s *const run = stream->run;
+
+	uint width = stream->cap->run->width;
+	uint height = stream->cap->run->height;
+	if (width == 0 || height == 0) {
+		width = stream->cap->width;
+		height = stream->cap->height;
+	}
+	us_blank_draw(run->blank, reason, width, height);
+
+	_stream_update_captured_fpsi(stream, run->blank->raw, false);
+	_stream_expose_jpeg(stream, run->blank->jpeg);
+	_stream_expose_raw(stream, run->blank->raw);
+	_stream_encode_expose_h264(stream, run->blank->raw, true);
+
+#	ifdef WITH_V4P
+	_stream_drm_ensure_no_signal(stream);
+#	endif
+}
 
 static void _stream_expose_jpeg(us_stream_s *stream, const us_frame_s *frame) {
 	us_stream_runtime_s *const run = stream->run;
