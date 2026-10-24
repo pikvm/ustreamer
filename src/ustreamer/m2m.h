@@ -44,6 +44,7 @@ typedef struct {
 	uint	p_in_format;
 	uint	p_stride;
 	bool	p_dma;
+	bool	dma_disabled;
 
 	bool	ready;
 	int		last_online;

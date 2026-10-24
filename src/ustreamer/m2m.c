@@ -195,7 +195,11 @@ static us_m2m_encoder_s *_m2m_encoder_init(
 static void _m2m_encoder_ensure(us_m2m_encoder_s *enc, const us_frame_s *frame) {
 	us_m2m_encoder_runtime_s *const run = enc->run;
 
-	const bool dma = (enc->allow_dma && frame->dma_fd >= 0);
+	const bool dma = (
+		enc->allow_dma
+		&& frame->dma_fd >= 0
+		&& !run->dma_disabled
+	);
 	if (
 		run->p_width == frame->width
 		&& run->p_height == frame->height
@@ -332,6 +336,13 @@ static void _m2m_encoder_ensure(us_m2m_encoder_s *enc, const us_frame_s *frame) 
 		&run->n_in_bufs,
 		dma
 	) < 0) {
+			if (dma) {
+				_LOG_ERROR("DMABUF input is unavailable; retrying with MMAP");
+				_m2m_encoder_cleanup(enc);
+				run->dma_disabled = true;
+				_m2m_encoder_ensure(enc, frame);
+				return;
+			}
 		goto error;
 	}
 	if (_m2m_encoder_init_buffers(
