@@ -91,7 +91,6 @@ static void _stream_update_captured_fpsi(us_stream_s *stream, const us_frame_s *
 #ifdef WITH_V4P
 static void _stream_drm_ensure_no_signal(us_stream_s *stream);
 #endif
-static void _stream_publish_blank(us_stream_s *stream, const char *reason);
 static void _stream_expose_jpeg(us_stream_s *stream, const us_frame_s *frame);
 static void _stream_expose_raw(us_stream_s *stream, const us_frame_s *frame);
 static void _stream_encode_expose_h264(us_stream_s *stream, const us_frame_s *frame, bool force_key);
@@ -209,16 +208,16 @@ void us_stream_loop(us_stream_s *stream) {
 		int has_any_clients_prev = -1;
 		ldf no_clients_since_ts = 0;
 		while (!atomic_load(&run->stop) && !atomic_load(&threads_stop)) {
-			if (stream->open_on_demand) {
+			if (stream->open_on_demand > 0) {
 				if (_stream_has_any_clients_cached(stream)) {
 					no_clients_since_ts = 0;
 				} else {
 					const ldf now_ts = us_get_now_monotonic();
 					if (no_clients_since_ts == 0) {
 						no_clients_since_ts = now_ts;
-					} else if (no_clients_since_ts + US_ON_DEMAND_CLOSE_DELAY < now_ts) {
+					} else if (no_clients_since_ts + stream->open_on_demand < now_ts) {
 						US_LOG_INFO("No stream or sink clients found in last %u seconds, closing the device ...",
-							US_ON_DEMAND_CLOSE_DELAY);
+							stream->open_on_demand);
 						goto close;
 					}
 				}
@@ -595,23 +594,17 @@ static int _stream_init_loop(us_stream_s *stream) {
 		UPDATE_SINK(stream->h264_sink);
 #		undef UPDATE_SINK
 
-		_stream_check_suicide(stream, _stream_has_any_clients_cached(stream));
+		const bool has_any_clients = _stream_has_any_clients_cached(stream);
 
-		if (stream->open_on_demand && !_stream_has_any_clients_cached(stream)) {
+		_stream_check_suicide(stream, has_any_clients);
+
+		if (stream->open_on_demand > 0 && !has_any_clients) {
 			US_ONCE({ US_LOG_INFO("Waiting for the stream or sink clients to open the device ..."); });
-			_stream_publish_blank(stream, (
-				"< CAMERA IS IDLE >\n \n"
-				"  The device will  \n \n"
-				"  be opened on the \n \n"
-				"  first client     "
-			));
-			for (uint i = 0; i < 10; ++i) {
-				if (atomic_load(&run->stop) || _stream_has_any_clients_cached(stream)) {
-					break;
-				}
-				usleep(100 * 1000);
-			}
-			continue;
+			blank_reason = (
+				"< WAITING FOR CLIENTS >\n \n"
+				"   The camera is idle  "
+			);
+			goto silent_error;
 		}
 
 		stream->cap->dma_export = (
@@ -632,7 +625,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 					"  - Bad config       \n \n"
 					"  - Malfunction      "
 				);
-				goto silent_error;
+				goto silent_capture_error;
 			case US_ERROR_NO_CABLE:
 				blank_reason = (
 					"< NO VIDEO SOURCE >\n \n"
@@ -640,7 +633,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 					" - Source is off   \n \n"
 					" - Cable problems  "
 				);
-				goto silent_error;
+				goto silent_capture_error;
 			case US_ERROR_NO_SIGNAL:
 				blank_reason = (
 					"< NO SIGNAL DETECTED >\n \n"
@@ -648,7 +641,7 @@ static int _stream_init_loop(us_stream_s *stream) {
                     "   - Video suspended  \n \n"
 					"   - Cable problems   "
 				);
-				goto silent_error;
+				goto silent_capture_error;
 			case US_ERROR_NO_SYNC:
 				blank_reason = (
 					"< NO SYNC WITH SIGNAL >\n \n"
@@ -656,7 +649,7 @@ static int _stream_init_loop(us_stream_s *stream) {
 					"   - Source is crazy   \n \n"
 					"   - Cable problems    "
 				);
-				goto silent_error;
+				goto silent_capture_error;
 			case US_ERROR_NO_LANES:
 				blank_reason = (
 					"< UNSUPPORTED SIGNAL TIMINGS >\n \n"
@@ -672,10 +665,12 @@ static int _stream_init_loop(us_stream_s *stream) {
 		us_encoder_open(stream->enc, stream->cap);
 		return 0;
 
-	silent_error:
+	silent_capture_error:
 		if (!stream->exit_on_device_error) {
 			US_ONCE({ US_LOG_INFO("Waiting for the capture device ..."); });
 		}
+
+	silent_error:
 		goto offline_and_retry;
 
 	verbose_error:
@@ -693,7 +688,22 @@ static int _stream_init_loop(us_stream_s *stream) {
 			}
 			if (i % 10 == 0) {
 				// Каждую секунду повторяем blank
-				_stream_publish_blank(stream, blank_reason);
+				uint width = stream->cap->run->width;
+				uint height = stream->cap->run->height;
+				if (width == 0 || height == 0) {
+					width = stream->cap->width;
+					height = stream->cap->height;
+				}
+				us_blank_draw(run->blank, blank_reason, width, height);
+
+				_stream_update_captured_fpsi(stream, run->blank->raw, false);
+				_stream_expose_jpeg(stream, run->blank->jpeg);
+				_stream_expose_raw(stream, run->blank->raw);
+				_stream_encode_expose_h264(stream, run->blank->raw, true);
+
+#				ifdef WITH_V4P
+				_stream_drm_ensure_no_signal(stream);
+#				endif
 			}
 			usleep(100 * 1000);
 		}
@@ -738,27 +748,6 @@ close:
 	us_drm_close(stream->drm);
 }
 #endif
-
-static void _stream_publish_blank(us_stream_s *stream, const char *reason) {
-	us_stream_runtime_s *const run = stream->run;
-
-	uint width = stream->cap->run->width;
-	uint height = stream->cap->run->height;
-	if (width == 0 || height == 0) {
-		width = stream->cap->width;
-		height = stream->cap->height;
-	}
-	us_blank_draw(run->blank, reason, width, height);
-
-	_stream_update_captured_fpsi(stream, run->blank->raw, false);
-	_stream_expose_jpeg(stream, run->blank->jpeg);
-	_stream_expose_raw(stream, run->blank->raw);
-	_stream_encode_expose_h264(stream, run->blank->raw, true);
-
-#	ifdef WITH_V4P
-	_stream_drm_ensure_no_signal(stream);
-#	endif
-}
 
 static void _stream_expose_jpeg(us_stream_s *stream, const us_frame_s *frame) {
 	us_stream_runtime_s *const run = stream->run;

@@ -44,9 +44,6 @@
 #include "m2m.h"
 
 
-#define US_ON_DEMAND_CLOSE_DELAY 3u
-
-
 typedef struct {
 #	ifdef WITH_V4P
 	atomic_bool		drm_live;
@@ -86,7 +83,7 @@ typedef struct {
 	uint			desired_fps;
 	bool			notify_parent;
 	bool			slowdown;
-	bool			open_on_demand;
+	uint			open_on_demand;
 	uint			error_delay;
 	bool			exit_on_device_error;
 	uint			exit_on_no_clients;
