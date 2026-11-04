@@ -120,8 +120,8 @@ char *us_simplify_request_path(const char *str) {
 #ifdef TEST_HTTP_PATH
 
 int test_simplify_request_path(const char *sample, const char *expected) {
-	char *result = us_simplify_request_path(sample);
-	int retval = -!!strcmp(result, expected);
+	const char *result = us_simplify_request_path(sample);
+	const int retval = -(!!strcmp(result, expected));
 
 	printf("Testing '%s' -> '%s' ... ", sample, expected);
 	if (retval == 0) {
