@@ -153,16 +153,21 @@ static void *_video_sink_thread(void *arg) {
 
 	us_frame_s *tmp = us_frame_init();
 	int once = 0;
+	useconds_t error_delay = 0;
 
 	while (!_STOP) {
 		if (!_HAS_WATCHERS) {
+			error_delay = 0;
 			US_ONCE({ US_LOG_INFO("No active watchers, memsink disconnected"); });
 			usleep(_g_watchers_polling);
 			continue;
 		}
 
+		bool failed = true;
 		us_memsink_s *sink = us_memsink_init_opened("vcap", _g_config->video_sink_name, false, 0, false, 0, 1);
 		if (sink == NULL) {
+			// Usually uStreamer is just being started on demand by KVMD
+			// and has not created the sink yet. Retry quickly.
 			goto close_memsink;
 		}
 
@@ -174,13 +179,17 @@ static void *_video_sink_thread(void *arg) {
 			const int got = us_memsink_client_get(sink, tmp, NULL, &w_put);
 			if (got == 0) {
 				const int ri = us_ring_producer_acquire(_g_video_ring, 0);
+				error_delay = 0; // Reset the backoff only when frames are really flowing
 				if (ri >= 0) {
 					us_frame_s *dest = _g_video_ring->items[ri];
 					us_frame_copy(tmp, dest);
-					us_ring_producer_release(_g_video_ring, ri);
 					if (tmp->key) {
+						// Clear before publishing the frame: a request made by a client
+						// whose transmit is set after this point (so it would drop this
+						// frame) must survive and produce the next keyframe.
 						atomic_store(&_g_key_required, false);
 					}
+					us_ring_producer_release(_g_video_ring, ri);
 				} else {
 					US_ONCE({ US_LOG_ERROR("Video ring is full"); });
 				}
@@ -190,11 +199,18 @@ static void *_video_sink_thread(void *arg) {
 				goto close_memsink;
 			}
 		}
+		failed = false; // Normal exit: no more watchers
 
 	close_memsink:
 		US_DELETE(sink, us_memsink_destroy);
-		US_LOG_INFO("Memsink closed");
-		sleep(1); // error_delay
+		if (failed) {
+			// Exponential backoff 100ms -> ~1s: a fresh viewer doesn't wait a whole
+			// second for an on-demand started uStreamer, but a dead one isn't hammered.
+			error_delay = (error_delay == 0 ? 100000 : US_MIN(error_delay * 2, (useconds_t)999999));
+			usleep(error_delay);
+		} else {
+			US_LOG_INFO("Memsink closed");
+		}
 	}
 
 	us_frame_destroy(tmp);
@@ -726,7 +742,16 @@ static void _set_transmit(janus_plugin_session *session, const char *msg, bool t
 	bool has_watchers = false;
 	US_LIST_ITERATE(_g_clients, client, {
 		if (client->session == session) {
-			atomic_store(&client->transmit, transmit);
+			const bool was_transmitting = atomic_exchange(&client->transmit, transmit);
+			if (transmit && !was_transmitting) {
+				// The sink thread starts reading as soon as the session is created,
+				// so the IDR that the encoder emits on start is consumed and dropped
+				// while this client is still negotiating ICE/DTLS. With gop=0 the
+				// client would then receive only P-frames and show a black screen
+				// until something (browser PLI or UI fallback) asks for a keyframe.
+				// Request one right when the media path is actually up.
+				atomic_store(&_g_key_required, true);
+			}
 			// US_LOG_INFO("%s session %p", msg, session);
 			found = true;
 		}
